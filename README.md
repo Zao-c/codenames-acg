@@ -1,344 +1,378 @@
-# ACG Codenames Online
+# 行动代号 ACG Codenames
 
-Monorepo for a lightweight online Codenames-style party game with an ACG word pack.
+一个面向朋友联机的在线《行动代号》同人项目。玩家可以创建房间、分队、担任队长或行动员，用内置 ACG 词库、个人题库或公共题库开局。
 
-## Apps
+> 选一套题库，邀请朋友进房，队长给线索，行动员猜词。服务端统一判定房间状态和玩家权限，适合本地开黑，也为后续云服务器部署预留了实时联机能力。
 
-- `apps/web`: React + Vite client
-- `apps/server`: Express + Socket.IO realtime server
-- `packages/shared`: shared types, constants, and word pack handling
+---
 
-## Development
+## 相关链接
 
-1. Install dependencies with `npm install`.
-2. Start the server with `npm run dev:server`.
-3. Start the web client with `npm run dev:web`.
+| | |
+|---|---|
+| GitHub 仓库 | https://github.com/Zao-c/codenames-acg |
+| 本地前端 | http://localhost:5173 |
+| 本地后端 | http://localhost:3001 |
 
-The server uses Redis when `REDIS_URL` is available and falls back to in-memory room storage for local development.
+---
 
-## Verification
+## 游戏规则
 
-### Logic verification
+### 游戏概述
 
-Run the socket E2E suite:
+行动代号是一款**队伍推理 + 词语联想**游戏。玩家分成红蓝两队，每队包含一名队长和若干行动员。
+
+队长能看到棋盘上每张词卡背后的身份，并给出一个线索和数量；行动员只能看到公开词语，需要根据线索猜出己方词卡。猜中己方词卡可以继续推进，猜到对方、中立或刺客会带来风险。
+
+### 棋盘与身份
+
+默认棋盘为 `5 x 5` 共 25 张词卡。每张词卡在服务端开局时分配一种身份：
+
+| 身份 | 说明 |
+|---|---|
+| 红队词 | 红队需要找出的目标 |
+| 蓝队词 | 蓝队需要找出的目标 |
+| 中立词 | 猜到后通常会结束当前回合 |
+| 刺客词 | 猜到后立即导致当前队伍失败 |
+
+队长视角可以看到身份颜色，行动员和旁观者不能看到隐藏身份。
+
+### 队伍与角色
+
+- 房间至少需要红蓝两队都有人。
+- 每队需要一名队长。
+- 队长负责提交线索。
+- 行动员负责点击词卡进行猜测。
+- 旁观者可以进入进行中的房间观看，但不能参与操作。
+
+### 回合流程
+
+1. 房主创建房间并选择题库。
+2. 玩家加入房间，分配红蓝队和队长/行动员角色。
+3. 房主开始游戏。
+4. 当前队伍队长提交线索。
+5. 当前队伍行动员根据线索猜词。
+6. 回合结束后切换队伍。
+7. 任一队找完己方全部词卡，或触发刺客结算，游戏结束。
+
+### 房主权限
+
+房主是房间管理者，当前支持：
+
+- 开始游戏。
+- 返回大厅，重置当前对局并保留房间成员。
+- 转让房主给其他真实玩家。
+- 解散房间，让所有客户端回到首页。
+
+这些操作都由服务端判定权限，非房主请求会被拒绝。
+
+---
+
+## 题库系统
+
+### 内置题库
+
+项目自带基础 ACG 词库，开房时可以直接选择。
+
+### 我的题库
+
+登录用户名后，可以在首页维护个人题库：
+
+- 上传轻量题库：`string[]` 或 `{ name, entries: string[] }`
+- 上传候选题库：包含 `display`、`aliases`、`type`、`franchise`、`difficulty`、`spoilerRisk` 等字段
+- 在候选题库审核界面筛选、批量通过、导出为可玩的个人题库
+- 将个人题库设为公共，或从公共改回私有
+
+### 公共题库
+
+公共题库会出现在首页“公共题库”区域，其他玩家可以直接用它创建房间。
+
+公共题库使用 `发布者 + 题库 ID` 作为唯一身份，因此两个用户即使上传同名或同 ID 的本地题库，也不会互相覆盖。
+
+---
+
+## 房间大厅
+
+首页大厅会展示房间状态：
+
+| 状态 | 含义 | 入口 |
+|---|---|---|
+| 准备中 | 房间还在组队和选角色 | 加入战局 |
+| 进行中 | 对局已经开始 | 旁观 |
+| 已结束 | 对局结束或房间不可加入 | 不可加入 |
+
+进行中的房间优先显示“旁观”入口，而不是把“加入”按钮简单禁用。旁观者队列会保留到下一轮大厅阶段。
+
+---
+
+## 功能特性
+
+- 实时多人房间：Socket.IO 同步房间、队伍、棋盘和回合状态。
+- 服务端权威判定：开始游戏、提交线索、猜词、换回合、房主操作都由服务端验证。
+- 用户题库：支持命名账号、头像、个人题库和公共题库。
+- 候选题库审核：适合从更大的 ACG 词条 JSON 中筛出真正可玩的词。
+- 旁观与下一轮队列：进行中房间可以旁观，保留后续加入能力。
+- 房主控制：返回大厅、转让房主、解散房间。
+- 本地单人调试：localhost 下支持 debug fill，方便一个人跑完整流程。
+- 响应式前端：桌面和移动端都能完成核心操作。
+
+---
+
+## 技术栈
+
+| 层 | 技术 |
+|---|---|
+| 前端 | React 19 · TypeScript · Vite |
+| 后端 | Node.js · Express · Socket.IO |
+| 共享包 | TypeScript 类型、常量、视图裁剪逻辑 |
+| 房间状态 | Redis 可选；本地开发可用内存存储 |
+| 用户数据 | 本地 JSON 文件存储，路径可配置 |
+| 测试 | TypeScript typecheck · Socket E2E · Playwright smoke |
+
+---
+
+## 本地开发启动
+
+### 需要准备
+
+- Node.js 20+（Node 18+ 大概率也能运行，但建议使用新版 LTS）
+- npm
+- Git
+
+### 安装依赖
 
 ```bash
-npm run test:e2e
+npm install
 ```
 
-This covers the core room and match flow:
-
-- create room
-- reconnect
-- invalid start rejection
-- four-player start
-- clue submission
-- guessing
-- end turn
-
-For a full local verification sweep:
+### 启动后端
 
 ```bash
-npm run verify
+npm run dev:server
 ```
 
-This runs:
+默认监听：`http://localhost:3001`
 
-- typecheck
-- server E2E
-- production build
-
-### Browser smoke
-
-Run the browser smoke check while local dev servers are already running:
+### 启动前端
 
 ```bash
-npm run test:browser
+npm run dev:web
 ```
 
-Current smoke coverage:
+默认访问：`http://localhost:5173`
 
-- landing page boots
-- nickname input and room entry controls render
-- create room
-- solo debug fill
-- start match
-- board renders with the expected `5x5` default card count
-- homepage/lobby affordance probe report is written for future flows
+### 局域网访问
 
-Artifacts are written to `artifacts/browser-smoke/`:
-
-- screenshots
-- `smoke-report.json`
-
-The report is intentionally lightweight. It records whether the current UI exposes entry points for:
-
-- homepage room directory / active rooms list
-- profile or login entry
-- spectate / observer entry
-- join-next-round style wording
-
-This lets docs and playtest support keep pace even before the underlying feature set is fully implemented.
-
-## Solo testing
-
-If you are alone and cannot invite friends yet, use one of these two approaches.
-
-### Option A: built-in solo debug mode
-
-When running locally on `localhost`, the host can use a debug-only shortcut in the lobby:
-
-1. Open `http://localhost:5173`
-2. Create a room
-3. Click the debug fill button
-4. Click the start button
-
-In this mode, the host can:
-
-- see the full board
-- submit clues for the current team
-- guess cards for the current team
-- end the current turn alone
-
-This is the fastest way to verify a full round by yourself.
-
-### Option B: simulate four real players
-
-Open the same room in four isolated browser contexts so local storage does not collide:
-
-1. Chrome normal window
-2. Chrome incognito
-3. Edge or Firefox normal window
-4. Edge or Firefox private window
-
-Then:
-
-1. Open `http://localhost:5173`
-2. Create a room in one window
-3. Copy the room link into the other three windows
-4. Use four different nicknames
-5. Assign teams as `2 red + 2 blue`
-6. Set one spymaster per team
-7. Start the match
-
-If you need LAN access from another device on the same network, use:
+如果想让同一 Wi-Fi 下的手机或另一台电脑访问前端：
 
 ```bash
 npm run dev:web:host
 ```
 
-## Rich candidate pack review
+同时把后端 `CLIENT_ORIGIN` 配成实际前端地址，前端 `VITE_SERVER_URL` 配成后端局域网地址。
 
-The game runtime still consumes lightweight playable packs only:
+---
 
-- `name`
-- `entries: string[]`
+## 环境变量
 
-If your source data is a richer candidate JSON with fields like `display`, `aliases`, `type`, `franchise`, `difficulty`, `spoilerRisk`, and `reason`, import it through the homepage personal-pack area instead of using it directly in-room.
+### 后端 `apps/server/.env`
 
-Current flow:
+| 变量 | 默认值 | 说明 |
+|---|---|---|
+| `PORT` | `3001` | 后端监听端口 |
+| `CLIENT_ORIGIN` | `http://localhost:5173,http://localhost:4173` | 允许跨域的前端地址，多个地址用逗号分隔 |
+| `REDIS_URL` | 空 | Redis 地址；配置后可用于房间状态 |
+| `USE_MEMORY_STORE` | `0` | 设为 `1` 时强制使用内存房间存储 |
+| `ENABLE_DEBUG_TOOLS` | `1` | 设为 `0` 可关闭本地调试工具 |
+| `USER_STORE_FILE` | `apps/server/data/users.json` | 用户资料和题库 JSON 文件路径 |
 
-1. Log in with a named account.
-2. Open `我的题库`.
-3. Upload either:
-   - a legacy playable pack (`string[]` or `{ name, entries: string[] }`)
-   - a rich candidate pack (`packName`, `summary`, `recommendedBoardModes`, `entries[]`, `rejectedExamples[]`)
-4. If the file is a candidate pack, it opens in the review surface instead of being saved directly.
-5. Filter entries by search / type / franchise / spoiler level.
-6. Approve or reject entries in bulk or one by one.
-7. Export the approved subset into a playable personal pack.
+### 前端 `apps/web/.env`
 
-Important behavior:
+| 变量 | 默认值 | 说明 |
+|---|---|---|
+| `VITE_SERVER_URL` | `http://localhost:3001` | 前端连接的后端地址 |
 
-- candidate packs stay in frontend review state for now
-- only exported playable packs are persisted to the named user account
-- room-level pack upload still expects a lightweight playable pack
-- if you upload a rich candidate JSON inside a room, the UI will tell you to review/export it on the homepage first
+---
 
-## Browser playtest checklist
+## 验证
 
-Use this checklist for browser-level QA after the server and web client are already running. The target is not only logical correctness, but player-visible clarity: homepage entry, room setup, turn ownership, board readability, reconnect behavior, and debug-mode isolation.
+### 类型检查
 
-### Key states to capture
-
-Capture one screenshot for each state below. If a bug appears, keep the screenshot and record the browser, room code, role, and last visible room event.
-
-1. `Homepage / landing`
-   - Nickname input is visible
-   - Create and join controls are visible
-   - Expected: a new player can understand how to get into a room immediately
-2. `Lobby / empty room`
-   - One host only
-   - Room code visible
-   - Teams not fully assigned
-   - Expected: the page clearly shows the room is still preparing and why the game cannot start
-3. `Lobby / solo debug ready`
-   - Host on `localhost`
-   - Debug fill control visible
-   - Expected: debug controls are clearly local-only and visually separate from normal multiplayer guidance
-4. `Lobby / ready to start`
-   - Four players present or host has filled test seats
-   - One spymaster per team
-   - Expected: start is available and the room no longer shows missing-player or missing-spymaster guidance
-5. `Playing / current spymaster turn`
-   - Match started
-   - Current team spymaster view
-   - Expected: clue input is visible, current team is obvious, and the center board remains readable
-6. `Playing / current operative turn`
-   - Clue already submitted
-   - Current team operative view
-   - Expected: playable unrevealed cards are obvious, non-action players understand why they cannot act, and hidden identities are not leaked
-7. `Finished / result state`
-   - Match ended by final correct card or assassin
-   - Expected: winner banner, result text, and rematch affordance are shown outside the normal action area
-
-### Fixed playtest flows
-
-Run these flows in order. Stop only when observed behavior differs from the expected outcome.
-
-#### Flow 1: normal four-player room
-
-1. Open four isolated browser contexts.
-2. Host creates a room.
-3. Other three players join from the invite link.
-4. Assign `2 red + 2 blue`.
-5. Set exactly one spymaster per team.
-6. Start the match.
-7. Current spymaster submits a clue.
-8. Current operative guesses one card.
-9. End the turn.
-
-Expected outcome:
-
-- room enters `playing`
-- current team and clue are visible
-- only the allowed player can submit a clue or guess
-- after `end turn`, the active team switches cleanly
-
-#### Flow 2: invalid start rejection
-
-1. Create a room with one or two players only.
-2. Try to start immediately.
-
-Expected outcome:
-
-- start is blocked
-- the UI explains what is missing: player count, team setup, or spymaster setup
-
-#### Flow 3: solo debug round
-
-1. Open `http://localhost:5173` on the host machine.
-2. Create a room.
-3. Click the debug fill button.
-4. Click the start button.
-5. Submit a clue as the host.
-6. Guess cards as the host.
-7. End the turn as the host.
-8. Continue until the match ends.
-
-Expected outcome:
-
-- one person can complete a full round locally
-- debug controls do not require extra browser windows
-- board roles are visible only because this is local debug mode
-
-#### Flow 4: refresh and reconnect
-
-1. Join a room and keep it open until the room reaches `lobby` or `playing`.
-2. Refresh the page.
-
-Expected outcome:
-
-- the player returns to the same room automatically
-- nickname and seat are preserved
-- the room state matches the other clients
-
-#### Flow 5: post-game leave and recreate
-
-1. Finish a match.
-2. Leave the room.
-3. Create a new room from the landing page.
-
-Expected outcome:
-
-- old room state does not leak into the new room
-- invite link and room code update correctly
-- previous result UI is gone
-
-### Forward-looking homepage and account flows
-
-These flows matter for the next feature wave. Keep them in the checklist even if the current smoke report says the entry points are not present yet.
-
-#### Flow 6: homepage active room list
-
-Expected homepage affordances:
-
-- a visible list of in-progress rooms
-- clear room status, mode, and player count
-- separate actions for create, join by code, and browse active rooms
-
-Validation focus:
-
-- active rooms do not look clickable if they are not actually joinable
-- spectator and join-next-round affordances are visually distinct
-
-#### Flow 7: spectate and join-next-round
-
-Expected behavior:
-
-- a user can spectate a room already in progress
-- a user who wants to play instead of spectate is queued for the next round
-- the UI tells the queued player they are waiting for the current round to finish
-
-Validation focus:
-
-- spectator state is obvious
-- hidden card identities are not leaked beyond intended permissions
-- rematch transition moves queued players into the lobby cleanly
-
-#### Flow 8: login and personal settings
-
-Expected homepage affordances:
-
-- username-based sign-in entry
-- personal settings entry
-- editable profile surface for user ID, avatar, and personal word packs
-
-Validation focus:
-
-- returning with the same username restores the expected local identity
-- avatar and profile changes do not break room presence
-- local profile state and room session state stay in sync after refresh
-
-## Bug report template
-
-When you hit a bug, record it with this minimum template:
-
-```md
-State: homepage | lobby | playing | finished
-Flow: 1-8
-Role: host | spymaster | operative | spectator | queued player | debug host
-Browser: Chrome / Edge / Firefox / mobile
-Steps:
-1.
-2.
-3.
-
-Observed:
-
-Expected:
-
-Evidence:
-- screenshot path
-- room code
-- last visible event text
+```bash
+npm run typecheck
 ```
 
-## High-value things to watch for
+### 服务端 E2E
 
-- `Board obstruction`: side panels or banners should not dominate the center board area.
-- `Turn clarity`: a player should immediately know whether they can act and why.
-- `Identity leakage`: non-spymaster views must never expose hidden card roles.
-- `Reconnect drift`: after refresh, the restored seat and role must match the server state.
-- `Debug isolation`: solo debug affordances should feel like local test tools, not normal production actions.
-- `Homepage honesty`: do not show directory, profile, or spectate controls as actionable before the flow actually exists.
+```bash
+npm run test:e2e
+```
+
+覆盖重点：
+
+- 命名用户与题库持久化
+- 公共题库发布、取消发布、列表展示
+- 使用公共题库创建房间
+- 创建房间、重连、非法开局拦截
+- 队长视角隐藏身份和目标反应
+- 本地 solo debug 流程
+- 房主转让、旧房主失权、新房主返回大厅和解散房间
+- `room_closed` 广播
+
+### 完整检查
+
+```bash
+npm run verify
+```
+
+会依次运行：
+
+1. `npm run typecheck`
+2. `npm run test:e2e`
+3. `npm run build`
+
+### 浏览器冒烟测试
+
+先启动前后端，再运行：
+
+```bash
+npm run test:browser
+```
+
+截图和报告会写入 `artifacts/browser-smoke/`。
+
+---
+
+## 服务器部署
+
+### 直接部署
+
+**1. 构建项目**
+
+```bash
+npm install
+npm run build
+```
+
+构建产物：
+
+```text
+apps/web/dist/                 # 前端静态文件
+apps/server/dist/              # 后端编译产物
+packages/shared/dist/          # 共享包编译产物
+```
+
+**2. 准备生产环境变量**
+
+示例：
+
+```bash
+export PORT=3001
+export CLIENT_ORIGIN=https://你的域名
+export VITE_SERVER_URL=https://你的域名
+export USER_STORE_FILE=/data/codenames-acg/users.json
+```
+
+如需多进程或多机器部署，建议接入 Redis：
+
+```bash
+export REDIS_URL=redis://127.0.0.1:6379
+```
+
+**3. 启动后端**
+
+```bash
+npm run start -w @acg-codenames/server
+```
+
+也可以直接运行编译后的入口：
+
+```bash
+node apps/server/dist/apps/server/src/index.js
+```
+
+**4. 配置 Nginx**
+
+```nginx
+server {
+    listen 80;
+    server_name 你的域名;
+
+    root /var/www/codenames-acg/dist;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:3001;
+        proxy_set_header Host $host;
+    }
+
+    location /socket.io/ {
+        proxy_pass http://127.0.0.1:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_read_timeout 86400;
+    }
+}
+```
+
+**5. 开启 HTTPS**
+
+```bash
+certbot --nginx -d 你的域名
+```
+
+生产环境重点：
+
+- `USER_STORE_FILE` 指向持久化磁盘。
+- 如果有多台后端或需要更稳定的房间状态，配置 Redis。
+- Nginx 必须正确代理 `/socket.io/` 的 WebSocket upgrade。
+- 前端构建时的 `VITE_SERVER_URL` 要指向公网后端地址。
+
+---
+
+## 目录结构
+
+```text
+007games/
+├── apps/
+│   ├── server/                 # Express + Socket.IO 后端
+│   │   ├── src/
+│   │   │   ├── env.ts          # 环境变量读取
+│   │   │   ├── game.ts         # 房间和对局引擎
+│   │   │   ├── index.ts        # HTTP 与 Socket 入口
+│   │   │   ├── store.ts        # 房间存储
+│   │   │   └── user-store.ts   # 用户和题库存储
+│   │   └── test/e2e.ts         # Socket E2E
+│   └── web/                    # React 前端
+│       └── src/
+│           ├── App.tsx         # 主界面和房间流程
+│           ├── lib/api.ts      # HTTP API 客户端
+│           ├── lib/socket.ts   # Socket 客户端
+│           └── lib/            # 题库审核、音效、本地存储等
+├── packages/shared/            # 前后端共享类型和规则
+├── scripts/browser-smoke.mjs   # 浏览器冒烟测试
+├── 代号/                       # 题库源文件
+├── package.json
+└── README.md
+```
+
+---
+
+## 注意事项
+
+- 当前用户数据是本地 JSON 文件，适合个人服务器和早期测试；多人正式运营建议迁移到数据库。
+- `apps/server/data/*.json` 是运行时数据，已被 git 忽略。
+- `dist/`、日志、`artifacts/`、`node_modules/` 都不会提交到仓库。
+- 进行中的房间只能旁观，不能直接作为玩家加入。
+- 房主解散房间会广播 `room_closed`，客户端会清空当前房间并回到首页。
+- 本地 debug 工具只适合开发测试，正式环境可通过 `ENABLE_DEBUG_TOOLS=0` 关闭。
+
+---
+
+*组队、给线索、别点刺客。*
