@@ -70,6 +70,14 @@
 
 ## 题库系统
 
+### AI 提取 Prompt
+
+仓库内置了一份通用 Prompt，用来从直播录播、游戏文本、动漫百科、动漫台词或社区讨论中提取适合桌游的 ACG 词牌候选：
+
+- [docs/prompts/acg-word-pack-extraction.md](docs/prompts/acg-word-pack-extraction.md)
+
+推荐流程是先让 AI 生成候选 JSON，再用第二轮审稿 Prompt 做去重、合并和筛选，最后导入游戏里的候选题库审核界面。
+
 ### 内置题库
 
 项目自带基础 ACG 词库，开房时可以直接选择。
