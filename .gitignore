@@ -1,0 +1,16 @@
+node_modules/
+dist/
+coverage/
+.vite/
+.history/
+.DS_Store
+.env
+.env.*
+!*.env.example
+*.log
+*.tsbuildinfo
+artifacts/
+apps/server/data/*.json
+apps/server/data/*.json.bak
+apps/server/apps/server/data/*.json
+apps/server/apps/server/data/*.json.bak

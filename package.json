@@ -1,0 +1,23 @@
+{
+  "name": "acg-codenames-online",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w @acg-codenames/shared && npm run build -w @acg-codenames/server && npm run build -w @acg-codenames/web",
+    "dev:web": "npm --workspace @acg-codenames/web run dev",
+    "dev:web:host": "npm --workspace @acg-codenames/web run dev -- --host 0.0.0.0",
+    "dev:server": "npm run dev -w @acg-codenames/server",
+    "test:e2e": "npm run test -w @acg-codenames/server",
+    "test:browser": "node scripts/browser-smoke.mjs",
+    "verify": "npm run typecheck && npm run test:e2e && npm run build",
+    "check": "npm run check --workspaces",
+    "typecheck": "npm run typecheck --workspaces"
+  },
+  "devDependencies": {
+    "playwright": "^1.59.1"
+  }
+}
