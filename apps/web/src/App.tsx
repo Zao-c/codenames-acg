@@ -1,4 +1,4 @@
-﻿﻿import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   BOARD_MODE_CONFIG,
   PLAYER_ROLE_LABELS,
@@ -273,9 +273,8 @@ function App() {
   const [revealingCardIds, setRevealingCardIds] = useState<Set<string>>(new Set());
   const [maskSpymasterHints, setMaskSpymasterHints] = useState(false);
   const [showSakura, setShowSakura] = useState(false);
+  const [globalReaction, setGlobalReaction] = useState<{ reaction: ChatReaction; sender: string; target: string } | null>(null);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set(["待分队"]));
-  const [rightPanelPinned, setRightPanelPinned] = useState(false);
-  const [leftPanelPinned, setLeftPanelPinned] = useState(false);
   const chatListRef = useRef<HTMLDivElement | null>(null);
   const lastRevealIdRef = useRef<string | null>(null);
   const lastReactionIdRef = useRef<string | null>(null);
@@ -351,12 +350,25 @@ function App() {
     socket.on("error_message", onError);
     socket.on("room_closed", onRoomClosed);
 
+    socket.io.on("reconnect", () => {
+      if (session) {
+        setConnectionState("connecting");
+        socket.emit("reconnect_room", { roomId: session.roomId, sessionToken: session.sessionToken });
+      }
+    });
+
+    socket.on("disconnect", () => {
+      setConnectionState("connecting");
+    });
+
     return () => {
       socket.off("session", onSession);
       socket.off("room_state", onRoomState);
       socket.off("room_summaries", onRoomSummaries);
       socket.off("error_message", onError);
       socket.off("room_closed", onRoomClosed);
+      socket.io.off("reconnect");
+      socket.off("disconnect");
     };
   }, [session?.roomId, socket]);
 
@@ -497,6 +509,7 @@ function App() {
       return;
     }
     lastReactionIdRef.current = lastMessage.id;
+    setGlobalReaction({ reaction: lastMessage.reaction!, sender: lastMessage.nickname ?? "?", target: lastMessage.targetNickname ?? "?" });
     setReactionEffects((current) => ({
       ...current,
       [lastMessage.targetParticipantId!]: lastMessage.reaction!
@@ -508,7 +521,8 @@ function App() {
         return next;
       });
     }, 1600);
-    return () => window.clearTimeout(timeout);
+    const globalTimeout = window.setTimeout(() => setGlobalReaction(null), 2000);
+    return () => { window.clearTimeout(timeout); window.clearTimeout(globalTimeout); };
   }, [room?.messages]);
 
   useEffect(() => {
@@ -1221,19 +1235,22 @@ function App() {
       <main className="page">
         {!room ? (
           candidatePack ? (
-            <CandidateReview
-              pack={candidatePack}
-              onClose={() => setCandidatePack(null)}
-              onUpdateEntry={updateCandidateEntry}
-              onBulkSetVisible={bulkSetVisibleEntries}
-              onExport={(filters) => void exportCandidateAsPlayable(filters)}
-            />
+            <>
+              {error ? <p className="error-text">{error}</p> : null}
+              <CandidateReview
+                pack={candidatePack}
+                onClose={() => { setCandidatePack(null); setError(""); }}
+                onUpdateEntry={updateCandidateEntry}
+                onBulkSetVisible={bulkSetVisibleEntries}
+                onExport={(filters) => void exportCandidateAsPlayable(filters)}
+              />
+            </>
           ) : (
             <>
               <section className="hero">
               <div className="hero-copy-block">
-                <p className="eyebrow">ACG social deduction</p>
-                <h1>行动代号 Online</h1>
+                <p className="eyebrow">ACG social deduction (◕‿◕)ﾉ</p>
+                <h1>🃏 行动代号 Online</h1>
                 <p className="hero-copy">用户名模式可跨设备保留头像、题库和战绩。游客模式可直接开玩，但不保证跨设备保留数据。</p>
               </div>
               <div className="hero-actions">
@@ -1289,7 +1306,7 @@ function App() {
                       <span>游客昵称</span>
                       <input value={guestNicknameInput} onChange={(event) => setGuestNicknameInput(event.target.value)} maxLength={12} placeholder="例如：小夜" />
                     </label>
-                    <button onClick={continueAsGuest}>使用游客身份</button>
+                    <button className="primary-button" onClick={continueAsGuest}>使用游客身份</button>
                   </div>
                 </section>
 
@@ -1453,8 +1470,8 @@ function App() {
                         <AvatarBadge avatarUrl={namedAccount.avatarUrl} fallback={namedAccount.username} size="large" />
                         <div className="account-stats">
                           <strong>{namedAccount.username}</strong>
-                          <p>总场次 {namedAccount.stats.gamesPlayed}</p>
-                          <p>胜 {namedAccount.stats.wins} / 负 {namedAccount.stats.losses}</p>
+                          <p>总场次 {namedAccount.stats.gamesPlayed} · 胜率 {namedAccount.stats.gamesPlayed > 0 ? Math.round((namedAccount.stats.wins / namedAccount.stats.gamesPlayed) * 100) : 0}%</p>
+                          <p>🏆 胜 {namedAccount.stats.wins} / 💀 负 {namedAccount.stats.losses} / 🏠 主持 {namedAccount.stats.roomsHosted} 次</p>
                         </div>
                       </div>
                       <div className="upload-field">
@@ -1549,11 +1566,12 @@ function App() {
         ) : (
           <>
             <SakuraParticles active={showSakura} />
+            <ReactionOverlay reaction={globalReaction} />
             <section className={`room-grid ${focusMode ? "room-grid-focus" : ""}`}>
             <header className="room-bar room-bar-clean">
               <div className="room-bar-main room-bar-stack">
                 <div className="room-title-stack">
-                  <p className="micro-label">Room</p>
+                  <button className="logo-button" onClick={() => { if (window.confirm("确定要离开房间回到首页吗？")) { leaveRoom(); } }} title="回到首页">🃏 行动代号</button>
                   <strong className="room-code">{room.id}</strong>
                   <p className="room-subtitle">{room.wordPackSummary.name}</p>
                 </div>
@@ -1567,7 +1585,6 @@ function App() {
               <div className="bar-actions">
                 <button onClick={() => { setFocusMode((value) => !value); requestAnimationFrame(() => { document.querySelector('.board-panel')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }); }}>{focusMode ? "退出专注模式" : "专注模式"}</button>
                 <button onClick={() => void copyLink()}>{copied ? "已复制" : "复制链接"}</button>
-                <button onClick={leaveRoom}>离开</button>
               </div>
             </header>
 
@@ -1594,11 +1611,11 @@ function App() {
                       ))}
                     </select>
                     <button onClick={transferHost} disabled={!viewer.canTransferHost || !transferHostTargetId}>
-                      转让房主
+                      👑 转让房主
                     </button>
                   </div>
                   <button className="danger-button" onClick={disbandRoom}>
-                    解散房间
+                    💥 解散房间
                   </button>
                 </div>
               </section>
@@ -1851,25 +1868,22 @@ function App() {
                 ) : null}
               </section>
 
-              <aside className={`right-column ${rightPanelPinned ? "pinned" : ""}`}>
-                <span className="right-column-tab" onClick={() => setRightPanelPinned((v) => !v)} title={rightPanelPinned ? "取消固定" : "固定面板"}>
-                  {rightPanelPinned ? "📌" : "💬"}
-                </span>
+              <aside className="right-column">
                 <div className="panel tab-panel">
                   <div className="panel-heading">
                     <div>
-                      <p className="micro-label">Room sidecar</p>
-                      <h2>右侧面板</h2>
+                      <p className="micro-label">💬 Room sidecar</p>
+                      <h2>📌 右侧面板</h2>
                     </div>
                     <div className="tab-strip">
                       <button className={sideTab === "chat" ? "selected" : ""} onClick={() => setSideTab("chat")}>
-                        聊天
+                        💬 聊天
                       </button>
                       <button className={sideTab === "spectators" ? "selected" : ""} onClick={() => setSideTab("spectators")}>
-                        旁观
+                        👁️ 旁观
                       </button>
                       <button className={sideTab === "score" ? "selected" : ""} onClick={() => setSideTab("score")}>
-                        积分
+                        📊 积分
                       </button>
                     </div>
                   </div>
@@ -2040,11 +2054,11 @@ function ParticipantRow({
         {"isBot" in participant && participant.isBot ? <span className="soft-chip">测试位</span> : null}
         {!isSelf ? (
           <>
-            <button className="icon-button" onClick={() => onReact("flower", participant.id, type)} title="送花">
-              花
+            <button className="icon-button" onClick={() => onReact("flower", participant.id, type)} title="送花 (´｡• ᵕ •｡`) ♡">
+              💐 花
             </button>
-            <button className="icon-button" onClick={() => onReact("egg", participant.id, type)} title="丢蛋">
-              蛋
+            <button className="icon-button" onClick={() => onReact("egg", participant.id, type)} title="丢蛋 (╯°□°)╯︵ 🥚">
+              🥚 蛋
             </button>
           </>
         ) : null}
@@ -2075,6 +2089,39 @@ function RevealBanner({ reveal }: { reveal: RevealEvent }) {
         <span className="score-chip">{roleLabelShort(reveal.role)}</span>
       </div>
     </section>
+  );
+}
+
+function ReactionOverlay({ reaction }: { reaction: { reaction: ChatReaction; sender: string; target: string } | null }) {
+  if (!reaction) return null;
+  const isFlower = reaction.reaction === "flower";
+  const particles = Array.from({ length: 12 }, (_, i) => i);
+  return (
+    <div className={`reaction-overlay ${isFlower ? "reaction-overlay-flower" : "reaction-overlay-egg"}`}>
+      <div className="reaction-overlay-banner">
+        <span className="reaction-overlay-emoji">{isFlower ? "💐" : "🥚"}</span>
+        <span className="reaction-overlay-text">
+          {isFlower
+            ? reaction.sender + " \u2192 " + reaction.target + " \u{1F490}~\u2661"
+            : reaction.sender + " \u2192 " + reaction.target + " \u{1F95A}!!\u{1F4A5}"}
+        </span>
+      </div>
+      <div className="reaction-particles">
+        {particles.map((i) => (
+          <span
+            key={i}
+            className={`reaction-particle ${isFlower ? "particle-flower" : "particle-egg"}`}
+            style={{
+              left: `${10 + Math.random() * 80}%`,
+              animationDelay: `${Math.random() * 0.6}s`,
+              animationDuration: `${1.4 + Math.random() * 1.2}s`
+            }}
+          >
+            {isFlower ? (i % 3 === 0 ? "🌸" : i % 3 === 1 ? "💮" : "✿") : (i % 2 === 0 ? "💥" : "💢")}
+          </span>
+        ))}
+      </div>
+    </div>
   );
 }
 

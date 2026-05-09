@@ -1,32 +1,32 @@
-# 行动代号 ACG Codenames
+# acg_codenames
 
-一个面向朋友联机的在线《行动代号》同人项目。玩家可以创建房间、分队、担任队长或行动员，用内置 ACG 词库、个人题库或公共题库开局。
+一个面向 ACG 玩家和朋友联机的在线《行动代号》桌游。玩家可以创建房间、分队、担任队长或行动员，用内置词库、个人题库或公共题库开局。
 
-> 选一套题库，邀请朋友进房，队长给线索，行动员猜词。服务端统一判定房间状态和玩家权限，适合本地开黑，也为后续云服务器部署预留了实时联机能力。
+项目当前重点是“小圈子快速开房一起玩”：前端负责房间界面和题库管理，后端负责实时同步、权限判定、房间状态和用户题库。
 
 ---
 
-## 相关链接
+## 当前功能
 
-| | |
-|---|---|
-| GitHub 仓库 | https://github.com/Zao-c/codenames-acg |
-| 本地前端 | http://localhost:5173 |
-| 本地后端 | http://localhost:3001 |
+- 实时多人房间：创建房间、复制邀请链接、加入房间、重连恢复。
+- 队伍与角色：红队/蓝队、队长/行动员、旁观者。
+- 服务端权威判定：开局、线索、猜词、回合切换、房主操作都由后端验证。
+- 房主控制：返回大厅、转让房主、解散房间。
+- 房间大厅：区分“准备中可加入”“进行中可旁观”“已结束”。
+- 题库系统：内置题库、我的题库、公共题库。
+- 候选题库审核：可导入更复杂的 ACG 词条 JSON，筛选后导出为可玩的词库。
+- AI 提取 Prompt：内置从直播录播、游戏文本、百科和台词中提取候选词条的通用 Prompt。
+- 本地调试：localhost 下支持 solo debug，方便一个人跑完整流程。
 
 ---
 
 ## 游戏规则
 
-### 游戏概述
-
-行动代号是一款**队伍推理 + 词语联想**游戏。玩家分成红蓝两队，每队包含一名队长和若干行动员。
+行动代号是一款队伍推理和词语联想游戏。玩家分成红蓝两队，每队包含一名队长和若干行动员。
 
 队长能看到棋盘上每张词卡背后的身份，并给出一个线索和数量；行动员只能看到公开词语，需要根据线索猜出己方词卡。猜中己方词卡可以继续推进，猜到对方、中立或刺客会带来风险。
 
-### 棋盘与身份
-
-默认棋盘为 `5 x 5` 共 25 张词卡。每张词卡在服务端开局时分配一种身份：
+默认棋盘为 `5 x 5` 共 25 张词卡。
 
 | 身份 | 说明 |
 |---|---|
@@ -35,48 +35,19 @@
 | 中立词 | 猜到后通常会结束当前回合 |
 | 刺客词 | 猜到后立即导致当前队伍失败 |
 
-队长视角可以看到身份颜色，行动员和旁观者不能看到隐藏身份。
-
-### 队伍与角色
-
-- 房间至少需要红蓝两队都有人。
-- 每队需要一名队长。
-- 队长负责提交线索。
-- 行动员负责点击词卡进行猜测。
-- 旁观者可以进入进行中的房间观看，但不能参与操作。
-
-### 回合流程
+基本流程：
 
 1. 房主创建房间并选择题库。
-2. 玩家加入房间，分配红蓝队和队长/行动员角色。
+2. 玩家加入房间，分配红蓝队和角色。
 3. 房主开始游戏。
 4. 当前队伍队长提交线索。
 5. 当前队伍行动员根据线索猜词。
 6. 回合结束后切换队伍。
-7. 任一队找完己方全部词卡，或触发刺客结算，游戏结束。
-
-### 房主权限
-
-房主是房间管理者，当前支持：
-
-- 开始游戏。
-- 返回大厅，重置当前对局并保留房间成员。
-- 转让房主给其他真实玩家。
-- 解散房间，让所有客户端回到首页。
-
-这些操作都由服务端判定权限，非房主请求会被拒绝。
+7. 找完己方全部词卡或触发刺客后结算。
 
 ---
 
 ## 题库系统
-
-### AI 提取 Prompt
-
-仓库内置了一份通用 Prompt，用来从直播录播、游戏文本、动漫百科、动漫台词或社区讨论中提取适合桌游的 ACG 词牌候选：
-
-- [docs/prompts/acg-word-pack-extraction.md](docs/prompts/acg-word-pack-extraction.md)
-
-推荐流程是先让 AI 生成候选 JSON，再用第二轮审稿 Prompt 做去重、合并和筛选，最后导入游戏里的候选题库审核界面。
 
 ### 内置题库
 
@@ -84,45 +55,26 @@
 
 ### 我的题库
 
-登录用户名后，可以在首页维护个人题库：
+登录用户名后，可以维护个人题库：
 
 - 上传轻量题库：`string[]` 或 `{ name, entries: string[] }`
 - 上传候选题库：包含 `display`、`aliases`、`type`、`franchise`、`difficulty`、`spoilerRisk` 等字段
-- 在候选题库审核界面筛选、批量通过、导出为可玩的个人题库
+- 在审核界面筛选、批量通过、导出为可玩的个人题库
 - 将个人题库设为公共，或从公共改回私有
 
 ### 公共题库
 
 公共题库会出现在首页“公共题库”区域，其他玩家可以直接用它创建房间。
 
-公共题库使用 `发布者 + 题库 ID` 作为唯一身份，因此两个用户即使上传同名或同 ID 的本地题库，也不会互相覆盖。
+公共题库使用 `发布者 + 题库 ID` 作为唯一身份，因此不同用户即使上传同名或同 ID 的本地题库，也不会互相覆盖。
 
----
+### AI 提取 Prompt
 
-## 房间大厅
+用于生成候选题库的 Prompt 放在：
 
-首页大厅会展示房间状态：
+- [docs/prompts/acg-word-pack-extraction.md](docs/prompts/acg-word-pack-extraction.md)
 
-| 状态 | 含义 | 入口 |
-|---|---|---|
-| 准备中 | 房间还在组队和选角色 | 加入战局 |
-| 进行中 | 对局已经开始 | 旁观 |
-| 已结束 | 对局结束或房间不可加入 | 不可加入 |
-
-进行中的房间优先显示“旁观”入口，而不是把“加入”按钮简单禁用。旁观者队列会保留到下一轮大厅阶段。
-
----
-
-## 功能特性
-
-- 实时多人房间：Socket.IO 同步房间、队伍、棋盘和回合状态。
-- 服务端权威判定：开始游戏、提交线索、猜词、换回合、房主操作都由服务端验证。
-- 用户题库：支持命名账号、头像、个人题库和公共题库。
-- 候选题库审核：适合从更大的 ACG 词条 JSON 中筛出真正可玩的词。
-- 旁观与下一轮队列：进行中房间可以旁观，保留后续加入能力。
-- 房主控制：返回大厅、转让房主、解散房间。
-- 本地单人调试：localhost 下支持 debug fill，方便一个人跑完整流程。
-- 响应式前端：桌面和移动端都能完成核心操作。
+推荐流程是先让 AI 生成候选 JSON，再用第二轮审稿 Prompt 做去重、合并和筛选，最后导入游戏里的候选题库审核界面。
 
 ---
 
@@ -139,11 +91,11 @@
 
 ---
 
-## 本地开发启动
+## 本地开发
 
-### 需要准备
+### 准备
 
-- Node.js 20+（Node 18+ 大概率也能运行，但建议使用新版 LTS）
+- Node.js 20+
 - npm
 - Git
 
@@ -170,8 +122,6 @@ npm run dev:web
 默认访问：`http://localhost:5173`
 
 ### 局域网访问
-
-如果想让同一 Wi-Fi 下的手机或另一台电脑访问前端：
 
 ```bash
 npm run dev:web:host
@@ -204,44 +154,19 @@ npm run dev:web:host
 
 ## 验证
 
-### 类型检查
-
 ```bash
 npm run typecheck
-```
-
-### 服务端 E2E
-
-```bash
 npm run test:e2e
+npm run build
 ```
 
-覆盖重点：
-
-- 命名用户与题库持久化
-- 公共题库发布、取消发布、列表展示
-- 使用公共题库创建房间
-- 创建房间、重连、非法开局拦截
-- 队长视角隐藏身份和目标反应
-- 本地 solo debug 流程
-- 房主转让、旧房主失权、新房主返回大厅和解散房间
-- `room_closed` 广播
-
-### 完整检查
+完整检查：
 
 ```bash
 npm run verify
 ```
 
-会依次运行：
-
-1. `npm run typecheck`
-2. `npm run test:e2e`
-3. `npm run build`
-
-### 浏览器冒烟测试
-
-先启动前后端，再运行：
+浏览器冒烟测试需要先启动前后端：
 
 ```bash
 npm run test:browser
@@ -253,9 +178,9 @@ npm run test:browser
 
 ## 服务器部署
 
-### 直接部署
+一台轻量服务器即可部署前后端。推荐先用 Nginx 托管前端静态文件，并把 `/api/` 和 `/socket.io/` 反向代理到 Node 后端。
 
-**1. 构建项目**
+### 构建
 
 ```bash
 npm install
@@ -270,24 +195,23 @@ apps/server/dist/              # 后端编译产物
 packages/shared/dist/          # 共享包编译产物
 ```
 
-**2. 准备生产环境变量**
-
-示例：
+### 生产环境变量示例
 
 ```bash
 export PORT=3001
-export CLIENT_ORIGIN=https://你的域名
-export VITE_SERVER_URL=https://你的域名
-export USER_STORE_FILE=/data/codenames-acg/users.json
+export CLIENT_ORIGIN=http://服务器公网IP
+export VITE_SERVER_URL=http://服务器公网IP
+export USER_STORE_FILE=/data/acg_codenames/users.json
+export ENABLE_DEBUG_TOOLS=0
 ```
 
-如需多进程或多机器部署，建议接入 Redis：
+如需更稳定的房间状态或多进程部署，再接入 Redis：
 
 ```bash
 export REDIS_URL=redis://127.0.0.1:6379
 ```
 
-**3. 启动后端**
+### 启动后端
 
 ```bash
 npm run start -w @acg-codenames/server
@@ -299,14 +223,14 @@ npm run start -w @acg-codenames/server
 node apps/server/dist/apps/server/src/index.js
 ```
 
-**4. 配置 Nginx**
+### Nginx 示例
 
 ```nginx
 server {
     listen 80;
-    server_name 你的域名;
+    server_name _;
 
-    root /var/www/codenames-acg/dist;
+    root /var/www/acg_codenames/dist;
     index index.html;
 
     location / {
@@ -329,25 +253,19 @@ server {
 }
 ```
 
-**5. 开启 HTTPS**
-
-```bash
-certbot --nginx -d 你的域名
-```
-
 生产环境重点：
 
 - `USER_STORE_FILE` 指向持久化磁盘。
-- 如果有多台后端或需要更稳定的房间状态，配置 Redis。
+- 不要把 `apps/server/data/*.json` 提交到仓库。
 - Nginx 必须正确代理 `/socket.io/` 的 WebSocket upgrade。
-- 前端构建时的 `VITE_SERVER_URL` 要指向公网后端地址。
+- 前端构建时的 `VITE_SERVER_URL` 要指向玩家实际访问的公网地址。
 
 ---
 
 ## 目录结构
 
 ```text
-007games/
+acg_codenames/
 ├── apps/
 │   ├── server/                 # Express + Socket.IO 后端
 │   │   ├── src/
@@ -363,6 +281,7 @@ certbot --nginx -d 你的域名
 │           ├── lib/api.ts      # HTTP API 客户端
 │           ├── lib/socket.ts   # Socket 客户端
 │           └── lib/            # 题库审核、音效、本地存储等
+├── docs/prompts/               # AI 题库提取 Prompt
 ├── packages/shared/            # 前后端共享类型和规则
 ├── scripts/browser-smoke.mjs   # 浏览器冒烟测试
 ├── 代号/                       # 题库源文件
@@ -374,13 +293,8 @@ certbot --nginx -d 你的域名
 
 ## 注意事项
 
-- 当前用户数据是本地 JSON 文件，适合个人服务器和早期测试；多人正式运营建议迁移到数据库。
-- `apps/server/data/*.json` 是运行时数据，已被 git 忽略。
-- `dist/`、日志、`artifacts/`、`node_modules/` 都不会提交到仓库。
+- 当前用户数据是本地 JSON 文件，适合个人服务器和早期测试；正式运营建议迁移到数据库。
+- `dist/`、日志、`artifacts/`、`node_modules/` 和运行时数据都已被 git 忽略。
 - 进行中的房间只能旁观，不能直接作为玩家加入。
 - 房主解散房间会广播 `room_closed`，客户端会清空当前房间并回到首页。
-- 本地 debug 工具只适合开发测试，正式环境可通过 `ENABLE_DEBUG_TOOLS=0` 关闭。
-
----
-
-*组队、给线索、别点刺客。*
+- 本地 debug 工具只适合开发测试，正式环境建议设置 `ENABLE_DEBUG_TOOLS=0`。

@@ -324,11 +324,29 @@ async function buildSpectator(nickname: string, profile: UserProfile): Promise<S
 }
 
 export class GameService {
+  private readonly roomLocks = new Map<string, Promise<void>>();
+
   constructor(
     private readonly store: RoomStore,
     private readonly users: UserStore,
     private readonly options: { enableDebugTools: boolean } = { enableDebugTools: false }
   ) {}
+
+  private async withRoomLock<T>(roomId: string, fn: () => Promise<T>): Promise<T> {
+    const prev = this.roomLocks.get(roomId) ?? Promise.resolve();
+    let release: () => void = () => {};
+    const next = new Promise<void>((resolve) => { release = resolve; });
+    this.roomLocks.set(roomId, prev.then(() => next));
+    try {
+      await prev;
+      return await fn();
+    } finally {
+      release();
+      if (this.roomLocks.get(roomId) === next) {
+        this.roomLocks.delete(roomId);
+      }
+    }
+  }
 
   async createRoom(nickname: string, profile?: Partial<UserProfile>): Promise<{ room: Room; player: Player }> {
     const resolvedProfile = await this.users.resolveProfile(profile);
@@ -375,6 +393,7 @@ export class GameService {
   }
 
   async joinRoom(roomId: string, nickname: string, profile?: Partial<UserProfile>): Promise<{ room: Room; player: Player }> {
+    return this.withRoomLock(roomId, async () => {
     const room = await this.requireRoom(roomId);
     requireLobby(room);
     if (room.players.length >= MAX_PLAYERS) {
@@ -387,16 +406,11 @@ export class GameService {
     }
 
     const player = await buildPlayer(cleanNickname, false, await this.users.resolveProfile(profile));
-    const nextRoom = withEvent(
-      {
-        ...room,
-        players: [...room.players, player]
-      },
-      `${player.nickname} 加入了房间`
-    );
+    const nextRoom = withEvent({ ...room, players: [...room.players, player] }, `${player.nickname} 加入了房间`);
     await this.store.setRoom(nextRoom);
     await this.store.setPlayerSession(player.sessionToken!, createSession(nextRoom.id, player.id, "player"));
     return { room: nextRoom, player };
+    });
   }
 
   async joinSpectator(
@@ -803,6 +817,9 @@ export class GameService {
     const room = await this.requireRoom(roomId);
     requirePlaying(room);
     const player = requirePlayer(room, playerId);
+    if (!player.connected) {
+      throw new Error("你已离线，请重新连接");
+    }
     const isDebugHost = isSoloDebugController(room, playerId, this.options.enableDebugTools);
 
     if (!isDebugHost && (player.team !== room.currentTeam || player.role !== "operative")) {
@@ -958,8 +975,8 @@ export class GameService {
 
     const text =
       reaction === "flower"
-        ? `${participant.nickname} 给 ${target.nickname} 送出了一朵花`
-        : `${participant.nickname} 向 ${target.nickname} 丢出了一颗臭鸡蛋`;
+        ? participant.nickname + " \u7ED9 " + target.nickname + " \u9001\u4E86\u4E00\u6735\u82B1 \u{1F490}~\u2661"
+        : participant.nickname + " \u5411 " + target.nickname + " \u4E22\u4E86\u4E00\u9897\u81ED\u9E21\u86CB \u{1F95A}!!\u{1F4A5}";
     const message = createMessage("reaction", text, {
       playerId: participant.id,
       nickname: participant.nickname,

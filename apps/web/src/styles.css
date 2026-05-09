@@ -335,6 +335,29 @@ h3 {
   gap: 4px;
 }
 
+.logo-button {
+  background: rgba(127, 220, 255, 0.1);
+  border: 1px solid rgba(127, 220, 255, 0.25);
+  border-radius: 12px;
+  color: var(--cyan);
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 8px 16px;
+  width: fit-content;
+  letter-spacing: 0.04em;
+  transition: background 0.2s, border-color 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.logo-button:hover {
+  background: rgba(127, 220, 255, 0.18);
+  border-color: rgba(127, 220, 255, 0.45);
+  opacity: 1;
+}
+
 .room-code {
   font-size: 28px;
   letter-spacing: 0.05em;
@@ -505,6 +528,101 @@ button:disabled {
   80% { transform: translateX(3px) rotate(3deg); }
 }
 
+.reaction-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.reaction-overlay-banner {
+  position: absolute;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  border-radius: 16px;
+  font-size: 16px;
+  font-weight: 600;
+  animation: reactionBannerIn 0.4s ease, reactionBannerOut 0.4s ease 1.6s forwards;
+  z-index: 21;
+  pointer-events: none;
+}
+
+.reaction-overlay-flower .reaction-overlay-banner {
+  background: rgba(255, 137, 186, 0.18);
+  border: 1px solid rgba(255, 137, 186, 0.35);
+  color: #ffb3cc;
+}
+
+.reaction-overlay-egg .reaction-overlay-banner {
+  background: rgba(255, 179, 139, 0.16);
+  border: 1px solid rgba(255, 179, 139, 0.3);
+  color: #ffcc99;
+}
+
+.reaction-overlay-emoji {
+  font-size: 28px;
+  animation: reactionEmojiPulse 0.6s ease infinite alternate;
+}
+
+@keyframes reactionBannerIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(-16px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+@keyframes reactionBannerOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes reactionEmojiPulse {
+  from { transform: scale(1); }
+  to { transform: scale(1.25); }
+}
+
+.reaction-particles {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.reaction-particle {
+  position: absolute;
+  top: -40px;
+  font-size: 22px;
+  animation: particleFall linear forwards;
+  opacity: 0;
+}
+
+.particle-flower {
+  animation: particleFallFlower linear forwards;
+}
+
+.particle-egg {
+  animation: particleFallEgg linear forwards;
+}
+
+@keyframes particleFallFlower {
+  0% { opacity: 0; transform: translateY(0) rotate(0deg) scale(0.6); }
+  15% { opacity: 1; transform: translateY(10vh) rotate(45deg) scale(1.1); }
+  85% { opacity: 0.8; transform: translateY(85vh) rotate(300deg) scale(0.9); }
+  100% { opacity: 0; transform: translateY(100vh) rotate(360deg) scale(0.4); }
+}
+
+@keyframes particleFallEgg {
+  0% { opacity: 0; transform: translateY(0) rotate(0deg) scale(0.6); }
+  10% { opacity: 1; transform: translateY(8vh) rotate(-30deg) scale(1.3); }
+  60% { opacity: 0.9; transform: translateY(60vh) rotate(180deg) scale(1); }
+  100% { opacity: 0; transform: translateY(100vh) rotate(400deg) scale(0.3); }
+}
+
 .room-grid {
   display: grid;
   gap: 18px;
@@ -513,14 +631,14 @@ button:disabled {
 
 .room-layout {
   display: grid;
-  grid-template-columns: 300px minmax(0, 1fr);
+  grid-template-columns: 300px minmax(0, 1fr) 320px;
   gap: 18px;
   align-items: start;
   min-height: calc(100vh - 220px);
 }
 
 .room-layout-playing {
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) 320px;
 }
 
 .room-layout-playing .left-column {
@@ -536,11 +654,13 @@ button:disabled {
   border: 1px solid var(--line);
   border-left: none;
   padding: 12px;
+  pointer-events: none;
 }
 
 .room-layout-playing .left-column:hover,
 .room-layout-playing .left-column.pinned {
   left: 0;
+  pointer-events: auto;
 }
 
 .room-layout-playing .left-column::after {
@@ -555,6 +675,7 @@ button:disabled {
   border: 1px solid var(--line);
   border-left: none;
   border-radius: 0 8px 8px 0;
+  pointer-events: auto;
 }
 
 .room-grid-focus .room-layout-playing .left-column {
@@ -568,64 +689,19 @@ button:disabled {
   padding-right: 4px;
 }
 
-.right-column {
-  position: fixed;
-  right: -296px;
-  top: 72px;
-  width: 320px;
-  max-height: calc(100vh - 96px);
-  transition: right 0.28s cubic-bezier(0.22, 0.61, 0.36, 1);
-  z-index: 8;
-  background: var(--surface);
-  border-radius: 16px 0 0 16px;
-  border: 1px solid var(--line);
-  border-right: none;
-  padding: 14px;
-  padding-right: 18px;
-}
-
-.right-column:hover,
-.right-column.pinned {
-  right: 0;
-}
-
-.right-column-tab {
-  position: absolute;
-  left: -36px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 36px;
-  height: 72px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-right: none;
-  border-radius: 10px 0 0 10px;
-  cursor: pointer;
-  font-size: 16px;
-  user-select: none;
-  writing-mode: vertical-rl;
-  letter-spacing: 2px;
-  color: var(--muted);
-  transition: color 0.2s;
-}
-
-.right-column-tab:hover {
-  color: var(--text);
-}
-
+.room-grid-focus .left-column,
 .room-grid-focus .right-column {
-  display: none;
-}
-
-.room-grid-focus .left-column {
   display: none;
 }
 
 .room-grid-focus .room-layout {
   grid-template-columns: minmax(0, 1fr);
+}
+
+.room-grid .room-bar {
+  position: sticky;
+  top: 8px;
+  z-index: 10;
 }
 
 .compact-panel,
@@ -1406,18 +1482,27 @@ button:disabled {
     min-width: 0;
   }
 
-  .right-column {
-    right: -272px;
-    width: 296px;
+  .room-layout {
+    grid-template-columns: 1fr;
   }
 
-  .right-column:hover {
-    right: 0;
+  .left-column,
+  .right-column {
+    max-height: none;
+    overflow: visible;
   }
 
   .room-layout-playing .left-column {
     left: -220px;
     width: 240px;
+  }
+
+  .candidate-review-body {
+    grid-template-columns: 1fr;
+  }
+
+  .candidate-review-tools {
+    position: static;
   }
 }
 
@@ -1454,6 +1539,28 @@ button:disabled {
 
   .card-tile span {
     font-size: 14px;
+  }
+
+  button,
+  .primary-button {
+    min-height: 44px;
+    padding: 11px 16px;
+  }
+
+  .chip-button,
+  .icon-button {
+    min-height: 36px;
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  .chat-list {
+    max-height: 280px;
+  }
+
+  .dock-panel {
+    bottom: 0;
+    border-radius: 16px 16px 0 0;
   }
 }
 
@@ -1527,14 +1634,4 @@ button:disabled {
   border: 1px solid var(--line);
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.03);
-}
-
-@media (max-width: 900px) {
-  .candidate-review-body {
-    grid-template-columns: 1fr;
-  }
-
-  .candidate-review-tools {
-    position: static;
-  }
 }
