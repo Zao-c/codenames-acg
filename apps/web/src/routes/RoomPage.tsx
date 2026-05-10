@@ -445,6 +445,21 @@ function LobbySettings({ room, viewer, self, g, accountPacks, publicPacks, makeP
   makePublicPackKey: ReturnType<typeof useGame>["makePublicPackKey"];
 }) {
   const boardModes: BoardMode[] = ["5x5", "7x7", "9x9"];
+  const [packTab, setPackTab] = useState<"builtin" | "account" | "public">("builtin");
+
+  const currentPackId = room.wordPackSummary.id;
+  const isCurrentBuiltin = room.wordPackSummary.isBuiltin;
+  const currentAccountPack = accountPacks.find((p) => p.id === currentPackId || p.name === room.wordPackSummary.name);
+  const currentPublicPack = publicPacks.find((p) => makePublicPackKey(p) === currentPackId || p.name === room.wordPackSummary.name);
+  const currentPackLabel =
+    isCurrentBuiltin ? (wordPackSummaries.find((p) => p.id === currentPackId)?.name ?? room.wordPackSummary.name)
+    : currentAccountPack ? currentAccountPack.name
+    : currentPublicPack ? currentPublicPack.name
+    : room.wordPackSummary.name;
+  const currentPackMeta = room.wordPackSummary.entryCount ? `${room.wordPackSummary.entryCount} 个词` : "";
+
+  const isSelected = (packId: string) => packId === currentPackId || `custom:${packId}` === currentPackId;
+
   return (
     <section className="panel" style={{ marginBottom: 12 }}>
       <div className="panel-heading">
@@ -471,23 +486,64 @@ function LobbySettings({ room, viewer, self, g, accountPacks, publicPacks, makeP
           </div>
         </div>
       </div>
-      <div className="settings-row">
-        <div className="settings-block">
+      <div className="settings-block">
+        <div className="panel-heading" style={{ marginBottom: 10 }}>
           <strong>房间题库</strong>
-          <div className="toolbar-inline compact-stack">
-            <select value={room.wordPackSummary.isBuiltin ? room.wordPackSummary.id : wordPackSummaries[0]?.id ?? ""} disabled={!viewer.canEditRoom} onChange={(e) => g.updateBuiltinPack(e.target.value)}>
-              {wordPackSummaries.map((pack) => (<option key={pack.id} value={pack.id}>{pack.name} ({pack.entryCount})</option>))}
-            </select>
-            <input type="file" accept=".txt,.json" disabled={!viewer.canEditRoom} onChange={(e) => { void g.uploadRoomPack(e.target.files?.[0] ?? null); }} />
+          <div className="selection-grid" style={{ marginLeft: 10 }}>
+            <button className={packTab === "builtin" ? "selected" : ""} onClick={() => setPackTab("builtin")}>内置</button>
+            <button className={packTab === "account" ? "selected" : ""} disabled={accountPacks.length === 0} onClick={() => setPackTab("account")}>我的题库</button>
+            <button className={packTab === "public" ? "selected" : ""} onClick={() => setPackTab("public")}>公共题库</button>
           </div>
-          {accountPacks.length > 0 ? (
-            <div className="chip-wrap">
-              {accountPacks.map((pack) => (
-                <button key={pack.id} className="chip-button" disabled={!viewer.canEditRoom} onClick={() => g.useAccountPackForRoom(pack)}>使用 {pack.name}</button>
-              ))}
-            </div>
-          ) : null}
         </div>
+
+        {packTab === "builtin" ? (
+          <div className="pack-select-list">
+            {wordPackSummaries.map((pack) => (
+              <button key={pack.id} className={`pack-select-row ${isCurrentBuiltin && isSelected(pack.id) ? "pack-select-row-active" : ""}`} disabled={!viewer.canEditRoom} onClick={() => g.updateBuiltinPack(pack.id)}>
+                <span className="pack-select-name">{pack.name}</span>
+                <span className="pack-select-meta">{pack.entryCount} 个词</span>
+                <span className="pack-select-action">{isCurrentBuiltin && isSelected(pack.id) ? "✓ 已选中" : "选择此题库"}</span>
+              </button>
+            ))}
+          </div>
+        ) : packTab === "account" ? (
+          <div className="pack-select-list">
+            {accountPacks.length === 0 ? <p className="empty-text">还没有个人题库，去题库页上传吧。</p> : null}
+            {accountPacks.map((pack) => (
+              <button key={pack.id} className={`pack-select-row ${currentAccountPack?.id === pack.id ? "pack-select-row-active" : ""}`} disabled={!viewer.canEditRoom} onClick={() => g.useAccountPackForRoom(pack)}>
+                <span className="pack-select-name">{pack.name}</span>
+                <span className="pack-select-meta">{pack.entries.length} 个词</span>
+                <span className="pack-select-action">{currentAccountPack?.id === pack.id ? "✓ 已选中" : "选择此题库"}</span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="pack-select-list">
+            {publicPacks.length === 0 ? <p className="empty-text">还没有公共题库。</p> : null}
+            {publicPacks.map((pack) => {
+              const key = makePublicPackKey(pack);
+              return (
+                <button key={key} className={`pack-select-row ${currentPublicPack && makePublicPackKey(currentPublicPack) === key ? "pack-select-row-active" : ""}`} disabled={!viewer.canEditRoom} onClick={() => g.usePublicPackForRoom(pack)}>
+                  <span className="pack-select-name">{pack.name}</span>
+                  <span className="pack-select-meta">{pack.entries.length} 个词 / {pack.ownerUsername}</span>
+                  <span className="pack-select-action">{currentPublicPack && makePublicPackKey(currentPublicPack) === key ? "✓ 已选中" : "选择此题库"}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="current-pack-card" style={{ marginTop: 10 }}>
+          <span className="micro-label">当前使用</span>
+          <strong className="current-pack-name">{currentPackLabel}</strong>
+          {currentPackMeta ? <span className="current-pack-meta">{currentPackMeta}</span> : null}
+        </div>
+
+        {viewer.canEditRoom ? (
+          <div style={{ marginTop: 8 }}>
+            <input type="file" accept=".txt,.json" onChange={(e) => { void g.uploadRoomPack(e.target.files?.[0] ?? null); }} />
+          </div>
+        ) : null}
       </div>
       {self && isPlayer(self) && self.isHost ? (
         <div className="toolbar-inline" style={{ marginTop: 8, gap: 8 }}>
