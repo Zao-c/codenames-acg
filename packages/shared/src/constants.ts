@@ -30,7 +30,12 @@ export const DEFAULT_ROOM_SETTINGS: RoomSettings = {
   ruleSet: "classic",
   boardMode: "5x5",
   wordPackId: DEFAULT_WORD_PACK_ID,
-  scoringMode: "classic"
+  scoringMode: "classic",
+  timerMode: "unlimited",
+  timerClueSeconds: 90,
+  timerGuessSeconds: 90,
+  timerFirstRoundBonus: true,
+  flipMode: "word-color"
 };
 
 export const TEAM_LABELS = {

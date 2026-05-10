@@ -283,6 +283,12 @@ a { color: var(--accent-2); }
 .status-strip { display: flex; gap: 8px; flex-wrap: wrap; }
 .status-pill { font-size: 12px; padding: 3px 10px; border-radius: 16px; background: var(--surface); }
 .status-pill.emphasis { background: rgba(107,182,255,0.18); color: var(--accent-2); }
+.timer-pill { font-variant-numeric: tabular-nums; font-weight: 700; }
+.timer-pill-urgent { background: rgba(255,107,138,0.22); color: var(--danger); animation: timerPulse 1s ease infinite; }
+@keyframes timerPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
 .bar-actions { display: flex; gap: 8px; }
 
 .logo-button { background: none; border: none; font-size: 16px; font-weight: 700; padding: 0; cursor: pointer; color: var(--text); }

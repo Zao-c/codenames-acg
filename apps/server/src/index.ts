@@ -7,6 +7,8 @@ import {
   MAX_AVATAR_DATA_URL_LENGTH,
   type BoardMode,
   type ScoringMode,
+  type TimerMode,
+  type FlipMode,
   type ChatReaction,
   type ClientToServerEvents,
   type CustomWordPackInput,
@@ -82,6 +84,28 @@ function requireScoringMode(value: unknown): ScoringMode {
   throw new Error("scoringMode 参数无效");
 }
 
+function requireTimerMode(value: unknown): TimerMode {
+  if (value === "unlimited" || value === "timed") {
+    return value;
+  }
+  throw new Error("timerMode 参数无效");
+}
+
+function requireFlipMode(value: unknown): FlipMode {
+  if (value === "word-color" || value === "color-only") {
+    return value;
+  }
+  throw new Error("flipMode 参数无效");
+}
+
+function requirePositiveInt(value: unknown, fieldName: string): number {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 1 || n > 600 || !Number.isInteger(n)) {
+    throw new Error(`${fieldName} 参数无效`);
+  }
+  return n;
+}
+
 function requireReaction(value: unknown): ChatReaction {
   if (value === "flower" || value === "egg") {
     return value;
@@ -131,6 +155,12 @@ function parseUpdateRoomSettingsPayload(value: unknown): {
   builtinWordPackId?: string;
   customWordPack?: CustomWordPackInput | null;
   scoringMode?: ScoringMode;
+  timerMode?: TimerMode;
+  timerClueSeconds?: number;
+  timerGuessSeconds?: number;
+  timerFirstRoundBonus?: boolean;
+  neutralCount?: number;
+  flipMode?: FlipMode;
 } {
   const body = asObject(value);
   const parsed: {
@@ -139,6 +169,12 @@ function parseUpdateRoomSettingsPayload(value: unknown): {
     builtinWordPackId?: string;
     customWordPack?: CustomWordPackInput | null;
     scoringMode?: ScoringMode;
+    timerMode?: TimerMode;
+    timerClueSeconds?: number;
+    timerGuessSeconds?: number;
+    timerFirstRoundBonus?: boolean;
+    neutralCount?: number;
+    flipMode?: FlipMode;
   } = { roomId: requireString(body, "roomId") };
   if (body.boardMode !== undefined) {
     parsed.boardMode = requireBoardMode(body.boardMode);
@@ -163,6 +199,24 @@ function parseUpdateRoomSettingsPayload(value: unknown): {
   }
   if (body.scoringMode !== undefined) {
     parsed.scoringMode = requireScoringMode(body.scoringMode);
+  }
+  if (body.timerMode !== undefined) {
+    parsed.timerMode = requireTimerMode(body.timerMode);
+  }
+  if (body.timerClueSeconds !== undefined) {
+    parsed.timerClueSeconds = requirePositiveInt(body.timerClueSeconds, "timerClueSeconds");
+  }
+  if (body.timerGuessSeconds !== undefined) {
+    parsed.timerGuessSeconds = requirePositiveInt(body.timerGuessSeconds, "timerGuessSeconds");
+  }
+  if (body.timerFirstRoundBonus !== undefined) {
+    parsed.timerFirstRoundBonus = Boolean(body.timerFirstRoundBonus);
+  }
+  if (body.neutralCount !== undefined) {
+    parsed.neutralCount = requirePositiveInt(body.neutralCount, "neutralCount");
+  }
+  if (body.flipMode !== undefined) {
+    parsed.flipMode = requireFlipMode(body.flipMode);
   }
   return parsed;
 }
@@ -766,6 +820,16 @@ async function bootstrap(): Promise<void> {
       }
     }).catch((err) => console.warn("room cleanup error:", err));
   }, 60_000);
+
+  setInterval(() => {
+    game.tickTimers().then((expired) => {
+      if (expired.length > 0) {
+        for (const room of expired) {
+          sendRoomState(room.id).catch(() => {});
+        }
+      }
+    }).catch((err) => console.warn("timer tick error:", err));
+  }, 1000);
 
   httpServer.listen(env.port, () => {
     console.log(`Server listening on http://localhost:${env.port}`);

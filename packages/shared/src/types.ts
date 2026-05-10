@@ -5,6 +5,8 @@ export type RoomPhase = "lobby" | "playing" | "finished";
 export type WordCategory = "title" | "character" | "organization" | "trope" | "production" | "fandom" | "custom";
 export type BoardMode = "5x5" | "7x7" | "9x9";
 export type ScoringMode = "classic" | "scoring" | "gamble";
+export type TimerMode = "unlimited" | "timed";
+export type FlipMode = "word-color" | "color-only";
 export type ChatReaction = "flower" | "egg";
 export type ChatMessageType = "system" | "chat" | "reaction";
 export type ParticipantType = "player" | "spectator";
@@ -169,6 +171,12 @@ export interface RoomSettings {
   boardMode: BoardMode;
   wordPackId: string;
   scoringMode: ScoringMode;
+  timerMode?: TimerMode;
+  timerClueSeconds?: number;
+  timerGuessSeconds?: number;
+  timerFirstRoundBonus?: boolean;
+  neutralCount?: number;
+  flipMode?: FlipMode;
 }
 
 export interface ChatMessage {
@@ -294,6 +302,8 @@ export interface Room {
   playerStats?: Record<string, PlayerRoundStats>;
   clueRecords?: ClueRoundRecord[];
   achievements?: Achievement[];
+  timerEndsAt?: number;
+  timerPhase?: "clue" | "guess";
 }
 
 export interface ViewerIdentity {
@@ -482,6 +492,12 @@ export interface UpdateRoomSettingsPayload {
   builtinWordPackId?: string;
   customWordPack?: CustomWordPackInput | null;
   scoringMode?: ScoringMode;
+  timerMode?: TimerMode;
+  timerClueSeconds?: number;
+  timerGuessSeconds?: number;
+  timerFirstRoundBonus?: boolean;
+  neutralCount?: number;
+  flipMode?: FlipMode;
 }
 
 export interface SendChatMessagePayload {

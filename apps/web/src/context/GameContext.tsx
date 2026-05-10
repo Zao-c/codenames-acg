@@ -235,6 +235,16 @@ export interface GameContextType {
   setCreateBoardMode: (v: BoardMode) => void;
   scoringMode: ScoringMode;
   setScoringMode: (v: ScoringMode) => void;
+  createTimerMode: import("@acg-codenames/shared").TimerMode;
+  setCreateTimerMode: (v: import("@acg-codenames/shared").TimerMode) => void;
+  createTimerClueSeconds: number;
+  setCreateTimerClueSeconds: (v: number) => void;
+  createTimerGuessSeconds: number;
+  setCreateTimerGuessSeconds: (v: number) => void;
+  createNeutralCount: number;
+  setCreateNeutralCount: (v: number) => void;
+  createFlipMode: import("@acg-codenames/shared").FlipMode;
+  setCreateFlipMode: (v: import("@acg-codenames/shared").FlipMode) => void;
   packSource: PackSource;
   setPackSource: (v: PackSource) => void;
   selectedBuiltinPackId: string;
@@ -369,6 +379,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [candidatePack, setCandidatePack] = useState<CandidatePack | null>(null);
   const [createBoardMode, setCreateBoardMode] = useState<BoardMode>("5x5");
   const [scoringMode, setScoringMode] = useState<ScoringMode>("classic");
+  const [createTimerMode, setCreateTimerMode] = useState<import("@acg-codenames/shared").TimerMode>("unlimited");
+  const [createTimerClueSeconds, setCreateTimerClueSeconds] = useState(90);
+  const [createTimerGuessSeconds, setCreateTimerGuessSeconds] = useState(90);
+  const [createNeutralCount, setCreateNeutralCount] = useState(0);
+  const [createFlipMode, setCreateFlipMode] = useState<import("@acg-codenames/shared").FlipMode>("word-color");
   const [packSource, setPackSource] = useState<PackSource>("builtin");
   const [selectedBuiltinPackId, setSelectedBuiltinPackId] = useState(wordPackSummaries[0]?.id ?? "");
   const [selectedAccountPackId, setSelectedAccountPackId] = useState("");
@@ -408,6 +423,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
     builtinWordPackId?: string;
     customWordPack?: { name: string; entries: string[] };
     scoringMode?: ScoringMode;
+    timerMode?: import("@acg-codenames/shared").TimerMode;
+    timerClueSeconds?: number;
+    timerGuessSeconds?: number;
+    neutralCount?: number;
+    flipMode?: import("@acg-codenames/shared").FlipMode;
   } | null>(null);
 
   const accountPacks = namedAccount?.customWordPacks ?? [];
@@ -493,7 +513,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (!hostPlayer?.isHost || room.phase !== "lobby") return;
     const pending = pendingCreateConfigRef.current;
     pendingCreateConfigRef.current = null;
-    socket.emit("update_room_settings", { roomId: session.roomId, boardMode: pending.boardMode, builtinWordPackId: pending.builtinWordPackId, customWordPack: pending.customWordPack, scoringMode: pending.scoringMode });
+    socket.emit("update_room_settings", { roomId: session.roomId, boardMode: pending.boardMode, builtinWordPackId: pending.builtinWordPackId, customWordPack: pending.customWordPack, scoringMode: pending.scoringMode, timerMode: pending.timerMode, timerClueSeconds: pending.timerClueSeconds, timerGuessSeconds: pending.timerGuessSeconds, neutralCount: pending.neutralCount, flipMode: pending.flipMode });
   }, [room, session, socket]);
   useEffect(() => { setTransferHostTargetId((cur) => { if (cur && hostTransferCandidates.some((p) => p.id === cur)) return cur; return hostTransferCandidates[0]?.id ?? ""; }); }, [hostTransferCandidates]);
   useEffect(() => {
@@ -657,7 +677,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   function createRoom() {
     const ji = buildJoinProfile(); if (!ji) return;
-    const pending: { boardMode: BoardMode; builtinWordPackId?: string; customWordPack?: { name: string; entries: string[] }; scoringMode?: ScoringMode } = { boardMode: createBoardMode, scoringMode }; 
+    const pending: { boardMode: BoardMode; builtinWordPackId?: string; customWordPack?: { name: string; entries: string[] }; scoringMode?: ScoringMode; timerMode?: import("@acg-codenames/shared").TimerMode; timerClueSeconds?: number; timerGuessSeconds?: number; neutralCount?: number; flipMode?: import("@acg-codenames/shared").FlipMode } = { boardMode: createBoardMode, scoringMode, timerMode: createTimerMode, timerClueSeconds: createTimerClueSeconds, timerGuessSeconds: createTimerGuessSeconds, neutralCount: createNeutralCount || undefined, flipMode: createFlipMode }; 
     if (packSource === "builtin") pending.builtinWordPackId = selectedBuiltinPackId;
     else if (selectedAccountPack) pending.customWordPack = { name: selectedAccountPack.name, entries: selectedAccountPack.entries };
     else if (selectedPublicPack) pending.customWordPack = { name: selectedPublicPack.name, entries: selectedPublicPack.entries };
@@ -759,6 +779,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
     session, room, roomSummaries, error, setError, connectionState, effectiveIdentity,
     publicPacks, createBoardMode, setCreateBoardMode,
     scoringMode, setScoringMode,
+    createTimerMode, setCreateTimerMode,
+    createTimerClueSeconds, setCreateTimerClueSeconds,
+    createTimerGuessSeconds, setCreateTimerGuessSeconds,
+    createNeutralCount, setCreateNeutralCount,
+    createFlipMode, setCreateFlipMode,
     packSource, setPackSource,
     selectedBuiltinPackId, setSelectedBuiltinPackId,
     selectedAccountPackId, setSelectedAccountPackId,

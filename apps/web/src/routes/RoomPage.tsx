@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   TEAM_LABELS, PLAYER_ROLE_LABELS,
@@ -82,6 +82,7 @@ export function RoomPage() {
               <span className="status-pill">{room.settings.boardMode}</span>
               <span className="status-pill">第 {room.roundNumber} 局</span>
               {isDebugController ? <span className="status-pill">调试</span> : null}
+              {room.timerEndsAt ? <TimerPill room={room} /> : null}
             </div>
           </div>
           <div className="bar-actions">
@@ -191,6 +192,22 @@ export function RoomPage() {
 }
 
 // ─── sub-components ──────────────────────────────────
+
+function TimerPill({ room }: { room: NonNullable<ReturnType<typeof useGame>["room"]> }) {
+  const [left, setLeft] = useState(0);
+  useEffect(() => {
+    const tick = () => setLeft(Math.max(0, Math.ceil(((room.timerEndsAt ?? 0) - Date.now()) / 1000)));
+    tick();
+    const i = window.setInterval(tick, 500);
+    return () => window.clearInterval(i);
+  }, [room.timerEndsAt]);
+  if (left <= 0) return null;
+  return (
+    <span className={`status-pill timer-pill ${left <= 10 ? "timer-pill-urgent" : ""}`}>
+      {room.timerPhase === "clue" ? "⏳ 提示" : "⏳ 猜词"} {left}s
+    </span>
+  );
+}
 
 function FocusBar({ room, viewer, onExitFocus }: { room: NonNullable<ReturnType<typeof useGame>["room"]>; viewer: ReturnType<typeof useGame>["viewer"]; onExitFocus: () => void }) {
   return (

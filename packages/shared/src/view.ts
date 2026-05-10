@@ -155,14 +155,18 @@ export function sanitizeRoom(room: Room, viewer: ViewerIdentity = {}): PublicRoo
   const players: PublicPlayer[] = room.players.map(sanitizePlayer);
   const spectators: PublicSpectator[] = room.spectators.map(sanitizeSpectator);
   const revealAll = isSpymaster(viewer) || room.phase === "finished";
-  const board: PublicCard[] = room.board.map((card) => ({
-    id: card.id,
-    wordId: card.wordId,
-    word: card.word,
-    role: revealAll || card.revealed ? card.role : undefined,
-    revealed: card.revealed,
-    revealedBy: card.revealedBy
-  }));
+  const flipMode: import("./types.js").FlipMode = room.settings.flipMode ?? "word-color";
+  const board: PublicCard[] = room.board.map((card) => {
+    const canSeeWord = revealAll || (flipMode === "word-color" && card.revealed);
+    return {
+      id: card.id,
+      wordId: card.wordId,
+      word: canSeeWord ? card.word : "",
+      role: revealAll || card.revealed ? card.role : undefined,
+      revealed: card.revealed,
+      revealedBy: card.revealedBy
+    };
+  });
 
   return {
     id: room.id,

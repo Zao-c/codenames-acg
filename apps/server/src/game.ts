@@ -143,14 +143,22 @@ function validateWordPackForMode(wordPack: WordPack, boardMode: BoardMode): void
 function generateBoard(
   wordPack: WordPack,
   boardMode: BoardMode,
-  startingTeam: Team
+  startingTeam: Team,
+  neutralCount?: number
 ): { board: Card[]; remainingCounts: Record<Team, number> } {
   const config = BOARD_MODE_CONFIG[boardMode];
+  const neutral = neutralCount ?? config.neutral;
+  const extraSlots = (config.starter + config.follower + config.neutral + config.assassin) - (config.starter + config.follower + neutral + config.assassin);
+  const starterAdj = Math.floor(extraSlots / 2);
+  const followerAdj = extraSlots - starterAdj;
+  const starter = config.starter + starterAdj;
+  const follower = config.follower + followerAdj;
+
   const words = shuffle(wordPack.entries).slice(0, config.size);
   const roles = shuffle([
-    ...Array(startingTeam === "red" ? config.starter : config.follower).fill("red"),
-    ...Array(startingTeam === "blue" ? config.starter : config.follower).fill("blue"),
-    ...Array(config.neutral).fill("neutral"),
+    ...Array(startingTeam === "red" ? starter : follower).fill("red"),
+    ...Array(startingTeam === "blue" ? starter : follower).fill("blue"),
+    ...Array(neutral).fill("neutral"),
     ...Array(config.assassin).fill("assassin")
   ] as Card["role"][]);
 
@@ -163,8 +171,8 @@ function generateBoard(
       revealed: false
     })),
     remainingCounts: {
-      red: startingTeam === "red" ? config.starter : config.follower,
-      blue: startingTeam === "blue" ? config.starter : config.follower
+      red: startingTeam === "red" ? starter : follower,
+      blue: startingTeam === "blue" ? starter : follower
     }
   };
 }
@@ -356,6 +364,16 @@ function applyScore(room: Room, team: Team, delta: number): { scores: RoomScore 
 
 function isScoringMode(mode: ScoringMode): boolean {
   return mode === "scoring" || mode === "gamble";
+}
+
+function getTimerDuration(room: Room, phase: "clue" | "guess"): number {
+  const base = phase === "clue"
+    ? (room.settings.timerClueSeconds ?? 90)
+    : (room.settings.timerGuessSeconds ?? 90);
+  if (phase === "clue" && room.settings.timerFirstRoundBonus && room.roundNumber === 1) {
+    return base + 30;
+  }
+  return base;
 }
 
 function ensurePlayerStats(room: Room, player: Player): PlayerRoundStats {
@@ -664,7 +682,7 @@ export class GameService {
   async updateRoomSettings(
     roomId: string,
     playerId: string,
-    payload: { boardMode?: BoardMode; builtinWordPackId?: string; customWordPack?: CustomWordPackInput | null; scoringMode?: ScoringMode }
+    payload: { boardMode?: BoardMode; builtinWordPackId?: string; customWordPack?: CustomWordPackInput | null; scoringMode?: ScoringMode; timerMode?: import("@acg-codenames/shared").TimerMode; timerClueSeconds?: number; timerGuessSeconds?: number; timerFirstRoundBonus?: boolean; neutralCount?: number; flipMode?: import("@acg-codenames/shared").FlipMode; }
   ): Promise<Room> {
     return this.withRoomLock(roomId, async () => {
     const room = await this.requireRoom(roomId);
@@ -694,7 +712,13 @@ export class GameService {
           ...room.settings,
           boardMode: nextBoardMode,
           wordPackId: nextWordPack.id,
-          scoringMode: payload.scoringMode ?? room.settings.scoringMode
+          scoringMode: payload.scoringMode ?? room.settings.scoringMode,
+          timerMode: payload.timerMode ?? room.settings.timerMode,
+          timerClueSeconds: payload.timerClueSeconds ?? room.settings.timerClueSeconds,
+          timerGuessSeconds: payload.timerGuessSeconds ?? room.settings.timerGuessSeconds,
+          timerFirstRoundBonus: payload.timerFirstRoundBonus ?? room.settings.timerFirstRoundBonus,
+          neutralCount: payload.neutralCount ?? room.settings.neutralCount,
+          flipMode: payload.flipMode ?? room.settings.flipMode
         },
         wordPack: nextWordPack
       },
@@ -753,7 +777,11 @@ export class GameService {
 
     validateStart(room);
     const startingTeam: Team = Math.random() >= 0.5 ? "red" : "blue";
-    const { board, remainingCounts } = generateBoard(room.wordPack, room.settings.boardMode, startingTeam);
+    const { board, remainingCounts } = generateBoard(room.wordPack, room.settings.boardMode, startingTeam, room.settings.neutralCount);
+    const timerMode: import("@acg-codenames/shared").TimerMode = room.settings.timerMode ?? "unlimited";
+    const timerEndsAt = timerMode === "timed"
+      ? now() + getTimerDuration(room, "clue")
+      : undefined;
 
     const nextRoom = withEvent(
       {
@@ -767,7 +795,9 @@ export class GameService {
         winner: null,
         lastReveal: null,
         comboStreaks: {},
-        currentRoundScore: undefined
+        currentRoundScore: undefined,
+        timerEndsAt,
+        timerPhase: timerMode === "timed" ? "clue" as const : undefined
       },
       `第 ${room.roundNumber} 局开始，${TEAM_LABELS[startingTeam]}先手 ٩(ˊᗜˋ*)و`
     );
@@ -853,7 +883,9 @@ export class GameService {
     }
 
     const startingTeam: Team = Math.random() >= 0.5 ? "red" : "blue";
-    const { board, remainingCounts } = generateBoard(room.wordPack, room.settings.boardMode, startingTeam);
+    const { board, remainingCounts } = generateBoard(room.wordPack, room.settings.boardMode, startingTeam, room.settings.neutralCount);
+    const timerMode: import("@acg-codenames/shared").TimerMode = room.settings.timerMode ?? "unlimited";
+    const timerEndsAt = timerMode === "timed" ? now() + getTimerDuration(room, "clue") : undefined;
     const nextRoom = withEvent(
       {
         ...room,
@@ -865,7 +897,9 @@ export class GameService {
         remainingCounts,
         winner: null,
         roundNumber,
-        lastReveal: null
+        lastReveal: null,
+        timerEndsAt,
+        timerPhase: timerMode === "timed" ? "clue" as const : undefined
       },
       `第 ${roundNumber} 局开始，${TEAM_LABELS[startingTeam]}先手 ٩(ˊᗜˋ*)و`
     );
@@ -986,6 +1020,7 @@ export class GameService {
       throw new Error("提示数字不合法");
     }
 
+    const timerMode: import("@acg-codenames/shared").TimerMode = room.settings.timerMode ?? "unlimited";
     const nextRoom = withEvent(
       {
         ...room,
@@ -996,7 +1031,9 @@ export class GameService {
           giverPlayerId: player.id,
           usedGuesses: 0
         },
-        lastReveal: null
+        lastReveal: null,
+        timerEndsAt: timerMode === "timed" ? now() + getTimerDuration(room, "guess") : undefined,
+        timerPhase: timerMode === "timed" ? "guess" as const : undefined
       },
       `${player.nickname} 给出提示：${cleanWord} ${count}`
     );
@@ -1242,6 +1279,7 @@ export class GameService {
       ensurePlayerStats(room, player).endedTurnEarly += 1;
     }
 
+    const timerMode: import("@acg-codenames/shared").TimerMode = room.settings.timerMode ?? "unlimited";
     const nextRoom = withEvent(
       {
         ...room,
@@ -1251,7 +1289,9 @@ export class GameService {
         scores: nextScores,
         roundScoreHistory: roundHistory,
         currentRoundScore: undefined,
-        comboStreaks: {}
+        comboStreaks: {},
+        timerEndsAt: timerMode === "timed" ? now() + getTimerDuration(room, "clue") : undefined,
+        timerPhase: timerMode === "timed" ? "clue" as const : undefined
       },
       `${player.nickname} 结束了回合 (ง •_•)ง`
     );
@@ -1515,6 +1555,84 @@ export class GameService {
       isDebugController,
       isQueuedForNextRound,
       revealAll: isDebugController
+    });
+  }
+
+  async tickTimers(): Promise<Room[]> {
+    const rooms = await this.store.listRooms();
+    const expired: Room[] = [];
+    const now2 = now();
+    for (const room of rooms) {
+      if (room.phase !== "playing" || !room.timerEndsAt || room.timerEndsAt > now2) continue;
+      expired.push(room);
+    }
+    for (const room of expired) {
+      await this.tickTimerForRoom(room);
+    }
+    return expired;
+  }
+
+  private async tickTimerForRoom(room: Room): Promise<void> {
+    return this.withRoomLock(room.id, async () => {
+    const latest = await this.requireRoom(room.id);
+    if (latest.phase !== "playing" || !latest.timerEndsAt || latest.timerEndsAt > now()) return;
+
+    if (latest.timerPhase === "clue" && !latest.clue) {
+      const currentTeam = nextTeam(latest.currentTeam);
+      const clue = latest.clue;
+      const scoringActive = isScoringMode(latest.settings.scoringMode);
+      let nextScores = latest.scores;
+      if (scoringActive && latest.currentRoundScore) {
+        const prev = latest.currentRoundScore;
+        const penalty = 10;
+        prev.totalRound = -penalty;
+        nextScores = { ...latest.scores, [latest.currentTeam]: Math.max(0, latest.scores[latest.currentTeam] - penalty) };
+        latest.roundScoreHistory = [...(latest.roundScoreHistory ?? []), prev];
+      }
+      const nextRoom = withEvent(
+        {
+          ...latest,
+          currentTeam,
+          clue,
+          scores: nextScores,
+          roundScoreHistory: latest.roundScoreHistory,
+          currentRoundScore: undefined,
+          comboStreaks: {},
+          timerEndsAt: now() + getTimerDuration(latest, "clue"),
+          timerPhase: "clue" as const
+        },
+        `${TEAM_LABELS[latest.currentTeam]} 提示超时，回合跳过`
+      );
+      await this.store.setRoom(nextRoom);
+    } else if (latest.timerPhase === "guess" && latest.clue) {
+      const currentTeam = nextTeam(latest.currentTeam);
+      const scoringActive = isScoringMode(latest.settings.scoringMode);
+      let nextScores = latest.scores;
+      if (scoringActive && latest.currentRoundScore) {
+        const prev = latest.currentRoundScore;
+        const clueCount = latest.clue?.count ?? 0;
+        if (prev.ownHits !== clueCount || prev.neutralHits > 0 || prev.opponentHits > 0) {
+          prev.totalRound = 0;
+          latest.roundScoreHistory = [...(latest.roundScoreHistory ?? []), prev];
+        }
+      }
+      const nextRoom = withEvent(
+        {
+          ...latest,
+          currentTeam,
+          clue: null,
+          scores: nextScores,
+          roundScoreHistory: latest.roundScoreHistory,
+          currentRoundScore: undefined,
+          comboStreaks: {},
+          lastReveal: null,
+          timerEndsAt: now() + getTimerDuration(latest, "clue"),
+          timerPhase: "clue" as const
+        },
+        `${TEAM_LABELS[latest.currentTeam]} 猜词超时，回合跳过`
+      );
+      await this.store.setRoom(nextRoom);
+    }
     });
   }
 
