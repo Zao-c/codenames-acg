@@ -437,7 +437,19 @@ export function GameProvider({ children }: { children: ReactNode }) {
     function onSession(p: ClientSession) { setSession(p); saveSession(p); setConnectionState("ready"); setError(""); }
     function onRoomState(p: PublicRoomState) { setRoom(p); setConnectionState("ready"); setError(""); setPendingGuess(null); guessLockRef.current = false; }
     function onRoomSummaries(p: RoomSummary[]) { setRoomSummaries(p); }
-    function onError(p: { message: string }) { setError(p.message); setConnectionState("ready"); setPendingGuess(null); guessLockRef.current = false; }
+    function onError(p: { message: string }) {
+      if (p.message.includes("重连凭证") || p.message.includes("房间不存在")) {
+        clearSession();
+        setSession(null);
+        setRoom(null);
+        setConnectionState("idle");
+        setDidReconnect(false);
+        setRevealBanner(null);
+        setError("房间已过期，已返回首页");
+        return;
+      }
+      setError(p.message); setConnectionState("ready"); setPendingGuess(null); guessLockRef.current = false;
+    }
     function onRoomClosed(p: { roomId: string; reason: string }) {
       if (p.roomId !== session?.roomId) return;
       clearSession(); setSession(null); setRoom(null); setConnectionState("idle"); setDidReconnect(false); setRevealBanner(null); setError(p.reason);
@@ -452,7 +464,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return () => { socket.off("session", onSession); socket.off("room_state", onRoomState); socket.off("room_summaries", onRoomSummaries); socket.off("error_message", onError); socket.off("room_closed", onRoomClosed); socket.io.off("reconnect"); socket.off("disconnect"); };
   }, [session?.roomId, socket]);
 
-  useEffect(() => { if (!session || didReconnect || room) return; setDidReconnect(true); setConnectionState("connecting"); socket.emit("reconnect_room", { roomId: session.roomId, sessionToken: session.sessionToken }); }, [didReconnect, room, session, socket]);
+  useEffect(() => {
+    if (!session || didReconnect || room) return;
+    setDidReconnect(true);
+    setConnectionState("connecting");
+    socket.emit("reconnect_room", { roomId: session.roomId, sessionToken: session.sessionToken });
+  }, [didReconnect, room, session, socket]);
+
   useEffect(() => {
     if (!session || !room || !pendingCreateConfigRef.current) return;
     const hostPlayer = room.players.find((p) => p.id === session.participantId);

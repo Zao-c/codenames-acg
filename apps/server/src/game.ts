@@ -30,6 +30,7 @@ import {
   type ParticipantType,
   type Player,
   type PlayerRole,
+  type PlayerRoundStats,
   type PublicRoomState,
   type RevealEvent,
   type RevealOutcome,
@@ -41,7 +42,9 @@ import {
   type Spectator,
   type Team,
   type UserProfile,
-  type WordPack
+  type WordPack,
+  type Achievement,
+  type ClueRoundRecord,
 } from "@acg-codenames/shared";
 import type { RoomSession, RoomStore, UserStore } from "./types.js";
 
@@ -352,6 +355,104 @@ function applyScore(room: Room, team: Team, delta: number): { scores: RoomScore 
 
 function isScoringMode(mode: ScoringMode): boolean {
   return mode === "scoring" || mode === "gamble";
+}
+
+function ensurePlayerStats(room: Room, player: Player): PlayerRoundStats {
+  if (!room.playerStats) room.playerStats = {};
+  if (!room.playerStats[player.id]) {
+    room.playerStats[player.id] = {
+      playerId: player.id, nickname: player.nickname,
+      team: player.team, role: player.role,
+      ownHits: 0, opponentHits: 0, neutralHits: 0, assassinHits: 0,
+      guesses: 0, correctGuessStreakMax: 0, extraGuesses: 0,
+      cluesGiven: 0, clueOwnHits: 0, clueWrongHits: 0, preciseClues: 0,
+      chatMessages: 0, reactionsSent: 0, endedTurnEarly: 0
+    };
+  }
+  return room.playerStats[player.id];
+}
+
+function computeAchievements(room: Room): Achievement[] {
+  const results: Achievement[] = [];
+  const stats = Object.values(room.playerStats ?? {});
+  if (stats.length === 0) return results;
+
+  const bestGuesser = stats.reduce((a, b) => b.ownHits > a.ownHits ? b : a, stats[0]);
+  if (bestGuesser.ownHits > 0) {
+    results.push({ id: "top-guesser", title: "词牌王者", playerId: bestGuesser.playerId, nickname: bestGuesser.nickname, description: `猜中 ${bestGuesser.ownHits} 张己方词牌`, tier: "positive" });
+  }
+
+  const spymasters = stats.filter(s => s.role === "spymaster");
+  if (spymasters.length > 0) {
+    let bestSpy = spymasters[0];
+    let bestScore = -Infinity;
+    for (const s of spymasters) {
+      const score = s.clueOwnHits * 10 + s.preciseClues * 8 - s.clueWrongHits * 6 - (s.assassinHits > 0 ? 20 : 0);
+      if (score > bestScore) { bestScore = score; bestSpy = s; }
+    }
+    if (bestSpy.cluesGiven > 0) {
+      results.push({ id: "best-spy", title: "神谕队长", playerId: bestSpy.playerId, nickname: bestSpy.nickname, description: `${bestSpy.cluesGiven} 次密令带出 ${bestSpy.clueOwnHits} 张`, tier: "positive" });
+    }
+  }
+
+  const clueRecords = room.clueRecords ?? [];
+  let bestClue: ClueRoundRecord | null = null;
+  let bestClueHits = 0;
+  for (const cr of clueRecords) {
+    const ownHits = cr.guesses.filter(g => g.isOwnHit).length;
+    if (ownHits > bestClueHits) { bestClueHits = ownHits; bestClue = cr; }
+  }
+  if (bestClue && bestClueHits > 0) {
+    results.push({ id: "god-word", title: "名场面密令", playerId: bestClue.giverPlayerId, nickname: bestClue.giverNickname, description: `「${bestClue.word} ${bestClue.count}」一回合猜中 ${bestClueHits} 张`, tier: "positive" });
+  }
+
+  const operatives = stats.filter(s => s.role === "operative");
+  for (const cr of clueRecords) {
+    for (const g of cr.guesses) {
+      if (!g.isOwnHit) continue;
+      const op = operatives.find(o => o.playerId === g.playerId);
+      if (op && !results.some(r => r.id === "partner-" + op.playerId + "-" + cr.giverPlayerId)) {
+        results.push({ id: "partner-" + op.playerId + "-" + cr.giverPlayerId, title: "羁绊连携", playerId: op.playerId, nickname: `${cr.giverNickname} × ${op.nickname}`, description: `"只要一个密令，我们就懂。"`, tier: "positive" });
+      }
+    }
+  }
+
+  const streakMonster = stats.reduce((a, b) => b.correctGuessStreakMax > a.correctGuessStreakMax ? b : a, stats[0]);
+  if (streakMonster.correctGuessStreakMax >= 3) {
+    results.push({ id: "streak", title: "主角光环持有者", playerId: streakMonster.playerId, nickname: streakMonster.nickname, description: `连续猜中 ${streakMonster.correctGuessStreakMax} 张`, tier: "positive" });
+  }
+
+  const backstabber = stats.reduce((a, b) => b.opponentHits > a.opponentHits ? b : a, stats[0]);
+  if (backstabber.opponentHits > 0) {
+    results.push({ id: "backstab", title: "友军认证失败", playerId: backstabber.playerId, nickname: backstabber.nickname, description: `送给对面 ${backstabber.opponentHits} 张词牌`, tier: "funny" });
+  }
+
+  const assassinCaller = stats.find(s => s.assassinHits > 0);
+  if (assassinCaller) {
+    results.push({ id: "assassin", title: "死亡 Flag 回收者", playerId: assassinCaller.playerId, nickname: assassinCaller.nickname, description: "\"别猜这个？那我偏要猜。\"", tier: "funny" });
+  }
+
+  const reckless = stats.reduce((a, b) => b.extraGuesses > a.extraGuesses ? b : a, stats[0]);
+  if (reckless.extraGuesses > 0) {
+    results.push({ id: "reckless", title: "主角光环持有者", playerId: reckless.playerId, nickname: reckless.nickname, description: `提示之外还多猜了 ${reckless.extraGuesses} 张`, tier: "funny" });
+  }
+
+  const cautious = stats.reduce((a, b) => b.endedTurnEarly > a.endedTurnEarly ? b : a, stats[0]);
+  if (cautious.endedTurnEarly > 0) {
+    results.push({ id: "cautious", title: "保守派军师", playerId: cautious.playerId, nickname: cautious.nickname, description: `见好就收 ${cautious.endedTurnEarly} 次`, tier: "vibe" });
+  }
+
+  const social = stats.reduce((a, b) => (b.chatMessages + b.reactionsSent) > (a.chatMessages + a.reactionsSent) ? b : a, stats[0]);
+  if (social.chatMessages + social.reactionsSent > 0) {
+    results.push({ id: "social", title: "队魂担当", playerId: social.playerId, nickname: social.nickname, description: `聊天/互动最活跃`, tier: "vibe" });
+  }
+
+  return results.slice(0, 7);
+}
+
+function finalizeAchievements(room: Room): Room {
+  if (room.phase !== "finished" || room.achievements) return room;
+  return { ...room, achievements: computeAchievements(room) };
 }
 
 export class GameService {
@@ -887,6 +988,7 @@ export class GameService {
       },
       `${player.nickname} 给出提示：${cleanWord} ${count}`
     );
+    ensurePlayerStats(nextRoom, player).cluesGiven += 1;
     await this.store.setRoom(nextRoom);
     return nextRoom;
     });
@@ -922,6 +1024,10 @@ export class GameService {
     card.revealedBy = actingTeam;
     room.clue.usedGuesses += 1;
 
+    const guesserStats = ensurePlayerStats(room, player);
+    guesserStats.guesses += 1;
+    if (room.clue.usedGuesses > room.clue.count) guesserStats.extraGuesses += 1;
+
     let winner: Team | null = null;
     let currentTeam = actingTeam;
     let clue: Clue | null = room.clue;
@@ -933,10 +1039,12 @@ export class GameService {
       winner = nextTeam(actingTeam);
       clue = null;
       outcome = "assassin-hit";
+      guesserStats.assassinHits += 1;
       event = `${player.nickname} 踩中刺客词……这波寄了 (╥﹏╥)`;
     } else if (card.role === actingTeam) {
       remainingCounts[actingTeam] -= 1;
       outcome = "own-hit";
+      guesserStats.ownHits += 1;
       event = `${player.nickname} 猜中目标词！NICE～`;
       if (remainingCounts[actingTeam] === 0) {
         winner = actingTeam;
@@ -951,6 +1059,11 @@ export class GameService {
       currentTeam = nextTeam(actingTeam);
       clue = null;
       outcome = card.role === "neutral" ? "neutral-hit" : "opponent-hit";
+      if (card.role === "neutral") {
+        guesserStats.neutralHits += 1;
+      } else {
+        guesserStats.opponentHits += 1;
+      }
       if (card.role === "red" || card.role === "blue") {
         remainingCounts[card.role] -= 1;
         if (remainingCounts[card.role] === 0) {
@@ -965,6 +1078,27 @@ export class GameService {
 
     const lastReveal = createRevealEvent(card, player, actingTeam, outcome!, currentTeam, winner);
 
+    if (!room.clueRecords) room.clueRecords = [];
+    const clueRecord = room.clueRecords[room.clueRecords.length - 1];
+    if (clueRecord && clueRecord.giverPlayerId === room.clue?.giverPlayerId && clueRecord.word === room.clue?.word) {
+      clueRecord.guesses.push({ playerId: player.id, nickname: player.nickname, cardRole: card.role, isOwnHit: outcome === "own-hit" });
+    } else {
+      const newRecord: ClueRoundRecord = {
+        clueId: "clue-" + Date.now(),
+        team: actingTeam,
+        giverPlayerId: room.clue?.giverPlayerId ?? "?",
+        giverNickname: room.players.find(p => p.id === room.clue?.giverPlayerId)?.nickname ?? "?",
+        word: room.clue?.word ?? "?",
+        count: room.clue?.count ?? 0,
+        guesses: [{ playerId: player.id, nickname: player.nickname, cardRole: card.role, isOwnHit: outcome === "own-hit" }]
+      };
+      room.clueRecords.push(newRecord);
+    }
+
+    const giverStats = ensurePlayerStats(room, room.players.find(p => p.id === room.clue?.giverPlayerId) ?? player);
+    if (outcome === "own-hit") giverStats.clueOwnHits += 1;
+    else giverStats.clueWrongHits += 1;
+
     const scoringActive = isScoringMode(room.settings.scoringMode);
     let nextScores: RoomScore = room.scores;
     if (scoringActive) {
@@ -978,6 +1112,7 @@ export class GameService {
         prev.ownPoints += 10;
         prev.comboBonus += 2 * combo;
         if (combo > prev.maxCombo) prev.maxCombo = combo;
+        guesserStats.correctGuessStreakMax = Math.max(guesserStats.correctGuessStreakMax, combo);
       } else {
         streaks[actingTeam] = 0;
         if (outcome === "opponent-hit") {
@@ -1041,7 +1176,8 @@ export class GameService {
         winner,
         remainingCounts,
         scores: winner && !scoringActive ? updateScores(room.scores, winner) : nextScores,
-        lastReveal
+        lastReveal,
+        achievements: winner ? computeAchievements(room) : undefined
       },
       event
     );
@@ -1090,6 +1226,10 @@ export class GameService {
       roundHistory = [...roundHistory, prev];
     }
 
+    if (room.clue!.usedGuesses < room.clue!.count) {
+      ensurePlayerStats(room, player).endedTurnEarly += 1;
+    }
+
     const nextRoom = withEvent(
       {
         ...room,
@@ -1103,6 +1243,11 @@ export class GameService {
       },
       `${player.nickname} 结束了回合 (ง •_•)ง`
     );
+    const giverId = room.clue!.giverPlayerId;
+    if (giverId && room.clue!.usedGuesses >= room.clue!.count) {
+      const spy = room.players.find(p => p.id === giverId);
+      if (spy) ensurePlayerStats(nextRoom, spy).preciseClues += 1;
+    }
     await this.store.setRoom(nextRoom);
     return nextRoom;
     });
@@ -1123,6 +1268,9 @@ export class GameService {
       updatedAt: now(),
       messages: trimMessages([...room.messages, message])
     };
+    if (participantType === "player") {
+      ensurePlayerStats(nextRoom, participant as Player).chatMessages += 1;
+    }
     await this.store.setRoom(nextRoom);
     return nextRoom;
     });
@@ -1172,6 +1320,9 @@ export class GameService {
       updatedAt: now(),
       messages: trimMessages([...room.messages, message])
     };
+    if (participantType === "player") {
+      ensurePlayerStats(nextRoom, participant as Player).reactionsSent += 1;
+    }
     await this.store.setRoom(nextRoom);
     return nextRoom;
     });

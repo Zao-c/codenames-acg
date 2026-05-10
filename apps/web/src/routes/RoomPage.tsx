@@ -123,18 +123,42 @@ export function RoomPage() {
           {!isFinished && revealBanner ? <RevealBanner reveal={revealBanner} /> : null}
 
           {isFinished ? (
+            <>
             <section className={`result-banner ${room.winner ? `winner-${room.winner}` : ""}`}>
               <div>
                 <p className="micro-label">Result</p>
-                <h2>{room.winner ? `${TEAM_LABELS[room.winner]}获胜` : "对局结束"}</h2>
+                <h2>{room.winner ? `${TEAM_LABELS[room.winner]}胜利！( •̀ ω •́ )✧` : "对局结束"}</h2>
                 <p className="hint-text">{room.lastEvent}</p>
               </div>
               <div className="result-score">
-                <span className="score-chip red-chip">红队剩余 {room.remainingCounts.red}</span>
-                <span className="score-chip blue-chip">蓝队剩余 {room.remainingCounts.blue}</span>
+                <span className="score-chip red-chip">红队 {room.scores.red}</span>
+                <span className="score-chip blue-chip">蓝队 {room.scores.blue}</span>
                 {viewer?.canRestartGame ? <button className="primary-button" onClick={restartGame}>再来一把</button> : null}
               </div>
             </section>
+            {room.achievements && room.achievements.length > 0 ? (
+              <section className="panel achievements-panel">
+                <div className="panel-heading">
+                  <div>
+                    <p className="micro-label">Titles</p>
+                    <h2>🏆 本局称号</h2>
+                  </div>
+                </div>
+                <div className="achievements-list">
+                  {room.achievements.map((a) => (
+                    <div key={a.id} className={`achievement-card achievement-${a.tier}`}>
+                      <div className="achievement-header">
+                        <span className="achievement-tier">{a.tier === "positive" ? "🏆" : a.tier === "funny" ? "💀" : "🌟"}</span>
+                        <strong>{a.title}</strong>
+                      </div>
+                      <span className="achievement-name">{a.nickname}</span>
+                      <p className="achievement-desc">{a.description}</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+            </>
           ) : null}
 
           <BoardPanel room={room} viewer={viewer} g={g} />

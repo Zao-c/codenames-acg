@@ -207,6 +207,51 @@ export interface RoundScoreDetail {
   totalRound: number;
 }
 
+export interface ClueRoundRecord {
+  clueId: string;
+  team: Team;
+  giverPlayerId: string;
+  giverNickname: string;
+  word: string;
+  count: number;
+  guesses: Array<{
+    playerId: string;
+    nickname: string;
+    cardRole: CardRole;
+    isOwnHit: boolean;
+  }>;
+}
+
+export interface PlayerRoundStats {
+  playerId: string;
+  nickname: string;
+  team: Team | null;
+  role: PlayerRole;
+  ownHits: number;
+  opponentHits: number;
+  neutralHits: number;
+  assassinHits: number;
+  guesses: number;
+  correctGuessStreakMax: number;
+  extraGuesses: number;
+  cluesGiven: number;
+  clueOwnHits: number;
+  clueWrongHits: number;
+  preciseClues: number;
+  chatMessages: number;
+  reactionsSent: number;
+  endedTurnEarly: number;
+}
+
+export interface Achievement {
+  id: string;
+  title: string;
+  playerId: string;
+  nickname: string;
+  description: string;
+  tier: "positive" | "funny" | "vibe";
+}
+
 export interface RevealEvent {
   id: string;
   cardId: string;
@@ -246,6 +291,9 @@ export interface Room {
   comboStreaks?: Record<string, number>;
   roundScoreHistory?: RoundScoreDetail[];
   currentRoundScore?: RoundScoreDetail;
+  playerStats?: Record<string, PlayerRoundStats>;
+  clueRecords?: ClueRoundRecord[];
+  achievements?: Achievement[];
 }
 
 export interface ViewerIdentity {
