@@ -1,7 +1,7 @@
 import { useCallback, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
-  TEAM_LABELS, PLAYER_ROLE_LABELS, BOARD_MODE_CONFIG,
+  TEAM_LABELS, PLAYER_ROLE_LABELS,
   wordPackSummaries, type ChatReaction, type ParticipantType,
   type PublicPlayer, type PublicSpectator, type ChatMessage,
   type RevealOutcome, type PublicCard, type Team, type BoardMode
@@ -16,7 +16,7 @@ export function RoomPage() {
   const navigate = useNavigate();
 
   const {
-    socket, room, session, identity, effectiveIdentity,
+    room, session,
     connectionState, error, focusMode, setFocusMode,
     clueWord, setClueWord, clueCount, setClueCount,
     chatText, setChatText, copied, sideTab, setSideTab,
@@ -27,7 +27,7 @@ export function RoomPage() {
     canSeeHiddenRoles, showSpymasterHints, isDebugController,
     viewer, self, boardColumns, isLobby, isFinished,
     inviteLink, renderHint,
-    chooseTeam, chooseRole, updateBoardMode, updateBuiltinPack,
+    chooseTeam, chooseRole, updateBoardMode, updateBuiltinPack, updateScoringMode,
     uploadRoomPack, useAccountPackForRoom, usePublicPackForRoom,
     startGame, restartGame, returnToLobby, transferHost, disbandRoom,
     queueForNextRound, cancelQueueJoin, debugFillRoom,
@@ -48,10 +48,7 @@ export function RoomPage() {
     return (
       <section className="panel">
         <div className="panel-heading">
-          <div>
-            <p className="micro-label">Room</p>
-            <h2>{connectionState === "connecting" ? "正在连接房间..." : "等待进入房间"}</h2>
-          </div>
+          <h2>{connectionState === "connecting" ? "正在连接房间..." : "等待进入房间"}</h2>
         </div>
         {error ? <p className="error-text">{error}</p> : null}
         <button className="primary-button" onClick={navigateHome}>返回首页</button>
@@ -59,90 +56,99 @@ export function RoomPage() {
     );
   }
 
+  const phaseClass =
+    focusMode ? "room-page-focus"
+    : isLobby ? "room-page-lobby"
+    : isFinished ? "room-page-finished"
+    : "room-page-playing";
+
   return (
-    <section className={`room-grid ${focusMode ? "room-grid-focus" : ""}`}>
+    <section className={`room-page ${phaseClass}`}>
       <SakuraParticles active={showSakura} />
       <ReactionOverlay reaction={globalReaction} />
 
-      <header className="room-bar room-bar-clean">
-        <div className="room-bar-main room-bar-stack">
-          <div className="room-title-stack">
-            <button className="logo-button" onClick={() => { if (window.confirm("确定要离开房间回到首页吗？")) { leaveRoom(); navigateHome(); } }} title="回到首页">🃏 词牌结社</button>
-            <strong className="room-code">{room.id}</strong>
-            <p className="room-subtitle">{room.wordPackSummary.name}</p>
-          </div>
-          <div className="status-strip wrap">
-            <span className="status-pill emphasis">{getRoomStageLabel(room, connectionState)}</span>
-            <span className="status-pill">{room.settings.boardMode}</span>
-            <span className="status-pill">第 {room.roundNumber} 局</span>
-            {isDebugController ? <span className="status-pill debug">本地调试</span> : null}
-          </div>
-        </div>
-        <div className="bar-actions">
-          <button onClick={() => { setFocusMode(!focusMode); requestAnimationFrame(() => { document.querySelector('.board-panel')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }); }}>{focusMode ? "退出专注模式" : "专注模式"}</button>
-          <button onClick={() => { void copyLink(); }}>{copied ? "已复制" : "复制链接"}</button>
-        </div>
-      </header>
-
-      {viewer?.canDisbandRoom ? (
-        <section className="panel host-control-panel">
-          <div className="panel-heading">
-            <div>
-              <p className="micro-label">Host controls</p>
-              <h2>社长控制台</h2>
+      {focusMode ? (
+        <FocusBar room={room} viewer={viewer} onExitFocus={() => setFocusMode(false)} />
+      ) : (
+        <header className="room-bar room-bar-clean">
+          <div className="room-bar-main room-bar-stack">
+            <div className="room-title-stack">
+              <button className="logo-button" onClick={() => { if (window.confirm("确定要离开房间回到首页吗？")) { leaveRoom(); navigateHome(); } }} title="回到首页">词牌结社</button>
+              <strong className="room-code">{room.id}</strong>
+              <p className="room-subtitle">{room.wordPackSummary.name}</p>
             </div>
-            <span className="soft-chip">{room.phase === "lobby" ? "准备阶段" : "对局管理"}</span>
-          </div>
-          <div className="host-control-grid">
-            <button onClick={returnToLobby} disabled={!viewer.canReturnToLobby}>回到大厅</button>
-            <div className="host-transfer-row">
-              <select value={transferHostTargetId} onChange={(e) => setTransferHostTargetId(e.target.value)} disabled={!viewer.canTransferHost}>
-                {hostTransferCandidates.length === 0 ? <option value="">暂无可转让玩家</option> : null}
-                {hostTransferCandidates.map((player) => (
-                  <option key={player.id} value={player.id}>{player.nickname}</option>
-                ))}
-              </select>
-              <button onClick={transferHost} disabled={!viewer.canTransferHost || !transferHostTargetId}>转让社长</button>
+            <div className="status-strip">
+              <span className="status-pill emphasis">{getRoomStageLabel(room, connectionState)}</span>
+              <span className="status-pill">{room.settings.boardMode}</span>
+              <span className="status-pill">第 {room.roundNumber} 局</span>
+              {isDebugController ? <span className="status-pill">调试</span> : null}
             </div>
-            <button className="danger-button" onClick={disbandRoom}>解散房间</button>
           </div>
-        </section>
-      ) : null}
+          <div className="bar-actions">
+            {room.phase === "playing" ? (
+              <button onClick={() => setFocusMode(true)}>专注模式</button>
+            ) : null}
+            <button onClick={() => { void copyLink(); }}>{copied ? "已复制" : "复制链接"}</button>
+          </div>
+        </header>
+      )}
 
-      <div className={`room-layout ${room.phase === "playing" ? "room-layout-playing" : ""}`}>
-        <aside className="left-column">
+      {isLobby && !focusMode ? (
+        <>
           <SeatPanel self={self} room={room} viewer={viewer} g={g} reactionEffects={reactionEffects} />
           <MembersPanel room={room} selfId={session?.participantId} collapsedSections={collapsedSections} toggleSection={toggleSection} reactionEffects={reactionEffects} sendReaction={sendReaction} />
-        </aside>
 
-        <section className="center-column">
-          {isLobby && viewer?.participantType === "player" ? (
+          {viewer?.participantType === "player" ? (
             <LobbySettings room={room} viewer={viewer} self={self} g={g} accountPacks={accountPacks} publicPacks={publicPacks} makePublicPackKey={makePublicPackKey} />
           ) : null}
 
-          {!isFinished && revealBanner ? <RevealBanner reveal={revealBanner} /> : null}
+          {viewer?.canDisbandRoom ? (
+            <HostControls viewer={viewer} returnToLobby={returnToLobby} transferHost={transferHost} disbandRoom={disbandRoom} hostTransferCandidates={hostTransferCandidates} transferHostTargetId={transferHostTargetId} setTransferHostTargetId={setTransferHostTargetId} />
+          ) : null}
 
-          {isFinished ? (
-            <>
-            <section className={`result-banner ${room.winner ? `winner-${room.winner}` : ""}`}>
-              <div>
-                <p className="micro-label">Result</p>
+          <SideTabPanel g={g} room={room} session={session} />
+        </>
+      ) : null}
+
+      {!isLobby && !focusMode ? (
+        <div className={`${isFinished ? "" : "room-page-playing"}`}>
+          {isFinished ? null : (
+            <aside>
+              <SeatPanel self={self} room={room} viewer={viewer} g={g} reactionEffects={reactionEffects} />
+              <MembersPanel room={room} selfId={session?.participantId} collapsedSections={collapsedSections} toggleSection={toggleSection} reactionEffects={reactionEffects} sendReaction={sendReaction} />
+              {viewer?.canDisbandRoom ? (
+                <div className="panel" style={{ marginTop: 12, padding: 16 }}>
+                  <button className="danger-button" onClick={disbandRoom} style={{ width: "100%" }}>解散房间</button>
+                </div>
+              ) : null}
+            </aside>
+          )}
+
+          <div>
+            {!isFinished && revealBanner ? <RevealBanner reveal={revealBanner} /> : null}
+
+            {isFinished ? (
+              <section className={`result-banner ${room.winner ? `winner-${room.winner}` : ""}`}>
                 <h2>{room.winner ? `${TEAM_LABELS[room.winner]}胜利！( •̀ ω •́ )✧` : "对局结束"}</h2>
                 <p className="hint-text">{room.lastEvent}</p>
-              </div>
-              <div className="result-score">
-                <span className="score-chip red-chip">红队 {room.scores.red}</span>
-                <span className="score-chip blue-chip">蓝队 {room.scores.blue}</span>
-                {viewer?.canRestartGame ? <button className="primary-button" onClick={restartGame}>再来一把</button> : null}
-              </div>
-            </section>
-            {room.achievements && room.achievements.length > 0 ? (
-              <section className="panel achievements-panel">
+                <div className="result-score" style={{ marginTop: 12 }}>
+                  <span className="score-chip red-chip">红队 {room.scores.red}</span>
+                  <span className="score-chip blue-chip">蓝队 {room.scores.blue}</span>
+                  {viewer?.canRestartGame ? <button className="primary-button" onClick={restartGame}>再来一把</button> : null}
+                </div>
+              </section>
+            ) : null}
+
+            <BoardPanel room={room} viewer={viewer} g={g} />
+
+            {viewer?.participantType === "player" ? (
+              <ActionPanel viewer={viewer} g={g} />
+            ) : null}
+
+            {isFinished && room.achievements && room.achievements.length > 0 ? (
+              <section className="panel achievements-panel" style={{ marginTop: 16 }}>
                 <div className="panel-heading">
-                  <div>
-                    <p className="micro-label">Titles</p>
-                    <h2>🏆 本局称号</h2>
-                  </div>
+                  <h2>本局称号</h2>
                 </div>
                 <div className="achievements-list">
                   {room.achievements.map((a) => (
@@ -158,20 +164,22 @@ export function RoomPage() {
                 </div>
               </section>
             ) : null}
-            </>
-          ) : null}
+          </div>
 
+          {isFinished ? null : (
+            <SideTabPanel g={g} room={room} session={session} />
+          )}
+        </div>
+      ) : null}
+
+      {focusMode ? (
+        <>
           <BoardPanel room={room} viewer={viewer} g={g} />
-
           {viewer?.participantType === "player" ? (
             <ActionPanel viewer={viewer} g={g} />
           ) : null}
-        </section>
-
-        <aside className="right-column">
-          <SideTabPanel g={g} room={room} session={session} />
-        </aside>
-      </div>
+        </>
+      ) : null}
 
       {error ? <p className="error-text">{error}</p> : null}
     </section>
@@ -180,27 +188,56 @@ export function RoomPage() {
 
 // ─── sub-components ──────────────────────────────────
 
-function SeatPanel({ self, room, viewer, g, reactionEffects }: { self: ReturnType<typeof useGame>["self"]; room: ReturnType<typeof useGame>["room"]; viewer: ReturnType<typeof useGame>["viewer"]; g: ReturnType<typeof useGame>; reactionEffects: Record<string, ChatReaction> }) {
+function FocusBar({ room, viewer, onExitFocus }: { room: NonNullable<ReturnType<typeof useGame>["room"]>; viewer: ReturnType<typeof useGame>["viewer"]; onExitFocus: () => void }) {
+  return (
+    <div className="focus-bar">
+      <strong className="room-code">{room.id}</strong>
+      <span className="status-pill">{viewer?.targetTeam ? getActionTeamText(viewer.targetTeam) : "等待中"}</span>
+      <span className="status-pill" style={{ border: "1px solid rgba(107,182,255,0.3)" }}>{getCurrentClueText(room)}</span>
+      <span className="flex-spacer" />
+      <button onClick={onExitFocus}>退出专注</button>
+    </div>
+  );
+}
+
+function HostControls({ viewer, returnToLobby, transferHost, disbandRoom, hostTransferCandidates, transferHostTargetId, setTransferHostTargetId }: {
+  viewer: NonNullable<ReturnType<typeof useGame>["viewer"]>;
+  returnToLobby: () => void; transferHost: () => void; disbandRoom: () => void;
+  hostTransferCandidates: ReturnType<typeof useGame>["hostTransferCandidates"];
+  transferHostTargetId: string; setTransferHostTargetId: (v: string) => void;
+}) {
+  return (
+    <div className="panel" style={{ padding: 16, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+      <button onClick={returnToLobby} disabled={!viewer.canReturnToLobby}>回到大厅</button>
+      <select value={transferHostTargetId} onChange={(e) => setTransferHostTargetId(e.target.value)} disabled={!viewer.canTransferHost}>
+        {hostTransferCandidates.length === 0 ? <option value="">暂无可转让玩家</option> : null}
+        {hostTransferCandidates.map((p) => (<option key={p.id} value={p.id}>{p.nickname}</option>))}
+      </select>
+      <button onClick={transferHost} disabled={!viewer.canTransferHost || !transferHostTargetId}>转让社长</button>
+      <button className="danger-button" onClick={disbandRoom}>解散房间</button>
+    </div>
+  );
+}
+
+function SeatPanel({ self, room, viewer, g, reactionEffects }: {
+  self: ReturnType<typeof useGame>["self"]; room: ReturnType<typeof useGame>["room"];
+  viewer: ReturnType<typeof useGame>["viewer"]; g: ReturnType<typeof useGame>;
+  reactionEffects: Record<string, ChatReaction>;
+}) {
   const { isLobby, renderHint, chooseTeam, chooseRole, queueForNextRound, cancelQueueJoin } = g;
   const isSelfPlayer = self && isPlayer(self);
   return (
-    <section className={`panel seat-panel ${isSelfPlayer && self.team ? `seat-${self.team}` : viewer?.participantType === "spectator" ? "seat-spectator" : ""}`}>
+    <section className="panel" style={{ marginBottom: 12 }}>
       <div className="panel-heading">
-        <div>
-          <p className="micro-label">Identity</p>
-          <h2>我的位置</h2>
-        </div>
+        <h2>我的位置</h2>
         <span className="soft-chip">{room ? getSelfSummary(self, room) : ""}</span>
       </div>
-      <div className="seat-summary">
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
         <AvatarBadge avatarUrl={self?.profile.avatarUrl ?? null} fallback={self?.nickname ?? "?"} size="large" effect={self ? reactionEffects[self.id] : undefined} />
         <div>
           <strong>{self?.nickname ?? "未加入"}</strong>
           <p className="panel-subtle">{renderHint()}</p>
         </div>
-      </div>
-      <div className="identity-target">
-        <span className={`team-mark ${viewer?.targetTeam ?? "neutral"}`}>{viewer?.targetTeam ? getActionTeamText(viewer.targetTeam) : "等待下一步"}</span>
       </div>
       {viewer?.participantType === "player" && isSelfPlayer ? (
         <div className="selection-grid">
@@ -211,7 +248,7 @@ function SeatPanel({ self, room, viewer, g, reactionEffects }: { self: ReturnTyp
           <button className={self.role === "operative" ? "selected" : ""} disabled={!isLobby || !self.team} onClick={() => chooseRole("operative")}>队员</button>
         </div>
       ) : (
-        <div className="spectator-tools">
+        <div className="toolbar-inline" style={{ gap: 8 }}>
           <button className="primary-button" onClick={queueForNextRound} disabled={!viewer?.canQueueForNextRound || viewer.isQueuedForNextRound}>排队加入下一局</button>
           <button onClick={cancelQueueJoin} disabled={!viewer?.canCancelQueue}>取消排队</button>
         </div>
@@ -221,20 +258,15 @@ function SeatPanel({ self, room, viewer, g, reactionEffects }: { self: ReturnTyp
 }
 
 function MembersPanel({ room, selfId, collapsedSections, toggleSection, reactionEffects, sendReaction }: {
-  room: NonNullable<ReturnType<typeof useGame>["room"]>;
-  selfId?: string;
-  collapsedSections: Set<string>;
-  toggleSection: (t: string) => void;
+  room: NonNullable<ReturnType<typeof useGame>["room"]>; selfId?: string;
+  collapsedSections: Set<string>; toggleSection: (t: string) => void;
   reactionEffects: Record<string, ChatReaction>;
   sendReaction: (r: ChatReaction, id: string, t: ParticipantType) => void;
 }) {
   return (
-    <section className="panel">
+    <section className="panel" style={{ marginBottom: 12 }}>
       <div className="panel-heading">
-        <div>
-          <p className="micro-label">Players</p>
-          <h2>对局成员</h2>
-        </div>
+        <h2>对局成员</h2>
         <span className="soft-chip">{room.players.length} 人</span>
       </div>
       <PlayerSection title="红队" players={room.players.filter((p) => p.team === "red")} selfId={selfId} reactionEffects={reactionEffects} onReact={sendReaction} collapsed={collapsedSections.has("红队")} onToggleCollapse={() => toggleSection("红队")} />
@@ -254,16 +286,16 @@ function PlayerSection({ title, players, selfId, reactionEffects, onReact, colla
 }) {
   const visiblePlayers = collapsed ? players.slice(0, 2) : players;
   return (
-    <div className="team-section">
-      <button className="team-section-toggle" onClick={onToggleCollapse}>
-        <h3>{title} <span className="soft-chip">{players.length}</span></h3>
-        <span className={`toggle-arrow ${collapsed ? "" : "toggle-expanded"}`}>{collapsed ? "▸" : "▾"}</span>
+    <div style={{ marginBottom: 8 }}>
+      <button className="chip-button" onClick={onToggleCollapse} style={{ marginBottom: 4 }}>
+        {title} <span className="soft-chip" style={{ marginLeft: 4 }}>{players.length}</span>
+        <span style={{ marginLeft: 4 }}>{collapsed ? "▸" : "▾"}</span>
       </button>
       {players.length === 0 ? <p className="empty-text">暂无成员</p> : null}
       {visiblePlayers.map((player) => (
         <ParticipantRow key={player.id} participant={player} label={`${player.team ? TEAM_LABELS[player.team] : "未分队"} / ${PLAYER_ROLE_LABELS[player.role]}`} isSelf={player.id === selfId} effect={reactionEffects[player.id]} onReact={onReact} />
       ))}
-      {collapsed && players.length > 2 ? <button className="chip-button expand-hint" onClick={onToggleCollapse}>显示全部 {players.length} 人</button> : null}
+      {collapsed && players.length > 2 ? <button className="chip-button" onClick={onToggleCollapse}>显示全部 {players.length} 人</button> : null}
     </div>
   );
 }
@@ -289,8 +321,8 @@ function ParticipantRow({ participant, label, isSelf, effect, onReact }: {
         {"isBot" in participant && participant.isBot ? <span className="soft-chip">测试位</span> : null}
         {!isSelf ? (
           <>
-            <button className="icon-button" onClick={() => onReact("flower", participant.id, type)} title="送花">💐 花</button>
-            <button className="icon-button" onClick={() => onReact("egg", participant.id, type)} title="丢蛋">🥚 蛋</button>
+            <button onClick={() => onReact("flower", participant.id, type)} title="送花">💐</button>
+            <button onClick={() => onReact("egg", participant.id, type)} title="丢蛋">🥚</button>
           </>
         ) : null}
       </div>
@@ -309,12 +341,9 @@ function LobbySettings({ room, viewer, self, g, accountPacks, publicPacks, makeP
 }) {
   const boardModes: BoardMode[] = ["5x5", "7x7", "9x9"];
   return (
-    <section className="panel compact-panel">
+    <section className="panel" style={{ marginBottom: 12 }}>
       <div className="panel-heading">
-        <div>
-          <p className="micro-label">Room settings</p>
-          <h2>房间设置</h2>
-        </div>
+        <h2>房间设置</h2>
         <span className="soft-chip">{viewer.canEditRoom ? "社长可编辑" : "等待社长调整"}</span>
       </div>
       <div className="settings-row">
@@ -339,7 +368,7 @@ function LobbySettings({ room, viewer, self, g, accountPacks, publicPacks, makeP
       </div>
       <div className="settings-row">
         <div className="settings-block">
-          <strong>房间词牌</strong>
+          <strong>房间题库</strong>
           <div className="toolbar-inline compact-stack">
             <select value={room.wordPackSummary.isBuiltin ? room.wordPackSummary.id : wordPackSummaries[0]?.id ?? ""} disabled={!viewer.canEditRoom} onChange={(e) => g.updateBuiltinPack(e.target.value)}>
               {wordPackSummaries.map((pack) => (<option key={pack.id} value={pack.id}>{pack.name} ({pack.entryCount})</option>))}
@@ -353,48 +382,47 @@ function LobbySettings({ room, viewer, self, g, accountPacks, publicPacks, makeP
               ))}
             </div>
           ) : null}
-          {publicPacks.length > 0 ? (
-            <div className="chip-wrap">
-              {publicPacks.slice(0, 8).map((pack) => (
-                <button key={makePublicPackKey(pack)} className="chip-button" disabled={!viewer.canEditRoom} onClick={() => g.usePublicPackForRoom(pack)}>公共 {pack.name}</button>
-              ))}
-            </div>
-          ) : null}
         </div>
       </div>
       {self && isPlayer(self) && self.isHost ? (
-        <div className="host-actions host-actions-inline">
+        <div className="toolbar-inline" style={{ marginTop: 8, gap: 8 }}>
           <button className="primary-button" onClick={g.startGame} disabled={!viewer.canStartGame}>开始游戏</button>
-          {viewer.canUseDebugFill ? <button onClick={g.debugFillRoom}>一键补 3 个测试位</button> : null}
+          {viewer.canUseDebugFill ? <button onClick={g.debugFillRoom}>补 3 个测试位</button> : null}
         </div>
       ) : null}
     </section>
   );
 }
 
-function BoardPanel({ room, viewer, g }: { room: NonNullable<ReturnType<typeof useGame>["room"]>; viewer: NonNullable<ReturnType<typeof useGame>["viewer"]> | null; g: ReturnType<typeof useGame> }) {
-  const { boardColumns, canSeeHiddenRoles, showSpymasterHints, maskSpymasterHints, setMaskSpymasterHints, revealBanner, revealingCardIds, pendingGuess, guessCard: doGuess, renderHint } = g;
+function BoardPanel({ room, viewer, g }: {
+  room: NonNullable<ReturnType<typeof useGame>["room"]>;
+  viewer: NonNullable<ReturnType<typeof useGame>["viewer"]> | null;
+  g: ReturnType<typeof useGame>;
+}) {
+  const { boardColumns, canSeeHiddenRoles, showSpymasterHints, maskSpymasterHints, setMaskSpymasterHints, revealingCardIds, pendingGuess, guessCard: doGuess, renderHint } = g;
   return (
-    <section className="panel board-panel">
-      <div className={`board-header board-header-tight ${room.phase === "playing" ? "board-header-compact" : ""}`}>
-        <div className="board-status">
-          <div className="status-chip clue-chip">
-            <p className="status-key">当前提示</p>
-            <strong>{getCurrentClueText(room)}</strong>
+    <section className="panel board-panel" style={{ marginBottom: 12 }}>
+      {room.phase === "playing" ? (
+        <div className="board-header">
+          <div className="board-status">
+            <div className="status-chip clue-chip">
+              <p className="status-key">当前提示</p>
+              <strong>{getCurrentClueText(room)}</strong>
+            </div>
+            <div className="status-chip">
+              <p className="status-key">行动队伍</p>
+              <strong>{viewer?.targetTeam ? getActionTeamText(viewer.targetTeam) : "等待中"}</strong>
+            </div>
           </div>
-          <div className="status-chip">
-            <p className="status-key">行动队伍</p>
-            <strong>{viewer?.targetTeam ? getActionTeamText(viewer.targetTeam) : "等待中"}</strong>
-          </div>
+          <p className="board-hint">{renderHint()}</p>
+          {canSeeHiddenRoles ? (
+            <div className="spymaster-warning">
+              <span>队长模式：你可以看到未翻牌的真实身份，注意屏幕隐私。</span>
+              <button className="chip-button" onClick={() => setMaskSpymasterHints(!maskSpymasterHints)}>{maskSpymasterHints ? "显示提示" : "隐藏提示"}</button>
+            </div>
+          ) : null}
         </div>
-        <p className="board-hint">{renderHint()}</p>
-        {canSeeHiddenRoles ? (
-          <div className="spymaster-warning">
-            <span>队长模式：你可以看到未翻牌的真实身份，注意屏幕隐私。</span>
-            <button type="button" className="chip-button" onClick={() => setMaskSpymasterHints(!maskSpymasterHints)}>{maskSpymasterHints ? "显示提示" : "隐藏提示"}</button>
-          </div>
-        ) : null}
-      </div>
+      ) : null}
       <div className={`board-grid board-${boardColumns}`} style={{ gridTemplateColumns: `repeat(${boardColumns}, minmax(0, 1fr))` }}>
         {room.board.map((card) => (
           <CardButton
@@ -417,77 +445,69 @@ function BoardPanel({ room, viewer, g }: { room: NonNullable<ReturnType<typeof u
 function ActionPanel({ viewer, g }: { viewer: NonNullable<ReturnType<typeof useGame>["viewer"]>; g: ReturnType<typeof useGame> }) {
   const { clueWord, setClueWord, clueCount, setClueCount, submitClue, renderHint, endTurn } = g;
   return (
-    <section className={`panel action-panel dock-panel ${viewer.canGuess || viewer.canSubmitClue ? "dock-active" : "dock-dimmed"}`}>
-      <div className="action-main">
-        {viewer.canSubmitClue ? (
-          <div className="clue-form">
-            <label className="field">
-              <span>提示词</span>
-              <input value={clueWord} onChange={(e) => setClueWord(e.target.value)} maxLength={12} placeholder="例如：机甲 / 学园 / 主角团" />
-            </label>
-            <label className="field count-field">
-              <span>数字</span>
-              <input type="number" min={1} max={9} value={clueCount} onChange={(e) => setClueCount(Math.max(1, Math.min(9, Number(e.target.value) || 1)))} />
-            </label>
-            <button className="primary-button" onClick={submitClue} disabled={!clueWord.trim()}>提交提示</button>
-          </div>
-        ) : (
-          <div className="action-copy">
-            <p className="micro-label">操作提示</p>
-            <p className="hint-text">{renderHint()}</p>
-          </div>
-        )}
-      </div>
-      <div className="action-side">
+    <section className="panel" style={{ marginBottom: 12 }}>
+      {viewer.canSubmitClue ? (
+        <div className="clue-form">
+          <label className="field">
+            <span>提示词</span>
+            <input value={clueWord} onChange={(e) => setClueWord(e.target.value)} maxLength={12} placeholder="例如：机甲 / 学园 / 主角团" />
+          </label>
+          <label className="field count-field">
+            <span>数字</span>
+            <input type="number" min={1} max={9} value={clueCount} onChange={(e) => setClueCount(Math.max(1, Math.min(9, Number(e.target.value) || 1)))} />
+          </label>
+          <button className="primary-button" onClick={submitClue} disabled={!clueWord.trim()}>提交提示</button>
+        </div>
+      ) : (
+        <p className="hint-text">{renderHint()}</p>
+      )}
+      <div style={{ marginTop: viewer.canSubmitClue ? 8 : 0 }}>
         <button onClick={endTurn} disabled={!viewer.canEndTurn}>结束回合</button>
       </div>
     </section>
   );
 }
 
-function SideTabPanel({ g, room, session }: { g: ReturnType<typeof useGame>; room: NonNullable<ReturnType<typeof useGame>["room"]>; session: ReturnType<typeof useGame>["session"] }) {
+function SideTabPanel({ g, room, session }: {
+  g: ReturnType<typeof useGame>; room: NonNullable<ReturnType<typeof useGame>["room"]>;
+  session: ReturnType<typeof useGame>["session"];
+}) {
   const { sideTab, setSideTab, chatText, setChatText, chatListRef, handleChatScroll, jumpToLatest, scrollChatToBottom, sendChatMessage, sendQuickPhrase } = g;
   return (
-    <div className="panel tab-panel">
-      <div className="panel-heading">
-        <div>
-          <p className="micro-label">💬 Room sidecar</p>
-          <h2>📌 面板</h2>
-        </div>
-        <div className="tab-strip">
-          <button className={sideTab === "chat" ? "selected" : ""} onClick={() => setSideTab("chat")}>💬 聊天</button>
-          <button className={sideTab === "spectators" ? "selected" : ""} onClick={() => setSideTab("spectators")}>👁️ 旁观</button>
-          <button className={sideTab === "score" ? "selected" : ""} onClick={() => setSideTab("score")}>📊 积分</button>
-        </div>
+    <div className="panel">
+      <div className="selection-grid" style={{ marginBottom: 12 }}>
+        <button className={sideTab === "chat" ? "selected" : ""} onClick={() => setSideTab("chat")}>聊天</button>
+        <button className={sideTab === "spectators" ? "selected" : ""} onClick={() => setSideTab("spectators")}>旁观</button>
+        <button className={sideTab === "score" ? "selected" : ""} onClick={() => setSideTab("score")}>积分</button>
       </div>
+
       {sideTab === "chat" ? (
-        <section className="chat-panel-inner">
-          <div className="chat-list" ref={chatListRef} onScroll={handleChatScroll}>
+        <>
+          <div className="chat-list" ref={chatListRef} onScroll={handleChatScroll} style={{ maxHeight: 280 }}>
             {room.messages.length === 0 ? <p className="empty-text">还没有消息。</p> : null}
             {room.messages.map((message) => (
               <MessageRow key={message.id} message={message} selfId={session?.participantId} />
             ))}
           </div>
-          {jumpToLatest ? <button className="jump-latest" onClick={scrollChatToBottom}>跳到最新消息</button> : null}
-          <div className="chat-compose">
-            <input value={chatText} onChange={(e) => setChatText(e.target.value)} maxLength={120} placeholder="发一句话..." />
+          {jumpToLatest ? <button className="chip-button" onClick={scrollChatToBottom} style={{ margin: "4px 0" }}>跳到最新</button> : null}
+          <div className="chat-bar" style={{ marginTop: 8 }}>
+            <input value={chatText} onChange={(e) => setChatText(e.target.value)} maxLength={120} placeholder="发一句话..." style={{ flex: 1 }} />
             <button onClick={sendChatMessage} disabled={!chatText.trim()}>发送</button>
           </div>
-          <div className="quick-phrases">
+          <div className="chip-wrap" style={{ marginTop: 6 }}>
             <button className="chip-button" onClick={() => sendQuickPhrase("GG")}>GG</button>
             <button className="chip-button" onClick={() => sendQuickPhrase("大佬带带我")}>大佬带带我</button>
             <button className="chip-button" onClick={() => sendQuickPhrase("好猜！")}>好猜！</button>
             <button className="chip-button" onClick={() => sendQuickPhrase("这个太难了")}>这个太难了</button>
             <button className="chip-button" onClick={() => sendQuickPhrase("666")}>666</button>
           </div>
-        </section>
+        </>
       ) : null}
+
       {sideTab === "spectators" ? (
-        <section className="spectators-block">
-          <div className="soft-summary">
-            <span>旁观 {room.spectators.length}</span>
-            <span>排队 {room.joinQueue.length}</span>
-          </div>
+        <>
+          <span className="soft-chip">旁观 {room.spectators.length}</span>
+          <span className="soft-chip" style={{ marginLeft: 6 }}>排队 {room.joinQueue.length}</span>
           {room.spectators.length === 0 ? <p className="empty-text">当前没有旁观者。</p> : null}
           {room.spectators.map((spectator) => (
             <ParticipantRow
@@ -499,10 +519,11 @@ function SideTabPanel({ g, room, session }: { g: ReturnType<typeof useGame>; roo
               onReact={g.sendReaction}
             />
           ))}
-        </section>
+        </>
       ) : null}
+
       {sideTab === "score" ? (
-        <section className="score-column">
+        <div className="score-column">
           <div className="score-board">
             <div className="score-box score-red"><span>红队</span><strong>{room.scores.red}</strong></div>
             <div className="score-box score-blue"><span>蓝队</span><strong>{room.scores.blue}</strong></div>
@@ -514,9 +535,9 @@ function SideTabPanel({ g, room, session }: { g: ReturnType<typeof useGame>; roo
           {room.currentRoundScore ? (
             <div className="info-card">
               <strong>本回合 {TEAM_LABELS[room.currentRoundScore.team]} 得分</strong>
-              <div className="score-detail-row">
-                <span>己方词 ×{room.currentRoundScore.ownHits}</span><span>+{room.currentRoundScore.ownPoints}</span>
-              </div>
+              {room.currentRoundScore.ownHits > 0 ? (
+                <div className="score-detail-row"><span>己方词 ×{room.currentRoundScore.ownHits}</span><span>+{room.currentRoundScore.ownPoints}</span></div>
+              ) : null}
               {room.currentRoundScore.comboBonus > 0 ? (
                 <div className="score-detail-row"><span>连击加成</span><span>+{room.currentRoundScore.comboBonus}</span></div>
               ) : null}
@@ -532,31 +553,13 @@ function SideTabPanel({ g, room, session }: { g: ReturnType<typeof useGame>; roo
               {room.currentRoundScore.maxCombo > 1 ? (
                 <div className="score-detail-row"><span>最高连击</span><span>×{room.currentRoundScore.maxCombo}</span></div>
               ) : null}
-              {room.clue && !room.currentRoundScore.assassinHit && room.currentRoundScore.neutralHits === 0 && room.currentRoundScore.opponentHits === 0 ? (
-                <p className="panel-subtle">精准奖励待定：猜中 {room.currentRoundScore.ownHits}/{room.clue.count}</p>
-              ) : null}
-            </div>
-          ) : null}
-          {room.roundScoreHistory && room.roundScoreHistory.length > 0 ? (
-            <div className="info-card">
-              <strong>历史回合</strong>
-              {room.roundScoreHistory.map((r, i) => (
-                <div key={i} className="score-detail-row">
-                  <span>第{i+1}局 {TEAM_LABELS[r.team]}</span>
-                  <span>{r.totalRound > 0 ? "+" : ""}{r.totalRound}</span>
-                </div>
-              ))}
             </div>
           ) : null}
           <div className="info-card">
-            <strong>当前词牌</strong>
+            <strong>词牌</strong>
             <p className="panel-subtle">{room.wordPackSummary.name}</p>
           </div>
-          <div className="info-card">
-            <strong>得分模式</strong>
-            <p className="panel-subtle">{room.settings.scoringMode === "scoring" ? "积分模式" : room.settings.scoringMode === "gamble" ? "豪赌模式" : "经典模式"}</p>
-          </div>
-        </section>
+        </div>
       ) : null}
     </div>
   );
@@ -570,12 +573,9 @@ function RevealBanner({ reveal }: { reveal: NonNullable<ReturnType<typeof useGam
     : reveal.outcome === "neutral-hit" ? `${teamLabel} 猜到中立词`
     : `${teamLabel} 踩中刺客`;
   return (
-    <section className={`reveal-banner reveal-${reveal.outcome}`}>
-      <div>
-        <p className="micro-label">Reveal</p>
-        <h2>{title}</h2>
-      </div>
-      <div className="reveal-meta">
+    <section className={`reveal-banner reveal-${reveal.outcome}`} style={{ marginBottom: 12, padding: 16, borderRadius: 14, background: "var(--surface-soft)" }}>
+      <h2 style={{ margin: 0, fontSize: 18 }}>{title}</h2>
+      <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
         <span className="score-chip">{reveal.word}</span>
         <span className="score-chip">{roleLabelShort(reveal.role)}</span>
       </div>

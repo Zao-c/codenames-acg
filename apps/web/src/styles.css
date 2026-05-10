@@ -216,12 +216,38 @@ a { color: var(--accent-2); }
 .pack-modal-actions { display: flex; gap: 10px; margin-top: 16px; }
 
 /* ─── room page ─── */
-.room-grid { display: grid; grid-template-columns: 220px 1fr 260px; gap: 16px; margin-bottom: 16px; }
-.room-grid-focus { grid-template-columns: 1fr; }
-@media (max-width: 640px) {
-  .room-grid { grid-template-columns: 1fr; }
-  .left-column, .right-column { position: static; }
+.room-page { display: flex; flex-direction: column; gap: 12px; }
+
+.room-page-lobby { max-width: 640px; margin: 0 auto; width: 100%; }
+
+.room-page-playing {
+  display: grid;
+  grid-template-columns: 220px 1fr 260px;
+  gap: 16px;
+  align-items: start;
 }
+@media (max-width: 900px) {
+  .room-page-playing {
+    grid-template-columns: 1fr;
+  }
+}
+
+.room-page-focus {
+  max-width: 720px; margin: 0 auto; width: 100%;
+}
+
+.room-page-finished {
+  max-width: 640px; margin: 0 auto; width: 100%;
+}
+
+.focus-bar {
+  display: flex; align-items: center; gap: 12px; padding: 8px 14px;
+  border-radius: 14px; background: var(--surface); border: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+.focus-bar .room-code { font-size: 16px; }
+.focus-bar .status-pill { white-space: nowrap; }
+.focus-bar .flex-spacer { flex: 1; }
 
 .room-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
 .room-bar-clean { padding: 12px 0; }
