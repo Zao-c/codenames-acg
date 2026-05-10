@@ -1283,6 +1283,7 @@ export class GameService {
     if (!scoringActive) {
       nextRoom.scores = updateScores(room.scores, winner);
     }
+    nextRoom.achievements = computeAchievements(room);
     await this.store.setRoom(nextRoom);
     await this.users.recordRoundResult(nextRoom.players, winner);
     return nextRoom;

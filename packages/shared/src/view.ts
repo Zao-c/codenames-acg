@@ -185,6 +185,7 @@ export function sanitizeRoom(room: Room, viewer: ViewerIdentity = {}): PublicRoo
     updatedAt: room.updatedAt,
     lastEvent: room.lastEvent,
     lastReveal: room.lastReveal,
+    achievements: room.achievements,
     wordPackSummary: toWordPackSummary(room.wordPack),
     viewer: buildViewerState(room, viewer)
   };
