@@ -140,21 +140,33 @@ export class JsonUserStore implements UserStore {
   async login(username: string): Promise<NamedUserLoginResponse> {
     await this.ensureLoaded();
     const normalized = normalizeUsername(username);
-    const key = userKey(normalized);
-    const existing = this.users.get(key);
-    if (existing) {
-      return this.withSession(existing);
-    }
+    const account = this.getOrCreateUser(normalized);
+    return this.withSession(account);
+  }
 
-    const created = defaultUser(normalized);
+  private getOrCreateUser(username: string): NamedUserAccount {
+    const key = userKey(username);
+    const existing = this.users.get(key);
+    if (existing) return existing;
+    const created = defaultUser(username);
     this.users.set(key, created);
-    await this.persist();
-    return this.withSession(created);
+    return created;
   }
 
   async get(username: string): Promise<NamedUserAccount | null> {
     await this.ensureLoaded();
     return this.users.get(userKey(username)) ?? null;
+  }
+
+  getPublicProfile(account: NamedUserAccount): Omit<NamedUserAccount, "customWordPacks"> & { customWordPacks: Pick<SavedWordPack, "id" | "name" | "description" | "entries" | "isPublic">[] } {
+    return {
+      username: account.username,
+      avatarUrl: account.avatarUrl,
+      customWordPacks: account.customWordPacks.map((pack) => ({ id: pack.id, name: pack.name, description: pack.description, entries: pack.entries.slice(0, 3), isPublic: pack.isPublic })),
+      stats: account.stats,
+      createdAt: account.createdAt,
+      updatedAt: account.updatedAt
+    };
   }
 
   async update(username: string, payload: UpdateNamedUserPayload): Promise<NamedUserAccount> {
@@ -198,10 +210,17 @@ export class JsonUserStore implements UserStore {
       .sort((a, b) => (b.publishedAt ?? b.updatedAt) - (a.publishedAt ?? a.updatedAt));
   }
 
-  async resolveProfile(profile?: Partial<UserProfile>): Promise<UserProfile> {
+  async resolveProfile(profile?: Partial<UserProfile>, sessionToken?: string): Promise<UserProfile> {
     const accountType = profile?.accountType ?? (profile?.username ? "named" : "guest");
     if (accountType === "named" && profile?.username) {
-      const account = await this.login(profile.username);
+      const username = normalizeUsername(profile.username);
+      if (sessionToken) {
+        const verified = await this.verifySession(username, sessionToken);
+        if (!verified) throw new Error("用户登录已失效，请重新登录");
+      } else {
+        throw new Error("named 账户必须提供登录凭证");
+      }
+      const account = this.getOrCreateUser(username);
       return {
         accountType: "named",
         username: account.username,
@@ -217,16 +236,14 @@ export class JsonUserStore implements UserStore {
   }
 
   async noteRoomHosted(username: string | null | undefined): Promise<void> {
-    if (!username) {
-      return;
-    }
+    if (!username) return;
     await this.ensureLoaded();
-    const user = await this.login(username);
-    this.users.set(userKey(user.username), {
-      ...user,
+    const account = this.getOrCreateUser(normalizeUsername(username));
+    this.users.set(userKey(account.username), {
+      ...account,
       stats: {
-        ...user.stats,
-        roomsHosted: user.stats.roomsHosted + 1
+        ...account.stats,
+        roomsHosted: account.stats.roomsHosted + 1
       },
       updatedAt: now()
     });
@@ -241,15 +258,15 @@ export class JsonUserStore implements UserStore {
         continue;
       }
 
-      const user = await this.login(player.profile.username);
+      const account = this.getOrCreateUser(normalizeUsername(player.profile.username));
       const didWin = player.team === winner;
-      this.users.set(userKey(user.username), {
-        ...user,
+      this.users.set(userKey(account.username), {
+        ...account,
         stats: {
-          ...user.stats,
-          gamesPlayed: user.stats.gamesPlayed + 1,
-          wins: user.stats.wins + (didWin ? 1 : 0),
-          losses: user.stats.losses + (didWin ? 0 : 1)
+          ...account.stats,
+          gamesPlayed: account.stats.gamesPlayed + 1,
+          wins: account.stats.wins + (didWin ? 1 : 0),
+          losses: account.stats.losses + (didWin ? 0 : 1)
         },
         updatedAt: now()
       });

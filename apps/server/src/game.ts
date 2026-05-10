@@ -357,8 +357,8 @@ export class GameService {
     }
   }
 
-  async createRoom(nickname: string, profile?: Partial<UserProfile>): Promise<{ room: Room; player: Player }> {
-    const resolvedProfile = await this.users.resolveProfile(profile);
+  async createRoom(nickname: string, profile?: Partial<UserProfile>, sessionToken?: string): Promise<{ room: Room; player: Player }> {
+    const resolvedProfile = await this.users.resolveProfile(profile, sessionToken);
     const player = await buildPlayer(nickname, true, resolvedProfile);
     const room: Room = {
       id: sampleId(ROOM_ID_LENGTH),
@@ -401,7 +401,7 @@ export class GameService {
     return this.store.getRoom(roomId);
   }
 
-  async joinRoom(roomId: string, nickname: string, profile?: Partial<UserProfile>): Promise<{ room: Room; player: Player }> {
+  async joinRoom(roomId: string, nickname: string, profile?: Partial<UserProfile>, sessionToken?: string): Promise<{ room: Room; player: Player }> {
     return this.withRoomLock(roomId, async () => {
     const room = await this.requireRoom(roomId);
     requireLobby(room);
@@ -414,7 +414,7 @@ export class GameService {
       throw new Error("昵称已被占用");
     }
 
-    const player = await buildPlayer(cleanNickname, false, await this.users.resolveProfile(profile));
+    const player = await buildPlayer(cleanNickname, false, await this.users.resolveProfile(profile, sessionToken));
     const nextRoom = withEvent({ ...room, players: [...room.players, player] }, `${player.nickname} 加入了房间`);
     await this.store.setRoom(nextRoom);
     await this.store.setPlayerSession(player.sessionToken!, createSession(nextRoom.id, player.id, "player"));
@@ -425,7 +425,8 @@ export class GameService {
   async joinSpectator(
     roomId: string,
     nickname: string,
-    profile?: Partial<UserProfile>
+    profile?: Partial<UserProfile>,
+    sessionToken?: string
   ): Promise<{ room: Room; spectator: Spectator }> {
     return this.withRoomLock(roomId, async () => {
     const room = await this.requireRoom(roomId);
@@ -434,7 +435,7 @@ export class GameService {
       throw new Error("昵称已被占用");
     }
 
-    const spectator = await buildSpectator(cleanNickname, await this.users.resolveProfile(profile));
+    const spectator = await buildSpectator(cleanNickname, await this.users.resolveProfile(profile, sessionToken));
     const nextRoom = withEvent(
       {
         ...room,
@@ -476,6 +477,16 @@ export class GameService {
 
     player.team = team;
     if (!team) {
+      player.role = "operative";
+    } else if (
+      player.role === "spymaster" &&
+      room.players.some(
+        (entry) =>
+          entry.id !== player.id &&
+          entry.team === team &&
+          entry.role === "spymaster"
+      )
+    ) {
       player.role = "operative";
     }
 

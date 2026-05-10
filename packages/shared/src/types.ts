@@ -17,6 +17,7 @@ export interface UserProfile {
   accountType: AccountType;
   username: string | null;
   avatarUrl: string | null;
+  userSessionToken?: string;
 }
 
 export interface UserStats {

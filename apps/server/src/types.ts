@@ -4,6 +4,7 @@ import type {
   ParticipantType,
   PublicWordPack,
   Room,
+  SavedWordPack,
   UpdateNamedUserPayload,
   UserProfile
 } from "@acg-codenames/shared";
@@ -26,10 +27,11 @@ export interface RoomStore {
 export interface UserStore {
   login(username: string): Promise<NamedUserLoginResponse>;
   get(username: string): Promise<NamedUserAccount | null>;
+  getPublicProfile(account: NamedUserAccount): Omit<NamedUserAccount, "customWordPacks"> & { customWordPacks: Pick<SavedWordPack, "id" | "name" | "description" | "entries" | "isPublic">[] };
   update(username: string, payload: UpdateNamedUserPayload): Promise<NamedUserAccount>;
   verifySession(username: string, sessionToken: string): Promise<boolean>;
   listPublicWordPacks(): Promise<PublicWordPack[]>;
-  resolveProfile(profile?: Partial<UserProfile>): Promise<UserProfile>;
+  resolveProfile(profile?: Partial<UserProfile>, sessionToken?: string): Promise<UserProfile>;
   noteRoomHosted(username: string | null | undefined): Promise<void>;
   recordRoundResult(players: Room["players"], winner: "red" | "blue"): Promise<void>;
 }

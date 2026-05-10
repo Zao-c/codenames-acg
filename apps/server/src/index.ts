@@ -112,6 +112,11 @@ function optionalProfile(value: unknown): Partial<UserProfile> | undefined {
   };
 }
 
+function optionalUserSessionToken(value: unknown): string | undefined {
+  if (typeof value !== "string" || !value.trim()) return undefined;
+  return value.trim();
+}
+
 function parseUpdateRoomSettingsPayload(value: unknown): {
   roomId: string;
   boardMode?: BoardMode;
@@ -228,6 +233,29 @@ async function bootstrap(): Promise<void> {
         res.status(404).json({ message: "User not found" });
         return;
       }
+      res.json(users.getPublicProfile(user));
+    } catch (error) {
+      res.status(400).json({ message: error instanceof Error ? error.message : "Fetch failed" });
+    }
+  });
+
+  app.get("/api/users/me", async (req, res) => {
+    try {
+      const username = req.header("x-username");
+      const sessionToken = req.header("x-user-session-token");
+      if (!username || !sessionToken) {
+        res.status(401).json({ message: "缺少认证信息" });
+        return;
+      }
+      if (!(await users.verifySession(username, sessionToken))) {
+        res.status(401).json({ message: "用户登录已失效，请重新登录" });
+        return;
+      }
+      const user = await users.get(username);
+      if (!user) {
+        res.status(404).json({ message: "User not found" });
+        return;
+      }
       res.json(user);
     } catch (error) {
       res.status(400).json({ message: error instanceof Error ? error.message : "Fetch failed" });
@@ -328,7 +356,8 @@ async function bootstrap(): Promise<void> {
         const body = asObject(payload);
         const nickname = requireString(body, "nickname");
         const profile = optionalProfile(body.profile);
-        const { room, player } = await game.createRoom(nickname, profile);
+        const sessionToken = body.profile && typeof body.profile === "object" ? optionalUserSessionToken((body.profile as PayloadRecord).userSessionToken) : undefined;
+        const { room, player } = await game.createRoom(nickname, profile, sessionToken);
         bind(socket.id, room.id, player.id, "player");
         socket.join(room.id);
         socket.join(`member:${player.id}`);
@@ -346,7 +375,8 @@ async function bootstrap(): Promise<void> {
         const roomId = requireString(body, "roomId");
         const nickname = requireString(body, "nickname");
         const profile = optionalProfile(body.profile);
-        const { room, player } = await game.joinRoom(roomId, nickname, profile);
+        const sessionToken = body.profile && typeof body.profile === "object" ? optionalUserSessionToken((body.profile as PayloadRecord).userSessionToken) : undefined;
+        const { room, player } = await game.joinRoom(roomId, nickname, profile, sessionToken);
         bind(socket.id, room.id, player.id, "player");
         socket.join(room.id);
         socket.join(`member:${player.id}`);
@@ -363,7 +393,8 @@ async function bootstrap(): Promise<void> {
         const roomId = requireString(body, "roomId");
         const nickname = requireString(body, "nickname");
         const profile = optionalProfile(body.profile);
-        const { room, spectator } = await game.joinSpectator(roomId, nickname, profile);
+        const sessionToken = body.profile && typeof body.profile === "object" ? optionalUserSessionToken((body.profile as PayloadRecord).userSessionToken) : undefined;
+        const { room, spectator } = await game.joinSpectator(roomId, nickname, profile, sessionToken);
         bind(socket.id, room.id, spectator.id, "spectator");
         socket.join(room.id);
         socket.join(`member:${spectator.id}`);
