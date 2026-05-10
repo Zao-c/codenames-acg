@@ -67,7 +67,7 @@ export function RoomPage() {
       <header className="room-bar room-bar-clean">
         <div className="room-bar-main room-bar-stack">
           <div className="room-title-stack">
-            <button className="logo-button" onClick={() => { if (window.confirm("确定要离开房间回到首页吗？")) { leaveRoom(); navigateHome(); } }} title="回到首页">🃏 行动代号</button>
+            <button className="logo-button" onClick={() => { if (window.confirm("确定要离开密令房回到首页吗？")) { leaveRoom(); navigateHome(); } }} title="回到首页">🃏 词牌结社</button>
             <strong className="room-code">{room.id}</strong>
             <p className="room-subtitle">{room.wordPackSummary.name}</p>
           </div>
@@ -89,7 +89,7 @@ export function RoomPage() {
           <div className="panel-heading">
             <div>
               <p className="micro-label">Host controls</p>
-              <h2>房主控制台</h2>
+              <h2>结社长控制台</h2>
             </div>
             <span className="soft-chip">{room.phase === "lobby" ? "准备阶段" : "对局管理"}</span>
           </div>
@@ -102,9 +102,9 @@ export function RoomPage() {
                   <option key={player.id} value={player.id}>{player.nickname}</option>
                 ))}
               </select>
-              <button onClick={transferHost} disabled={!viewer.canTransferHost || !transferHostTargetId}>👑 转让房主</button>
+              <button onClick={transferHost} disabled={!viewer.canTransferHost || !transferHostTargetId}>👑 转让社长</button>
             </div>
-            <button className="danger-button" onClick={disbandRoom}>💥 解散房间</button>
+            <button className="danger-button" onClick={disbandRoom}>💥 解散密令房</button>
           </div>
         </section>
       ) : null}
@@ -260,7 +260,7 @@ function ParticipantRow({ participant, label, isSelf, effect, onReact }: {
         </div>
       </div>
       <div className="participant-actions">
-        {"isHost" in participant && participant.isHost ? <span className="soft-chip">房主</span> : null}
+        {"isHost" in participant && participant.isHost ? <span className="soft-chip">社长</span> : null}
         {"connected" in participant && !participant.connected ? <span className="soft-chip">离线</span> : null}
         {"isBot" in participant && participant.isBot ? <span className="soft-chip">测试位</span> : null}
         {!isSelf ? (
@@ -289,7 +289,7 @@ function LobbySettings({ room, viewer, self, g, accountPacks, publicPacks, makeP
       <div className="panel-heading">
         <div>
           <p className="micro-label">Room settings</p>
-          <h2>房间设置</h2>
+          <h2>密令房设置</h2>
         </div>
         <span className="soft-chip">{viewer.canEditRoom ? "房主可编辑" : "等待房主调整"}</span>
       </div>
@@ -303,7 +303,7 @@ function LobbySettings({ room, viewer, self, g, accountPacks, publicPacks, makeP
           </div>
         </div>
         <div className="settings-block">
-          <strong>房间题库</strong>
+          <strong>房间词牌</strong>
           <div className="toolbar-inline compact-stack">
             <select value={room.wordPackSummary.isBuiltin ? room.wordPackSummary.id : wordPackSummaries[0]?.id ?? ""} disabled={!viewer.canEditRoom} onChange={(e) => g.updateBuiltinPack(e.target.value)}>
               {wordPackSummaries.map((pack) => (<option key={pack.id} value={pack.id}>{pack.name} ({pack.entryCount})</option>))}
@@ -328,7 +328,7 @@ function LobbySettings({ room, viewer, self, g, accountPacks, publicPacks, makeP
       </div>
       {self && isPlayer(self) && self.isHost ? (
         <div className="host-actions host-actions-inline">
-          <button className="primary-button" onClick={g.startGame} disabled={!viewer.canStartGame}>开始对局</button>
+          <button className="primary-button" onClick={g.startGame} disabled={!viewer.canStartGame}>任务开始</button>
           {viewer.canUseDebugFill ? <button onClick={g.debugFillRoom}>一键补 3 个测试位</button> : null}
         </div>
       ) : null}
@@ -343,7 +343,7 @@ function BoardPanel({ room, viewer, g }: { room: NonNullable<ReturnType<typeof u
       <div className={`board-header board-header-tight ${room.phase === "playing" ? "board-header-compact" : ""}`}>
         <div className="board-status">
           <div className="status-chip clue-chip">
-            <p className="status-key">当前提示</p>
+            <p className="status-key">队长密令</p>
             <strong>{getCurrentClueText(room)}</strong>
           </div>
           <div className="status-chip">
@@ -354,8 +354,8 @@ function BoardPanel({ room, viewer, g }: { room: NonNullable<ReturnType<typeof u
         <p className="board-hint">{renderHint()}</p>
         {canSeeHiddenRoles ? (
           <div className="spymaster-warning">
-            <span>队长模式：你可以看到未翻牌的真实身份，注意屏幕隐私。</span>
-            <button type="button" className="chip-button" onClick={() => setMaskSpymasterHints(!maskSpymasterHints)}>{maskSpymasterHints ? "显示队长提示" : "隐藏队长提示"}</button>
+            <span>密令模式：你可以看到未翻牌的真实身份，注意屏幕隐私。</span>
+            <button type="button" className="chip-button" onClick={() => setMaskSpymasterHints(!maskSpymasterHints)}>{maskSpymasterHints ? "显示密令标记" : "隐藏密令标记"}</button>
           </div>
         ) : null}
       </div>
@@ -386,14 +386,14 @@ function ActionPanel({ viewer, g }: { viewer: NonNullable<ReturnType<typeof useG
         {viewer.canSubmitClue ? (
           <div className="clue-form">
             <label className="field">
-              <span>提示词</span>
+              <span>密令词</span>
               <input value={clueWord} onChange={(e) => setClueWord(e.target.value)} maxLength={12} placeholder="例如：机甲 / 学园 / 主角团" />
             </label>
             <label className="field count-field">
               <span>数字</span>
               <input type="number" min={1} max={9} value={clueCount} onChange={(e) => setClueCount(Math.max(1, Math.min(9, Number(e.target.value) || 1)))} />
             </label>
-            <button className="primary-button" onClick={submitClue} disabled={!clueWord.trim()}>提交提示</button>
+            <button className="primary-button" onClick={submitClue} disabled={!clueWord.trim()}>提交密令</button>
           </div>
         ) : (
           <div className="action-copy">

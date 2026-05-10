@@ -20,7 +20,7 @@ export function CreateRoomPage() {
         <div className="panel-heading">
           <div>
             <p className="micro-label">Create room</p>
-            <h2>创建房间</h2>
+            <h2>创建密令房</h2>
           </div>
           <span className="soft-chip">{createBoardMode}</span>
         </div>
@@ -33,11 +33,11 @@ export function CreateRoomPage() {
           </div>
         </div>
         <div className="settings-block">
-          <strong>题库来源</strong>
+          <strong>词牌来源</strong>
           <div className="selection-grid">
             <button className={packSource === "builtin" ? "selected" : ""} onClick={() => setPackSource("builtin")}>内置</button>
-            <button className={packSource === "account" ? "selected" : ""} disabled={!namedAccount} onClick={() => setPackSource("account")}>我的题库</button>
-            <button className={packSource === "public" ? "selected" : ""} onClick={() => setPackSource("public")}>公共题库</button>
+            <button className={packSource === "account" ? "selected" : ""} disabled={!namedAccount} onClick={() => setPackSource("account")}>我的词牌库</button>
+            <button className={packSource === "public" ? "selected" : ""} onClick={() => setPackSource("public")}>公开档案库</button>
           </div>
           {packSource === "builtin" ? (
             <select value={selectedBuiltinPackId} onChange={(e) => setSelectedBuiltinPackId(e.target.value)}>
@@ -47,14 +47,14 @@ export function CreateRoomPage() {
             </select>
           ) : packSource === "account" ? (
             <select value={selectedAccountPackId} onChange={(e) => setSelectedAccountPackId(e.target.value)}>
-              <option value="">选择我的题库</option>
+              <option value="">选择词牌库</option>
               {accountPacks.map((pack) => (
                 <option key={pack.id} value={pack.id}>{pack.name} ({pack.entries.length})</option>
               ))}
             </select>
           ) : (
             <select value={selectedPublicPackId} onChange={(e) => setSelectedPublicPackId(e.target.value)}>
-              <option value="">选择公共题库</option>
+              <option value="">选择公开档案</option>
               {publicPacks.map((pack) => (
                 <option key={makePublicPackKey(pack)} value={makePublicPackKey(pack)}>{pack.name} ({pack.entries.length}) / {pack.ownerUsername}</option>
               ))}
@@ -62,15 +62,15 @@ export function CreateRoomPage() {
           )}
           {packSource === "account" ? (
             selectedAccountPack ? (
-              <p className="hint-text">当前开房将使用：<strong>{selectedAccountPack.name}</strong></p>
+              <p className="hint-text">当前密令房将使用：<strong>{selectedAccountPack.name}</strong></p>
             ) : (
-              <p className="hint-text">请先从"我的题库"里选择一个题库用于开房～</p>
+              <p className="hint-text">请先从"我的词牌库"里选择一个词牌～</p>
             )
           ) : packSource === "public" ? (
             selectedPublicPack ? (
-              <p className="hint-text">当前开房将使用：<strong>{selectedPublicPack.name}</strong> / {selectedPublicPack.ownerUsername}</p>
+              <p className="hint-text">当前密令房将使用：<strong>{selectedPublicPack.name}</strong> / {selectedPublicPack.ownerUsername}</p>
             ) : (
-              <p className="hint-text">请选择一个公开题库；没有时可以先在"我的题库"公开自己的题库。</p>
+              <p className="hint-text">请选择一个公开档案；没有时可以先在"我的词牌库"公开自己的词牌。</p>
             )
           ) : null}
         </div>
@@ -79,7 +79,7 @@ export function CreateRoomPage() {
           onClick={createRoom}
           disabled={!effectiveIdentity || (packSource === "account" && !selectedAccountPack) || (packSource === "public" && !selectedPublicPack)}
         >
-          创建房间
+          创建密令房
         </button>
       </section>
 
@@ -88,7 +88,7 @@ export function CreateRoomPage() {
           <div className="panel-heading">
             <div>
               <p className="micro-label">My packs</p>
-              <h2>我的题库</h2>
+              <h2>我的词牌库</h2>
             </div>
             <span className="soft-chip">{accountPacks.length} 个</span>
           </div>
@@ -100,7 +100,7 @@ export function CreateRoomPage() {
                   <p className="pack-card-meta">{pack.entries.length} 个词 / {pack.isPublic ? "已公开" : "仅自己可用"}</p>
                 </div>
                 <div className="pack-card-actions">
-                  <button onClick={() => { chooseAccountPackForCreate(pack.id); }}>选择并创建房间</button>
+                  <button onClick={() => { chooseAccountPackForCreate(pack.id); }}>选择并创建密令房</button>
                 </div>
               </div>
             ))}
@@ -113,7 +113,7 @@ export function CreateRoomPage() {
           <div className="panel-heading">
             <div>
               <p className="micro-label">Public packs</p>
-              <h2>公共题库</h2>
+              <h2>公开档案库</h2>
             </div>
             <span className="soft-chip">{publicPacks.length} 个</span>
           </div>
@@ -125,7 +125,7 @@ export function CreateRoomPage() {
                   <p className="pack-card-meta">{pack.entries.length} 个词 / {pack.ownerUsername}</p>
                 </div>
                 <div className="pack-card-actions">
-                  <button onClick={() => { setSelectedPublicPackId(makePublicPackKey(pack)); setPackSource("public"); }}>选择并创建房间</button>
+                  <button onClick={() => { setSelectedPublicPackId(makePublicPackKey(pack)); setPackSource("public"); }}>选择并创建密令房</button>
                 </div>
               </div>
             ))}

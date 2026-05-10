@@ -16,8 +16,8 @@ export function HomePage() {
       <section className="hero">
         <div className="hero-copy-block">
           <p className="eyebrow">ACG social deduction (◕‿◕)ﾉ</p>
-          <h1>🃏 行动代号 Online ( •̀ ω •́ )✧</h1>
-          <p className="hero-copy">二次元多人猜词，和朋友一起开黑！用户名模式可跨设备保留数据，游客模式也能直接玩～ (≧∇≦)ﾉ</p>
+          <h1>🃏 词牌结社 ( •̀ ω •́ )✧</h1>
+          <p className="hero-copy">ACG 猜词推理派对～和朋友一起开黑！用户名模式可跨设备保留数据，游客模式也能直接玩～ (≧∇≦)ﾉ</p>
         </div>
         {effectiveIdentity ? (
           <div className="hero-actions">
@@ -59,11 +59,11 @@ export function HomePage() {
         ) : null}
         <div className="quick-start-row">
           <div className="quick-start-actions">
-            <button className="primary-button" onClick={createRoom} disabled={!effectiveIdentity || (packSource === "account" && !selectedAccountPack) || (packSource === "public" && !selectedPublicPack)}>创建一局！✨</button>
-            <button onClick={() => navigate("/create")}>开房设置</button>
+            <button className="primary-button" onClick={createRoom} disabled={!effectiveIdentity || (packSource === "account" && !selectedAccountPack) || (packSource === "public" && !selectedPublicPack)}>创建密令房 ✨</button>
+            <button onClick={() => navigate("/create")}>密令设置</button>
           </div>
           <div className="join-row">
-            <input value={roomCode} onChange={(e) => setRoomCode(e.target.value.toUpperCase())} placeholder="输入 6 位房间号" maxLength={6} />
+            <input value={roomCode} onChange={(e) => setRoomCode(e.target.value.toUpperCase())} placeholder="输入 6 位密令房号" maxLength={6} />
             <button onClick={() => joinByRoomCode(false)} disabled={!effectiveIdentity}>加入</button>
             <button onClick={() => joinByRoomCode(true)} disabled={!effectiveIdentity}>旁观</button>
           </div>
@@ -74,12 +74,12 @@ export function HomePage() {
         <div className="panel-heading">
           <div>
             <p className="micro-label">Lobby</p>
-            <h2>当前房间</h2>
+            <h2>公开密令房</h2>
           </div>
           <span className="soft-chip">{roomSummaries.length} 个房间</span>
         </div>
         <div className="room-list">
-          {roomSummaries.length === 0 ? <p className="empty-text">当前没有公开房间，来创建第一个吧 (＞﹏＜) 房间区空空如也……要不要你先开一局？</p> : null}
+          {roomSummaries.length === 0 ? <p className="empty-text">暂无公开密令房，来创建第一个吧 (＞﹏＜)</p> : null}
           {roomSummaries.map((summary) => (
             <div className="room-list-item" key={summary.id}>
               <div className="room-list-main">
@@ -101,7 +101,7 @@ export function HomePage() {
               </div>
               <div className="room-list-actions">
                 {summary.canJoinDirectly ? (
-                  <button disabled={!effectiveIdentity} onClick={() => joinSpecificRoom(summary.id, false)}>加入战局</button>
+                  <button disabled={!effectiveIdentity} onClick={() => joinSpecificRoom(summary.id, false)}>加入结社</button>
                 ) : summary.canSpectate ? (
                   <button disabled={!effectiveIdentity} onClick={() => joinSpecificRoom(summary.id, true)}>旁观激战</button>
                 ) : (

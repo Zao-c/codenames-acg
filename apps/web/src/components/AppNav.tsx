@@ -11,15 +11,15 @@ export function AppNav() {
 
   const navLinks = [
     { path: "/", label: "首页", icon: "🏠" },
-    { path: "/create", label: "开房", icon: "🃏" },
-    { path: "/packs", label: "题库", icon: "📚" },
+    { path: "/create", label: "密令", icon: "🃏" },
+    { path: "/packs", label: "档案", icon: "📚" },
     { path: "/profile", label: "我的", icon: "👤" },
   ];
 
   return (
     <nav className="app-nav">
       <div className="nav-brand" onClick={() => navigate("/")} role="button" tabIndex={0}>
-        🃏 行动代号
+        🃏 词牌结社
       </div>
       <div className="nav-links">
         {navLinks.map((link) => (
@@ -72,8 +72,8 @@ export function MobileNav() {
 
   const navLinks = [
     { path: "/", label: "首页", icon: "🏠" },
-    { path: "/create", label: "开房", icon: "🃏" },
-    { path: "/packs", label: "题库", icon: "📚" },
+    { path: "/create", label: "密令", icon: "🃏" },
+    { path: "/packs", label: "档案", icon: "📚" },
     { path: "/profile", label: "我的", icon: "👤" },
   ];
 

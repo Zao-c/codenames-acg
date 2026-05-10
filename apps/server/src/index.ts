@@ -533,7 +533,7 @@ async function bootstrap(): Promise<void> {
           throw new Error("旁观者不能解散房间");
         }
         await game.disbandRoom(roomId, session.participantId);
-        io.to(roomId).emit("room_closed", { roomId, reason: "房主已解散房间" });
+        io.to(roomId).emit("room_closed", { roomId, reason: "社长已解散密令房" });
         for (const [socketId, boundSession] of socketSessions.entries()) {
           if (boundSession.roomId === roomId) {
             socketSessions.delete(socketId);

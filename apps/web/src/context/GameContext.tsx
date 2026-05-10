@@ -195,7 +195,7 @@ export function getCurrentClueText(room: PublicRoomState | null): string {
 }
 
 export function getRoomStageLabel(room: PublicRoomState | null, connectionState: ConnectionState): string {
-  if (!room) return connectionState === "connecting" ? "正在连接房间" : "等待进入房间";
+  if (!room) return connectionState === "connecting" ? "正在连接密令房" : "等待进入密令房";
   if (room.phase === "lobby") return "准备阶段";
   if (room.phase === "playing") return room.viewer?.targetTeam ? `${TEAM_LABELS[room.viewer.targetTeam]}行动中` : "对局中";
   return room.winner ? `${TEAM_LABELS[room.winner]}获胜` : "本局结束";
@@ -535,7 +535,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     try {
       const packs = await listPublicWordPacks(); setPublicPacks(packs);
       setSelectedPublicPackId((cur) => cur && packs.some((p) => makePublicPackKey(p) === cur) ? cur : "");
-    } catch (e) { setError(e instanceof Error ? e.message : "公共题库加载失败"); }
+    } catch (e) { setError(e instanceof Error ? e.message : "公开档案库加载失败"); }
   }
 
   async function saveAccountPacksInternal(nextPacks: SavedWordPack[]) {
@@ -632,7 +632,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   function joinByRoomCode(asSpectator: boolean) {
     const normalized = normalizeRoomCode(roomCode);
-    if (normalized.length !== ROOM_ID_LENGTH) { setError("请输入 6 位房间号"); return; }
+    if (normalized.length !== ROOM_ID_LENGTH) { setError("请输入 6 位密令房号"); return; }
     joinSpecificRoom(normalized, asSpectator);
   }
 
@@ -660,7 +660,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (!target || !window.confirm(`确定把房主转让给 ${target.nickname} 吗？`)) return;
     socket.emit("transfer_host", { roomId: session.roomId, targetPlayerId: target.id });
   }
-  function disbandRoom() { if (session && window.confirm("确定要解散房间吗？所有玩家都会回到首页。")) socket.emit("disband_room", { roomId: session.roomId }); }
+  function disbandRoom() { if (session && window.confirm("确定要解散密令房吗？所有玩家都会回到首页。")) socket.emit("disband_room", { roomId: session.roomId }); }
   function queueForNextRound() { if (session) socket.emit("queue_for_next_round", { roomId: session.roomId }); }
   function cancelQueueJoin() { if (session) socket.emit("cancel_queue_join", { roomId: session.roomId }); }
   function debugFillRoom() { if (session) socket.emit("debug_fill_room", { roomId: session.roomId }); }
@@ -683,7 +683,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   function scrollChatToBottom() { const list = chatListRef.current; if (!list) return; list.scrollTop = list.scrollHeight; stickToChatBottomRef.current = true; setJumpToLatest(false); }
   function toggleSection(title: string) { setCollapsedSections((prev) => { const next = new Set(prev); next.has(title) ? next.delete(title) : next.add(title); return next; }); }
   function renderHint(): string {
-    if (!room) return effectiveIdentity ? "先建房，或者从大厅加入一个已有房间。" : "先用用户名登录，或者直接以游客身份进入。";
+    if (!room) return effectiveIdentity ? "先建密令房，或从大厅加入。" : "先用用户名登录，或直接以游客身份进入。";
     return viewer?.statusText ?? "等待房间同步";
   }
 

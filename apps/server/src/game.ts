@@ -381,7 +381,7 @@ export class GameService {
       hostPlayerId: player.id,
       createdAt: now(),
       updatedAt: now(),
-      lastEvent: `${player.nickname} 创建了房间 ✨`,
+      lastEvent: `${player.nickname} 创建了密令房 ✨`,
       lastReveal: null
     };
     const nextRoom = withEvent(room, room.lastEvent);
@@ -416,7 +416,7 @@ export class GameService {
     }
 
     const player = await buildPlayer(cleanNickname, false, await this.users.resolveProfile(profile, sessionToken));
-    const nextRoom = withEvent({ ...room, players: [...room.players, player] }, `${player.nickname} 加入了房间 (｡･∀･)ﾉﾞ`);
+    const nextRoom = withEvent({ ...room, players: [...room.players, player] }, `${player.nickname} 加入了结社 (｡･∀･)ﾉﾞ`);
     await this.store.setRoom(nextRoom);
     await this.store.setPlayerSession(player.sessionToken!, createSession(nextRoom.id, player.id, "player"));
     return { room: nextRoom, player };
@@ -556,7 +556,7 @@ export class GameService {
         },
         wordPack: nextWordPack
       },
-      `房主更新了房间设置：${nextBoardMode} / ${nextWordPack.name}`
+      `房主更新了密令房设置：${nextBoardMode} / ${nextWordPack.name}`
     );
     await this.store.setRoom(nextRoom);
     return nextRoom;
@@ -761,7 +761,7 @@ export class GameService {
         roundNumber: room.roundNumber + 1,
         lastReveal: null
       },
-      `${host.nickname} 将房间带回准备阶段`
+      `${host.nickname} 将密令房带回准备阶段`
     );
     await this.store.setRoom(nextRoom);
     await Promise.all(
@@ -799,7 +799,7 @@ export class GameService {
           isHost: player.id === targetPlayer.id
         }))
       },
-      `${currentHost.nickname} 将房主转让给 ${targetPlayer.nickname}`
+      `${currentHost.nickname} 将社长转让给 ${targetPlayer.nickname}`
     );
     await this.store.setRoom(nextRoom);
     return nextRoom;
