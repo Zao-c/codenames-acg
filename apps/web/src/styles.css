@@ -258,7 +258,7 @@ a { color: var(--accent-2); }
 .room-list-item {
   display: flex; justify-content: space-between; align-items: center;
   padding: 14px 18px; border-radius: 14px;
-  background: var(--surface-softer); border: 1px solid transient;
+  background: var(--surface-softer); border: 1px solid transparent;
   transition: background 0.15s;
 }
 .room-list-item:hover { background: var(--surface-soft); }
@@ -496,6 +496,9 @@ a { color: var(--accent-2); }
 }
 .card-flash {
   animation: cardFlash 0.55s ease;
+}
+.card-revealing.card-flash {
+  animation: cardFlipIn 0.42s ease, cardFlash 0.55s ease;
 }
 
 @keyframes cardFlipIn {
