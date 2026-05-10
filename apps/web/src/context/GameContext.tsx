@@ -5,6 +5,7 @@ import {
   TEAM_LABELS,
   wordPackSummaries,
   type BoardMode,
+  type ScoringMode,
   type CandidateEntry,
   type CandidatePack,
   type CardRole,
@@ -232,6 +233,8 @@ export interface GameContextType {
   publicPacks: PublicWordPack[];
   createBoardMode: BoardMode;
   setCreateBoardMode: (v: BoardMode) => void;
+  scoringMode: ScoringMode;
+  setScoringMode: (v: ScoringMode) => void;
   packSource: PackSource;
   setPackSource: (v: PackSource) => void;
   selectedBuiltinPackId: string;
@@ -285,6 +288,7 @@ export interface GameContextType {
   chooseTeam: (team: Team | null) => void;
   chooseRole: (role: "spymaster" | "operative") => void;
   updateBoardMode: (boardMode: BoardMode) => void;
+  updateScoringMode: (mode: ScoringMode) => void;
   updateBuiltinPack: (wordPackId: string) => void;
   uploadRoomPack: (file: File | null) => Promise<void>;
   useAccountPackForRoom: (pack: SavedWordPack) => void;
@@ -361,6 +365,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [savedPackEntries, setSavedPackEntries] = useState("");
   const [candidatePack, setCandidatePack] = useState<CandidatePack | null>(null);
   const [createBoardMode, setCreateBoardMode] = useState<BoardMode>("5x5");
+  const [scoringMode, setScoringMode] = useState<ScoringMode>("classic");
   const [packSource, setPackSource] = useState<PackSource>("builtin");
   const [selectedBuiltinPackId, setSelectedBuiltinPackId] = useState(wordPackSummaries[0]?.id ?? "");
   const [selectedAccountPackId, setSelectedAccountPackId] = useState("");
@@ -394,7 +399,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const lastRevealIdRef = useRef<string | null>(null);
   const lastReactionIdRef = useRef<string | null>(null);
   const stickToChatBottomRef = useRef(true);
-  const pendingCreateConfigRef = useRef<{ boardMode: BoardMode; builtinWordPackId?: string; customWordPack?: { name: string; entries: string[] } } | null>(null);
+  const pendingCreateConfigRef = useRef<{
+    boardMode: BoardMode;
+    builtinWordPackId?: string;
+    customWordPack?: { name: string; entries: string[] };
+    scoringMode?: ScoringMode;
+  } | null>(null);
 
   const accountPacks = namedAccount?.customWordPacks ?? [];
   const selectedAccountPack = accountPacks.find((pack) => pack.id === selectedAccountPackId) ?? null;
@@ -449,7 +459,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (!hostPlayer?.isHost || room.phase !== "lobby") return;
     const pending = pendingCreateConfigRef.current;
     pendingCreateConfigRef.current = null;
-    socket.emit("update_room_settings", { roomId: session.roomId, boardMode: pending.boardMode, builtinWordPackId: pending.builtinWordPackId, customWordPack: pending.customWordPack });
+    socket.emit("update_room_settings", { roomId: session.roomId, boardMode: pending.boardMode, builtinWordPackId: pending.builtinWordPackId, customWordPack: pending.customWordPack, scoringMode: pending.scoringMode });
   }, [room, session, socket]);
   useEffect(() => { setTransferHostTargetId((cur) => { if (cur && hostTransferCandidates.some((p) => p.id === cur)) return cur; return hostTransferCandidates[0]?.id ?? ""; }); }, [hostTransferCandidates]);
   useEffect(() => {
@@ -613,7 +623,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   function createRoom() {
     const ji = buildJoinProfile(); if (!ji) return;
-    const pending: { boardMode: BoardMode; builtinWordPackId?: string; customWordPack?: { name: string; entries: string[] } } = { boardMode: createBoardMode };
+    const pending: { boardMode: BoardMode; builtinWordPackId?: string; customWordPack?: { name: string; entries: string[] }; scoringMode?: ScoringMode } = { boardMode: createBoardMode, scoringMode }; 
     if (packSource === "builtin") pending.builtinWordPackId = selectedBuiltinPackId;
     else if (selectedAccountPack) pending.customWordPack = { name: selectedAccountPack.name, entries: selectedAccountPack.entries };
     else if (selectedPublicPack) pending.customWordPack = { name: selectedPublicPack.name, entries: selectedPublicPack.entries };
@@ -640,6 +650,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   function chooseTeam(team: Team | null) { if (session) socket.emit("set_team", { roomId: session.roomId, team }); }
   function chooseRole(role: "spymaster" | "operative") { if (session) socket.emit("set_role", { roomId: session.roomId, role }); }
   function updateBoardMode(boardMode: BoardMode) { if (session) socket.emit("update_room_settings", { roomId: session.roomId, boardMode }); }
+  function updateScoringMode(mode: ScoringMode) { if (session) socket.emit("update_room_settings", { roomId: session.roomId, scoringMode: mode }); }
   function updateBuiltinPack(wordPackId: string) { if (session) socket.emit("update_room_settings", { roomId: session.roomId, builtinWordPackId: wordPackId }); }
   async function uploadRoomPack(file: File | null) {
     if (!session || !file) return;
@@ -693,6 +704,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     namedUsernameInput, setNamedUsernameInput, recentUsers,
     session, room, roomSummaries, error, setError, connectionState, effectiveIdentity,
     publicPacks, createBoardMode, setCreateBoardMode,
+    scoringMode, setScoringMode,
     packSource, setPackSource,
     selectedBuiltinPackId, setSelectedBuiltinPackId,
     selectedAccountPackId, setSelectedAccountPackId,
@@ -705,7 +717,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     candidatePack, setCandidatePack, updateCandidateEntry, bulkSetVisibleEntries, exportCandidateAsPlayable, resetCandidateReview,
     transferHostTargetId, setTransferHostTargetId, hostTransferCandidates,
     roomCode, setRoomCode, isLobby, isFinished, viewer, self, inviteLink, boardColumns,
-    chooseTeam, chooseRole, updateBoardMode, updateBuiltinPack,
+    chooseTeam, chooseRole, updateBoardMode, updateScoringMode, updateBuiltinPack,
     uploadRoomPack, useAccountPackForRoom, usePublicPackForRoom,
     startGame, restartGame, returnToLobby, transferHost, disbandRoom,
     queueForNextRound, cancelQueueJoin, debugFillRoom,

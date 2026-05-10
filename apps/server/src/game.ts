@@ -34,7 +34,10 @@ import {
   type RevealEvent,
   type RevealOutcome,
   type Room,
+  type RoomScore,
+  type RoundScoreDetail,
   type RoomSummary,
+  type ScoringMode,
   type Spectator,
   type Team,
   type UserProfile,
@@ -326,6 +329,31 @@ async function buildSpectator(nickname: string, profile: UserProfile): Promise<S
   };
 }
 
+function emptyRoundScore(team: Team): RoundScoreDetail {
+  return {
+    team,
+    ownHits: 0, ownPoints: 0, comboBonus: 0, maxCombo: 0,
+    neutralHits: 0, neutralPenalty: 0,
+    opponentHits: 0, opponentPointsLost: 0,
+    assassinHit: false, assassinPenalty: 0,
+    precisionBonus: 0, victoryBonus: 0, totalRound: 0
+  };
+}
+
+function computeScoreDelta(round: RoundScoreDetail): number {
+  return round.ownPoints + round.comboBonus - round.neutralPenalty + round.opponentPointsLost - round.assassinPenalty + round.precisionBonus + round.victoryBonus;
+}
+
+function applyScore(room: Room, team: Team, delta: number): { scores: RoomScore } {
+  const scores = { ...room.scores };
+  scores[team] = Math.max(0, scores[team] + delta);
+  return { scores };
+}
+
+function isScoringMode(mode: ScoringMode): boolean {
+  return mode === "scoring" || mode === "gamble";
+}
+
 export class GameService {
   private readonly roomLocks = new Map<string, Promise<void>>();
   private readonly heldRoomLocks = new AsyncLocalStorage<Set<string>>();
@@ -523,7 +551,7 @@ export class GameService {
   async updateRoomSettings(
     roomId: string,
     playerId: string,
-    payload: { boardMode?: BoardMode; builtinWordPackId?: string; customWordPack?: CustomWordPackInput | null }
+    payload: { boardMode?: BoardMode; builtinWordPackId?: string; customWordPack?: CustomWordPackInput | null; scoringMode?: ScoringMode }
   ): Promise<Room> {
     return this.withRoomLock(roomId, async () => {
     const room = await this.requireRoom(roomId);
@@ -552,7 +580,8 @@ export class GameService {
         settings: {
           ...room.settings,
           boardMode: nextBoardMode,
-          wordPackId: nextWordPack.id
+          wordPackId: nextWordPack.id,
+          scoringMode: payload.scoringMode ?? room.settings.scoringMode
         },
         wordPack: nextWordPack
       },
@@ -623,7 +652,9 @@ export class GameService {
         clue: null,
         remainingCounts,
         winner: null,
-        lastReveal: null
+        lastReveal: null,
+        comboStreaks: {},
+        currentRoundScore: undefined
       },
       `第 ${room.roundNumber} 局开始，${TEAM_LABELS[startingTeam]}先手 ٩(ˊᗜˋ*)و`
     );
@@ -933,6 +964,74 @@ export class GameService {
     }
 
     const lastReveal = createRevealEvent(card, player, actingTeam, outcome!, currentTeam, winner);
+
+    const scoringActive = isScoringMode(room.settings.scoringMode);
+    let nextScores: RoomScore = room.scores;
+    if (scoringActive) {
+      const prev = room.currentRoundScore ?? emptyRoundScore(actingTeam);
+      const streaks = { ...(room.comboStreaks ?? {}) };
+
+      if (outcome === "own-hit") {
+        const combo = (streaks[actingTeam] ?? 0) + 1;
+        streaks[actingTeam] = combo;
+        prev.ownHits += 1;
+        prev.ownPoints += 10;
+        prev.comboBonus += 2 * combo;
+        if (combo > prev.maxCombo) prev.maxCombo = combo;
+      } else {
+        streaks[actingTeam] = 0;
+        if (outcome === "opponent-hit") {
+          prev.opponentHits += 1;
+          prev.opponentPointsLost += 5;
+          const opponentTeam = card.role as Team;
+          const opponentRound = room.currentRoundScore?.team === opponentTeam
+            ? room.currentRoundScore
+            : emptyRoundScore(opponentTeam);
+          opponentRound.opponentPointsLost += 5;
+        } else if (outcome === "neutral-hit") {
+          prev.neutralHits += 1;
+          prev.neutralPenalty += 3;
+        } else if (outcome === "assassin-hit") {
+          prev.assassinHit = true;
+          prev.assassinPenalty += 25;
+          const opponentTeam = nextTeam(actingTeam);
+          const opponentRound = room.currentRoundScore?.team === opponentTeam
+            ? room.currentRoundScore
+            : emptyRoundScore(opponentTeam);
+          opponentRound.assassinPenalty += 25;
+        }
+      }
+
+      if (winner === actingTeam) {
+        prev.victoryBonus = 20;
+      }
+
+      const delta = computeScoreDelta(prev);
+      const applied = applyScore(room, actingTeam, delta);
+      nextScores = applied.scores;
+      prev.totalRound = (room.scores[actingTeam] ?? 0) + delta;
+
+      room.comboStreaks = streaks;
+      room.currentRoundScore = prev;
+
+      if (winner) {
+        const clueCount = room.clue?.count ?? 0;
+        if (
+          prev.ownHits === clueCount &&
+          prev.neutralHits === 0 &&
+          !prev.assassinHit &&
+          prev.opponentHits === 0
+        ) {
+          prev.precisionBonus = 10;
+          prev.totalRound += 10;
+          nextScores[actingTeam] = Math.max(0, nextScores[actingTeam] + 10);
+        }
+        room.roundScoreHistory = [...(room.roundScoreHistory ?? []), prev];
+        room.currentRoundScore = undefined;
+        room.comboStreaks = {};
+      }
+    }
+
     const nextRoom = withEvent(
       {
         ...room,
@@ -941,7 +1040,7 @@ export class GameService {
         clue,
         winner,
         remainingCounts,
-        scores: winner ? updateScores(room.scores, winner) : room.scores,
+        scores: winner && !scoringActive ? updateScores(room.scores, winner) : nextScores,
         lastReveal
       },
       event
@@ -969,12 +1068,38 @@ export class GameService {
     }
 
     const currentTeam = nextTeam(room.currentTeam);
+
+    let nextScores = room.scores;
+    let roundHistory = room.roundScoreHistory ?? [];
+    const scoringActive = isScoringMode(room.settings.scoringMode);
+
+    if (scoringActive) {
+      const prev = room.currentRoundScore ?? emptyRoundScore(room.currentTeam);
+      const clue = room.clue!;
+      if (
+        prev.ownHits === clue.count &&
+        prev.neutralHits === 0 &&
+        !prev.assassinHit &&
+        prev.opponentHits === 0
+      ) {
+        prev.precisionBonus = 10;
+        prev.totalRound += 10;
+        const team = room.currentTeam;
+        nextScores = { ...room.scores, [team]: Math.max(0, room.scores[team] + 10) };
+      }
+      roundHistory = [...roundHistory, prev];
+    }
+
     const nextRoom = withEvent(
       {
         ...room,
         currentTeam,
         clue: null,
-        lastReveal: null
+        lastReveal: null,
+        scores: nextScores,
+        roundScoreHistory: roundHistory,
+        currentRoundScore: undefined,
+        comboStreaks: {}
       },
       `${player.nickname} 结束了回合 (ง •_•)ง`
     );

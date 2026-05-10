@@ -1,5 +1,5 @@
 import { useGame } from "../context/GameContext";
-import { wordPackSummaries } from "@acg-codenames/shared";
+import { wordPackSummaries, type ScoringMode } from "@acg-codenames/shared";
 
 export function CreateRoomPage() {
   const {
@@ -11,8 +11,14 @@ export function CreateRoomPage() {
     accountPacks, publicPacks, namedAccount,
     selectedAccountPack, selectedPublicPack,
     createRoom, makePublicPackKey, error, setError, boardModes,
-    chooseAccountPackForCreate
+    chooseAccountPackForCreate,
+    scoringMode, setScoringMode
   } = useGame();
+
+  const scoringModes: { value: ScoringMode; label: string }[] = [
+    { value: "classic", label: "经典密令" },
+    { value: "scoring", label: "积分密令" },
+  ];
 
   return (
     <>
@@ -29,6 +35,14 @@ export function CreateRoomPage() {
           <div className="selection-grid">
             {boardModes.map((mode) => (
               <button key={mode} className={createBoardMode === mode ? "selected" : ""} onClick={() => setCreateBoardMode(mode)}>{mode}</button>
+            ))}
+          </div>
+        </div>
+        <div className="settings-block">
+          <strong>得分模式</strong>
+          <div className="selection-grid">
+            {scoringModes.map((mode) => (
+              <button key={mode.value} className={scoringMode === mode.value ? "selected" : ""} onClick={() => setScoringMode(mode.value)}>{mode.label}</button>
             ))}
           </div>
         </div>

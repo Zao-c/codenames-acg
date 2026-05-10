@@ -4,6 +4,7 @@ export type PlayerRole = "spymaster" | "operative";
 export type RoomPhase = "lobby" | "playing" | "finished";
 export type WordCategory = "title" | "character" | "organization" | "trope" | "production" | "fandom" | "custom";
 export type BoardMode = "5x5" | "7x7" | "9x9";
+export type ScoringMode = "classic" | "scoring" | "gamble";
 export type ChatReaction = "flower" | "egg";
 export type ChatMessageType = "system" | "chat" | "reaction";
 export type ParticipantType = "player" | "spectator";
@@ -167,7 +168,7 @@ export interface RoomSettings {
   ruleSet: "classic";
   boardMode: BoardMode;
   wordPackId: string;
-  scoringMode: "team";
+  scoringMode: ScoringMode;
 }
 
 export interface ChatMessage {
@@ -187,6 +188,23 @@ export interface ChatMessage {
 export interface RoomScore {
   red: number;
   blue: number;
+}
+
+export interface RoundScoreDetail {
+  team: Team;
+  ownHits: number;
+  ownPoints: number;
+  comboBonus: number;
+  maxCombo: number;
+  neutralHits: number;
+  neutralPenalty: number;
+  opponentHits: number;
+  opponentPointsLost: number;
+  assassinHit: boolean;
+  assassinPenalty: number;
+  precisionBonus: number;
+  victoryBonus: number;
+  totalRound: number;
 }
 
 export interface RevealEvent {
@@ -225,6 +243,9 @@ export interface Room {
   updatedAt: number;
   lastEvent: string;
   lastReveal: RevealEvent | null;
+  comboStreaks?: Record<string, number>;
+  roundScoreHistory?: RoundScoreDetail[];
+  currentRoundScore?: RoundScoreDetail;
 }
 
 export interface ViewerIdentity {
@@ -412,6 +433,7 @@ export interface UpdateRoomSettingsPayload {
   boardMode?: BoardMode;
   builtinWordPackId?: string;
   customWordPack?: CustomWordPackInput | null;
+  scoringMode?: ScoringMode;
 }
 
 export interface SendChatMessagePayload {

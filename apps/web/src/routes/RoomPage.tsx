@@ -303,6 +303,18 @@ function LobbySettings({ room, viewer, self, g, accountPacks, publicPacks, makeP
           </div>
         </div>
         <div className="settings-block">
+          <strong>得分模式</strong>
+          <div className="selection-grid">
+            {(["classic", "scoring"] as const).map((mode) => (
+              <button key={mode} className={room.settings.scoringMode === mode ? "selected" : ""} disabled={!viewer.canEditRoom} onClick={() => g.updateScoringMode(mode)}>
+                {mode === "classic" ? "经典" : "积分"}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="settings-row">
+        <div className="settings-block">
           <strong>房间词牌</strong>
           <div className="toolbar-inline compact-stack">
             <select value={room.wordPackSummary.isBuiltin ? room.wordPackSummary.id : wordPackSummaries[0]?.id ?? ""} disabled={!viewer.canEditRoom} onChange={(e) => g.updateBuiltinPack(e.target.value)}>
@@ -475,13 +487,50 @@ function SideTabPanel({ g, room, session }: { g: ReturnType<typeof useGame>; roo
             <span>红队剩余 {room.remainingCounts.red}</span>
             <span>蓝队剩余 {room.remainingCounts.blue}</span>
           </div>
+          {room.currentRoundScore ? (
+            <div className="info-card">
+              <strong>本回合 {TEAM_LABELS[room.currentRoundScore.team]} 得分</strong>
+              <div className="score-detail-row">
+                <span>己方词 ×{room.currentRoundScore.ownHits}</span><span>+{room.currentRoundScore.ownPoints}</span>
+              </div>
+              {room.currentRoundScore.comboBonus > 0 ? (
+                <div className="score-detail-row"><span>连击加成</span><span>+{room.currentRoundScore.comboBonus}</span></div>
+              ) : null}
+              {room.currentRoundScore.neutralPenalty > 0 ? (
+                <div className="score-detail-row"><span>中立词 ×{room.currentRoundScore.neutralHits}</span><span>-{room.currentRoundScore.neutralPenalty}</span></div>
+              ) : null}
+              {room.currentRoundScore.opponentPointsLost > 0 ? (
+                <div className="score-detail-row"><span>猜中对方词 ×{room.currentRoundScore.opponentHits}</span><span>-{room.currentRoundScore.opponentPointsLost}</span></div>
+              ) : null}
+              {room.currentRoundScore.assassinPenalty > 0 ? (
+                <div className="score-detail-row"><span>踩中刺客</span><span>-{room.currentRoundScore.assassinPenalty}</span></div>
+              ) : null}
+              {room.currentRoundScore.maxCombo > 1 ? (
+                <div className="score-detail-row"><span>最高连击</span><span>×{room.currentRoundScore.maxCombo}</span></div>
+              ) : null}
+              {room.clue && !room.currentRoundScore.assassinHit && room.currentRoundScore.neutralHits === 0 && room.currentRoundScore.opponentHits === 0 ? (
+                <p className="panel-subtle">精准奖励待定：猜中 {room.currentRoundScore.ownHits}/{room.clue.count}</p>
+              ) : null}
+            </div>
+          ) : null}
+          {room.roundScoreHistory && room.roundScoreHistory.length > 0 ? (
+            <div className="info-card">
+              <strong>历史回合</strong>
+              {room.roundScoreHistory.map((r, i) => (
+                <div key={i} className="score-detail-row">
+                  <span>第{i+1}局 {TEAM_LABELS[r.team]}</span>
+                  <span>{r.totalRound > 0 ? "+" : ""}{r.totalRound}</span>
+                </div>
+              ))}
+            </div>
+          ) : null}
           <div className="info-card">
-            <strong>当前题库</strong>
+            <strong>当前词牌</strong>
             <p className="panel-subtle">{room.wordPackSummary.name}</p>
           </div>
           <div className="info-card">
-            <strong>最近事件</strong>
-            <p className="panel-subtle">{room.lastEvent}</p>
+            <strong>得分模式</strong>
+            <p className="panel-subtle">{room.settings.scoringMode === "scoring" ? "积分密令" : room.settings.scoringMode === "gamble" ? "豪赌密令" : "经典密令"}</p>
           </div>
         </section>
       ) : null}

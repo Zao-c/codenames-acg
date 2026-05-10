@@ -1417,6 +1417,19 @@ button:disabled {
   line-height: 1;
 }
 
+.score-detail-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.score-detail-row span:last-child {
+  font-weight: 600;
+  color: var(--text);
+}
+
 .score-red {
   background: rgba(255, 108, 131, 0.1);
 }
