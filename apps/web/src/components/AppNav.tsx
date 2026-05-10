@@ -31,14 +31,14 @@ export function AppNav() {
 
   const navLinks = effectiveIdentity
     ? [
-        { path: "/", label: "大厅", icon: "🏠" },
-        { path: "/create", label: "开房", icon: "🃏" },
-        { path: "/packs", label: "题库", icon: "📚" },
-        { path: "/profile", label: "我的", icon: "👤" },
+        { path: "/", label: "大厅" },
+        { path: "/create", label: "开房" },
+        { path: "/packs", label: "题库" },
+        { path: "/profile", label: "我的" },
       ]
     : [
-        { path: "/login", label: "登录", icon: "🚪" },
-        { path: "/packs", label: "题库", icon: "📚" },
+        { path: "/login", label: "登录" },
+        { path: "/packs", label: "题库" },
       ];
 
   return (
@@ -49,8 +49,7 @@ export function AppNav() {
       <div className="nav-links">
         {navLinks.map((link) => (
           <button key={link.path} className={isActive(link.path)} onClick={() => navigate(link.path)}>
-            <span className="nav-icon">{link.icon}</span>
-            <span className="nav-label">{link.label}</span>
+            {link.label}
           </button>
         ))}
       </div>
@@ -97,14 +96,14 @@ export function MobileNav() {
 
   const navLinks = effectiveIdentity
     ? [
-        { path: "/", label: "大厅", icon: "🏠" },
-        { path: "/create", label: "开房", icon: "🃏" },
-        { path: "/packs", label: "题库", icon: "📚" },
-        { path: "/profile", label: "我的", icon: "👤" },
+        { path: "/", label: "大厅" },
+        { path: "/create", label: "开房" },
+        { path: "/packs", label: "题库" },
+        { path: "/profile", label: "我的" },
       ]
     : [
-        { path: "/login", label: "登录", icon: "🚪" },
-        { path: "/packs", label: "题库", icon: "📚" },
+        { path: "/login", label: "登录" },
+        { path: "/packs", label: "题库" },
       ];
 
   return (
@@ -115,7 +114,6 @@ export function MobileNav() {
           className={`mobile-nav-tab ${location.pathname === link.path ? "selected" : ""}`}
           onClick={() => navigate(link.path)}
         >
-          <span>{link.icon}</span>
           <span>{link.label}</span>
         </button>
       ))}

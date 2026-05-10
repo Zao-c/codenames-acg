@@ -119,14 +119,20 @@ export function PacksPage() {
             <h2>上传 / 导入</h2>
           </div>
           {namedAccount ? (
-            <>
-              <input value={savedPackName} onChange={(e) => setSavedPackName(e.target.value)} placeholder="题库名称" style={{ marginBottom: 10 }} />
-              <textarea value={savedPackEntries} onChange={(e) => setSavedPackEntries(e.target.value)} placeholder="每行一个词，至少 25 行" style={{ marginBottom: 10, minHeight: 120 }} />
-              <div className="toolbar-inline compact-stack">
+            <div className="upload-form">
+              <label className="field">
+                <span>题库名称</span>
+                <input value={savedPackName} onChange={(e) => setSavedPackName(e.target.value)} placeholder="例如：克洛斯贝尔的轨迹" />
+              </label>
+              <label className="field">
+                <span>词条</span>
+                <textarea value={savedPackEntries} onChange={(e) => setSavedPackEntries(e.target.value)} placeholder="每行一个词，至少 25 行" />
+              </label>
+              <div className="toolbar-inline">
                 <button className="primary-button" onClick={() => { void addAccountPack(); }}>保存题库</button>
                 <input type="file" accept=".txt,.json" onChange={(e) => { void importAccountPack(e.target.files?.[0] ?? null); }} />
               </div>
-            </>
+            </div>
           ) : (
             <p className="hint-text">先使用用户名登录，再上传自定义题库。</p>
           )}

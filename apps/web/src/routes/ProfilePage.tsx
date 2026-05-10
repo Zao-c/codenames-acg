@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useGame } from "../context/GameContext";
 import { AvatarBadge } from "../components/AvatarBadge";
@@ -8,6 +9,7 @@ export function ProfilePage() {
     handleAvatarUpload, logoutNamedUser, error
   } = useGame();
   const navigate = useNavigate();
+  const fileRef = useRef<HTMLInputElement>(null);
 
   if (!effectiveIdentity) {
     return (
@@ -24,43 +26,43 @@ export function ProfilePage() {
   return (
     <>
       <section className="panel">
-        <div className="panel-heading">
-          <h2>当前身份</h2>
-        </div>
-        <div className="profile-identity">
+        <div className="profile-card">
           <AvatarBadge
             avatarUrl={effectiveIdentity.avatarUrl}
             fallback={effectiveIdentity.nickname}
             size="large"
           />
-          <div className="profile-stats">
-            <strong>{effectiveIdentity.nickname}</strong>
-            {effectiveIdentity.mode === "named" ? (
-              <span>用户名账户</span>
-            ) : (
-              <span>游客模式</span>
-            )}
+          <div className="profile-card-body">
+            <strong className="profile-card-name">{effectiveIdentity.nickname}</strong>
+            <span className="soft-chip" style={{ marginBottom: 8 }}>
+              {effectiveIdentity.mode === "named" ? "用户名账户" : "游客模式"}
+            </span>
+            {namedAccount ? (
+              <p className="panel-subtle">
+                总场次 {namedAccount.stats.gamesPlayed} · 胜 {namedAccount.stats.wins} / 负 {namedAccount.stats.losses}{" "}
+                · 胜率 {namedAccount.stats.gamesPlayed > 0 ? Math.round((namedAccount.stats.wins / namedAccount.stats.gamesPlayed) * 100) : 0}%
+              </p>
+            ) : null}
           </div>
         </div>
 
-        {namedAccount ? (
-          <>
-            <div className="profile-stats" style={{ marginBottom: 16 }}>
-              <p>总场次 {namedAccount.stats.gamesPlayed} · 胜 {namedAccount.stats.wins} / 负 {namedAccount.stats.losses}</p>
-              <p>主持 {namedAccount.stats.roomsHosted} 次 · 胜率 {namedAccount.stats.gamesPlayed > 0 ? Math.round((namedAccount.stats.wins / namedAccount.stats.gamesPlayed) * 100) : 0}%</p>
-            </div>
-            <div className="upload-field">
-              <span>上传头像</span>
-              <input type="file" accept="image/*" onChange={(e) => { void handleAvatarUpload(e.target.files?.[0] ?? null); }} />
-            </div>
-          </>
-        ) : null}
-
         <div className="profile-actions">
           <button className="primary-button" onClick={() => navigate("/packs")}>我的题库</button>
+          {namedAccount ? (
+            <>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                style={{ display: "none" }}
+                onChange={(e) => { void handleAvatarUpload(e.target.files?.[0] ?? null); }}
+              />
+              <button onClick={() => fileRef.current?.click()}>更换头像</button>
+            </>
+          ) : null}
           <button onClick={() => navigate("/login")}>切换账户</button>
           {namedAccount ? (
-            <button className="danger-button" onClick={() => { logoutNamedUser(); navigate("/"); }}>退出登录</button>
+            <button onClick={() => { logoutNamedUser(); navigate("/"); }}>退出登录</button>
           ) : null}
         </div>
       </section>

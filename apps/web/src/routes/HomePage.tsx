@@ -4,7 +4,7 @@ import { useGame } from "../context/GameContext";
 export function HomePage() {
   const {
     effectiveIdentity,
-    roomSummaries, createRoom, joinByRoomCode, joinSpecificRoom,
+    roomSummaries, joinByRoomCode, joinSpecificRoom,
     roomCode, setRoomCode, error
   } = useGame();
   const navigate = useNavigate();
@@ -13,13 +13,13 @@ export function HomePage() {
     <>
       <section className="hero">
         <p className="eyebrow">ACG 猜词推理派对 ( •̀ ω •́ )✧</p>
-        <h1>词牌结社</h1>
+        <h1 className="hero-title">词牌结社</h1>
         {effectiveIdentity ? (
           <p className="hero-copy">你好，{effectiveIdentity.nickname}</p>
         ) : null}
       </section>
 
-      <div className="lobby-grid">
+      <div className="home-action-grid">
         <div className="lobby-card">
           <h3>创建房间</h3>
           <p>选择词牌与棋盘，邀请朋友加入</p>
@@ -37,15 +37,13 @@ export function HomePage() {
             />
             <button className="primary-button" onClick={() => joinByRoomCode(false)} disabled={!effectiveIdentity || roomCode.length < 6}>加入</button>
           </div>
-          <button onClick={() => joinByRoomCode(true)} disabled={!effectiveIdentity || roomCode.length < 6}>旁观</button>
+          <button onClick={() => joinByRoomCode(true)} disabled={!effectiveIdentity || roomCode.length < 6} style={{ marginTop: 6 }}>旁观</button>
         </div>
       </div>
 
-      <section className="panel">
+      <section className="panel panel-light">
         <div className="panel-heading">
-          <div>
-            <h2>公开房间</h2>
-          </div>
+          <h2>公开房间</h2>
           <span className="soft-chip">{roomSummaries.length} 个</span>
         </div>
         {roomSummaries.length === 0 ? (

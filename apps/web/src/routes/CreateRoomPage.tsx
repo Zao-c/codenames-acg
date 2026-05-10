@@ -15,9 +15,9 @@ export function CreateRoomPage() {
     scoringMode, setScoringMode
   } = useGame();
 
-  const scoringModes: { value: ScoringMode; label: string }[] = [
-    { value: "classic", label: "经典" },
-    { value: "scoring", label: "积分" },
+  const scoringModes: { value: ScoringMode; label: string; hint: string }[] = [
+    { value: "classic", label: "经典", hint: "胜利队伍 +1" },
+    { value: "scoring", label: "积分", hint: "每次猜词计分" },
   ];
 
   return (
@@ -42,6 +42,9 @@ export function CreateRoomPage() {
               <button key={mode.value} className={scoringMode === mode.value ? "selected" : ""} onClick={() => setScoringMode(mode.value)}>{mode.label}</button>
             ))}
           </div>
+          <p className="hint-text" style={{ marginTop: 6 }}>
+            {scoringModes.find(m => m.value === scoringMode)?.hint}
+          </p>
         </div>
         <div className="settings-block">
           <strong>题库来源</strong>
@@ -71,18 +74,10 @@ export function CreateRoomPage() {
               ))}
             </select>
           )}
-          {packSource === "account" ? (
-            selectedAccountPack ? (
-              <p className="hint-text">当前将使用：<strong>{selectedAccountPack.name}</strong></p>
-            ) : (
-              <p className="hint-text">请先从"我的题库"里选择一套题库。</p>
-            )
-          ) : packSource === "public" ? (
-            selectedPublicPack ? (
-              <p className="hint-text">当前将使用：<strong>{selectedPublicPack.name}</strong> / {selectedPublicPack.ownerUsername}</p>
-            ) : (
-              <p className="hint-text">请选择一个公共题库；没有时可以先在"我的题库"里公开自己创建的题库。</p>
-            )
+          {selectedAccountPack && packSource === "account" ? (
+            <p className="hint-text">当前题库：<strong>{selectedAccountPack.name}</strong></p>
+          ) : selectedPublicPack && packSource === "public" ? (
+            <p className="hint-text">当前题库：<strong>{selectedPublicPack.name}</strong></p>
           ) : null}
         </div>
         <button
@@ -93,54 +88,6 @@ export function CreateRoomPage() {
           创建房间
         </button>
       </section>
-
-      {accountPacks.length > 0 ? (
-        <section className="panel">
-          <div className="panel-heading">
-            <div>
-              <h2>我的题库</h2>
-            </div>
-            <span className="soft-chip">{accountPacks.length} 个</span>
-          </div>
-          <div className="pack-library">
-            {accountPacks.map((pack) => (
-              <div className={`pack-card ${selectedAccountPackId === pack.id ? "pack-card-active" : ""}`} key={pack.id}>
-                <div>
-                  <strong>{pack.name}</strong>
-                  <p className="pack-card-meta">{pack.entries.length} 个词 / {pack.isPublic ? "已公开" : "仅自己可用"}</p>
-                </div>
-                <div className="pack-card-actions">
-                  <button onClick={() => { chooseAccountPackForCreate(pack.id); }}>选为当前题库</button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      {publicPacks.length > 0 ? (
-        <section className="panel">
-          <div className="panel-heading">
-            <div>
-              <h2>公共题库</h2>
-            </div>
-            <span className="soft-chip">{publicPacks.length} 个</span>
-          </div>
-          <div className="pack-library">
-            {publicPacks.slice(0, 8).map((pack) => (
-              <div className={`pack-card ${selectedPublicPackId === makePublicPackKey(pack) ? "pack-card-active" : ""}`} key={makePublicPackKey(pack)}>
-                <div>
-                  <strong>{pack.name}</strong>
-                  <p className="pack-card-meta">{pack.entries.length} 个词 / {pack.ownerUsername}</p>
-                </div>
-                <div className="pack-card-actions">
-                  <button onClick={() => { setSelectedPublicPackId(makePublicPackKey(pack)); setPackSource("public"); }}>选为当前题库</button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
 
       {error ? <p className="error-text">{error}</p> : null}
     </>
