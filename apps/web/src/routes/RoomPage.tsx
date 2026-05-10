@@ -67,7 +67,7 @@ export function RoomPage() {
       <header className="room-bar room-bar-clean">
         <div className="room-bar-main room-bar-stack">
           <div className="room-title-stack">
-            <button className="logo-button" onClick={() => { if (window.confirm("确定要离开密令房回到首页吗？")) { leaveRoom(); navigateHome(); } }} title="回到首页">🃏 词牌结社</button>
+            <button className="logo-button" onClick={() => { if (window.confirm("确定要离开房间回到首页吗？")) { leaveRoom(); navigateHome(); } }} title="回到首页">🃏 词牌结社</button>
             <strong className="room-code">{room.id}</strong>
             <p className="room-subtitle">{room.wordPackSummary.name}</p>
           </div>
@@ -89,7 +89,7 @@ export function RoomPage() {
           <div className="panel-heading">
             <div>
               <p className="micro-label">Host controls</p>
-              <h2>结社长控制台</h2>
+              <h2>社长控制台</h2>
             </div>
             <span className="soft-chip">{room.phase === "lobby" ? "准备阶段" : "对局管理"}</span>
           </div>
@@ -102,9 +102,9 @@ export function RoomPage() {
                   <option key={player.id} value={player.id}>{player.nickname}</option>
                 ))}
               </select>
-              <button onClick={transferHost} disabled={!viewer.canTransferHost || !transferHostTargetId}>👑 转让社长</button>
+              <button onClick={transferHost} disabled={!viewer.canTransferHost || !transferHostTargetId}>转让社长</button>
             </div>
-            <button className="danger-button" onClick={disbandRoom}>💥 解散密令房</button>
+            <button className="danger-button" onClick={disbandRoom}>解散房间</button>
           </div>
         </section>
       ) : null}
@@ -313,9 +313,9 @@ function LobbySettings({ room, viewer, self, g, accountPacks, publicPacks, makeP
       <div className="panel-heading">
         <div>
           <p className="micro-label">Room settings</p>
-          <h2>密令房设置</h2>
+          <h2>房间设置</h2>
         </div>
-        <span className="soft-chip">{viewer.canEditRoom ? "房主可编辑" : "等待房主调整"}</span>
+        <span className="soft-chip">{viewer.canEditRoom ? "社长可编辑" : "等待社长调整"}</span>
       </div>
       <div className="settings-row">
         <div className="settings-block">
@@ -364,7 +364,7 @@ function LobbySettings({ room, viewer, self, g, accountPacks, publicPacks, makeP
       </div>
       {self && isPlayer(self) && self.isHost ? (
         <div className="host-actions host-actions-inline">
-          <button className="primary-button" onClick={g.startGame} disabled={!viewer.canStartGame}>任务开始</button>
+          <button className="primary-button" onClick={g.startGame} disabled={!viewer.canStartGame}>开始游戏</button>
           {viewer.canUseDebugFill ? <button onClick={g.debugFillRoom}>一键补 3 个测试位</button> : null}
         </div>
       ) : null}
@@ -379,7 +379,7 @@ function BoardPanel({ room, viewer, g }: { room: NonNullable<ReturnType<typeof u
       <div className={`board-header board-header-tight ${room.phase === "playing" ? "board-header-compact" : ""}`}>
         <div className="board-status">
           <div className="status-chip clue-chip">
-            <p className="status-key">队长密令</p>
+            <p className="status-key">当前提示</p>
             <strong>{getCurrentClueText(room)}</strong>
           </div>
           <div className="status-chip">
@@ -390,8 +390,8 @@ function BoardPanel({ room, viewer, g }: { room: NonNullable<ReturnType<typeof u
         <p className="board-hint">{renderHint()}</p>
         {canSeeHiddenRoles ? (
           <div className="spymaster-warning">
-            <span>密令模式：你可以看到未翻牌的真实身份，注意屏幕隐私。</span>
-            <button type="button" className="chip-button" onClick={() => setMaskSpymasterHints(!maskSpymasterHints)}>{maskSpymasterHints ? "显示密令标记" : "隐藏密令标记"}</button>
+            <span>队长模式：你可以看到未翻牌的真实身份，注意屏幕隐私。</span>
+            <button type="button" className="chip-button" onClick={() => setMaskSpymasterHints(!maskSpymasterHints)}>{maskSpymasterHints ? "显示提示" : "隐藏提示"}</button>
           </div>
         ) : null}
       </div>
@@ -422,14 +422,14 @@ function ActionPanel({ viewer, g }: { viewer: NonNullable<ReturnType<typeof useG
         {viewer.canSubmitClue ? (
           <div className="clue-form">
             <label className="field">
-              <span>密令词</span>
+              <span>提示词</span>
               <input value={clueWord} onChange={(e) => setClueWord(e.target.value)} maxLength={12} placeholder="例如：机甲 / 学园 / 主角团" />
             </label>
             <label className="field count-field">
               <span>数字</span>
               <input type="number" min={1} max={9} value={clueCount} onChange={(e) => setClueCount(Math.max(1, Math.min(9, Number(e.target.value) || 1)))} />
             </label>
-            <button className="primary-button" onClick={submitClue} disabled={!clueWord.trim()}>提交密令</button>
+            <button className="primary-button" onClick={submitClue} disabled={!clueWord.trim()}>提交提示</button>
           </div>
         ) : (
           <div className="action-copy">
@@ -554,7 +554,7 @@ function SideTabPanel({ g, room, session }: { g: ReturnType<typeof useGame>; roo
           </div>
           <div className="info-card">
             <strong>得分模式</strong>
-            <p className="panel-subtle">{room.settings.scoringMode === "scoring" ? "积分密令" : room.settings.scoringMode === "gamble" ? "豪赌密令" : "经典密令"}</p>
+            <p className="panel-subtle">{room.settings.scoringMode === "scoring" ? "积分模式" : room.settings.scoringMode === "gamble" ? "豪赌模式" : "经典模式"}</p>
           </div>
         </section>
       ) : null}

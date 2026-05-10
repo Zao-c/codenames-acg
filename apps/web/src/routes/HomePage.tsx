@@ -1,116 +1,86 @@
 import { useNavigate } from "react-router-dom";
 import { useGame } from "../context/GameContext";
-import { AvatarBadge } from "../components/AvatarBadge";
 
 export function HomePage() {
   const {
-    effectiveIdentity, guestNicknameInput, setGuestNicknameInput,
+    effectiveIdentity,
     roomSummaries, createRoom, joinByRoomCode, joinSpecificRoom,
-    roomCode, setRoomCode, continueAsGuest, error, setError,
-    packSource, selectedAccountPack, selectedPublicPack
+    roomCode, setRoomCode, error
   } = useGame();
   const navigate = useNavigate();
 
   return (
     <>
       <section className="hero">
-        <div className="hero-copy-block">
-          <p className="eyebrow">ACG social deduction (◕‿◕)ﾉ</p>
-          <h1>🃏 词牌结社 ( •̀ ω •́ )✧</h1>
-          <p className="hero-copy">ACG 猜词推理派对～和朋友一起开黑！用户名模式可跨设备保留数据，游客模式也能直接玩～ (≧∇≦)ﾉ</p>
-        </div>
+        <p className="eyebrow">ACG 猜词推理派对 ( •̀ ω •́ )✧</p>
+        <h1>词牌结社</h1>
         {effectiveIdentity ? (
-          <div className="hero-actions">
-            <AvatarBadge avatarUrl={effectiveIdentity.avatarUrl} fallback={effectiveIdentity.nickname} size="large" />
-            <div className="hero-tags">
-              <span>{effectiveIdentity.mode === "named" ? "用户名账户" : "游客模式"}</span>
-              <span>{effectiveIdentity.nickname}</span>
-            </div>
-          </div>
+          <p className="hero-copy">你好，{effectiveIdentity.nickname}</p>
         ) : null}
       </section>
 
-      <section className="panel quick-start-panel">
-        <div className="panel-heading">
-          <div>
-            <p className="micro-label">Quick Start</p>
-            <h2>⚡ 快速开局</h2>
-          </div>
-          {effectiveIdentity ? (
-            <div className="quick-start-identity">
-              <AvatarBadge avatarUrl={effectiveIdentity.avatarUrl} fallback={effectiveIdentity.nickname} size="small" />
-              <strong>{effectiveIdentity.nickname}</strong>
-              <span className="soft-chip">{effectiveIdentity.mode === "named" ? "账户" : "游客"}</span>
-            </div>
-          ) : (
-            <span className="soft-chip">未登录</span>
-          )}
+      <div className="lobby-grid">
+        <div className="lobby-card">
+          <h3>创建房间</h3>
+          <p>选择词牌与棋盘，邀请朋友加入</p>
+          <button className="primary-button" onClick={() => navigate("/create")} disabled={!effectiveIdentity}>创建房间</button>
         </div>
-        {!effectiveIdentity ? (
-          <div className="quick-start-row">
-            <label className="field">
-              <span>昵称</span>
-              <input value={guestNicknameInput} onChange={(e) => setGuestNicknameInput(e.target.value)} maxLength={12} placeholder="输入昵称直接开玩" />
-            </label>
-            <div className="quick-start-actions">
-              <button className="primary-button" onClick={continueAsGuest} disabled={!guestNicknameInput.trim()}>游客进入</button>
-            </div>
+        <div className="lobby-card">
+          <h3>加入房间</h3>
+          <p>输入 6 位房间号，加入朋友的游戏</p>
+          <div className="room-code-input">
+            <input
+              value={roomCode}
+              onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
+              placeholder="输入房号"
+              maxLength={6}
+            />
+            <button className="primary-button" onClick={() => joinByRoomCode(false)} disabled={!effectiveIdentity || roomCode.length < 6}>加入</button>
           </div>
-        ) : null}
-        <div className="quick-start-row">
-          <div className="quick-start-actions">
-            <button className="primary-button" onClick={createRoom} disabled={!effectiveIdentity || (packSource === "account" && !selectedAccountPack) || (packSource === "public" && !selectedPublicPack)}>创建密令房 ✨</button>
-            <button onClick={() => navigate("/create")}>密令设置</button>
-          </div>
-          <div className="join-row">
-            <input value={roomCode} onChange={(e) => setRoomCode(e.target.value.toUpperCase())} placeholder="输入 6 位密令房号" maxLength={6} />
-            <button onClick={() => joinByRoomCode(false)} disabled={!effectiveIdentity}>加入</button>
-            <button onClick={() => joinByRoomCode(true)} disabled={!effectiveIdentity}>旁观</button>
-          </div>
+          <button onClick={() => joinByRoomCode(true)} disabled={!effectiveIdentity || roomCode.length < 6}>旁观</button>
         </div>
-      </section>
+      </div>
 
       <section className="panel">
         <div className="panel-heading">
           <div>
-            <p className="micro-label">Lobby</p>
-            <h2>公开密令房</h2>
+            <h2>公开房间</h2>
           </div>
-          <span className="soft-chip">{roomSummaries.length} 个房间</span>
+          <span className="soft-chip">{roomSummaries.length} 个</span>
         </div>
-        <div className="room-list">
-          {roomSummaries.length === 0 ? <p className="empty-text">暂无公开密令房，来创建第一个吧 (＞﹏＜)</p> : null}
-          {roomSummaries.map((summary) => (
-            <div className="room-list-item" key={summary.id}>
-              <div className="room-list-main">
-                <div className="room-list-title">
-                  <strong>{summary.id}</strong>
-                  <span className="soft-chip">
-                    {summary.phase === "playing" ? "进行中 · 可旁观" : summary.phase === "lobby" ? "准备中 · 可加入" : "已结束"}
-                  </span>
-                  <span className="soft-chip">{summary.boardMode}</span>
-                  <span className="soft-chip">{summary.wordPackSummary.name}</span>
+        {roomSummaries.length === 0 ? (
+          <p className="empty-text">暂无公开房间，来创建第一个吧 (＞﹏＜)</p>
+        ) : (
+          <div className="room-list">
+            {roomSummaries.map((summary) => (
+              <div className="room-list-item" key={summary.id}>
+                <div className="room-list-main">
+                  <div className="room-list-title">
+                    <strong>{summary.id}</strong>
+                    <span className="soft-chip">{summary.phase === "playing" ? "进行中" : summary.phase === "lobby" ? "准备中" : "已结束"}</span>
+                    <span className="soft-chip">{summary.boardMode}</span>
+                    <span className="soft-chip">{summary.wordPackSummary.name}</span>
+                  </div>
+                  <div className="room-list-meta">
+                    <span>社长 {summary.hostNickname}</span>
+                    <span>玩家 {summary.playerCount}</span>
+                    <span>旁观 {summary.spectatorCount}</span>
+                  </div>
+                  <p className="panel-subtle">{summary.lastEvent}</p>
                 </div>
-                <div className="room-list-meta">
-                  <span>房主 {summary.hostNickname}</span>
-                  <span>玩家 {summary.playerCount}</span>
-                  <span>旁观 {summary.spectatorCount}</span>
-                  <span>排队 {summary.queuedCount}</span>
+                <div className="room-list-actions">
+                  {summary.canJoinDirectly ? (
+                    <button disabled={!effectiveIdentity} onClick={() => joinSpecificRoom(summary.id, false)}>加入</button>
+                  ) : summary.canSpectate ? (
+                    <button disabled={!effectiveIdentity} onClick={() => joinSpecificRoom(summary.id, true)}>旁观</button>
+                  ) : (
+                    <button disabled>已结束</button>
+                  )}
                 </div>
-                <p className="panel-subtle">{summary.lastEvent}</p>
               </div>
-              <div className="room-list-actions">
-                {summary.canJoinDirectly ? (
-                  <button disabled={!effectiveIdentity} onClick={() => joinSpecificRoom(summary.id, false)}>加入结社</button>
-                ) : summary.canSpectate ? (
-                  <button disabled={!effectiveIdentity} onClick={() => joinSpecificRoom(summary.id, true)}>旁观激战</button>
-                ) : (
-                  <button disabled>已结束</button>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {error ? <p className="error-text">{error}</p> : null}

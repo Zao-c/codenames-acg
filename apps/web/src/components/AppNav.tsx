@@ -13,7 +13,7 @@ export function AppNav() {
     return (
       <nav className="app-nav app-nav-room">
         <div className="nav-brand" onClick={() => navigate("/")} role="button" tabIndex={0}>
-          🃏 词牌结社
+          词牌结社
         </div>
         <div className="nav-links">
           <button onClick={() => { void copyLink(); }}>{copied ? "已复制链接" : "复制邀请链接"}</button>
@@ -29,17 +29,22 @@ export function AppNav() {
     );
   }
 
-  const navLinks = [
-    { path: "/", label: "首页", icon: "🏠" },
-    { path: "/create", label: "密令（开房）", icon: "🃏" },
-    { path: "/packs", label: "档案（题库）", icon: "📚" },
-    { path: "/profile", label: "我的", icon: "👤" },
-  ];
+  const navLinks = effectiveIdentity
+    ? [
+        { path: "/", label: "大厅", icon: "🏠" },
+        { path: "/create", label: "开房", icon: "🃏" },
+        { path: "/packs", label: "题库", icon: "📚" },
+        { path: "/profile", label: "我的", icon: "👤" },
+      ]
+    : [
+        { path: "/login", label: "登录", icon: "🚪" },
+        { path: "/packs", label: "题库", icon: "📚" },
+      ];
 
   return (
     <nav className="app-nav">
       <div className="nav-brand" onClick={() => navigate("/")} role="button" tabIndex={0}>
-        🃏 词牌结社
+        词牌结社
       </div>
       <div className="nav-links">
         {navLinks.map((link) => (
@@ -59,7 +64,7 @@ export function AppNav() {
 }
 
 export function MobileNav() {
-  const { room, focusMode, setFocusMode, setSideTab, sideTab, mobileRoomTab, setMobileRoomTab } = useGame();
+  const { room, focusMode, setFocusMode, setSideTab, mobileRoomTab, setMobileRoomTab, effectiveIdentity } = useGame();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -90,12 +95,17 @@ export function MobileNav() {
     );
   }
 
-  const navLinks = [
-    { path: "/", label: "首页", icon: "🏠" },
-    { path: "/create", label: "密令（开房）", icon: "🃏" },
-    { path: "/packs", label: "档案（题库）", icon: "📚" },
-    { path: "/profile", label: "我的", icon: "👤" },
-  ];
+  const navLinks = effectiveIdentity
+    ? [
+        { path: "/", label: "大厅", icon: "🏠" },
+        { path: "/create", label: "开房", icon: "🃏" },
+        { path: "/packs", label: "题库", icon: "📚" },
+        { path: "/profile", label: "我的", icon: "👤" },
+      ]
+    : [
+        { path: "/login", label: "登录", icon: "🚪" },
+        { path: "/packs", label: "题库", icon: "📚" },
+      ];
 
   return (
     <nav className="mobile-nav">

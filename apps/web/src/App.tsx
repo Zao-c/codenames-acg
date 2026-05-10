@@ -1,8 +1,9 @@
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import { Routes, Route, useNavigate, useLocation, useParams } from "react-router-dom";
 import { useGame } from "./context/GameContext";
 import { AppNav, MobileNav } from "./components/AppNav";
 import { HomePage } from "./routes/HomePage";
+import { LoginPage } from "./routes/LoginPage";
 import { CreateRoomPage } from "./routes/CreateRoomPage";
 import { PacksPage } from "./routes/PacksPage";
 import { ProfilePage } from "./routes/ProfilePage";
@@ -16,58 +17,37 @@ function JoinRoomFromLink() {
 
   useEffect(() => { if (code) setRoomCode(code); }, [code]);
 
-  const canJoin = useMemo(() => {
-    if (!code) return false;
-    const summaries = room; // room summaries already available via useGame
-    return true;
-  }, [code, room]);
-
   if (room) return <RoomPage />;
 
   return (
-    <section className="panel">
-      <div className="panel-heading">
-        <div>
-          <p className="micro-label">Invite</p>
-          <h2>你被邀请加入密令房</h2>
-        </div>
-        <span className="soft-chip">{code}</span>
-      </div>
+    <div className="invite-panel">
+      <h2>你被邀请加入房间</h2>
+      <p className="room-code" style={{ fontSize: 28 }}>{code}</p>
       <p className="hint-text">
         {effectiveIdentity
           ? `以 ${effectiveIdentity.nickname} 的身份加入`
-          : "先登录或输入昵称再加入"}
+          : "请先登录"}
       </p>
-      <div className="toolbar-inline compact-stack">
-        <button
-          className="primary-button"
-          disabled={!effectiveIdentity}
-          onClick={() => joinSpecificRoom(code, false)}
-        >
-          {connectionState === "connecting" ? "连接中..." : "加入此房间"}
-        </button>
-        <button
-          disabled={!effectiveIdentity}
-          onClick={() => joinSpecificRoom(code, true)}
-        >
-          旁观
-        </button>
-        <button onClick={() => navigate("/")}>返回首页</button>
-      </div>
-    </section>
+      <button className="primary-button" disabled={!effectiveIdentity} onClick={() => joinSpecificRoom(code, false)}>
+        {connectionState === "connecting" ? "连接中..." : "加入房间"}
+      </button>
+      <button disabled={!effectiveIdentity} onClick={() => joinSpecificRoom(code, true)} style={{ marginLeft: 8 }}>
+        旁观
+      </button>
+      <br />
+      <button onClick={() => navigate("/")} style={{ marginTop: 12 }}>返回大厅</button>
+    </div>
   );
 }
 
 function RoomGuard() {
   const { room } = useGame();
-  const { roomId } = useParams<{ roomId: string }>();
-
   if (room) return <RoomPage />;
   return <JoinRoomFromLink />;
 }
 
 export default function App() {
-  const { room, setRoomCode } = useGame();
+  const { room, effectiveIdentity, setRoomCode } = useGame();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -85,16 +65,13 @@ export default function App() {
     }
   }, []);
 
-  const inRoom = Boolean(room) && location.pathname.startsWith("/room/");
-
   return (
     <div className="app-shell">
-      <div className="glow glow-left" />
-      <div className="glow glow-right" />
       <main className="page">
         <AppNav />
         <Routes>
           <Route path="/" element={<HomePage />} />
+          <Route path="/login" element={<LoginPage />} />
           <Route path="/create" element={<CreateRoomPage />} />
           <Route path="/packs" element={<PacksPage />} />
           <Route path="/profile" element={<ProfilePage />} />
