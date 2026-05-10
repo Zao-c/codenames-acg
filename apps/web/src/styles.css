@@ -129,7 +129,7 @@ a { color: var(--accent-2); }
 /* ─── app shell ─── */
 .app-shell { min-height: 100dvh; display: flex; flex-direction: column; position: relative; overflow: hidden; }
 .page {
-  flex: 1; max-width: 960px; margin: 0 auto; padding: 16px 20px 120px;
+  flex: 1; max-width: 1400px; margin: 0 auto; padding: 16px 24px 120px;
   width: 100%;
 }
 
@@ -234,8 +234,8 @@ a { color: var(--accent-2); }
 
 .room-layout-playing {
   display: grid;
-  grid-template-columns: 220px 1fr 260px;
-  gap: 16px;
+  grid-template-columns: 260px minmax(0, 1fr) 280px;
+  gap: 14px;
   align-items: start;
 }
 .room-layout-playing > .room-bar {
@@ -245,7 +245,7 @@ a { color: var(--accent-2); }
   max-width: 640px; margin: 0 auto; width: 100%;
 }
 .room-layout-focus {
-  max-width: 1080px; margin: 0 auto; width: 100%;
+  max-width: 1200px; margin: 0 auto; width: 100%;
 }
 
 @media (max-width: 900px) {
@@ -259,8 +259,10 @@ a { color: var(--accent-2); }
 }
 
 .room-left-col { min-width: 0; }
+.room-left-col .panel { padding: 16px; margin-bottom: 10px; }
 .room-center-col { min-width: 0; }
 .room-right-col { min-width: 0; }
+.room-right-col .panel { padding: 16px; }
 
 .focus-bar {
   display: flex; align-items: center; gap: 12px; padding: 8px 14px;
@@ -300,20 +302,18 @@ a { color: var(--accent-2); }
 .board-7 { grid-template-columns: repeat(7, minmax(0, 1fr)); }
 .board-9 { grid-template-columns: repeat(9, minmax(0, 1fr)); }
 
-.board-5 .card-tile { min-height: 120px; }
-.board-5 .card-word { font-size: 20px; }
-.board-7 .card-tile { min-height: 92px; padding: 10px; }
-.board-7 .card-word { font-size: 17px; }
-.board-9 .card-tile { min-height: 72px; padding: 8px; border-radius: 10px; }
-.board-9 .card-word { font-size: 14px; }
+.board-5 .card-tile { min-height: 130px; padding: 16px 14px; }
+.board-7 .card-tile { min-height: 100px; padding: 12px 10px; }
+.board-9 .card-tile { min-height: 78px; padding: 8px 6px; border-radius: 10px; }
 
-@media (max-width: 640px) {
+@media (max-width: 900px) {
   .board-grid { gap: 6px; }
   .board-7, .board-9 { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  .board-7 { grid-template-columns: repeat(7, minmax(64px, 1fr)); }
-  .board-9 { grid-template-columns: repeat(9, minmax(56px, 1fr)); }
-  .card-tile { min-height: 68px; padding: 6px; border-radius: 10px; }
-  .card-word { font-size: 12px !important; }
+  .board-7 { grid-template-columns: repeat(7, minmax(60px, 1fr)); }
+  .board-9 { grid-template-columns: repeat(9, minmax(54px, 1fr)); }
+  .board-5 .card-tile { min-height: 110px; padding: 12px 10px; }
+  .board-7 .card-tile { min-height: 82px; padding: 8px 6px; }
+  .board-9 .card-tile { min-height: 64px; padding: 5px 4px; border-radius: 8px; }
 }
 
 .card-tile {
@@ -378,9 +378,10 @@ a { color: var(--accent-2); }
 
 /* ─── word text ─── */
 .card-word {
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-  overflow: hidden; line-height: 1.25; word-break: break-word;
-  font-weight: 700; letter-spacing: 0.02em; color: var(--text);
+  word-break: break-word; overflow-wrap: break-word;
+  line-height: 1.2; font-weight: 700; letter-spacing: 0.02em;
+  color: var(--text); text-align: center;
+  display: block; width: 100%;
 }
 .card-revealed .card-word { color: inherit; }
 

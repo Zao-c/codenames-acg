@@ -1,32 +1,24 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useGame } from "../context/GameContext";
 
 export function LoginPage() {
   const {
-    effectiveIdentity, namedUsernameInput, setNamedUsernameInput,
+    namedUsernameInput, setNamedUsernameInput,
     recentUsers, handleNamedLogin, continueAsGuest,
     guestNicknameInput, setGuestNicknameInput, error
   } = useGame();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isSwitching = new URLSearchParams(location.search).get("switch") === "1";
   const [mode, setMode] = useState<"named" | "guest">("named");
-
-  if (effectiveIdentity) {
-    return (
-      <div className="login-page">
-        <div className="login-card">
-          <h2>你已作为 {effectiveIdentity.nickname} 登录</h2>
-          <button className="primary-button" onClick={() => navigate("/")}>进入大厅</button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="login-page">
       <div style={{ textAlign: "center", marginBottom: 24 }}>
         <h1 style={{ fontSize: 32, fontWeight: 800, margin: 0 }}>词牌结社</h1>
         <p className="eyebrow" style={{ marginTop: 6 }}>ACG 猜词推理派对</p>
+        {isSwitching ? <p className="hint-text" style={{ marginTop: 8 }}>更换身份后需要重新加入房间</p> : null}
       </div>
 
       <div className="login-card">
@@ -54,7 +46,9 @@ export function LoginPage() {
                 ))}
               </div>
             ) : null}
-            <button className="primary-button" onClick={() => { void handleNamedLogin(); }} disabled={!namedUsernameInput.trim()}>进入结社</button>
+            <button className="primary-button" onClick={() => { void handleNamedLogin(); }} disabled={!namedUsernameInput.trim()}>
+              进入结社
+            </button>
           </>
         ) : (
           <>
@@ -68,7 +62,9 @@ export function LoginPage() {
                 onKeyDown={(e) => { if (e.key === "Enter") { continueAsGuest(); } }}
               />
             </label>
-            <button className="primary-button" onClick={continueAsGuest} disabled={!guestNicknameInput.trim()}>快速进入</button>
+            <button className="primary-button" onClick={continueAsGuest} disabled={!guestNicknameInput.trim()}>
+              快速进入
+            </button>
           </>
         )}
 

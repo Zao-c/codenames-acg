@@ -608,9 +608,22 @@ function MessageRow({ message, selfId }: { message: ChatMessage; selfId?: string
 }
 
 function fontSizeForBoard(boardColumns: number, wordLength: number): string {
-  if (boardColumns === 5) return wordLength > 5 ? "18px" : "20px";
-  if (boardColumns === 7) return wordLength > 5 ? "15px" : "17px";
-  return wordLength > 5 ? "13px" : "14px";
+  if (boardColumns === 5) {
+    if (wordLength <= 4) return "20px";
+    if (wordLength <= 8) return "17px";
+    if (wordLength <= 13) return "15px";
+    return "13px";
+  }
+  if (boardColumns === 7) {
+    if (wordLength <= 4) return "17px";
+    if (wordLength <= 8) return "15px";
+    if (wordLength <= 13) return "13px";
+    return "12px";
+  }
+  if (wordLength <= 4) return "14px";
+  if (wordLength <= 8) return "13px";
+  if (wordLength <= 13) return "12px";
+  return "11px";
 }
 
 function CardButton({ card, disabled, onClick, flash, flashOutcome, pending, revealing, showSpymasterHints, boardColumns }: {

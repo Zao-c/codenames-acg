@@ -60,9 +60,9 @@ export function ProfilePage() {
               <button onClick={() => fileRef.current?.click()}>更换头像</button>
             </>
           ) : null}
-          <button onClick={() => navigate("/login")}>切换账户</button>
+          <button onClick={() => { logoutNamedUser(); navigate("/login?switch=1"); }}>切换账户</button>
           {namedAccount ? (
-            <button onClick={() => { logoutNamedUser(); navigate("/"); }}>退出登录</button>
+            <button onClick={() => { logoutNamedUser(); navigate("/login?switch=1"); }}>退出登录</button>
           ) : null}
         </div>
       </section>

@@ -536,13 +536,24 @@ export class GameService {
     return this.withRoomLock(roomId, async () => {
     const room = await this.requireRoom(roomId);
     requireLobby(room);
-    if (room.players.length >= MAX_PLAYERS) {
-      throw new Error("房间已满");
-    }
 
     const cleanNickname = normalizeNickname(nickname);
-    if (hasNicknameConflict(room, cleanNickname)) {
+
+    const existing = [...room.players, ...room.spectators].find(
+      (entry) => entry.nickname === cleanNickname
+    );
+    if (existing && "connected" in existing && !existing.connected) {
+      if ("team" in existing) {
+        room.players = room.players.filter((p) => p.id !== existing.id);
+      } else {
+        room.spectators = room.spectators.filter((s) => s.id !== existing.id);
+      }
+    } else if (hasNicknameConflict(room, cleanNickname)) {
       throw new Error("昵称已被占用");
+    }
+
+    if (room.players.length >= MAX_PLAYERS) {
+      throw new Error("房间已满");
     }
 
     const player = await buildPlayer(cleanNickname, false, await this.users.resolveProfile(profile, sessionToken));
