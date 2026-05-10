@@ -329,6 +329,8 @@ export interface GameContextType {
   copied: boolean;
   focusMode: boolean;
   setFocusMode: (v: boolean) => void;
+  soundEnabled: boolean;
+  setSoundEnabled: (v: boolean) => void;
   sideTab: SideTab;
   setSideTab: (v: SideTab) => void;
   mobileRoomTab: "board" | "players" | "chat";
@@ -402,6 +404,15 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [copied, setCopied] = useState(false);
   const [didReconnect, setDidReconnect] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
+  const [soundEnabled, setSoundEnabledRaw] = useState(() => {
+    try { return localStorage.getItem("sound") !== "off"; } catch { return true; }
+  });
+  const soundEnabledRef = useRef(soundEnabled);
+  soundEnabledRef.current = soundEnabled;
+  const handleSetSoundEnabled = (v: boolean) => {
+    setSoundEnabledRaw(v);
+    try { localStorage.setItem("sound", v ? "on" : "off"); } catch {}
+  };
   const [mobileRoomTab, setMobileRoomTab] = useState<"board" | "players" | "chat">("board");
   const [sideTab, setSideTab] = useState<SideTab>("chat");
   const [jumpToLatest, setJumpToLatest] = useState(false);
@@ -520,7 +531,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const reveal = room?.lastReveal; if (!reveal || reveal.id === lastRevealIdRef.current) return;
     lastRevealIdRef.current = reveal.id;
     setRevealBanner(reveal); setRevealingCardIds((prev) => new Set(prev).add(reveal.cardId)); setPendingGuess(null); guessLockRef.current = false;
-    if (reveal.outcome === "own-hit") playOwnHit(); else if (reveal.outcome === "opponent-hit") playOpponentHit(); else if (reveal.outcome === "neutral-hit") playNeutralHit(); else if (reveal.outcome === "assassin-hit") playAssassinHit();
+    if (soundEnabledRef.current) {
+      if (reveal.outcome === "own-hit") playOwnHit(); else if (reveal.outcome === "opponent-hit") playOpponentHit(); else if (reveal.outcome === "neutral-hit") playNeutralHit(); else if (reveal.outcome === "assassin-hit") playAssassinHit();
+    }
     const t = window.setTimeout(() => setRevealingCardIds((prev) => { const n = new Set(prev); n.delete(reveal.cardId); return n; }), 520);
     return () => window.clearTimeout(t);
   }, [room?.lastReveal]);
@@ -540,10 +553,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return () => { window.clearTimeout(t1); window.clearTimeout(t2); };
   }, [room?.messages]);
   useEffect(() => {
-    if (room?.phase === "finished" && room.winner) { playVictory(); setShowSakura(true); const t = window.setTimeout(() => setShowSakura(false), 8000); return () => window.clearTimeout(t); }
+    if (room?.phase === "finished" && room.winner) { if (soundEnabledRef.current) playVictory(); setShowSakura(true); const t = window.setTimeout(() => setShowSakura(false), 8000); return () => window.clearTimeout(t); }
     setShowSakura(false);
   }, [room?.phase, room?.winner]);
-  useEffect(() => { if (room?.phase === "playing" && room.roundNumber) playGameStart(); }, [room?.phase, room?.roundNumber]);
+  useEffect(() => { if (room?.phase === "playing" && room.roundNumber && soundEnabledRef.current) playGameStart(); }, [room?.phase, room?.roundNumber]);
   useEffect(() => {
     if (sideTab !== "chat") return;
     const list = chatListRef.current; if (!list || !stickToChatBottomRef.current) return;
@@ -730,9 +743,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
   function queueForNextRound() { if (session) socket.emit("queue_for_next_round", { roomId: session.roomId }); }
   function cancelQueueJoin() { if (session) socket.emit("cancel_queue_join", { roomId: session.roomId }); }
   function debugFillRoom() { if (session) socket.emit("debug_fill_room", { roomId: session.roomId }); }
-  function submitClue() { if (!session || !clueWord.trim()) return; socket.emit("submit_clue", { roomId: session.roomId, word: clueWord.trim(), count: clueCount }); playSubmitClue(); setClueWord(""); }
+  function submitClue() { if (!session || !clueWord.trim()) return; socket.emit("submit_clue", { roomId: session.roomId, word: clueWord.trim(), count: clueCount }); if (soundEnabled) playSubmitClue(); setClueWord(""); }
   function guessCard(cardId: string) { if (!session || !viewer?.canGuess || guessLockRef.current) return; guessLockRef.current = true; setPendingGuess(cardId); socket.emit("guess_card", { roomId: session.roomId, cardId }); }
-  function endTurn() { if (session) { socket.emit("end_turn", { roomId: session.roomId }); playEndTurn(); } }
+  function endTurn() { if (session) { socket.emit("end_turn", { roomId: session.roomId }); if (soundEnabled) playEndTurn(); } }
   function sendChatMessage() { if (!session || !chatText.trim()) return; socket.emit("send_chat_message", { roomId: session.roomId, text: chatText.trim() }); setChatText(""); }
   function sendQuickPhrase(text: string) { if (session) socket.emit("send_chat_message", { roomId: session.roomId, text }); }
   function sendReaction(reaction: ChatReaction, targetParticipantId: string, targetParticipantType: ParticipantType) {
@@ -803,6 +816,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     submitClue, guessCard, endTurn, sendChatMessage, sendQuickPhrase, sendReaction, copyLink,
     clueWord, setClueWord, clueCount, setClueCount,
     chatText, setChatText, copied, focusMode, setFocusMode,
+    soundEnabled, setSoundEnabled: handleSetSoundEnabled,
     sideTab, setSideTab, jumpToLatest,
     mobileRoomTab, setMobileRoomTab,
     chatListRef, handleChatScroll, scrollChatToBottom,

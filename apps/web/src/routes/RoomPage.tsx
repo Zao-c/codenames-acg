@@ -95,6 +95,12 @@ export function RoomPage() {
             </div>
             <div className="status-strip">
               <span className="status-pill emphasis">{getRoomStageLabel(room, connectionState)}</span>
+              {room.phase === "playing" ? (
+                <>
+                  <span className={`status-pill team-pill team-pill-${room.currentTeam}`}>{TEAM_LABELS[room.currentTeam]}</span>
+                  {room.clue ? <span className="status-pill clue-pill">提示：{room.clue.word} {room.clue.count}</span> : null}
+                </>
+              ) : null}
               <span className="status-pill">{room.settings.boardMode}</span>
               <span className="status-pill">第 {room.roundNumber} 局</span>
               {isDebugController ? <span className="status-pill">调试</span> : null}
@@ -229,8 +235,12 @@ function FocusBar({ room, viewer, onExitFocus }: { room: NonNullable<ReturnType<
   return (
     <div className="focus-bar">
       <strong className="room-code">{room.id}</strong>
+      {room.phase === "playing" ? (
+        <span className={`status-pill team-pill team-pill-${room.currentTeam}`}>{TEAM_LABELS[room.currentTeam]}</span>
+      ) : null}
       <span className="status-pill">{viewer?.targetTeam ? getActionTeamText(viewer.targetTeam) : "等待中"}</span>
-      <span className="status-pill" style={{ border: "1px solid rgba(107,182,255,0.3)" }}>{getCurrentClueText(room)}</span>
+      {room.clue ? <span className="status-pill clue-pill">{room.clue.word} {room.clue.count}</span> : null}
+      {room.timerEndsAt ? <TimerPill room={room} /> : null}
       <span className="flex-spacer" />
       <button onClick={onExitFocus}>退出专注</button>
     </div>
@@ -343,8 +353,12 @@ function ParticipantRow({ participant, label, isSelf, effect, onReact }: {
   onReact: (r: ChatReaction, id: string, t: ParticipantType) => void;
 }) {
   const type: ParticipantType = "team" in participant ? "player" : "spectator";
+  const isPlayer = "team" in participant;
+  const team = isPlayer ? participant.team : null;
+  const role = isPlayer ? participant.role : null;
+  const teamClass = team === "red" ? "participant-team-red" : team === "blue" ? "participant-team-blue" : "";
   return (
-    <div className={`participant-row ${isSelf ? "participant-self" : ""} ${effect ? `participant-effect-${effect}` : ""}`}>
+    <div className={`participant-row ${isSelf ? "participant-self" : ""} ${teamClass} ${effect ? `participant-effect-${effect}` : ""}`}>
       <div className="participant-main">
         <AvatarBadge avatarUrl={participant.profile.avatarUrl} fallback={participant.nickname} size="small" effect={effect} />
         <div>
@@ -354,6 +368,8 @@ function ParticipantRow({ participant, label, isSelf, effect, onReact }: {
       </div>
       <div className="participant-actions">
         {"isHost" in participant && participant.isHost ? <span className="soft-chip">社长</span> : null}
+        {team ? <span className={`role-chip role-chip-${team}`}>{team === "red" ? "红队" : "蓝队"}</span> : null}
+        {role ? <span className={`role-chip role-chip-role`}>{role === "spymaster" ? "队长" : "队员"}</span> : null}
         {"connected" in participant && !participant.connected ? <span className="soft-chip">离线</span> : null}
         {"isBot" in participant && participant.isBot ? <span className="soft-chip">测试位</span> : null}
         {!isSelf ? (

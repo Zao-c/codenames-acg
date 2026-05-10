@@ -15,7 +15,7 @@ function useTheme() {
 }
 
 export function AppNav() {
-  const { effectiveIdentity, room, leaveRoom, copyLink, copied, focusMode, setFocusMode } = useGame();
+  const { effectiveIdentity, room, leaveRoom, copyLink, copied, focusMode, setFocusMode, soundEnabled, setSoundEnabled } = useGame();
   const navigate = useNavigate();
   const location = useLocation();
   const [light, toggleTheme] = useTheme();
@@ -33,6 +33,7 @@ export function AppNav() {
           <button onClick={() => { void copyLink(); }}>{copied ? "已复制链接" : "复制邀请链接"}</button>
           <button onClick={() => { setFocusMode(!focusMode); }}>{focusMode ? "退出专注" : "专注模式"}</button>
           <button onClick={toggleTheme} title={light ? "切换暗色主题" : "切换亮色主题"}>{light ? "🌙" : "☀️"}</button>
+          <button onClick={() => setSoundEnabled(!soundEnabled)} title={soundEnabled ? "关闭音效" : "开启音效"}>{soundEnabled ? "🔊" : "🔇"}</button>
           <button onClick={() => { if (window.confirm("确定要离开房间吗？")) { leaveRoom(); navigate("/"); } }}>离开房间</button>
         </div>
         {effectiveIdentity ? (
@@ -68,6 +69,7 @@ export function AppNav() {
           </button>
         ))}
         <button onClick={toggleTheme} title={light ? "切换暗色主题" : "切换亮色主题"}>{light ? "🌙" : "☀️"}</button>
+        <button onClick={() => setSoundEnabled(!soundEnabled)} title={soundEnabled ? "关闭音效" : "开启音效"}>{soundEnabled ? "🔊" : "🔇"}</button>
       </div>
       {effectiveIdentity ? (
         <div className="nav-identity">
