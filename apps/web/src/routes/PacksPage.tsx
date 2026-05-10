@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useGame } from "../context/GameContext";
 import { CandidateReview } from "../lib/CandidateReview";
 import type { SavedWordPack, PublicWordPack } from "@acg-codenames/shared";
@@ -18,8 +18,41 @@ export function PacksPage() {
   const [tab, setTab] = useState<"mine" | "public" | "import">("mine");
   const [search, setSearch] = useState("");
   const [modalPack, setModalPack] = useState<SavedWordPack | PublicWordPack | null>(null);
+  const [editingPack, setEditingPack] = useState<SavedWordPack | null>(null);
 
   const filter = (name: string) => name.toLowerCase().includes(search.toLowerCase());
+
+  const copyEntries = useCallback((entries: string[]) => {
+    navigator.clipboard.writeText(entries.join("\n")).then(() => {
+      alert(`已复制 ${entries.length} 个词条到剪贴板`);
+    }).catch(() => {});
+  }, []);
+
+  const downloadFile = useCallback((name: string, content: string, ext: string, mime: string) => {
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${name.replace(/[\\/:*?"<>|]/g, "_")}.${ext}`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, []);
+
+  const duplicatePack = useCallback((pack: SavedWordPack) => {
+    setSavedPackName(pack.name + " (副本)");
+    setSavedPackEntries(pack.entries.join("\n"));
+    setTab("import");
+    setModalPack(null);
+  }, [setSavedPackName, setSavedPackEntries]);
+
+  const handleSaveEdit = useCallback(() => {
+    if (!editingPack || !savedPackEntries.trim()) return;
+    const entries = savedPackEntries.split(/[\n,]/).map((e) => e.trim()).filter(Boolean);
+    if (entries.length < 1) return;
+    importAccountPack(new File([entries.join("\n")], editingPack.name + ".txt", { type: "text/plain" }));
+    removeAccountPack(editingPack.id);
+    setEditingPack(null);
+  }, [editingPack, savedPackEntries, importAccountPack, removeAccountPack]);
 
   if (candidatePack) {
     return (
@@ -79,6 +112,7 @@ export function PacksPage() {
                     <div className="pack-row-actions">
                       <button onClick={() => { chooseAccountPackForCreate(pack.id); }}>用于开房</button>
                       <button onClick={() => setModalPack(pack)}>详情</button>
+                      <button onClick={() => { setEditingPack(pack); setSavedPackName(pack.name); setSavedPackEntries(pack.entries.join("\n")); setTab("import"); }}>编辑</button>
                     </div>
                   </div>
                 ))}
@@ -116,7 +150,7 @@ export function PacksPage() {
       ) : (
         <section className="panel">
           <div className="panel-heading">
-            <h2>上传 / 导入</h2>
+            <h2>{editingPack ? `编辑：${editingPack.name}` : "上传 / 导入"}</h2>
           </div>
           {namedAccount ? (
             <div className="upload-form">
@@ -129,8 +163,17 @@ export function PacksPage() {
                 <textarea value={savedPackEntries} onChange={(e) => setSavedPackEntries(e.target.value)} placeholder="每行一个词，至少 25 行" />
               </label>
               <div className="toolbar-inline">
-                <button className="primary-button" onClick={() => { void addAccountPack(); }}>保存题库</button>
-                <input type="file" accept=".txt,.json" onChange={(e) => { void importAccountPack(e.target.files?.[0] ?? null); }} />
+                {editingPack ? (
+                  <>
+                    <button className="primary-button" onClick={handleSaveEdit}>保存修改</button>
+                    <button onClick={() => { setEditingPack(null); setSavedPackName(""); setSavedPackEntries(""); }}>取消编辑</button>
+                  </>
+                ) : (
+                  <>
+                    <button className="primary-button" onClick={() => { void addAccountPack(); }}>保存题库</button>
+                    <input type="file" accept=".txt,.json" onChange={(e) => { void importAccountPack(e.target.files?.[0] ?? null); }} />
+                  </>
+                )}
               </div>
             </div>
           ) : (
@@ -143,23 +186,36 @@ export function PacksPage() {
         <div className="pack-modal-overlay" onClick={() => setModalPack(null)}>
           <div className="pack-modal" onClick={(e) => e.stopPropagation()}>
             <h3>{modalPack.name}</h3>
-            <p className="hint-text">{(modalPack as SavedWordPack).entries?.length ?? (modalPack as PublicWordPack).entries?.length ?? 0} 个词</p>
+            <p className="hint-text">
+              {"entries" in modalPack && Array.isArray(modalPack.entries)
+                ? `${(modalPack as SavedWordPack).entries.length} 个词`
+                : `${(modalPack as PublicWordPack).entries.length} 个词`}
+              {"ownerUsername" in modalPack ? ` / ${(modalPack as PublicWordPack).ownerUsername}` : ""}
+            </p>
             {"entries" in modalPack && Array.isArray(modalPack.entries) ? (
               <div className="pack-modal-words">
-                {(modalPack.entries as string[]).slice(0, 50).map((w, i) => (
+                {(modalPack.entries as string[]).slice(0, 80).map((w, i) => (
                   <span key={i} className="pack-modal-word">{w}</span>
                 ))}
-                {modalPack.entries.length > 50 ? <span className="pack-modal-word">等共 {modalPack.entries.length} 个词...</span> : null}
+                {modalPack.entries.length > 80 ? <span className="pack-modal-word">等共 {modalPack.entries.length} 个词...</span> : null}
               </div>
             ) : null}
             <div className="pack-modal-actions">
-              <button className="primary-button" onClick={() => { setModalPack(null); }}>关闭</button>
-              {"entries" in modalPack && "isPublic" in modalPack ? (
+              <button className="primary-button" onClick={() => setModalPack(null)}>关闭</button>
+              {"entries" in modalPack && Array.isArray(modalPack.entries) ? (
                 <>
-                  <button onClick={() => { void toggleAccountPackPublic((modalPack as SavedWordPack).id); setModalPack(null); }}>
-                    {(modalPack as SavedWordPack).isPublic ? "取消公开" : "公开题库"}
-                  </button>
-                  <button className="danger-button" onClick={() => { void removeAccountPack((modalPack as SavedWordPack).id); setModalPack(null); }}>删除</button>
+                  <button onClick={() => copyEntries(modalPack.entries as string[])}>复制全部</button>
+                  <button onClick={() => downloadFile(modalPack.name, (modalPack.entries as string[]).join("\n"), "txt", "text/plain")}>导出 TXT</button>
+                  <button onClick={() => downloadFile(modalPack.name, JSON.stringify({ name: modalPack.name, entries: modalPack.entries }, null, 2), "json", "application/json")}>导出 JSON</button>
+                  {"isPublic" in modalPack ? (
+                    <>
+                      <button onClick={() => duplicatePack(modalPack as SavedWordPack)}>另存副本</button>
+                      <button onClick={() => { void toggleAccountPackPublic((modalPack as SavedWordPack).id); setModalPack(null); }}>
+                        {(modalPack as SavedWordPack).isPublic ? "取消公开" : "公开题库"}
+                      </button>
+                      <button className="danger-button" onClick={() => { void removeAccountPack((modalPack as SavedWordPack).id); setModalPack(null); }}>删除</button>
+                    </>
+                  ) : null}
                 </>
               ) : null}
             </div>

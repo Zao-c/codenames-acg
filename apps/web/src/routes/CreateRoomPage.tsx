@@ -33,6 +33,17 @@ export function CreateRoomPage() {
     { value: "color-only", label: "仅显示颜色", hint: "翻牌后隐藏词语，仅显示阵营颜色" },
   ];
 
+  const currentPackName: string =
+    packSource === "builtin" ? (wordPackSummaries.find((p) => p.id === selectedBuiltinPackId)?.name ?? "") :
+    packSource === "account" ? (selectedAccountPack?.name ?? "") :
+    selectedPublicPack?.name ?? "";
+  const currentPackCount: number | null =
+    packSource === "builtin" ? (wordPackSummaries.find((p) => p.id === selectedBuiltinPackId)?.entryCount ?? null) :
+    packSource === "account" ? (selectedAccountPack?.entries.length ?? null) :
+    selectedPublicPack?.entries.length ?? null;
+  const currentPackOwner: string =
+    packSource === "public" ? (selectedPublicPack?.ownerUsername ?? "") : "";
+
   return (
     <>
       <section className="panel">
@@ -110,33 +121,55 @@ export function CreateRoomPage() {
             <button className={packSource === "account" ? "selected" : ""} disabled={!namedAccount} onClick={() => setPackSource("account")}>我的题库</button>
             <button className={packSource === "public" ? "selected" : ""} onClick={() => setPackSource("public")}>公共题库</button>
           </div>
+
           {packSource === "builtin" ? (
-            <select value={selectedBuiltinPackId} onChange={(e) => setSelectedBuiltinPackId(e.target.value)}>
+            <div className="pack-select-list" style={{ marginTop: 10 }}>
               {wordPackSummaries.map((pack) => (
-                <option key={pack.id} value={pack.id}>{pack.name} ({pack.entryCount})</option>
+                <button key={pack.id} className={`pack-select-row ${selectedBuiltinPackId === pack.id ? "pack-select-row-active" : ""}`} onClick={() => setSelectedBuiltinPackId(pack.id)}>
+                  <span className="pack-select-name">{pack.name}</span>
+                  <span className="pack-select-meta">{pack.entryCount} 个词</span>
+                  <span className="pack-select-action">{selectedBuiltinPackId === pack.id ? "✓ 已选中" : "选择此题库"}</span>
+                </button>
               ))}
-            </select>
+            </div>
           ) : packSource === "account" ? (
-            <select value={selectedAccountPackId} onChange={(e) => setSelectedAccountPackId(e.target.value)}>
-              <option value="">选择我的题库</option>
+            <div className="pack-select-list" style={{ marginTop: 10 }}>
+              {accountPacks.length === 0 ? <p className="empty-text">还没有个人题库。</p> : null}
               {accountPacks.map((pack) => (
-                <option key={pack.id} value={pack.id}>{pack.name} ({pack.entries.length})</option>
+                <button key={pack.id} className={`pack-select-row ${selectedAccountPackId === pack.id ? "pack-select-row-active" : ""}`} onClick={() => setSelectedAccountPackId(pack.id)}>
+                  <span className="pack-select-name">{pack.name}</span>
+                  <span className="pack-select-meta">{pack.entries.length} 个词</span>
+                  <span className="pack-select-action">{selectedAccountPackId === pack.id ? "✓ 已选中" : "选择此题库"}</span>
+                </button>
               ))}
-            </select>
+            </div>
           ) : (
-            <select value={selectedPublicPackId} onChange={(e) => setSelectedPublicPackId(e.target.value)}>
-              <option value="">选择公共题库</option>
-              {publicPacks.map((pack) => (
-                <option key={makePublicPackKey(pack)} value={makePublicPackKey(pack)}>{pack.name} ({pack.entries.length}) / {pack.ownerUsername}</option>
-              ))}
-            </select>
+            <div className="pack-select-list" style={{ marginTop: 10 }}>
+              {publicPacks.length === 0 ? <p className="empty-text">还没有公共题库。</p> : null}
+              {publicPacks.map((pack) => {
+                const key = makePublicPackKey(pack);
+                return (
+                  <button key={key} className={`pack-select-row ${selectedPublicPackId === key ? "pack-select-row-active" : ""}`} onClick={() => setSelectedPublicPackId(key)}>
+                    <span className="pack-select-name">{pack.name}</span>
+                    <span className="pack-select-meta">{pack.entries.length} 个词 / {pack.ownerUsername}</span>
+                    <span className="pack-select-action">{selectedPublicPackId === key ? "✓ 已选中" : "选择此题库"}</span>
+                  </button>
+                );
+              })}
+            </div>
           )}
-          {selectedAccountPack && packSource === "account" ? (
-            <p className="hint-text">当前题库：<strong>{selectedAccountPack.name}</strong></p>
-          ) : selectedPublicPack && packSource === "public" ? (
-            <p className="hint-text">当前题库：<strong>{selectedPublicPack.name}</strong></p>
-          ) : null}
         </div>
+
+        {currentPackName ? (
+          <div className="current-pack-card">
+            <span className="micro-label">当前使用</span>
+            <strong className="current-pack-name">{currentPackName}</strong>
+            <span className="current-pack-meta">
+              {currentPackCount !== null ? `${currentPackCount} 个词` : ""}
+              {currentPackOwner ? ` / ${currentPackOwner}` : ""}
+            </span>
+          </div>
+        ) : null}
         <button
           className="primary-button"
           onClick={createRoom}

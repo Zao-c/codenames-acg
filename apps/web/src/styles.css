@@ -184,6 +184,29 @@ a { color: var(--accent-2); }
 
 .panel-subtle { color: var(--muted); font-size: 12px; margin: 4px 0 0; }
 
+/* ─── pack select ─── */
+.pack-select-list { display: flex; flex-direction: column; gap: 4px; max-height: 240px; overflow-y: auto; }
+.pack-select-row {
+  display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+  border-radius: 12px; background: var(--surface-softer); border: 1px solid transparent;
+  cursor: pointer; font-size: 13px; text-align: left; width: 100%;
+  transition: background 0.15s, border-color 0.15s;
+}
+.pack-select-row:hover { background: var(--surface-soft); border-color: var(--line); }
+.pack-select-row-active { background: rgba(107,182,255,0.10); border-color: var(--accent); }
+.pack-select-name { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pack-select-meta { font-size: 11px; color: var(--muted); white-space: nowrap; }
+.pack-select-action { font-size: 12px; font-weight: 600; color: var(--accent); white-space: nowrap; }
+
+.current-pack-card {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 14px 18px; border-radius: 14px;
+  background: rgba(107,182,255,0.08); border: 1px solid rgba(107,182,255,0.2);
+  margin-bottom: 12px;
+}
+.current-pack-name { font-size: 15px; font-weight: 700; }
+.current-pack-meta { font-size: 13px; color: var(--muted); }
+
 /* ─── app shell ─── */
 .app-shell { min-height: 100dvh; display: flex; flex-direction: column; position: relative; overflow: hidden; }
 .page {
