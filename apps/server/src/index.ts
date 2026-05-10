@@ -683,6 +683,10 @@ async function bootstrap(): Promise<void> {
     });
   });
 
+  setInterval(() => {
+    game.cleanupIdleRooms().catch((err) => console.warn("room cleanup error:", err));
+  }, 60_000);
+
   httpServer.listen(env.port, () => {
     console.log(`Server listening on http://localhost:${env.port}`);
   });

@@ -1524,12 +1524,102 @@ button:disabled {
   }
 
   .join-row,
-.score-board,
-.host-transfer-row {
-  display: grid;
-  grid-template-columns: 1fr;
-}
+  .score-board,
+  .host-transfer-row {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
 
+  .board-grid {
+    gap: 8px;
+  }
+
+  .card-tile {
+    min-height: 80px;
+    padding: 10px;
+    border-radius: 12px;
+  }
+
+  .card-tile span {
+    font-size: 14px;
+  }
+
+  button,
+  .primary-button {
+    min-height: 44px;
+    padding: 11px 16px;
+  }
+
+  .chip-button,
+  .icon-button {
+    min-height: 36px;
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  .chat-list {
+    max-height: 280px;
+  }
+
+  .dock-panel {
+    bottom: 0;
+    border-radius: 16px 16px 0 0;
+  }
+
+  .app-nav {
+    padding: 0 0 12px;
+    justify-content: center;
+  }
+
+  .nav-brand {
+    font-size: 17px;
+  }
+
+  .app-nav .nav-links {
+    display: none;
+  }
+
+  .app-nav .nav-identity {
+    display: none;
+  }
+
+  .mobile-nav {
+    display: flex;
+  }
+
+  .page {
+    padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .room-layout,
+  .room-layout-playing {
+    grid-template-columns: 1fr;
+  }
+
+  .room-layout-playing .left-column {
+    position: static;
+    width: auto;
+    max-height: none;
+    pointer-events: auto;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 12px;
+    left: auto;
+    top: auto;
+  }
+
+  .room-layout-playing .left-column::after {
+    display: none;
+  }
+
+  .right-column {
+    max-height: none;
+  }
+
+  .room-grid-focus .left-column,
+  .room-grid-focus .right-column {
+    display: none;
+  }
 }
 
 .app-nav {
@@ -1623,69 +1713,6 @@ button:disabled {
 
   .nav-links button {
     padding: 8px 10px;
-  }
-}
-
-@media (max-width: 640px) {
-  .app-nav {
-    padding: 0 0 12px;
-    justify-content: center;
-  }
-
-  .nav-brand {
-    font-size: 17px;
-  }
-
-  .app-nav .nav-links {
-    display: none;
-  }
-
-  .app-nav .nav-identity {
-    display: none;
-  }
-
-  .mobile-nav {
-    display: flex;
-  }
-
-  .page {
-    padding-bottom: 72px;
-  }
-
-  .board-grid {
-    gap: 8px;
-  }
-
-  .card-tile {
-    min-height: 80px;
-    padding: 10px;
-    border-radius: 12px;
-  }
-
-  .card-tile span {
-    font-size: 14px;
-  }
-
-  button,
-  .primary-button {
-    min-height: 44px;
-    padding: 11px 16px;
-  }
-
-  .chip-button,
-  .icon-button {
-    min-height: 36px;
-    padding: 8px 12px;
-    font-size: 13px;
-  }
-
-  .chat-list {
-    max-height: 280px;
-  }
-
-  .dock-panel {
-    bottom: 0;
-    border-radius: 16px 16px 0 0;
   }
 }
 

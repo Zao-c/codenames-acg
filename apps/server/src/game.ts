@@ -12,6 +12,8 @@ import {
   MIN_PLAYERS_TO_START,
   PLAYER_ROLE_LABELS,
   ROOM_ID_LENGTH,
+  ROOM_TTL_LOBBY_IDLE_SECONDS,
+  ROOM_TTL_FINISHED_SECONDS,
   TEAM_LABELS,
   buildRoomSummary,
   createCustomWordPack,
@@ -1189,6 +1191,26 @@ export class GameService {
       isQueuedForNextRound,
       revealAll: isDebugController
     });
+  }
+
+  async cleanupIdleRooms(): Promise<number> {
+    const rooms = await this.store.listRooms();
+    let cleaned = 0;
+    for (const room of rooms) {
+      const idleMs = Date.now() - room.updatedAt;
+      const humanPlayers = room.players.filter((p) => !p.isBot);
+      if (humanPlayers.length === 0) {
+        await this.store.deleteRoom(room.id);
+        cleaned++;
+      } else if (room.phase === "lobby" && idleMs > ROOM_TTL_LOBBY_IDLE_SECONDS * 1000) {
+        await this.store.deleteRoom(room.id);
+        cleaned++;
+      } else if (room.phase === "finished" && idleMs > ROOM_TTL_FINISHED_SECONDS * 1000) {
+        await this.store.deleteRoom(room.id);
+        cleaned++;
+      }
+    }
+    return cleaned;
   }
 
   private async requireRoom(roomId: string): Promise<Room> {

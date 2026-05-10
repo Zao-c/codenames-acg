@@ -1,6 +1,23 @@
 import { createClient } from "redis";
-import { PLAYER_RECONNECT_TTL_SECONDS, ROOM_TTL_SECONDS, type Room } from "@acg-codenames/shared";
+import { PLAYER_RECONNECT_TTL_SECONDS, ROOM_TTL_SECONDS, ROOM_TTL_LOBBY_IDLE_SECONDS, ROOM_TTL_FINISHED_SECONDS, ROOM_TTL_EMPTY_SECONDS, type Room } from "@acg-codenames/shared";
 import type { RoomSession, RoomStore } from "./types.js";
+
+function computeRoomTTL(room: Room): number {
+  const humanPlayers = room.players.filter((p) => !p.isBot);
+  if (humanPlayers.length === 0) return ROOM_TTL_EMPTY_SECONDS;
+  if (room.phase === "lobby") return ROOM_TTL_LOBBY_IDLE_SECONDS;
+  if (room.phase === "finished") return ROOM_TTL_FINISHED_SECONDS;
+  return ROOM_TTL_SECONDS;
+}
+
+function isStaleRoom(room: Room): boolean {
+  const idleMs = Date.now() - room.updatedAt;
+  const humanPlayers = room.players.filter((p) => !p.isBot);
+  if (humanPlayers.length === 0) return idleMs > ROOM_TTL_EMPTY_SECONDS * 1000;
+  if (room.phase === "lobby") return idleMs > ROOM_TTL_LOBBY_IDLE_SECONDS * 1000;
+  if (room.phase === "finished") return idleMs > ROOM_TTL_FINISHED_SECONDS * 1000;
+  return idleMs > ROOM_TTL_SECONDS * 1000;
+}
 
 class MemoryRoomStore implements RoomStore {
   private readonly rooms = new Map<string, { value: Room; expiresAt: number }>();
@@ -17,7 +34,7 @@ class MemoryRoomStore implements RoomStore {
   }
 
   async setRoom(room: Room): Promise<void> {
-    this.rooms.set(room.id, { value: room, expiresAt: Date.now() + ROOM_TTL_SECONDS * 1000 });
+    this.rooms.set(room.id, { value: room, expiresAt: Date.now() + computeRoomTTL(room) * 1000 });
   }
 
   async deleteRoom(roomId: string): Promise<void> {

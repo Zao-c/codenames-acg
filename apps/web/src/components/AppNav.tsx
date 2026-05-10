@@ -39,26 +39,33 @@ export function AppNav() {
 }
 
 export function MobileNav() {
-  const { room } = useGame();
+  const { room, focusMode, setFocusMode, setSideTab, sideTab } = useGame();
   const navigate = useNavigate();
   const location = useLocation();
 
   const inRoom = Boolean(room);
 
   if (inRoom) {
-    const tabs = [
-      { path: "", label: "棋盘", icon: "🎯" },
-      { path: "", label: "玩家", icon: "👥" },
-      { path: "", label: "聊天", icon: "💬" },
-    ];
     return (
       <nav className="mobile-nav">
-        {tabs.map((tab) => (
-          <button key={tab.label} className="mobile-nav-tab">
-            <span>{tab.icon}</span>
-            <span>{tab.label}</span>
-          </button>
-        ))}
+        <button
+          className={`mobile-nav-tab ${!focusMode ? "selected" : ""}`}
+          onClick={() => { setFocusMode(false); }}
+        >
+          <span>🎯</span><span>棋盘</span>
+        </button>
+        <button
+          className={`mobile-nav-tab ${!focusMode && sideTab === "spectators" ? "selected" : ""}`}
+          onClick={() => { setFocusMode(false); setSideTab("spectators"); }}
+        >
+          <span>👥</span><span>玩家</span>
+        </button>
+        <button
+          className={`mobile-nav-tab ${!focusMode && sideTab === "chat" ? "selected" : ""}`}
+          onClick={() => { setFocusMode(false); setSideTab("chat"); }}
+        >
+          <span>💬</span><span>聊天</span>
+        </button>
       </nav>
     );
   }
