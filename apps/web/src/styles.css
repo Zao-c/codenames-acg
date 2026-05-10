@@ -440,6 +440,20 @@ a { color: var(--accent-2); }
 .card-role-badge-neutral { background: var(--neutral); color: #1a1d28; }
 .card-role-badge-assassin { background: #19101a; color: var(--danger); border: 1px solid var(--assassin-border); }
 
+/* ─── player marks (top-left) ─── */
+.card-mark {
+  position: absolute; top: 3px; left: 3px;
+  font-size: 9px; font-weight: 800; line-height: 1;
+  padding: 1px 4px; border-radius: 4px;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+  opacity: 0.85;
+}
+.card-mark-red     { background: var(--red); color: #fff; }
+.card-mark-blue    { background: var(--blue); color: #fff; }
+.card-mark-neutral { background: var(--neutral); color: #1a1d28; }
+.card-mark-assassin { background: #19101a; color: var(--danger); border: 1px solid var(--assassin-border); }
+
 /* ─── word text ─── */
 .card-word {
   word-break: break-word; overflow-wrap: break-word;

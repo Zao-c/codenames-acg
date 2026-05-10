@@ -15,6 +15,22 @@ export function RoomPage() {
   const g = useGame();
   const navigate = useNavigate();
 
+  type PlayerMark = "red" | "blue" | "neutral" | "assassin" | null;
+  const [cardMarks, setCardMarks] = useState<Record<string, PlayerMark>>({});
+
+  const markCard = (cardId: string) => {
+    const marks: PlayerMark[] = ["red", "blue", "neutral", "assassin", null];
+    setCardMarks((prev) => {
+      const cur = prev[cardId];
+      const curIdx = cur ? marks.indexOf(cur) : -1;
+      const next = marks[(curIdx + 1) % marks.length];
+      const nextState = { ...prev };
+      if (next === null) delete nextState[cardId];
+      else nextState[cardId] = next;
+      return nextState;
+    });
+  };
+
   const {
     room, session,
     connectionState, error, focusMode, setFocusMode,
@@ -142,7 +158,7 @@ export function RoomPage() {
               </section>
             ) : null}
 
-            <BoardPanel room={room} viewer={viewer} g={g} />
+            <BoardPanel room={room} viewer={viewer} g={g} cardMarks={cardMarks} markCard={markCard} />
 
             {viewer?.participantType === "player" ? (
               <ActionPanel viewer={viewer} g={g} />
@@ -179,7 +195,7 @@ export function RoomPage() {
 
       {focusMode ? (
         <>
-          <BoardPanel room={room} viewer={viewer} g={g} />
+          <BoardPanel room={room} viewer={viewer} g={g} cardMarks={cardMarks} markCard={markCard} />
           {viewer?.participantType === "player" ? (
             <ActionPanel viewer={viewer} g={g} />
           ) : null}
@@ -415,10 +431,12 @@ function LobbySettings({ room, viewer, self, g, accountPacks, publicPacks, makeP
   );
 }
 
-function BoardPanel({ room, viewer, g }: {
+function BoardPanel({ room, viewer, g, cardMarks, markCard }: {
   room: NonNullable<ReturnType<typeof useGame>["room"]>;
   viewer: NonNullable<ReturnType<typeof useGame>["viewer"]> | null;
   g: ReturnType<typeof useGame>;
+  cardMarks: Record<string, "red" | "blue" | "neutral" | "assassin" | null>;
+  markCard: (cardId: string) => void;
 }) {
   const { boardColumns, canSeeHiddenRoles, showSpymasterHints, maskSpymasterHints, setMaskSpymasterHints, revealingCardIds, pendingGuess, guessCard: doGuess, renderHint } = g;
   const boardSizeClass = `board-${boardColumns}`;
@@ -457,6 +475,8 @@ function BoardPanel({ room, viewer, g }: {
             flashOutcome={room.lastReveal?.cardId === card.id ? room.lastReveal.outcome : null}
             pending={pendingGuess === card.id}
             revealing={revealingCardIds.has(card.id)}
+            mark={cardMarks[card.id] ?? null}
+            onMark={() => markCard(card.id)}
             showSpymasterHints={showSpymasterHints}
           />
         ))}
@@ -673,9 +693,11 @@ function fontSizeForBoard(boardColumns: number, wordLength: number): string {
   return "11px";
 }
 
-function CardButton({ card, disabled, onClick, flash, flashOutcome, pending, revealing, showSpymasterHints, boardColumns }: {
+function CardButton({ card, disabled, onClick, flash, flashOutcome, pending, revealing, showSpymasterHints, boardColumns, mark, onMark }: {
   card: PublicCard; disabled: boolean; onClick: () => void; boardColumns: number;
   flash: boolean; flashOutcome: RevealOutcome | null; pending: boolean; revealing: boolean; showSpymasterHints: boolean;
+  mark: "red" | "blue" | "neutral" | "assassin" | null;
+  onMark: () => void;
 }) {
   const classes = ["card-tile"];
   if (card.revealed) classes.push("card-revealed", `card-revealed-${card.role}`);
@@ -698,12 +720,22 @@ function CardButton({ card, disabled, onClick, flash, flashOutcome, pending, rev
     : card.role === "assassin" ? "刺"
     : "中";
 
+  const markLabel =
+    mark === "red" ? "红" : mark === "blue" ? "蓝" : mark === "neutral" ? "中" : mark === "assassin" ? "刺" : null;
+  const markClass =
+    mark === "red" ? "card-mark card-mark-red"
+    : mark === "blue" ? "card-mark card-mark-blue"
+    : mark === "neutral" ? "card-mark card-mark-neutral"
+    : mark === "assassin" ? "card-mark card-mark-assassin"
+    : "";
+
   const wordLen = card.word.length;
   const dynamicFontSize = fontSizeForBoard(boardColumns, wordLen);
 
   return (
-    <button className={classes.join(" ")} disabled={disabled} onClick={onClick}>
+    <button className={classes.join(" ")} disabled={disabled} onClick={onClick} onContextMenu={(e) => { e.preventDefault(); onMark(); }}>
       <span className="card-word" style={{ fontSize: dynamicFontSize }}>{card.word}</span>
+      {markLabel ? <span className={markClass}>{markLabel}</span> : null}
       {showSpymasterHints && card.role && !card.revealed ? (
         <span className={hintBadgeClass}>{hintLabel}</span>
       ) : null}
