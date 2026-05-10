@@ -686,15 +686,17 @@ function CardButton({ card, disabled, onClick, flash, flashOutcome, pending, rev
   if (revealing) classes.push("card-revealing");
   if (showSpymasterHints && card.role && !card.revealed) classes.push("card-spymaster-hint");
 
-  const hintColor =
-    card.role === "red" ? "var(--red)"
-    : card.role === "blue" ? "var(--blue)"
-    : card.role === "assassin" ? "#111"
-    : "var(--muted)";
+  const hintBadgeClass =
+    card.role === "red" ? "card-role-badge card-role-badge-red"
+    : card.role === "blue" ? "card-role-badge card-role-badge-blue"
+    : card.role === "assassin" ? "card-role-badge card-role-badge-assassin"
+    : "card-role-badge card-role-badge-neutral";
 
-  const hintDotClass =
-    card.role === "assassin" ? "card-role-dot card-role-dot-assassin"
-    : "card-role-dot";
+  const hintLabel =
+    card.role === "red" ? "红"
+    : card.role === "blue" ? "蓝"
+    : card.role === "assassin" ? "刺"
+    : "中";
 
   const wordLen = card.word.length;
   const dynamicFontSize = fontSizeForBoard(boardColumns, wordLen);
@@ -703,7 +705,7 @@ function CardButton({ card, disabled, onClick, flash, flashOutcome, pending, rev
     <button className={classes.join(" ")} disabled={disabled} onClick={onClick}>
       <span className="card-word" style={{ fontSize: dynamicFontSize }}>{card.word}</span>
       {showSpymasterHints && card.role && !card.revealed ? (
-        <span className={hintDotClass} style={{ backgroundColor: hintColor }} />
+        <span className={hintBadgeClass}>{hintLabel}</span>
       ) : null}
     </button>
   );

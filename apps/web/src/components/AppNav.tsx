@@ -1,10 +1,24 @@
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useGame } from "../context/GameContext";
+
+function useTheme() {
+  const [light, setLight] = useState(() => {
+    const stored = typeof window !== "undefined" ? localStorage.getItem("theme") : null;
+    return stored === "light";
+  });
+  useEffect(() => {
+    document.documentElement.classList.toggle("light", light);
+    localStorage.setItem("theme", light ? "light" : "dark");
+  }, [light]);
+  return [light, useCallback(() => setLight((v) => !v), [])] as const;
+}
 
 export function AppNav() {
   const { effectiveIdentity, room, leaveRoom, copyLink, copied, focusMode, setFocusMode } = useGame();
   const navigate = useNavigate();
   const location = useLocation();
+  const [light, toggleTheme] = useTheme();
 
   const inRoom = Boolean(room) && location.pathname.startsWith("/room/");
   const isActive = (path: string) => location.pathname === path ? "selected" : "";
@@ -18,6 +32,7 @@ export function AppNav() {
         <div className="nav-links">
           <button onClick={() => { void copyLink(); }}>{copied ? "已复制链接" : "复制邀请链接"}</button>
           <button onClick={() => { setFocusMode(!focusMode); }}>{focusMode ? "退出专注" : "专注模式"}</button>
+          <button onClick={toggleTheme} title={light ? "切换暗色主题" : "切换亮色主题"}>{light ? "🌙" : "☀️"}</button>
           <button onClick={() => { if (window.confirm("确定要离开房间吗？")) { leaveRoom(); navigate("/"); } }}>离开房间</button>
         </div>
         {effectiveIdentity ? (
@@ -52,6 +67,7 @@ export function AppNav() {
             {link.label}
           </button>
         ))}
+        <button onClick={toggleTheme} title={light ? "切换暗色主题" : "切换亮色主题"}>{light ? "🌙" : "☀️"}</button>
       </div>
       {effectiveIdentity ? (
         <div className="nav-identity">
