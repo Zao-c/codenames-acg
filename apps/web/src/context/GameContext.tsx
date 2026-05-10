@@ -320,6 +320,8 @@ export interface GameContextType {
   setFocusMode: (v: boolean) => void;
   sideTab: SideTab;
   setSideTab: (v: SideTab) => void;
+  mobileRoomTab: "board" | "players" | "chat";
+  setMobileRoomTab: (v: "board" | "players" | "chat") => void;
   jumpToLatest: boolean;
   chatListRef: React.RefObject<HTMLDivElement | null>;
   handleChatScroll: () => void;
@@ -384,6 +386,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [copied, setCopied] = useState(false);
   const [didReconnect, setDidReconnect] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
+  const [mobileRoomTab, setMobileRoomTab] = useState<"board" | "players" | "chat">("board");
   const [sideTab, setSideTab] = useState<SideTab>("chat");
   const [jumpToLatest, setJumpToLatest] = useState(false);
   const [revealBanner, setRevealBanner] = useState<RevealEvent | null>(null);
@@ -743,6 +746,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     clueWord, setClueWord, clueCount, setClueCount,
     chatText, setChatText, copied, focusMode, setFocusMode,
     sideTab, setSideTab, jumpToLatest,
+    mobileRoomTab, setMobileRoomTab,
     chatListRef, handleChatScroll, scrollChatToBottom,
     revealBanner, reactionEffects, pendingGuess, revealingCardIds,
     maskSpymasterHints, setMaskSpymasterHints,

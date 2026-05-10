@@ -160,11 +160,13 @@ export class JsonUserStore implements UserStore {
     return this.users.get(userKey(username)) ?? null;
   }
 
-  getPublicProfile(account: NamedUserAccount): Omit<NamedUserAccount, "customWordPacks"> & { customWordPacks: Pick<SavedWordPack, "id" | "name" | "description" | "entries" | "isPublic">[] } {
+  getPublicProfile(account: NamedUserAccount): Omit<NamedUserAccount, "customWordPacks"> & { customWordPacks: Pick<SavedWordPack, "id" | "name" | "description" | "isPublic">[] } {
     return {
       username: account.username,
       avatarUrl: account.avatarUrl,
-      customWordPacks: account.customWordPacks.map((pack) => ({ id: pack.id, name: pack.name, description: pack.description, entries: pack.entries.slice(0, 3), isPublic: pack.isPublic })),
+      customWordPacks: account.customWordPacks
+        .filter((pack) => pack.isPublic === true)
+        .map((pack) => ({ id: pack.id, name: pack.name, description: pack.description, isPublic: true })),
       stats: account.stats,
       createdAt: account.createdAt,
       updatedAt: account.updatedAt

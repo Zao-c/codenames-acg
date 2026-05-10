@@ -114,7 +114,7 @@ export function CreateRoomPage() {
                   <p className="pack-card-meta">{pack.entries.length} 个词 / {pack.isPublic ? "已公开" : "仅自己可用"}</p>
                 </div>
                 <div className="pack-card-actions">
-                  <button onClick={() => { chooseAccountPackForCreate(pack.id); }}>选择并创建密令房</button>
+                  <button onClick={() => { chooseAccountPackForCreate(pack.id); }}>选为当前词牌</button>
                 </div>
               </div>
             ))}
@@ -139,7 +139,7 @@ export function CreateRoomPage() {
                   <p className="pack-card-meta">{pack.entries.length} 个词 / {pack.ownerUsername}</p>
                 </div>
                 <div className="pack-card-actions">
-                  <button onClick={() => { setSelectedPublicPackId(makePublicPackKey(pack)); setPackSource("public"); }}>选择并创建密令房</button>
+                  <button onClick={() => { setSelectedPublicPackId(makePublicPackKey(pack)); setPackSource("public"); }}>选为当前词牌</button>
                 </div>
               </div>
             ))}

@@ -2,17 +2,37 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useGame } from "../context/GameContext";
 
 export function AppNav() {
-  const { effectiveIdentity, room } = useGame();
+  const { effectiveIdentity, room, leaveRoom, copyLink, copied, focusMode, setFocusMode } = useGame();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const inRoom = Boolean(room);
+  const inRoom = Boolean(room) && location.pathname.startsWith("/room/");
   const isActive = (path: string) => location.pathname === path ? "selected" : "";
+
+  if (inRoom) {
+    return (
+      <nav className="app-nav app-nav-room">
+        <div className="nav-brand" onClick={() => navigate("/")} role="button" tabIndex={0}>
+          🃏 词牌结社
+        </div>
+        <div className="nav-links">
+          <button onClick={() => { void copyLink(); }}>{copied ? "已复制链接" : "复制邀请链接"}</button>
+          <button onClick={() => { setFocusMode(!focusMode); }}>{focusMode ? "退出专注" : "专注模式"}</button>
+          <button onClick={() => { if (window.confirm("确定要离开房间吗？")) { leaveRoom(); navigate("/"); } }}>离开房间</button>
+        </div>
+        {effectiveIdentity ? (
+          <div className="nav-identity">
+            <span className="soft-chip">{effectiveIdentity.nickname}</span>
+          </div>
+        ) : null}
+      </nav>
+    );
+  }
 
   const navLinks = [
     { path: "/", label: "首页", icon: "🏠" },
-    { path: "/create", label: "密令", icon: "🃏" },
-    { path: "/packs", label: "档案", icon: "📚" },
+    { path: "/create", label: "密令（开房）", icon: "🃏" },
+    { path: "/packs", label: "档案（题库）", icon: "📚" },
     { path: "/profile", label: "我的", icon: "👤" },
   ];
 
@@ -39,30 +59,30 @@ export function AppNav() {
 }
 
 export function MobileNav() {
-  const { room, focusMode, setFocusMode, setSideTab, sideTab } = useGame();
+  const { room, focusMode, setFocusMode, setSideTab, sideTab, mobileRoomTab, setMobileRoomTab } = useGame();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const inRoom = Boolean(room);
+  const inRoom = Boolean(room) && location.pathname.startsWith("/room/");
 
   if (inRoom) {
     return (
       <nav className="mobile-nav">
         <button
-          className={`mobile-nav-tab ${!focusMode ? "selected" : ""}`}
-          onClick={() => { setFocusMode(false); }}
+          className={`mobile-nav-tab ${mobileRoomTab === "board" ? "selected" : ""}`}
+          onClick={() => { setMobileRoomTab("board"); setFocusMode(false); }}
         >
           <span>🎯</span><span>棋盘</span>
         </button>
         <button
-          className={`mobile-nav-tab ${!focusMode && sideTab === "spectators" ? "selected" : ""}`}
-          onClick={() => { setFocusMode(false); setSideTab("spectators"); }}
+          className={`mobile-nav-tab ${mobileRoomTab === "players" ? "selected" : ""}`}
+          onClick={() => { setMobileRoomTab("players"); setFocusMode(false); setSideTab("spectators"); }}
         >
           <span>👥</span><span>玩家</span>
         </button>
         <button
-          className={`mobile-nav-tab ${!focusMode && sideTab === "chat" ? "selected" : ""}`}
-          onClick={() => { setFocusMode(false); setSideTab("chat"); }}
+          className={`mobile-nav-tab ${mobileRoomTab === "chat" ? "selected" : ""}`}
+          onClick={() => { setMobileRoomTab("chat"); setFocusMode(false); setSideTab("chat"); }}
         >
           <span>💬</span><span>聊天</span>
         </button>
@@ -72,8 +92,8 @@ export function MobileNav() {
 
   const navLinks = [
     { path: "/", label: "首页", icon: "🏠" },
-    { path: "/create", label: "密令", icon: "🃏" },
-    { path: "/packs", label: "档案", icon: "📚" },
+    { path: "/create", label: "密令（开房）", icon: "🃏" },
+    { path: "/packs", label: "档案（题库）", icon: "📚" },
     { path: "/profile", label: "我的", icon: "👤" },
   ];
 

@@ -27,7 +27,7 @@ export interface RoomStore {
 export interface UserStore {
   login(username: string): Promise<NamedUserLoginResponse>;
   get(username: string): Promise<NamedUserAccount | null>;
-  getPublicProfile(account: NamedUserAccount): Omit<NamedUserAccount, "customWordPacks"> & { customWordPacks: Pick<SavedWordPack, "id" | "name" | "description" | "entries" | "isPublic">[] };
+  getPublicProfile(account: NamedUserAccount): Omit<NamedUserAccount, "customWordPacks"> & { customWordPacks: Pick<SavedWordPack, "id" | "name" | "description" | "isPublic">[] };
   update(username: string, payload: UpdateNamedUserPayload): Promise<NamedUserAccount>;
   verifySession(username: string, sessionToken: string): Promise<boolean>;
   listPublicWordPacks(): Promise<PublicWordPack[]>;

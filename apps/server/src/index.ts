@@ -715,7 +715,19 @@ async function bootstrap(): Promise<void> {
   });
 
   setInterval(() => {
-    game.cleanupIdleRooms().catch((err) => console.warn("room cleanup error:", err));
+    game.cleanupIdleRooms().then((deleted) => {
+      if (deleted.length > 0) {
+        for (const roomId of deleted) {
+          io.to(roomId).emit("room_closed", { roomId, reason: "房间长期无活动已自动关闭" });
+          for (const [socketId, boundSession] of socketSessions.entries()) {
+            if (boundSession.roomId === roomId) {
+              socketSessions.delete(socketId);
+            }
+          }
+        }
+        broadcastRoomSummaries().catch(() => {});
+      }
+    }).catch((err) => console.warn("room cleanup error:", err));
   }, 60_000);
 
   httpServer.listen(env.port, () => {

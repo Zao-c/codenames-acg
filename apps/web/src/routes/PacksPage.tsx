@@ -66,7 +66,7 @@ export function PacksPage() {
                     <p className="pack-card-meta">{pack.entries.length} 个词 / {pack.isPublic ? "已公开" : "仅自己可用"}</p>
                   </div>
                   <div className="pack-card-actions">
-                    <button onClick={() => { chooseAccountPackForCreate(pack.id); }}>用于密令房</button>
+                    <button onClick={() => { chooseAccountPackForCreate(pack.id); }}>选为开房词牌</button>
                     <button onClick={() => { void toggleAccountPackPublic(pack.id); }}>{pack.isPublic ? "取消公开" : "公开"}</button>
                     <button onClick={() => { void removeAccountPack(pack.id); }}>删除</button>
                   </div>
@@ -95,7 +95,7 @@ export function PacksPage() {
                   <p className="pack-card-meta">{pack.entries.length} 个词 / {pack.ownerUsername}</p>
                 </div>
                 <div className="pack-card-actions">
-                  <button onClick={() => { setSelectedPublicPackId(makePublicPackKey(pack)); setPackSource("public"); }}>用于密令房</button>
+                  <button onClick={() => { setSelectedPublicPackId(makePublicPackKey(pack)); setPackSource("public"); }}>选为开房词牌</button>
                 </div>
               </div>
             ))}

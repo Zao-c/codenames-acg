@@ -1547,6 +1547,23 @@ button:disabled {
     gap: 8px;
   }
 
+  .board-7,
+  .board-9 {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    grid-template-columns: repeat(7, minmax(72px, 1fr));
+  }
+
+  .board-9 {
+    grid-template-columns: repeat(9, minmax(64px, 1fr));
+  }
+
+  .board-7,
+  .board-9 {
+    min-width: 0;
+    scroll-snap-type: x proximity;
+  }
+
   .card-tile {
     min-height: 80px;
     padding: 10px;

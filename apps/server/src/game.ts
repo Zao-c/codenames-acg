@@ -14,6 +14,7 @@ import {
   ROOM_ID_LENGTH,
   ROOM_TTL_LOBBY_IDLE_SECONDS,
   ROOM_TTL_FINISHED_SECONDS,
+  ROOM_TTL_EMPTY_SECONDS,
   TEAM_LABELS,
   buildRoomSummary,
   createCustomWordPack,
@@ -1481,24 +1482,24 @@ export class GameService {
     });
   }
 
-  async cleanupIdleRooms(): Promise<number> {
+  async cleanupIdleRooms(): Promise<string[]> {
     const rooms = await this.store.listRooms();
-    let cleaned = 0;
+    const deleted: string[] = [];
     for (const room of rooms) {
       const idleMs = Date.now() - room.updatedAt;
       const humanPlayers = room.players.filter((p) => !p.isBot);
-      if (humanPlayers.length === 0) {
+      if (humanPlayers.length === 0 && idleMs > ROOM_TTL_EMPTY_SECONDS * 1000) {
         await this.store.deleteRoom(room.id);
-        cleaned++;
+        deleted.push(room.id);
       } else if (room.phase === "lobby" && idleMs > ROOM_TTL_LOBBY_IDLE_SECONDS * 1000) {
         await this.store.deleteRoom(room.id);
-        cleaned++;
+        deleted.push(room.id);
       } else if (room.phase === "finished" && idleMs > ROOM_TTL_FINISHED_SECONDS * 1000) {
         await this.store.deleteRoom(room.id);
-        cleaned++;
+        deleted.push(room.id);
       }
     }
-    return cleaned;
+    return deleted;
   }
 
   private async requireRoom(roomId: string): Promise<Room> {
