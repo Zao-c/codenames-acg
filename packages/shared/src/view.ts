@@ -190,6 +190,10 @@ export function sanitizeRoom(room: Room, viewer: ViewerIdentity = {}): PublicRoo
     lastEvent: room.lastEvent,
     lastReveal: room.lastReveal,
     achievements: room.achievements,
+    clueRecords: room.clueRecords,
+    roundScoreHistory: room.roundScoreHistory,
+    playerStats: room.playerStats,
+    usedWordIds: room.usedWordIds,
     wordPackSummary: toWordPackSummary(room.wordPack),
     viewer: buildViewerState(room, viewer)
   };

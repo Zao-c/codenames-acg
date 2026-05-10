@@ -144,7 +144,8 @@ function generateBoard(
   wordPack: WordPack,
   boardMode: BoardMode,
   startingTeam: Team,
-  neutralCount?: number
+  neutralCount?: number,
+  usedWordIds?: string[]
 ): { board: Card[]; remainingCounts: Record<Team, number> } {
   const config = BOARD_MODE_CONFIG[boardMode];
   const neutral = neutralCount ?? config.neutral;
@@ -154,7 +155,10 @@ function generateBoard(
   const starter = config.starter + starterAdj;
   const follower = config.follower + followerAdj;
 
-  const words = shuffle(wordPack.entries).slice(0, config.size);
+  const used = new Set(usedWordIds ?? []);
+  const fresh = wordPack.entries.filter((e) => !used.has(e.id));
+  const pool = fresh.length >= config.size ? fresh : wordPack.entries;
+  const words = shuffle(pool).slice(0, config.size);
   const roles = shuffle([
     ...Array(startingTeam === "red" ? starter : follower).fill("red"),
     ...Array(startingTeam === "blue" ? starter : follower).fill("blue"),
@@ -705,9 +709,12 @@ export class GameService {
     const nextBoardMode = payload.boardMode ?? room.settings.boardMode;
     validateWordPackForMode(nextWordPack, nextBoardMode);
 
+    const wordPackChanged = nextWordPack !== room.wordPack;
+
     const nextRoom = withEvent(
       {
         ...room,
+        usedWordIds: wordPackChanged ? undefined : room.usedWordIds,
         settings: {
           ...room.settings,
           boardMode: nextBoardMode,
@@ -777,7 +784,8 @@ export class GameService {
 
     validateStart(room);
     const startingTeam: Team = Math.random() >= 0.5 ? "red" : "blue";
-    const { board, remainingCounts } = generateBoard(room.wordPack, room.settings.boardMode, startingTeam, room.settings.neutralCount);
+    const { board, remainingCounts } = generateBoard(room.wordPack, room.settings.boardMode, startingTeam, room.settings.neutralCount, room.usedWordIds);
+    const nextUsedWordIds = [...(room.usedWordIds ?? []), ...board.map((c) => c.wordId)];
     const timerMode: import("@acg-codenames/shared").TimerMode = room.settings.timerMode ?? "unlimited";
     const timerEndsAt = timerMode === "timed"
       ? now() + getTimerDuration(room, "clue")
@@ -796,6 +804,7 @@ export class GameService {
         lastReveal: null,
         comboStreaks: {},
         currentRoundScore: undefined,
+        usedWordIds: nextUsedWordIds,
         timerEndsAt,
         timerPhase: timerMode === "timed" ? "clue" as const : undefined
       },
@@ -883,7 +892,8 @@ export class GameService {
     }
 
     const startingTeam: Team = Math.random() >= 0.5 ? "red" : "blue";
-    const { board, remainingCounts } = generateBoard(room.wordPack, room.settings.boardMode, startingTeam, room.settings.neutralCount);
+    const { board, remainingCounts } = generateBoard(room.wordPack, room.settings.boardMode, startingTeam, room.settings.neutralCount, room.usedWordIds);
+    const nextUsedWordIds = [...(room.usedWordIds ?? []), ...board.map((c) => c.wordId)];
     const timerMode: import("@acg-codenames/shared").TimerMode = room.settings.timerMode ?? "unlimited";
     const timerEndsAt = timerMode === "timed" ? now() + getTimerDuration(room, "clue") : undefined;
     const nextRoom = withEvent(
@@ -898,6 +908,7 @@ export class GameService {
         winner: null,
         roundNumber,
         lastReveal: null,
+        usedWordIds: nextUsedWordIds,
         timerEndsAt,
         timerPhase: timerMode === "timed" ? "clue" as const : undefined
       },

@@ -297,11 +297,12 @@ export interface Room {
   lastEvent: string;
   lastReveal: RevealEvent | null;
   comboStreaks?: Record<string, number>;
-  roundScoreHistory?: RoundScoreDetail[];
   currentRoundScore?: RoundScoreDetail;
-  playerStats?: Record<string, PlayerRoundStats>;
   clueRecords?: ClueRoundRecord[];
+  roundScoreHistory?: RoundScoreDetail[];
+  playerStats?: Record<string, PlayerRoundStats>;
   achievements?: Achievement[];
+  usedWordIds?: string[];
   timerEndsAt?: number;
   timerPhase?: "clue" | "guess";
 }

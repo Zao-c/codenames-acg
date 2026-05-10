@@ -517,6 +517,23 @@ a { color: var(--accent-2); }
 .score-chip.red-chip { background: var(--red-bg); color: var(--red); }
 .score-chip.blue-chip { background: var(--blue-bg); color: var(--blue); }
 
+/* ─── round history (settlement) ─── */
+.round-history { display: flex; flex-direction: column; gap: 10px; }
+.round-block { padding: 12px 16px; border-radius: 12px; background: var(--surface-soft); border-left: 4px solid var(--line); }
+.round-block-red  { border-left-color: var(--red); }
+.round-block-blue { border-left-color: var(--blue); }
+.round-clue { display: flex; align-items: center; gap: 8px; }
+.round-num { font-size: 11px; padding: 1px 6px; border-radius: 8px; background: var(--surface-strong); color: var(--muted); font-weight: 600; }
+.round-guesses { margin-top: 6px; display: flex; flex-direction: column; gap: 3px; padding-left: 32px; }
+.round-guess { font-size: 13px; display: flex; gap: 8px; align-items: center; }
+.round-guess-red  { color: var(--red); }
+.round-guess-blue { color: var(--blue); }
+.round-guess-neutral { color: var(--muted); }
+.round-guess-assassin { color: var(--danger); font-weight: 700; }
+.score-history-list { display: flex; flex-direction: column; gap: 4px; }
+.score-history-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.score-history-row .score-chip { font-size: 12px; padding: 3px 10px; }
+
 .achievements-panel { margin-top: 16px; }
 .achievements-list { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
 .achievement-card { border: 1px solid var(--line); border-radius: 14px; padding: 14px; background: var(--surface-soft); display: grid; gap: 6px; }
