@@ -64,7 +64,7 @@ export function CreateRoomPage() {
             selectedAccountPack ? (
               <p className="hint-text">当前开房将使用：<strong>{selectedAccountPack.name}</strong></p>
             ) : (
-              <p className="hint-text">请先从"我的题库"里选择一个题库用于开房。</p>
+              <p className="hint-text">请先从"我的题库"里选择一个题库用于开房～</p>
             )
           ) : packSource === "public" ? (
             selectedPublicPack ? (

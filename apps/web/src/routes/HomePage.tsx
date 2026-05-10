@@ -16,8 +16,8 @@ export function HomePage() {
       <section className="hero">
         <div className="hero-copy-block">
           <p className="eyebrow">ACG social deduction (◕‿◕)ﾉ</p>
-          <h1>🃏 行动代号 Online</h1>
-          <p className="hero-copy">用户名模式可跨设备保留头像、题库和战绩。游客模式可直接开玩，但不保证跨设备保留数据。</p>
+          <h1>🃏 行动代号 Online ( •̀ ω •́ )✧</h1>
+          <p className="hero-copy">二次元多人猜词，和朋友一起开黑！用户名模式可跨设备保留数据，游客模式也能直接玩～ (≧∇≦)ﾉ</p>
         </div>
         {effectiveIdentity ? (
           <div className="hero-actions">
@@ -59,7 +59,7 @@ export function HomePage() {
         ) : null}
         <div className="quick-start-row">
           <div className="quick-start-actions">
-            <button className="primary-button" onClick={createRoom} disabled={!effectiveIdentity || (packSource === "account" && !selectedAccountPack) || (packSource === "public" && !selectedPublicPack)}>创建房间</button>
+            <button className="primary-button" onClick={createRoom} disabled={!effectiveIdentity || (packSource === "account" && !selectedAccountPack) || (packSource === "public" && !selectedPublicPack)}>创建一局！✨</button>
             <button onClick={() => navigate("/create")}>开房设置</button>
           </div>
           <div className="join-row">
@@ -79,7 +79,7 @@ export function HomePage() {
           <span className="soft-chip">{roomSummaries.length} 个房间</span>
         </div>
         <div className="room-list">
-          {roomSummaries.length === 0 ? <p className="empty-text">当前没有公开房间。</p> : null}
+          {roomSummaries.length === 0 ? <p className="empty-text">当前没有公开房间，来创建第一个吧 (＞﹏＜) 房间区空空如也……要不要你先开一局？</p> : null}
           {roomSummaries.map((summary) => (
             <div className="room-list-item" key={summary.id}>
               <div className="room-list-main">

@@ -12,12 +12,14 @@
     "dev:web:host": "npm --workspace @acg-codenames/web run dev -- --host 0.0.0.0",
     "dev:server": "npm run dev -w @acg-codenames/server",
     "test:e2e": "npm run test -w @acg-codenames/server",
+    "test:e2e:local": "start-server-and-test dev:server http://localhost:3001 test:e2e",
     "test:browser": "node scripts/browser-smoke.mjs",
-    "verify": "npm run typecheck && npm run test:e2e && npm run build",
+    "verify": "npm run typecheck && npm run test:e2e:local && npm run build",
     "check": "npm run check --workspaces",
     "typecheck": "npm run typecheck --workspaces"
   },
   "devDependencies": {
-    "playwright": "^1.59.1"
+    "playwright": "^1.59.1",
+    "start-server-and-test": "^3.0.2"
   }
 }

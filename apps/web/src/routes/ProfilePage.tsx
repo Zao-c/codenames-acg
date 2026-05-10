@@ -62,7 +62,7 @@ export function ProfilePage() {
               ))}
             </div>
           ) : null}
-          <p className="hint-text">当前版本只有用户名，不做密码校验。</p>
+          <p className="hint-text">当前版本只有用户名，不做密码校验。方便跨设备继续，但不具备强安全性 (￣▽￣)／</p>
         </div>
 
         <div className="settings-block">

@@ -343,7 +343,8 @@ export class GameService {
     const prev = this.roomLocks.get(roomId) ?? Promise.resolve();
     let release: () => void = () => {};
     const next = new Promise<void>((resolve) => { release = resolve; });
-    this.roomLocks.set(roomId, prev.then(() => next));
+    const chained = prev.then(() => next);
+    this.roomLocks.set(roomId, chained);
     try {
       await prev;
       const held = new Set(this.heldRoomLocks.getStore() ?? []);
@@ -351,7 +352,7 @@ export class GameService {
       return await this.heldRoomLocks.run(held, fn);
     } finally {
       release();
-      if (this.roomLocks.get(roomId) === next) {
+      if (this.roomLocks.get(roomId) === chained) {
         this.roomLocks.delete(roomId);
       }
     }
@@ -380,7 +381,7 @@ export class GameService {
       hostPlayerId: player.id,
       createdAt: now(),
       updatedAt: now(),
-      lastEvent: `${player.nickname} 创建了房间`,
+      lastEvent: `${player.nickname} 创建了房间 ✨`,
       lastReveal: null
     };
     const nextRoom = withEvent(room, room.lastEvent);
@@ -415,7 +416,7 @@ export class GameService {
     }
 
     const player = await buildPlayer(cleanNickname, false, await this.users.resolveProfile(profile, sessionToken));
-    const nextRoom = withEvent({ ...room, players: [...room.players, player] }, `${player.nickname} 加入了房间`);
+    const nextRoom = withEvent({ ...room, players: [...room.players, player] }, `${player.nickname} 加入了房间 (｡･∀･)ﾉﾞ`);
     await this.store.setRoom(nextRoom);
     await this.store.setPlayerSession(player.sessionToken!, createSession(nextRoom.id, player.id, "player"));
     return { room: nextRoom, player };
@@ -441,7 +442,7 @@ export class GameService {
         ...room,
         spectators: [...room.spectators, spectator]
       },
-      `${spectator.nickname} 进入旁观`
+      `${spectator.nickname} 进入旁观 👀`
     );
     await this.store.setRoom(nextRoom);
     await this.store.setPlayerSession(spectator.sessionToken!, createSession(nextRoom.id, spectator.id, "spectator"));
@@ -624,7 +625,7 @@ export class GameService {
         winner: null,
         lastReveal: null
       },
-      `第 ${room.roundNumber} 局开始，${TEAM_LABELS[startingTeam]}先手`
+      `第 ${room.roundNumber} 局开始，${TEAM_LABELS[startingTeam]}先手 ٩(ˊᗜˋ*)و`
     );
     await this.store.setRoom(nextRoom);
     return nextRoom;
@@ -722,7 +723,7 @@ export class GameService {
         roundNumber,
         lastReveal: null
       },
-      `第 ${roundNumber} 局开始，${TEAM_LABELS[startingTeam]}先手`
+      `第 ${roundNumber} 局开始，${TEAM_LABELS[startingTeam]}先手 ٩(ˊᗜˋ*)و`
     );
     await this.store.setRoom(nextRoom);
     return nextRoom;
@@ -901,19 +902,19 @@ export class GameService {
       winner = nextTeam(actingTeam);
       clue = null;
       outcome = "assassin-hit";
-      event = `${player.nickname} 猜中了刺客词`;
+      event = `${player.nickname} 踩中刺客词……这波寄了 (╥﹏╥)`;
     } else if (card.role === actingTeam) {
       remainingCounts[actingTeam] -= 1;
       outcome = "own-hit";
-      event = `${player.nickname} 猜中了${TEAM_LABELS[actingTeam]}的目标词`;
+      event = `${player.nickname} 猜中目标词！NICE～`;
       if (remainingCounts[actingTeam] === 0) {
         winner = actingTeam;
         clue = null;
-        event = `${TEAM_LABELS[actingTeam]}找到了全部目标词`;
+        event = `${TEAM_LABELS[actingTeam]}找到全部目标词，太强啦 (★ ω ★)`;
       } else if (room.clue.usedGuesses > room.clue.count) {
         currentTeam = nextTeam(actingTeam);
         clue = null;
-        event = `${player.nickname} 用完了额外猜测机会`;
+        event = `${player.nickname} 用完了额外猜测次数`;
       }
     } else {
       currentTeam = nextTeam(actingTeam);
@@ -927,8 +928,8 @@ export class GameService {
       }
       event =
         card.role === "neutral"
-          ? `${player.nickname} 猜到了中立词`
-          : `${player.nickname} 猜到了${TEAM_LABELS[card.role as Team]}的词`;
+          ? `${player.nickname} 猜到了中立词～`
+          : `${player.nickname} 猜到了${TEAM_LABELS[card.role as Team]}的词 (⊙ˍ⊙)`;
     }
 
     const lastReveal = createRevealEvent(card, player, actingTeam, outcome!, currentTeam, winner);
@@ -975,7 +976,7 @@ export class GameService {
         clue: null,
         lastReveal: null
       },
-      `${player.nickname} 结束了回合`
+      `${player.nickname} 结束了回合 (ง •_•)ง`
     );
     await this.store.setRoom(nextRoom);
     return nextRoom;

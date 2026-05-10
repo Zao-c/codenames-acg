@@ -129,9 +129,11 @@ function normalizeSavedPacks(packs: SavedWordPack[] | undefined): SavedWordPack[
 export class JsonUserStore implements UserStore {
   private readonly filePath: string;
   private users = new Map<string, NamedUserAccount>();
-  private readonly sessions = new Map<string, string>();
+  private readonly sessions = new Map<string, { userKey: string; expiresAt: number }>();
   private loaded = false;
   private writeChain: Promise<void> = Promise.resolve();
+
+  private static readonly SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
   constructor(filePath: string) {
     this.filePath = filePath;
@@ -190,8 +192,14 @@ export class JsonUserStore implements UserStore {
 
   async verifySession(username: string, sessionToken: string): Promise<boolean> {
     await this.ensureLoaded();
-    const key = userKey(username);
-    return this.sessions.get(sessionToken) === key;
+    this.pruneExpiredSessions();
+    const entry = this.sessions.get(sessionToken);
+    if (!entry || entry.userKey !== userKey(username)) return false;
+    if (Date.now() > entry.expiresAt) {
+      this.sessions.delete(sessionToken);
+      return false;
+    }
+    return true;
   }
 
   async listPublicWordPacks(): Promise<PublicWordPack[]> {
@@ -324,7 +332,14 @@ export class JsonUserStore implements UserStore {
 
   private withSession(account: NamedUserAccount): NamedUserLoginResponse {
     const sessionToken = crypto.randomUUID();
-    this.sessions.set(sessionToken, userKey(account.username));
+    this.sessions.set(sessionToken, { userKey: userKey(account.username), expiresAt: Date.now() + JsonUserStore.SESSION_TTL_MS });
     return { ...account, sessionToken };
+  }
+
+  private pruneExpiredSessions(): void {
+    const now = Date.now();
+    for (const [token, entry] of this.sessions.entries()) {
+      if (now > entry.expiresAt) this.sessions.delete(token);
+    }
   }
 }
