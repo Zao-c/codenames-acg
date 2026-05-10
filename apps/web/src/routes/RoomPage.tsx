@@ -26,7 +26,7 @@ export function RoomPage() {
     collapsedSections, toggleSection,
     canSeeHiddenRoles, showSpymasterHints, isDebugController,
     viewer, self, boardColumns, isLobby, isFinished,
-    inviteLink, renderHint,
+    renderHint,
     chooseTeam, chooseRole, updateBoardMode, updateBuiltinPack, updateScoringMode,
     uploadRoomPack, useAccountPackForRoom, usePublicPackForRoom,
     startGame, restartGame, returnToLobby, transferHost, disbandRoom,
@@ -57,15 +57,15 @@ export function RoomPage() {
   }
 
   const phaseClass =
-    focusMode ? "room-page-focus"
-    : isLobby ? "room-page-lobby"
-    : isFinished ? "room-page-finished"
-    : "room-page-playing";
+    focusMode ? "room-layout-focus"
+    : isLobby ? "room-layout-lobby"
+    : isFinished ? "room-layout-finished"
+    : "room-layout-playing";
 
   return (
-    <section className={`room-page ${phaseClass}`}>
+    <section className={`room-layout ${phaseClass}`} key={room.id + (focusMode ? "-f" : "")}>
       <SakuraParticles active={showSakura} />
-      <ReactionOverlay reaction={globalReaction} />
+      {globalReaction ? <ReactionBanner reaction={globalReaction} /> : null}
 
       {focusMode ? (
         <FocusBar room={room} viewer={viewer} onExitFocus={() => setFocusMode(false)} />
@@ -97,23 +97,20 @@ export function RoomPage() {
         <>
           <SeatPanel self={self} room={room} viewer={viewer} g={g} reactionEffects={reactionEffects} />
           <MembersPanel room={room} selfId={session?.participantId} collapsedSections={collapsedSections} toggleSection={toggleSection} reactionEffects={reactionEffects} sendReaction={sendReaction} />
-
           {viewer?.participantType === "player" ? (
             <LobbySettings room={room} viewer={viewer} self={self} g={g} accountPacks={accountPacks} publicPacks={publicPacks} makePublicPackKey={makePublicPackKey} />
           ) : null}
-
           {viewer?.canDisbandRoom ? (
             <HostControls viewer={viewer} returnToLobby={returnToLobby} transferHost={transferHost} disbandRoom={disbandRoom} hostTransferCandidates={hostTransferCandidates} transferHostTargetId={transferHostTargetId} setTransferHostTargetId={setTransferHostTargetId} />
           ) : null}
-
           <SideTabPanel g={g} room={room} session={session} />
         </>
       ) : null}
 
       {!isLobby && !focusMode ? (
-        <div className={`${isFinished ? "" : "room-page-playing"}`}>
+        <>
           {isFinished ? null : (
-            <aside>
+            <aside className="room-left-col">
               <SeatPanel self={self} room={room} viewer={viewer} g={g} reactionEffects={reactionEffects} />
               <MembersPanel room={room} selfId={session?.participantId} collapsedSections={collapsedSections} toggleSection={toggleSection} reactionEffects={reactionEffects} sendReaction={sendReaction} />
               {viewer?.canDisbandRoom ? (
@@ -124,7 +121,7 @@ export function RoomPage() {
             </aside>
           )}
 
-          <div>
+          <div className="room-center-col">
             {!isFinished && revealBanner ? <RevealBanner reveal={revealBanner} /> : null}
 
             {isFinished ? (
@@ -167,9 +164,11 @@ export function RoomPage() {
           </div>
 
           {isFinished ? null : (
-            <SideTabPanel g={g} room={room} session={session} />
+            <aside className="room-right-col">
+              <SideTabPanel g={g} room={room} session={session} />
+            </aside>
           )}
-        </div>
+        </>
       ) : null}
 
       {focusMode ? (
@@ -400,6 +399,7 @@ function BoardPanel({ room, viewer, g }: {
   g: ReturnType<typeof useGame>;
 }) {
   const { boardColumns, canSeeHiddenRoles, showSpymasterHints, maskSpymasterHints, setMaskSpymasterHints, revealingCardIds, pendingGuess, guessCard: doGuess, renderHint } = g;
+  const boardSizeClass = `board-${boardColumns}`;
   return (
     <section className="panel board-panel" style={{ marginBottom: 12 }}>
       {room.phase === "playing" ? (
@@ -423,11 +423,12 @@ function BoardPanel({ room, viewer, g }: {
           ) : null}
         </div>
       ) : null}
-      <div className={`board-grid board-${boardColumns}`} style={{ gridTemplateColumns: `repeat(${boardColumns}, minmax(0, 1fr))` }}>
+      <div className={`board-grid ${boardSizeClass}`}>
         {room.board.map((card) => (
           <CardButton
             key={card.id}
             card={card}
+            boardColumns={boardColumns}
             disabled={!viewer?.canGuess || card.revealed || room.phase !== "playing" || pendingGuess === card.id}
             onClick={() => doGuess(card.id)}
             flash={room.lastReveal?.cardId === card.id}
@@ -583,26 +584,12 @@ function RevealBanner({ reveal }: { reveal: NonNullable<ReturnType<typeof useGam
   );
 }
 
-function ReactionOverlay({ reaction }: { reaction: { reaction: ChatReaction; sender: string; target: string } | null }) {
-  if (!reaction) return null;
+function ReactionBanner({ reaction }: { reaction: { reaction: ChatReaction; sender: string; target: string } }) {
   const isFlower = reaction.reaction === "flower";
-  const particles = Array.from({ length: 12 }, (_, i) => i);
   return (
-    <div className={`reaction-overlay ${isFlower ? "reaction-overlay-flower" : "reaction-overlay-egg"}`}>
-      <div className="reaction-overlay-banner">
-        <span className="reaction-overlay-emoji">{isFlower ? "💐" : "🥚"}</span>
-        <span className="reaction-overlay-text">
-          {isFlower ? `${reaction.sender} → ${reaction.target} ♡` : `${reaction.sender} → ${reaction.target} 🥚!!💥`}
-        </span>
-      </div>
-      <div className="reaction-particles">
-        {particles.map((i) => (
-          <span key={i} className={`reaction-particle ${isFlower ? "particle-flower" : "particle-egg"}`}
-            style={{ left: `${10 + Math.random() * 80}%`, animationDelay: `${Math.random() * 0.6}s`, animationDuration: `${1.4 + Math.random() * 1.2}s` }}>
-            {isFlower ? (i % 3 === 0 ? "🌸" : i % 3 === 1 ? "💮" : "✿") : (i % 2 === 0 ? "💥" : "💢")}
-          </span>
-        ))}
-      </div>
+    <div className="reaction-banner" key={Date.now()}>
+      <span>{isFlower ? "💐" : "🥚"}</span>
+      <span>{isFlower ? `${reaction.sender} 送花给 ${reaction.target}` : `${reaction.sender} 向 ${reaction.target} 丢鸡蛋`}</span>
     </div>
   );
 }
@@ -620,8 +607,14 @@ function MessageRow({ message, selfId }: { message: ChatMessage; selfId?: string
   );
 }
 
-function CardButton({ card, disabled, onClick, flash, flashOutcome, pending, revealing, showSpymasterHints }: {
-  card: PublicCard; disabled: boolean; onClick: () => void;
+function fontSizeForBoard(boardColumns: number, wordLength: number): string {
+  if (boardColumns === 5) return wordLength > 5 ? "18px" : "20px";
+  if (boardColumns === 7) return wordLength > 5 ? "15px" : "17px";
+  return wordLength > 5 ? "13px" : "14px";
+}
+
+function CardButton({ card, disabled, onClick, flash, flashOutcome, pending, revealing, showSpymasterHints, boardColumns }: {
+  card: PublicCard; disabled: boolean; onClick: () => void; boardColumns: number;
   flash: boolean; flashOutcome: RevealOutcome | null; pending: boolean; revealing: boolean; showSpymasterHints: boolean;
 }) {
   const classes = ["card-tile"];
@@ -640,9 +633,12 @@ function CardButton({ card, disabled, onClick, flash, flashOutcome, pending, rev
     : card.role === "assassin" ? "var(--danger)"
     : "transparent";
 
+  const wordLen = card.word.length;
+  const dynamicFontSize = fontSizeForBoard(boardColumns, wordLen);
+
   return (
     <button className={classes.join(" ")} disabled={disabled} onClick={onClick}>
-      <span className="card-word">{card.word}</span>
+      <span className="card-word" style={{ fontSize: dynamicFontSize }}>{card.word}</span>
       {showSpymasterHints && card.role && !card.revealed ? (
         <span className="card-role-dot" style={{ backgroundColor: hintColor }} />
       ) : null}
