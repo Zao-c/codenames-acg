@@ -292,6 +292,8 @@ function App() {
     builtinWordPackId?: string;
     customWordPack?: { name: string; entries: string[] };
   } | null>(null);
+  const [showMoreOptions, setShowMoreOptions] = useState(false);
+  const quickStartRef = useRef<HTMLDivElement | null>(null);
 
   const accountPacks = namedAccount?.customWordPacks ?? [];
   const selectedAccountPack = accountPacks.find((pack) => pack.id === selectedAccountPackId) ?? null;
@@ -886,6 +888,11 @@ function App() {
     };
   }
 
+  function scrollToQuickStart(): void {
+    setShowMoreOptions(false);
+    quickStartRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   function createRoom(): void {
     const joinIdentity = buildJoinProfile();
     if (!joinIdentity) {
@@ -1273,6 +1280,97 @@ function App() {
               </div>
             </section>
 
+            <section className="panel quick-start-panel" ref={quickStartRef}>
+              <div className="panel-heading">
+                <div>
+                  <p className="micro-label">Quick Start</p>
+                  <h2>⚡ 快速开局</h2>
+                </div>
+                {effectiveIdentity ? (
+                  <div className="quick-start-identity">
+                    <AvatarBadge avatarUrl={effectiveIdentity.avatarUrl} fallback={effectiveIdentity.nickname} size="small" />
+                    <strong>{effectiveIdentity.nickname}</strong>
+                    <span className="soft-chip">{effectiveIdentity.mode === "named" ? "账户" : "游客"}</span>
+                  </div>
+                ) : (
+                  <span className="soft-chip">未登录</span>
+                )}
+              </div>
+              {!effectiveIdentity ? (
+                <div className="quick-start-row">
+                  <label className="field">
+                    <span>昵称</span>
+                    <input value={guestNicknameInput} onChange={(event) => setGuestNicknameInput(event.target.value)} maxLength={12} placeholder="输入昵称直接开玩" />
+                  </label>
+                  <div className="quick-start-actions">
+                    <button className="primary-button" onClick={continueAsGuest} disabled={!guestNicknameInput.trim()}>游客进入</button>
+                  </div>
+                </div>
+              ) : null}
+              <div className="quick-start-row">
+                <div className="quick-start-actions">
+                  <button className="primary-button" onClick={createRoom} disabled={!effectiveIdentity || (packSource === "account" && !selectedAccountPack) || (packSource === "public" && !selectedPublicPack)}>创建房间</button>
+                </div>
+                <div className="join-row">
+                  <input value={roomCode} onChange={(event) => setRoomCode(event.target.value.toUpperCase())} placeholder="输入 6 位房间号" maxLength={ROOM_ID_LENGTH} />
+                  <button onClick={() => joinByRoomCode(false)} disabled={!effectiveIdentity}>加入</button>
+                  <button onClick={() => joinByRoomCode(true)} disabled={!effectiveIdentity}>旁观</button>
+                </div>
+              </div>
+            </section>
+
+            <section className="panel">
+              <div className="panel-heading">
+                <div>
+                  <p className="micro-label">Lobby</p>
+                  <h2>当前房间</h2>
+                </div>
+                <span className="soft-chip">{roomSummaries.length} 个房间</span>
+              </div>
+              <div className="room-list">
+                {roomSummaries.length === 0 ? <p className="empty-text">当前没有公开房间。</p> : null}
+                {roomSummaries.map((summary) => (
+                  <div className="room-list-item" key={summary.id}>
+                    <div className="room-list-main">
+                      <div className="room-list-title">
+                        <strong>{summary.id}</strong>
+                        <span className="soft-chip">
+                          {summary.phase === "playing" ? "进行中 · 可旁观" : summary.phase === "lobby" ? "准备中 · 可加入" : "已结束"}
+                        </span>
+                        <span className="soft-chip">{summary.boardMode}</span>
+                        <span className="soft-chip">{summary.wordPackSummary.name}</span>
+                      </div>
+                      <div className="room-list-meta">
+                        <span>房主 {summary.hostNickname}</span>
+                        <span>玩家 {summary.playerCount}</span>
+                        <span>旁观 {summary.spectatorCount}</span>
+                        <span>排队 {summary.queuedCount}</span>
+                      </div>
+                      <p className="panel-subtle">{summary.lastEvent}</p>
+                    </div>
+                    <div className="room-list-actions">
+                      {summary.canJoinDirectly ? (
+                        <button disabled={!effectiveIdentity} onClick={() => joinSpecificRoom(summary.id, false)}>
+                          加入战局
+                        </button>
+                      ) : summary.canSpectate ? (
+                        <button disabled={!effectiveIdentity} onClick={() => joinSpecificRoom(summary.id, true)}>
+                          旁观激战
+                        </button>
+                      ) : (
+                        <button disabled>已结束</button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <button className="more-section-toggle" onClick={() => setShowMoreOptions(!showMoreOptions)}>
+              {showMoreOptions ? '收起更多选项 ▲' : '更多选项 ▼ （登录 / 题库 / 设置）'}
+            </button>
+
+            {showMoreOptions && (
             <section className="home-grid">
               <div className="home-main">
                 <section className="panel">
@@ -1289,7 +1387,7 @@ function App() {
                       <input value={namedUsernameInput} onChange={(event) => setNamedUsernameInput(event.target.value)} maxLength={24} placeholder="例如：Miku厨" />
                     </label>
                     <button className="primary-button" onClick={() => void handleNamedLogin()}>
-                      登录 / 继续
+                      登录
                     </button>
                   </div>
                   {recentUsers.length > 0 ? (
@@ -1304,69 +1402,6 @@ function App() {
                   <p className="hint-text">当前版本只有用户名，不做密码校验。方便跨设备继续，但不具备强安全性。</p>
                 </section>
 
-                <section className="panel">
-                  <div className="panel-heading">
-                    <div>
-                      <p className="micro-label">Guest</p>
-                      <h2>游客进入</h2>
-                    </div>
-                    <span className="soft-chip">不注册也能直接玩</span>
-                  </div>
-                  <div className="toolbar-inline compact-stack">
-                    <label className="field">
-                      <span>游客昵称</span>
-                      <input value={guestNicknameInput} onChange={(event) => setGuestNicknameInput(event.target.value)} maxLength={12} placeholder="例如：小夜" />
-                    </label>
-                    <button className="primary-button" onClick={continueAsGuest}>使用游客身份</button>
-                  </div>
-                </section>
-
-                <section className="panel">
-                  <div className="panel-heading">
-                    <div>
-                      <p className="micro-label">Lobby</p>
-                      <h2>当前房间</h2>
-                    </div>
-                    <span className="soft-chip">{roomSummaries.length} 个房间</span>
-                  </div>
-                  <div className="room-list">
-                    {roomSummaries.length === 0 ? <p className="empty-text">当前没有公开房间。</p> : null}
-                    {roomSummaries.map((summary) => (
-                      <div className="room-list-item" key={summary.id}>
-                        <div className="room-list-main">
-                          <div className="room-list-title">
-                            <strong>{summary.id}</strong>
-                            <span className="soft-chip">
-                              {summary.phase === "playing" ? "进行中 · 可旁观" : summary.phase === "lobby" ? "准备中 · 可加入" : "已结束"}
-                            </span>
-                            <span className="soft-chip">{summary.boardMode}</span>
-                            <span className="soft-chip">{summary.wordPackSummary.name}</span>
-                          </div>
-                          <div className="room-list-meta">
-                            <span>房主 {summary.hostNickname}</span>
-                            <span>玩家 {summary.playerCount}</span>
-                            <span>旁观 {summary.spectatorCount}</span>
-                            <span>排队 {summary.queuedCount}</span>
-                          </div>
-                          <p className="panel-subtle">{summary.lastEvent}</p>
-                        </div>
-                        <div className="room-list-actions">
-                          {summary.canJoinDirectly ? (
-                            <button disabled={!effectiveIdentity} onClick={() => joinSpecificRoom(summary.id, false)}>
-                              加入战局
-                            </button>
-                          ) : summary.canSpectate ? (
-                            <button disabled={!effectiveIdentity} onClick={() => joinSpecificRoom(summary.id, true)}>
-                              旁观激战
-                            </button>
-                          ) : (
-                            <button disabled>已结束</button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </section>
               </div>
 
               <aside className="home-side">
@@ -1446,25 +1481,6 @@ function App() {
                       )
                     ) : null}
                   </div>
-                  <button
-                    className="primary-button"
-                    onClick={createRoom}
-                    disabled={!effectiveIdentity || (packSource === "account" && !selectedAccountPack) || (packSource === "public" && !selectedPublicPack)}
-                  >
-                    创建房间
-                  </button>
-                  <div className="settings-block">
-                    <strong>按房间号进入</strong>
-                    <div className="join-row">
-                      <input value={roomCode} onChange={(event) => setRoomCode(event.target.value.toUpperCase())} placeholder="输入 6 位房间号" maxLength={ROOM_ID_LENGTH} />
-                      <button onClick={() => joinByRoomCode(false)} disabled={!effectiveIdentity}>
-                        加入
-                      </button>
-                      <button onClick={() => joinByRoomCode(true)} disabled={!effectiveIdentity}>
-                        旁观
-                      </button>
-                    </div>
-                  </div>
                 </section>
 
                 <section className="panel">
@@ -1524,7 +1540,7 @@ function App() {
                             </div>
                             <div className="pack-card-actions">
                               <button onClick={() => setSelectedAccountPackId(pack.id)}>选中</button>
-                              <button onClick={() => chooseAccountPackForCreate(pack.id)}>用于开房</button>
+                              <button onClick={() => { chooseAccountPackForCreate(pack.id); scrollToQuickStart(); }}>用此题库开房</button>
                               <button onClick={() => void toggleAccountPackPublic(pack.id)}>{pack.isPublic ? "取消公开" : "公开"}</button>
                               <button onClick={() => void removeAccountPack(pack.id)}>删除</button>
                             </div>
@@ -1561,9 +1577,10 @@ function App() {
                             onClick={() => {
                               setSelectedPublicPackId(makePublicPackKey(pack));
                               setPackSource("public");
+                              scrollToQuickStart();
                             }}
                           >
-                            用于开房
+                            用此题库开房
                           </button>
                         </div>
                       </div>
@@ -1572,6 +1589,7 @@ function App() {
                 </section>
               </aside>
             </section>
+            )}
           </>
           )
         ) : (

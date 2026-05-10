@@ -266,10 +266,13 @@ h3 {
 .score-chip,
 .team-mark {
   border-radius: 999px;
-  padding: 6px 10px;
+  padding: 4px 10px;
   font-size: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .status-pill.emphasis {
@@ -1634,4 +1637,90 @@ button:disabled {
   border: 1px solid var(--line);
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.03);
+}
+
+.quick-start-panel {
+  margin-bottom: 18px;
+}
+
+.quick-start-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.quick-start-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.quick-start-actions button {
+  white-space: nowrap;
+}
+
+.quick-start-identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.more-section-toggle {
+  width: 100%;
+  margin-bottom: 18px;
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  color: var(--muted);
+  font-size: 14px;
+  padding: 12px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.more-section-toggle:hover {
+  background: var(--surface-strong);
+  color: var(--text);
+}
+
+@media (max-width: 900px) {
+  .quick-start-row {
+    grid-template-columns: 1fr;
+  }
+
+  .quick-start-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .quick-start-actions button {
+    width: 100%;
+    text-align: center;
+  }
+
+  .quick-start-panel .join-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+
+  .pack-card-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .pack-card-actions button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .quick-start-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .quick-start-panel .join-row {
+    grid-template-columns: 1fr 1fr;
+  }
 }
