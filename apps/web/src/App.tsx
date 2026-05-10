@@ -122,6 +122,13 @@ function makePublicPackKey(pack: PublicWordPack): string {
   return pack.publicId;
 }
 
+function requireNamedUserSessionToken(identity: LocalIdentity | null): string {
+  if (identity?.mode !== "named" || !identity.userSessionToken) {
+    throw new Error("用户登录已失效，请重新登录");
+  }
+  return identity.userSessionToken;
+}
+
 function dedupePackEntries(entries: string[]): string[] {
   return Array.from(
     new Set(
@@ -183,7 +190,8 @@ function getIdentityProfile(identity: LocalIdentity | null, account: NamedUserAc
       mode: "named",
       username: account.username,
       nickname: account.username,
-      avatarUrl: account.avatarUrl
+      avatarUrl: account.avatarUrl,
+      userSessionToken: identity.userSessionToken
     };
   }
   return identity;
@@ -406,7 +414,8 @@ function App() {
           mode: "named",
           username: account.username,
           nickname: account.username,
-          avatarUrl: account.avatarUrl
+          avatarUrl: account.avatarUrl,
+          userSessionToken: account.sessionToken
         };
         setIdentity(nextIdentity);
         saveIdentity(nextIdentity);
@@ -583,7 +592,8 @@ function App() {
         mode: "named",
         username: account.username,
         nickname: account.username,
-        avatarUrl: account.avatarUrl
+        avatarUrl: account.avatarUrl,
+        userSessionToken: account.sessionToken
       });
       setNamedUsernameInput(account.username);
       setError("");
@@ -614,13 +624,14 @@ function App() {
     }
     try {
       const avatarUrl = await imageFileToAvatarDataUrl(file);
-      const updated = await updateNamedUser(namedAccount.username, { avatarUrl });
+      const updated = await updateNamedUser(namedAccount.username, requireNamedUserSessionToken(identity), { avatarUrl });
       setNamedAccount(updated);
       persistIdentity({
         mode: "named",
         username: updated.username,
         nickname: updated.username,
-        avatarUrl: updated.avatarUrl
+        avatarUrl: updated.avatarUrl,
+        userSessionToken: requireNamedUserSessionToken(identity)
       });
       setError("");
     } catch (uploadError) {
@@ -654,7 +665,7 @@ function App() {
       updatedAt: Date.now()
     });
     try {
-      const updated = await updateNamedUser(namedAccount.username, { customWordPacks: nextPacks });
+      const updated = await updateNamedUser(namedAccount.username, requireNamedUserSessionToken(identity), { customWordPacks: nextPacks });
       setNamedAccount({
         ...updated,
         customWordPacks: updated.customWordPacks.length > 0 ? updated.customWordPacks : nextPacks
@@ -2216,4 +2227,3 @@ function AvatarBadge({
 }
 
 export default App;
-

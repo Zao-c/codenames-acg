@@ -1,5 +1,6 @@
 import type {
   NamedUserAccount,
+  NamedUserLoginResponse,
   ParticipantType,
   PublicWordPack,
   Room,
@@ -23,9 +24,10 @@ export interface RoomStore {
 }
 
 export interface UserStore {
-  login(username: string): Promise<NamedUserAccount>;
+  login(username: string): Promise<NamedUserLoginResponse>;
   get(username: string): Promise<NamedUserAccount | null>;
   update(username: string, payload: UpdateNamedUserPayload): Promise<NamedUserAccount>;
+  verifySession(username: string, sessionToken: string): Promise<boolean>;
   listPublicWordPacks(): Promise<PublicWordPack[]>;
   resolveProfile(profile?: Partial<UserProfile>): Promise<UserProfile>;
   noteRoomHosted(username: string | null | undefined): Promise<void>;

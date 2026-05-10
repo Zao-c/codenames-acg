@@ -9,6 +9,7 @@ export interface LocalIdentity {
   username: string;
   nickname: string;
   avatarUrl: string | null;
+  userSessionToken?: string;
 }
 
 export function saveSession(session: ClientSession): void {

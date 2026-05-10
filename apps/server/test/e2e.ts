@@ -3,6 +3,7 @@ import { io, type Socket } from "socket.io-client";
 import type {
   BoardMode,
   ClientSession,
+  NamedUserLoginResponse,
   NamedUserAccount,
   ParticipantType,
   PublicRoomState,
@@ -128,18 +129,33 @@ async function fetchRooms(): Promise<RoomSummary[]> {
   return fetchJson<RoomSummary[]>(`${SERVER_URL}/rooms`);
 }
 
-async function loginNamedUser(username: string): Promise<NamedUserAccount> {
-  return fetchJson<NamedUserAccount>(`${SERVER_URL}/api/users/login`, {
+async function loginNamedUser(username: string): Promise<NamedUserLoginResponse> {
+  return fetchJson<NamedUserLoginResponse>(`${SERVER_URL}/api/users/login`, {
     method: "POST",
     body: JSON.stringify({ username })
   });
 }
 
-async function updateNamedUser(username: string, patch: object): Promise<NamedUserAccount> {
+async function updateNamedUser(username: string, sessionToken: string, patch: object): Promise<NamedUserAccount> {
   return fetchJson<NamedUserAccount>(`${SERVER_URL}/api/users/${encodeURIComponent(username)}`, {
     method: "PUT",
+    headers: {
+      "content-type": "application/json",
+      "x-user-session-token": sessionToken
+    },
     body: JSON.stringify(patch)
   });
+}
+
+async function fetchStatus(url: string, init?: RequestInit): Promise<{ status: number; body: { message?: string } }> {
+  const response = await fetch(url, {
+    headers: {
+      "content-type": "application/json",
+      ...(init?.headers ?? {})
+    },
+    ...init
+  });
+  return { status: response.status, body: (await response.json().catch(() => ({}))) as { message?: string } };
 }
 
 async function fetchPublicWordPacks(): Promise<PublicWordPack[]> {
@@ -149,8 +165,14 @@ async function fetchPublicWordPacks(): Promise<PublicWordPack[]> {
 async function testNamedUserPersistence(): Promise<void> {
   const user = await loginNamedUser("AccountAlpha");
   assert.equal(user.username, "AccountAlpha");
+  assert.equal(typeof user.sessionToken, "string");
   const avatarUrl = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9s3FoX8AAAAASUVORK5CYII=";
-  const updated = await updateNamedUser("AccountAlpha", {
+  const unauthorized = await fetchStatus(`${SERVER_URL}/api/users/${encodeURIComponent("AccountAlpha")}`, {
+    method: "PUT",
+    body: JSON.stringify({ avatarUrl })
+  });
+  assert.equal(unauthorized.status, 401);
+  const updated = await updateNamedUser("AccountAlpha", user.sessionToken, {
     avatarUrl,
     customWordPacks: [
       {
@@ -180,7 +202,8 @@ async function testNamedUserPersistence(): Promise<void> {
 
 async function testPublicWordPackLifecycle(): Promise<void> {
   await loginNamedUser("AccountBeta");
-  await updateNamedUser("AccountBeta", {
+  const betaUser = await loginNamedUser("AccountBeta");
+  await updateNamedUser("AccountBeta", betaUser.sessionToken, {
     customWordPacks: [
       {
         id: "pack-alpha",
@@ -223,7 +246,7 @@ async function testPublicWordPackLifecycle(): Promise<void> {
     socket.disconnect();
   }
 
-  await updateNamedUser("AccountBeta", {
+  await updateNamedUser("AccountBeta", betaUser.sessionToken, {
     customWordPacks: [
       {
         id: "pack-alpha",
@@ -309,6 +332,22 @@ async function testStartRejectionWithTwoPlayers(): Promise<void> {
   }
 }
 
+async function testInvalidSocketPayload(): Promise<void> {
+  const socket = createClient();
+  try {
+    await waitForConnect(socket);
+    socket.emit("create_room", { nickname: "BadPayload", profile: { accountType: "guest" } });
+    const session = await onceSession(socket);
+    await onceRoomState(socket);
+    const error = onceError(socket);
+    socket.emit("set_role", { roomId: session.roomId, role: "invalid-role" as never });
+    assert.match(await error, /role|参数无效/);
+    console.log("ok invalid_socket_payload");
+  } finally {
+    socket.disconnect();
+  }
+}
+
 async function testHiddenRolesAndTargetedReaction(): Promise<void> {
   const sockets = {
     redSpy: createClient(),
@@ -365,6 +404,13 @@ async function testHiddenRolesAndTargetedReaction(): Promise<void> {
     assert.ok(spyView.board.some((card) => card.role));
     assert.ok(opView.board.every((card) => card.revealed || card.role === undefined));
 
+    const currentSpy = spyView.currentTeam === "red" ? sockets.redSpy : sockets.blueSpy;
+    currentSpy.emit("submit_clue", { roomId: redSpySession.roomId, word: "first", count: 1 });
+    await waitForRoomState(currentSpy, (room) => room.clue?.word === "first");
+    const duplicateClueError = onceError(currentSpy);
+    currentSpy.emit("submit_clue", { roomId: redSpySession.roomId, word: "second", count: 2 });
+    assert.match(await duplicateClueError, /已经有提示/);
+
     sockets.spectator.emit("join_spectator", {
       roomId: redSpySession.roomId,
       nickname: "Watcher",
@@ -397,7 +443,7 @@ async function testHiddenRolesAndTargetedReaction(): Promise<void> {
   }
 }
 
-async function testSoloDebugFlow(): Promise<void> {
+async function testDebugFillDisabledByDefault(): Promise<void> {
   const socket = createClient();
   try {
     await waitForConnect(socket);
@@ -410,30 +456,10 @@ async function testSoloDebugFlow(): Promise<void> {
     assert.equal(lobbySettings.settings.boardMode, "7x7");
     assert.equal(lobbySettings.viewer?.canEditRoom, true);
 
+    const rejection = onceError(socket);
     socket.emit("debug_fill_room", { roomId: session.roomId });
-    const filled = await waitForRoomState(socket, (room) => room.players.length === 4);
-    assert.equal(filled.players.length, 4);
-    assert.ok(filled.players.some((player) => player.isBot));
-    assert.equal(filled.viewer?.canUseDebugFill, true);
-    assert.equal(filled.viewer?.isDebugController, true);
-
-    socket.emit("start_game", { roomId: session.roomId });
-    const started = await waitForRoomState(socket, (room) => room.phase === "playing");
-    assert.equal(started.phase, "playing");
-    assert.equal(started.board.length, 49);
-
-    socket.emit("submit_clue", { roomId: session.roomId, word: "solo", count: 1 });
-    const withClue = await waitForRoomState(socket, (room) => room.clue?.word === "solo");
-    const assassin = withClue.board.find((card) => card.role === "assassin" && !card.revealed);
-    assert.ok(assassin);
-
-    socket.emit("guess_card", { roomId: session.roomId, cardId: assassin.id });
-    const finished = await waitForRoomState(socket, (room) => room.phase === "finished");
-    assert.equal(finished.phase, "finished");
-    assert.ok(finished.lastReveal);
-    assert.equal(finished.lastReveal?.outcome, "assassin-hit");
-    assert.ok(finished.winner);
-    console.log("ok solo_debug_flow");
+    assert.match(await rejection, /调试|璋冭瘯/);
+    console.log("ok debug_fill_disabled_by_default");
   } finally {
     socket.disconnect();
   }
@@ -520,8 +546,9 @@ async function main(): Promise<void> {
   const created = await testCreateRoom();
   await testReconnect(created.roomId, created.session);
   await testStartRejectionWithTwoPlayers();
+  await testInvalidSocketPayload();
   await testHiddenRolesAndTargetedReaction();
-  await testSoloDebugFlow();
+  await testDebugFillDisabledByDefault();
   await testHostControls();
   console.log("all e2e checks passed");
 }

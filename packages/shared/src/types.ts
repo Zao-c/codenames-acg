@@ -91,6 +91,10 @@ export interface NamedUserAccount {
   updatedAt: number;
 }
 
+export interface NamedUserLoginResponse extends NamedUserAccount {
+  sessionToken: string;
+}
+
 export interface WordEntry {
   id: string;
   text: string;

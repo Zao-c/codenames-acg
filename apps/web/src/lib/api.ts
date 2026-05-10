@@ -1,4 +1,4 @@
-import type { NamedUserAccount, PublicWordPack, UpdateNamedUserPayload, UsernameLoginPayload } from "@acg-codenames/shared";
+import type { NamedUserAccount, NamedUserLoginResponse, PublicWordPack, UpdateNamedUserPayload, UsernameLoginPayload } from "@acg-codenames/shared";
 
 const API_BASE = import.meta.env.VITE_SERVER_URL || "";
 
@@ -21,16 +21,20 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return payload as T;
 }
 
-export function loginNamedUser(payload: UsernameLoginPayload): Promise<NamedUserAccount> {
-  return request<NamedUserAccount>("/api/users/login", {
+export function loginNamedUser(payload: UsernameLoginPayload): Promise<NamedUserLoginResponse> {
+  return request<NamedUserLoginResponse>("/api/users/login", {
     method: "POST",
     body: JSON.stringify(payload)
   });
 }
 
-export function updateNamedUser(username: string, payload: UpdateNamedUserPayload): Promise<NamedUserAccount> {
+export function updateNamedUser(username: string, sessionToken: string, payload: UpdateNamedUserPayload): Promise<NamedUserAccount> {
   return request<NamedUserAccount>(`/api/users/${encodeURIComponent(username)}`, {
     method: "PUT",
+    headers: {
+      "content-type": "application/json",
+      "x-user-session-token": sessionToken
+    },
     body: JSON.stringify(payload)
   });
 }

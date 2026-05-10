@@ -3,19 +3,21 @@ import { PLAYER_RECONNECT_TTL_SECONDS, ROOM_TTL_SECONDS, type Room } from "@acg-
 import type { RoomSession, RoomStore } from "./types.js";
 
 class MemoryRoomStore implements RoomStore {
-  private readonly rooms = new Map<string, Room>();
-  private readonly sessions = new Map<string, RoomSession>();
+  private readonly rooms = new Map<string, { value: Room; expiresAt: number }>();
+  private readonly sessions = new Map<string, { value: RoomSession; expiresAt: number }>();
 
   async getRoom(roomId: string): Promise<Room | null> {
-    return this.rooms.get(roomId) ?? null;
+    this.pruneExpired();
+    return this.rooms.get(roomId)?.value ?? null;
   }
 
   async listRooms(): Promise<Room[]> {
-    return [...this.rooms.values()].sort((left, right) => right.updatedAt - left.updatedAt);
+    this.pruneExpired();
+    return [...this.rooms.values()].map((entry) => entry.value).sort((left, right) => right.updatedAt - left.updatedAt);
   }
 
   async setRoom(room: Room): Promise<void> {
-    this.rooms.set(room.id, room);
+    this.rooms.set(room.id, { value: room, expiresAt: Date.now() + ROOM_TTL_SECONDS * 1000 });
   }
 
   async deleteRoom(roomId: string): Promise<void> {
@@ -23,11 +25,26 @@ class MemoryRoomStore implements RoomStore {
   }
 
   async getPlayerSession(sessionToken: string): Promise<RoomSession | null> {
-    return this.sessions.get(sessionToken) ?? null;
+    this.pruneExpired();
+    return this.sessions.get(sessionToken)?.value ?? null;
   }
 
   async setPlayerSession(sessionToken: string, session: RoomSession): Promise<void> {
-    this.sessions.set(sessionToken, session);
+    this.sessions.set(sessionToken, { value: session, expiresAt: Date.now() + PLAYER_RECONNECT_TTL_SECONDS * 1000 });
+  }
+
+  private pruneExpired(): void {
+    const current = Date.now();
+    for (const [roomId, entry] of this.rooms.entries()) {
+      if (entry.expiresAt <= current) {
+        this.rooms.delete(roomId);
+      }
+    }
+    for (const [sessionToken, entry] of this.sessions.entries()) {
+      if (entry.expiresAt <= current) {
+        this.sessions.delete(sessionToken);
+      }
+    }
   }
 }
 
@@ -48,8 +65,12 @@ class RedisRoomStore implements RoomStore {
 
   async listRooms(): Promise<Room[]> {
     const roomIds = await this.listRoomIds();
-    const rooms = await Promise.all(roomIds.map((roomId) => this.getRoom(roomId)));
-    return rooms.filter((room): room is Room => room !== null).sort((left, right) => right.updatedAt - left.updatedAt);
+    const pairs = await Promise.all(roomIds.map(async (roomId) => ({ roomId, room: await this.getRoom(roomId) })));
+    await Promise.all(pairs.filter((entry) => entry.room === null).map((entry) => this.removeRoomId(entry.roomId)));
+    return pairs
+      .map((entry) => entry.room)
+      .filter((room): room is Room => room !== null)
+      .sort((left, right) => right.updatedAt - left.updatedAt);
   }
 
   async setRoom(room: Room): Promise<void> {

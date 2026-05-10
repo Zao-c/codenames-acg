@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { AsyncLocalStorage } from "node:async_hooks";
 import {
   BOARD_MODE_CONFIG,
   DEFAULT_ROOM_SETTINGS,
@@ -325,6 +326,7 @@ async function buildSpectator(nickname: string, profile: UserProfile): Promise<S
 
 export class GameService {
   private readonly roomLocks = new Map<string, Promise<void>>();
+  private readonly heldRoomLocks = new AsyncLocalStorage<Set<string>>();
 
   constructor(
     private readonly store: RoomStore,
@@ -333,13 +335,18 @@ export class GameService {
   ) {}
 
   private async withRoomLock<T>(roomId: string, fn: () => Promise<T>): Promise<T> {
+    if (this.heldRoomLocks.getStore()?.has(roomId)) {
+      return fn();
+    }
     const prev = this.roomLocks.get(roomId) ?? Promise.resolve();
     let release: () => void = () => {};
     const next = new Promise<void>((resolve) => { release = resolve; });
     this.roomLocks.set(roomId, prev.then(() => next));
     try {
       await prev;
-      return await fn();
+      const held = new Set(this.heldRoomLocks.getStore() ?? []);
+      held.add(roomId);
+      return await this.heldRoomLocks.run(held, fn);
     } finally {
       release();
       if (this.roomLocks.get(roomId) === next) {
@@ -418,6 +425,7 @@ export class GameService {
     nickname: string,
     profile?: Partial<UserProfile>
   ): Promise<{ room: Room; spectator: Spectator }> {
+    return this.withRoomLock(roomId, async () => {
     const room = await this.requireRoom(roomId);
     const cleanNickname = normalizeNickname(nickname);
     if (hasNicknameConflict(room, cleanNickname)) {
@@ -435,12 +443,14 @@ export class GameService {
     await this.store.setRoom(nextRoom);
     await this.store.setPlayerSession(spectator.sessionToken!, createSession(nextRoom.id, spectator.id, "spectator"));
     return { room: nextRoom, spectator };
+    });
   }
 
   async reconnectRoom(
     roomId: string,
     sessionToken: string
   ): Promise<{ room: Room; participantId: string; participantType: ParticipantType }> {
+    return this.withRoomLock(roomId, async () => {
     const session = await this.store.getPlayerSession(sessionToken);
     if (!session || session.roomId !== roomId) {
       throw new Error("重连凭证无效");
@@ -453,9 +463,11 @@ export class GameService {
     const nextRoom = withEvent(room, `${participant.nickname} 已重连`);
     await this.store.setRoom(nextRoom);
     return { room: nextRoom, participantId: session.participantId, participantType: session.participantType };
+    });
   }
 
   async setTeam(roomId: string, playerId: string, team: Team | null): Promise<Room> {
+    return this.withRoomLock(roomId, async () => {
     const room = await this.requireRoom(roomId);
     requireLobby(room);
     const player = requirePlayer(room, playerId);
@@ -468,9 +480,11 @@ export class GameService {
     const nextRoom = withEvent(room, `${player.nickname} 调整了队伍`);
     await this.store.setRoom(nextRoom);
     return nextRoom;
+    });
   }
 
   async setRole(roomId: string, playerId: string, role: PlayerRole): Promise<Room> {
+    return this.withRoomLock(roomId, async () => {
     const room = await this.requireRoom(roomId);
     requireLobby(room);
     const player = requirePlayer(room, playerId);
@@ -489,6 +503,7 @@ export class GameService {
     const nextRoom = withEvent(room, `${player.nickname} 切换为${PLAYER_ROLE_LABELS[role]}`);
     await this.store.setRoom(nextRoom);
     return nextRoom;
+    });
   }
 
   async updateRoomSettings(
@@ -496,6 +511,7 @@ export class GameService {
     playerId: string,
     payload: { boardMode?: BoardMode; builtinWordPackId?: string; customWordPack?: CustomWordPackInput | null }
   ): Promise<Room> {
+    return this.withRoomLock(roomId, async () => {
     const room = await this.requireRoom(roomId);
     requireLobby(room);
     if (room.hostPlayerId !== playerId) {
@@ -530,9 +546,11 @@ export class GameService {
     );
     await this.store.setRoom(nextRoom);
     return nextRoom;
+    });
   }
 
   async debugFillRoom(roomId: string, playerId: string): Promise<Room> {
+    return this.withRoomLock(roomId, async () => {
     if (!this.options.enableDebugTools) {
       throw new Error("当前环境未启用调试工具");
     }
@@ -566,9 +584,11 @@ export class GameService {
     );
     await this.store.setRoom(nextRoom);
     return nextRoom;
+    });
   }
 
   async startGame(roomId: string, playerId: string): Promise<Room> {
+    return this.withRoomLock(roomId, async () => {
     const room = await this.requireRoom(roomId);
     requireLobby(room);
     if (room.hostPlayerId !== playerId) {
@@ -595,9 +615,11 @@ export class GameService {
     );
     await this.store.setRoom(nextRoom);
     return nextRoom;
+    });
   }
 
   async restartGame(roomId: string, playerId: string): Promise<Room> {
+    return this.withRoomLock(roomId, async () => {
     const room = await this.requireRoom(roomId);
     if (room.phase !== "finished") {
       throw new Error("只有对局结束后才能再来一把");
@@ -691,9 +713,11 @@ export class GameService {
     );
     await this.store.setRoom(nextRoom);
     return nextRoom;
+    });
   }
 
   async returnToLobby(roomId: string, playerId: string): Promise<Room> {
+    return this.withRoomLock(roomId, async () => {
     const room = await this.requireRoom(roomId);
     const host = requirePlayer(room, playerId);
     if (room.hostPlayerId !== playerId) {
@@ -734,9 +758,11 @@ export class GameService {
         )
     );
     return nextRoom;
+    });
   }
 
   async transferHost(roomId: string, currentHostId: string, targetPlayerId: string): Promise<Room> {
+    return this.withRoomLock(roomId, async () => {
     const room = await this.requireRoom(roomId);
     const currentHost = requirePlayer(room, currentHostId);
     const targetPlayer = requirePlayer(room, targetPlayerId);
@@ -763,18 +789,22 @@ export class GameService {
     );
     await this.store.setRoom(nextRoom);
     return nextRoom;
+    });
   }
 
   async disbandRoom(roomId: string, playerId: string): Promise<Room> {
+    return this.withRoomLock(roomId, async () => {
     const room = await this.requireRoom(roomId);
     if (room.hostPlayerId !== playerId) {
       throw new Error("只有房主可以解散房间");
     }
     await this.store.deleteRoom(room.id);
     return room;
+    });
   }
 
   async submitClue(roomId: string, playerId: string, word: string, count: number): Promise<Room> {
+    return this.withRoomLock(roomId, async () => {
     const room = await this.requireRoom(roomId);
     requirePlaying(room);
     const player = requirePlayer(room, playerId);
@@ -783,6 +813,9 @@ export class GameService {
     }
     const isDebugHost = isSoloDebugController(room, playerId, this.options.enableDebugTools);
 
+    if (room.clue) {
+      throw new Error("当前回合已经有提示");
+    }
     if (!isDebugHost && (player.team !== room.currentTeam || player.role !== "spymaster")) {
       throw new Error("只有当前队伍的队长可以发提示");
     }
@@ -811,9 +844,11 @@ export class GameService {
     );
     await this.store.setRoom(nextRoom);
     return nextRoom;
+    });
   }
 
   async guessCard(roomId: string, playerId: string, cardId: string): Promise<Room> {
+    return this.withRoomLock(roomId, async () => {
     const room = await this.requireRoom(roomId);
     requirePlaying(room);
     const player = requirePlayer(room, playerId);
@@ -902,9 +937,11 @@ export class GameService {
       await this.users.recordRoundResult(nextRoom.players, winner);
     }
     return nextRoom;
+    });
   }
 
   async endTurn(roomId: string, playerId: string): Promise<Room> {
+    return this.withRoomLock(roomId, async () => {
     const room = await this.requireRoom(roomId);
     requirePlaying(room);
     const player = requirePlayer(room, playerId);
@@ -929,9 +966,11 @@ export class GameService {
     );
     await this.store.setRoom(nextRoom);
     return nextRoom;
+    });
   }
 
   async sendChatMessage(roomId: string, participantId: string, participantType: ParticipantType, text: string): Promise<Room> {
+    return this.withRoomLock(roomId, async () => {
     const room = await this.requireRoom(roomId);
     const participant = requireParticipant(room, participantId, participantType);
     const cleanText = normalizeChatText(text);
@@ -947,6 +986,7 @@ export class GameService {
     };
     await this.store.setRoom(nextRoom);
     return nextRoom;
+    });
   }
 
   async sendReaction(
@@ -957,6 +997,7 @@ export class GameService {
     targetParticipantId: string,
     targetParticipantType: ParticipantType
   ): Promise<Room> {
+    return this.withRoomLock(roomId, async () => {
     const room = await this.requireRoom(roomId);
     const participant = requireParticipant(room, participantId, participantType);
     const target = requireParticipant(room, targetParticipantId, targetParticipantType);
@@ -994,9 +1035,11 @@ export class GameService {
     };
     await this.store.setRoom(nextRoom);
     return nextRoom;
+    });
   }
 
   async queueForNextRound(roomId: string, spectatorId: string): Promise<Room> {
+    return this.withRoomLock(roomId, async () => {
     const room = await this.requireRoom(roomId);
     const spectator = requireSpectator(room, spectatorId);
 
@@ -1027,9 +1070,11 @@ export class GameService {
     );
     await this.store.setRoom(nextRoom);
     return nextRoom;
+    });
   }
 
   async cancelQueueJoin(roomId: string, spectatorId: string): Promise<Room> {
+    return this.withRoomLock(roomId, async () => {
     const room = await this.requireRoom(roomId);
     const spectator = requireSpectator(room, spectatorId);
     if (!room.joinQueue.some((entry) => entry.spectatorId === spectator.id)) {
@@ -1045,9 +1090,11 @@ export class GameService {
     );
     await this.store.setRoom(nextRoom);
     return nextRoom;
+    });
   }
 
   async leaveRoom(roomId: string, participantId: string, participantType: ParticipantType): Promise<Room | null> {
+    return this.withRoomLock(roomId, async () => {
     const room = await this.requireRoom(roomId);
     const participant = requireParticipant(room, participantId, participantType);
 
@@ -1077,9 +1124,11 @@ export class GameService {
     );
     await this.store.setRoom(nextRoom);
     return nextRoom;
+    });
   }
 
   async markDisconnected(roomId: string, participantId: string, participantType: ParticipantType): Promise<Room | null> {
+    return this.withRoomLock(roomId, async () => {
     const room = await this.store.getRoom(roomId);
     if (!room) {
       return null;
@@ -1116,6 +1165,7 @@ export class GameService {
 
     await this.store.setRoom(nextRoom);
     return nextRoom;
+    });
   }
 
   getPublicRoomState(room: Room, participantId?: string, participantType?: ParticipantType): PublicRoomState {

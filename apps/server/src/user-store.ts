@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import crypto from "node:crypto";
 import path from "node:path";
 import {
   MAX_AVATAR_DATA_URL_LENGTH,
@@ -6,6 +7,7 @@ import {
   MAX_WORD_PACK_NAME_LENGTH,
   MIN_CUSTOM_WORD_PACK_ENTRIES,
   type NamedUserAccount,
+  type NamedUserLoginResponse,
   type PublicWordPack,
   type SavedWordPack,
   type UpdateNamedUserPayload,
@@ -127,6 +129,7 @@ function normalizeSavedPacks(packs: SavedWordPack[] | undefined): SavedWordPack[
 export class JsonUserStore implements UserStore {
   private readonly filePath: string;
   private users = new Map<string, NamedUserAccount>();
+  private readonly sessions = new Map<string, string>();
   private loaded = false;
   private writeChain: Promise<void> = Promise.resolve();
 
@@ -134,19 +137,19 @@ export class JsonUserStore implements UserStore {
     this.filePath = filePath;
   }
 
-  async login(username: string): Promise<NamedUserAccount> {
+  async login(username: string): Promise<NamedUserLoginResponse> {
     await this.ensureLoaded();
     const normalized = normalizeUsername(username);
     const key = userKey(normalized);
     const existing = this.users.get(key);
     if (existing) {
-      return existing;
+      return this.withSession(existing);
     }
 
     const created = defaultUser(normalized);
     this.users.set(key, created);
     await this.persist();
-    return created;
+    return this.withSession(created);
   }
 
   async get(username: string): Promise<NamedUserAccount | null> {
@@ -158,7 +161,10 @@ export class JsonUserStore implements UserStore {
     await this.ensureLoaded();
     const normalized = normalizeUsername(username);
     const key = userKey(normalized);
-    const current = this.users.get(key) ?? defaultUser(normalized);
+    const current = this.users.get(key);
+    if (!current) {
+      throw new Error("用户不存在，请先登录");
+    }
     const updated: NamedUserAccount = {
       ...current,
       avatarUrl: payload.avatarUrl === undefined ? current.avatarUrl : normalizeAvatarUrl(payload.avatarUrl),
@@ -168,6 +174,12 @@ export class JsonUserStore implements UserStore {
     this.users.set(key, updated);
     await this.persist();
     return updated;
+  }
+
+  async verifySession(username: string, sessionToken: string): Promise<boolean> {
+    await this.ensureLoaded();
+    const key = userKey(username);
+    return this.sessions.get(sessionToken) === key;
   }
 
   async listPublicWordPacks(): Promise<PublicWordPack[]> {
@@ -291,5 +303,11 @@ export class JsonUserStore implements UserStore {
       await fs.writeFile(`${this.filePath}.bak`, content, "utf8");
     });
     await this.writeChain;
+  }
+
+  private withSession(account: NamedUserAccount): NamedUserLoginResponse {
+    const sessionToken = crypto.randomUUID();
+    this.sessions.set(sessionToken, userKey(account.username));
+    return { ...account, sessionToken };
   }
 }
