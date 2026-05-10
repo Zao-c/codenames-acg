@@ -1,6 +1,6 @@
 import type { NamedUserAccount, PublicWordPack, UpdateNamedUserPayload, UsernameLoginPayload } from "@acg-codenames/shared";
 
-const API_BASE = import.meta.env.VITE_SERVER_URL ?? "http://localhost:3001";
+const API_BASE = import.meta.env.VITE_SERVER_URL || "";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const controller = new AbortController();
