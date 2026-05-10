@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   TEAM_LABELS, PLAYER_ROLE_LABELS,
@@ -516,94 +516,117 @@ function SideTabPanel({ g, room, session }: {
   session: ReturnType<typeof useGame>["session"];
 }) {
   const { sideTab, setSideTab, chatText, setChatText, chatListRef, handleChatScroll, jumpToLatest, scrollChatToBottom, sendChatMessage, sendQuickPhrase } = g;
+  const [collapsed, setCollapsed] = useState(false);
+  const chatMessages = useMemo(() => room.messages.filter((m) => m.type === "chat" || m.type === "reaction"), [room.messages]);
+  const battleMessages = useMemo(() => room.messages.filter((m) => m.type === "system"), [room.messages]);
+
   return (
-    <div className="panel">
-      <div className="selection-grid" style={{ marginBottom: 12 }}>
-        <button className={sideTab === "chat" ? "selected" : ""} onClick={() => setSideTab("chat")}>聊天</button>
-        <button className={sideTab === "spectators" ? "selected" : ""} onClick={() => setSideTab("spectators")}>旁观</button>
-        <button className={sideTab === "score" ? "selected" : ""} onClick={() => setSideTab("score")}>积分</button>
+    <div className={`panel side-panel${collapsed ? " side-panel-collapsed" : ""}`}>
+      <div className="side-panel-hdr">
+        <div className="selection-grid side-tab-row">
+          <button className={sideTab === "chat" ? "selected" : ""} onClick={() => { setSideTab("chat"); if (collapsed) setCollapsed(false); }}>聊天</button>
+          <button className={sideTab === "battle" ? "selected" : ""} onClick={() => { setSideTab("battle"); if (collapsed) setCollapsed(false); }}>战况</button>
+          <button className={sideTab === "score" ? "selected" : ""} onClick={() => { setSideTab("score"); if (collapsed) setCollapsed(false); }}>积分</button>
+          <button className={sideTab === "spectators" ? "selected" : ""} onClick={() => { setSideTab("spectators"); if (collapsed) setCollapsed(false); }}>旁观</button>
+        </div>
+        <button className="side-toggle" onClick={() => setCollapsed(!collapsed)} title={collapsed ? "展开面板" : "收起面板"}>
+          {collapsed ? "◀" : "▶"}
+        </button>
       </div>
 
-      {sideTab === "chat" ? (
+      {!collapsed ? (
         <>
-          <div className="chat-list" ref={chatListRef} onScroll={handleChatScroll} style={{ maxHeight: 280 }}>
-            {room.messages.length === 0 ? <p className="empty-text">还没有消息。</p> : null}
-            {room.messages.map((message) => (
-              <MessageRow key={message.id} message={message} selfId={session?.participantId} />
-            ))}
-          </div>
-          {jumpToLatest ? <button className="chip-button" onClick={scrollChatToBottom} style={{ margin: "4px 0" }}>跳到最新</button> : null}
-          <div className="chat-bar" style={{ marginTop: 8 }}>
-            <input value={chatText} onChange={(e) => setChatText(e.target.value)} maxLength={120} placeholder="发一句话..." style={{ flex: 1 }} />
-            <button onClick={sendChatMessage} disabled={!chatText.trim()}>发送</button>
-          </div>
-          <div className="chip-wrap" style={{ marginTop: 6 }}>
-            <button className="chip-button" onClick={() => sendQuickPhrase("GG")}>GG</button>
-            <button className="chip-button" onClick={() => sendQuickPhrase("大佬带带我")}>大佬带带我</button>
-            <button className="chip-button" onClick={() => sendQuickPhrase("好猜！")}>好猜！</button>
-            <button className="chip-button" onClick={() => sendQuickPhrase("这个太难了")}>这个太难了</button>
-            <button className="chip-button" onClick={() => sendQuickPhrase("666")}>666</button>
-          </div>
-        </>
-      ) : null}
+          {(sideTab === "chat" || sideTab === "battle") ? (
+            <>
+              <div className="chat-list" ref={chatListRef} onScroll={handleChatScroll} style={{ maxHeight: sideTab === "chat" ? 240 : 320 }}>
+                {(sideTab === "chat" ? chatMessages : battleMessages).length === 0 ? (
+                  <p className="empty-text">{sideTab === "chat" ? "还没有聊天。" : "暂无战况记录。"}</p>
+                ) : null}
+                {(sideTab === "chat" ? chatMessages : battleMessages).map((message) => (
+                  <MessageRow key={message.id} message={message} selfId={session?.participantId} />
+                ))}
+              </div>
+              {jumpToLatest ? <button className="chip-button jump-button" onClick={scrollChatToBottom} style={{ margin: "4px 0" }}>⬇ 有新消息</button> : null}
+            </>
+          ) : null}
 
-      {sideTab === "spectators" ? (
-        <>
-          <span className="soft-chip">旁观 {room.spectators.length}</span>
-          <span className="soft-chip" style={{ marginLeft: 6 }}>排队 {room.joinQueue.length}</span>
-          {room.spectators.length === 0 ? <p className="empty-text">当前没有旁观者。</p> : null}
-          {room.spectators.map((spectator) => (
-            <ParticipantRow
-              key={spectator.id}
-              participant={spectator}
-              label={queuedForSpectator(spectator, room.joinQueue) ? "已排队下一局" : "旁观中"}
-              isSelf={spectator.id === session?.participantId}
-              effect={g.reactionEffects[spectator.id]}
-              onReact={g.sendReaction}
-            />
-          ))}
-        </>
-      ) : null}
+          {sideTab === "chat" ? (
+            <>
+              <div className="chat-bar" style={{ marginTop: 8 }}>
+                <input value={chatText} onChange={(e) => setChatText(e.target.value)} maxLength={120} placeholder="发一句话..." style={{ flex: 1 }} />
+                <button onClick={sendChatMessage} disabled={!chatText.trim()}>发送</button>
+              </div>
+              <div className="chip-wrap" style={{ marginTop: 6 }}>
+                <button className="chip-button" onClick={() => sendQuickPhrase("GG")}>GG</button>
+                <button className="chip-button" onClick={() => sendQuickPhrase("大佬带带我")}>大佬带带我</button>
+                <button className="chip-button" onClick={() => sendQuickPhrase("好猜！")}>好猜！</button>
+                <button className="chip-button" onClick={() => sendQuickPhrase("这个太难了")}>这个太难了</button>
+                <button className="chip-button" onClick={() => sendQuickPhrase("666")}>666</button>
+              </div>
+            </>
+          ) : null}
 
-      {sideTab === "score" ? (
-        <div className="score-column">
-          <div className="score-board">
-            <div className="score-box score-red"><span>红队</span><strong>{room.scores.red}</strong></div>
-            <div className="score-box score-blue"><span>蓝队</span><strong>{room.scores.blue}</strong></div>
-          </div>
-          <div className="score-pair">
-            <span>红队剩余 {room.remainingCounts.red}</span>
-            <span>蓝队剩余 {room.remainingCounts.blue}</span>
-          </div>
-          {room.currentRoundScore ? (
-            <div className="info-card">
-              <strong>本回合 {TEAM_LABELS[room.currentRoundScore.team]} 得分</strong>
-              {room.currentRoundScore.ownHits > 0 ? (
-                <div className="score-detail-row"><span>己方词 ×{room.currentRoundScore.ownHits}</span><span>+{room.currentRoundScore.ownPoints}</span></div>
+          {sideTab === "spectators" ? (
+            <>
+              <span className="soft-chip">旁观 {room.spectators.length}</span>
+              <span className="soft-chip" style={{ marginLeft: 6 }}>排队 {room.joinQueue.length}</span>
+              {room.spectators.length === 0 ? <p className="empty-text">当前没有旁观者。</p> : null}
+              {room.spectators.map((spectator) => (
+                <ParticipantRow
+                  key={spectator.id}
+                  participant={spectator}
+                  label={queuedForSpectator(spectator, room.joinQueue) ? "已排队下一局" : "旁观中"}
+                  isSelf={spectator.id === session?.participantId}
+                  effect={g.reactionEffects[spectator.id]}
+                  onReact={g.sendReaction}
+                />
+              ))}
+            </>
+          ) : null}
+
+          {sideTab === "score" ? (
+            <div className="score-column">
+              <div className="score-board">
+                <div className="score-box score-red"><span>红队</span><strong>{room.scores.red}</strong></div>
+                <div className="score-box score-blue"><span>蓝队</span><strong>{room.scores.blue}</strong></div>
+              </div>
+              <div className="score-pair">
+                <span>红队剩余 {room.remainingCounts.red}</span>
+                <span>蓝队剩余 {room.remainingCounts.blue}</span>
+              </div>
+              {room.currentRoundScore ? (
+                <div className="info-card">
+                  <strong>本回合 {TEAM_LABELS[room.currentRoundScore.team]} 得分</strong>
+                  {room.currentRoundScore.ownHits > 0 ? (
+                    <div className="score-detail-row"><span>己方词 ×{room.currentRoundScore.ownHits}</span><span>+{room.currentRoundScore.ownPoints}</span></div>
+                  ) : null}
+                  {room.currentRoundScore.comboBonus > 0 ? (
+                    <div className="score-detail-row"><span>连击加成</span><span>+{room.currentRoundScore.comboBonus}</span></div>
+                  ) : null}
+                  {room.currentRoundScore.neutralPenalty > 0 ? (
+                    <div className="score-detail-row"><span>中立词 ×{room.currentRoundScore.neutralHits}</span><span>-{room.currentRoundScore.neutralPenalty}</span></div>
+                  ) : null}
+                  {room.currentRoundScore.opponentPointsLost > 0 ? (
+                    <div className="score-detail-row"><span>猜中对方词 ×{room.currentRoundScore.opponentHits}</span><span>-{room.currentRoundScore.opponentPointsLost}</span></div>
+                  ) : null}
+                  {room.currentRoundScore.assassinPenalty > 0 ? (
+                    <div className="score-detail-row"><span>踩中刺客</span><span>-{room.currentRoundScore.assassinPenalty}</span></div>
+                  ) : null}
+                  {room.currentRoundScore.maxCombo > 1 ? (
+                    <div className="score-detail-row"><span>最高连击</span><span>×{room.currentRoundScore.maxCombo}</span></div>
+                  ) : null}
+                </div>
               ) : null}
-              {room.currentRoundScore.comboBonus > 0 ? (
-                <div className="score-detail-row"><span>连击加成</span><span>+{room.currentRoundScore.comboBonus}</span></div>
-              ) : null}
-              {room.currentRoundScore.neutralPenalty > 0 ? (
-                <div className="score-detail-row"><span>中立词 ×{room.currentRoundScore.neutralHits}</span><span>-{room.currentRoundScore.neutralPenalty}</span></div>
-              ) : null}
-              {room.currentRoundScore.opponentPointsLost > 0 ? (
-                <div className="score-detail-row"><span>猜中对方词 ×{room.currentRoundScore.opponentHits}</span><span>-{room.currentRoundScore.opponentPointsLost}</span></div>
-              ) : null}
-              {room.currentRoundScore.assassinPenalty > 0 ? (
-                <div className="score-detail-row"><span>踩中刺客</span><span>-{room.currentRoundScore.assassinPenalty}</span></div>
-              ) : null}
-              {room.currentRoundScore.maxCombo > 1 ? (
-                <div className="score-detail-row"><span>最高连击</span><span>×{room.currentRoundScore.maxCombo}</span></div>
-              ) : null}
+              <div className="info-card">
+                <strong>词牌</strong>
+                <p className="panel-subtle">{room.wordPackSummary.name}</p>
+              </div>
             </div>
           ) : null}
-          <div className="info-card">
-            <strong>词牌</strong>
-            <p className="panel-subtle">{room.wordPackSummary.name}</p>
-          </div>
-        </div>
-      ) : null}
+        </>
+      ) : (
+        <p className="hint-text" style={{ textAlign: "center", margin: 0 }}>面板已收起</p>
+      )}
     </div>
   );
 }

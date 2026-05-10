@@ -524,9 +524,13 @@ a { color: var(--accent-2); }
 .achievement-name { font-size: 14px; font-weight: 600; }
 .achievement-desc { font-size: 12px; color: var(--muted); font-style: italic; }
 
-/* ─── side panel (score / chat / spectators) ─── */
-.side-tabs { display: flex; gap: 4px; margin-bottom: 12px; }
-.side-tabs button { padding: 6px 12px; font-size: 13px; }
+/* ─── side panel (score / chat / battle / spectators) ─── */
+.side-panel { transition: min-width 0.2s, max-height 0.2s; overflow: hidden; }
+.side-panel-collapsed { }
+.side-panel-hdr { display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-bottom: 12px; }
+.side-tab-row { margin-bottom: 0; }
+.side-tab-row button { font-size: 12px; padding: 5px 10px; }
+.side-toggle { padding: 4px 8px; font-size: 11px; line-height: 1; border-radius: 6px; }
 
 .score-column { display: flex; flex-direction: column; gap: 12px; }
 .score-board { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -545,6 +549,8 @@ a { color: var(--accent-2); }
 .chat-bar { display: flex; gap: 8px; }
 .chat-bar input { flex: 1; }
 .chat-entry strong { margin-right: 4px; }
+.jump-button { display: block; width: 100%; text-align: center; animation: fadeInUp 0.3s ease; }
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 
 /* ─── participants ─── */
 .participant-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; }

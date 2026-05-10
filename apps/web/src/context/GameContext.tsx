@@ -50,7 +50,7 @@ import {
 
 type ConnectionState = "idle" | "connecting" | "ready";
 type PackSource = "builtin" | "account" | "public";
-type SideTab = "chat" | "spectators" | "score";
+type SideTab = "chat" | "battle" | "score" | "spectators";
 type RoomParticipant = PublicPlayer | PublicSpectator;
 
 const ROOM_ID_LENGTH = 6;

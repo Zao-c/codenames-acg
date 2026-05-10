@@ -1089,12 +1089,12 @@ export class GameService {
       clue = null;
       outcome = "assassin-hit";
       guesserStats.assassinHits += 1;
-      event = `${player.nickname} 踩中刺客词……这波寄了 (╥﹏╥)`;
+      event = `${player.nickname} 选择了「${card.word}」——刺客词……这波寄了 (╥﹏╥)`;
     } else if (card.role === actingTeam) {
       remainingCounts[actingTeam] -= 1;
       outcome = "own-hit";
       guesserStats.ownHits += 1;
-      event = `${player.nickname} 猜中目标词！NICE～`;
+      event = `${player.nickname} 选择了「${card.word}」——${TEAM_LABELS[actingTeam]}词，正确 ✅`;
       if (remainingCounts[actingTeam] === 0) {
         winner = actingTeam;
         clue = null;
@@ -1102,7 +1102,7 @@ export class GameService {
       } else if (room.clue.usedGuesses > room.clue.count) {
         currentTeam = nextTeam(actingTeam);
         clue = null;
-        event = `${player.nickname} 用完了额外猜测次数`;
+        event = `${player.nickname} 用完了额外猜测次数，回合结束`;
       }
     } else {
       currentTeam = nextTeam(actingTeam);
@@ -1121,8 +1121,8 @@ export class GameService {
       }
       event =
         card.role === "neutral"
-          ? `${player.nickname} 猜到了中立词～`
-          : `${player.nickname} 猜到了${TEAM_LABELS[card.role as Team]}的词 (⊙ˍ⊙)`;
+          ? `${player.nickname} 选择了「${card.word}」——中立词，回合结束`
+          : `${player.nickname} 选择了「${card.word}」——${TEAM_LABELS[card.role as Team]}词，错误 (⊙ˍ⊙)`;
     }
 
     const lastReveal = createRevealEvent(card, player, actingTeam, outcome!, currentTeam, winner);
