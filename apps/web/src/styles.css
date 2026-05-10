@@ -238,6 +238,9 @@ a { color: var(--accent-2); }
   gap: 16px;
   align-items: start;
 }
+.room-layout-playing > .room-bar {
+  grid-column: 1 / -1;
+}
 .room-layout-finished {
   max-width: 640px; margin: 0 auto; width: 100%;
 }
@@ -366,6 +369,11 @@ a { color: var(--accent-2); }
   width: 10px; height: 10px; border-radius: 50%;
   box-shadow: 0 0 4px rgba(0,0,0,0.4);
   pointer-events: none;
+}
+.card-role-dot-assassin {
+  width: 12px; height: 12px;
+  border: 2px solid rgba(255,255,255,0.5);
+  bottom: 5px; right: 5px;
 }
 
 /* ─── word text ─── */
