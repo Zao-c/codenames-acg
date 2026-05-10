@@ -298,6 +298,7 @@ export interface GameContextType {
   returnToLobby: () => void;
   transferHost: () => void;
   disbandRoom: () => void;
+  forceEndGame: () => void;
   queueForNextRound: () => void;
   cancelQueueJoin: () => void;
   debugFillRoom: () => void;
@@ -705,6 +706,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     socket.emit("transfer_host", { roomId: session.roomId, targetPlayerId: target.id });
   }
   function disbandRoom() { if (session && window.confirm("确定要解散密令房吗？所有玩家都会回到首页。")) socket.emit("disband_room", { roomId: session.roomId }); }
+  function forceEndGame() { if (session) socket.emit("force_end_game", { roomId: session.roomId }); }
   function queueForNextRound() { if (session) socket.emit("queue_for_next_round", { roomId: session.roomId }); }
   function cancelQueueJoin() { if (session) socket.emit("cancel_queue_join", { roomId: session.roomId }); }
   function debugFillRoom() { if (session) socket.emit("debug_fill_room", { roomId: session.roomId }); }
@@ -771,7 +773,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     roomCode, setRoomCode, isLobby, isFinished, viewer, self, inviteLink, boardColumns,
     chooseTeam, chooseRole, updateBoardMode, updateScoringMode, updateBuiltinPack,
     uploadRoomPack, useAccountPackForRoom, usePublicPackForRoom,
-    startGame, restartGame, returnToLobby, transferHost, disbandRoom,
+    startGame, restartGame, returnToLobby, transferHost, disbandRoom, forceEndGame,
     queueForNextRound, cancelQueueJoin, debugFillRoom,
     submitClue, guessCard, endTurn, sendChatMessage, sendQuickPhrase, sendReaction, copyLink,
     clueWord, setClueWord, clueCount, setClueCount,

@@ -42,6 +42,7 @@ export interface ClientToServerEvents {
   return_to_lobby: (payload: ReturnToLobbyPayload) => void;
   transfer_host: (payload: TransferHostPayload) => void;
   disband_room: (payload: DisbandRoomPayload) => void;
+  force_end_game: (payload: { roomId: string }) => void;
   submit_clue: (payload: SubmitCluePayload) => void;
   guess_card: (payload: GuessCardPayload) => void;
   end_turn: (payload: EndTurnPayload) => void;

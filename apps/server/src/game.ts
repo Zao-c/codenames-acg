@@ -1265,6 +1265,30 @@ export class GameService {
     });
   }
 
+  async forceEndGame(roomId: string, playerId: string): Promise<Room> {
+    return this.withRoomLock(roomId, async () => {
+    const room = await this.requireRoom(roomId);
+    if (room.hostPlayerId !== playerId) {
+      throw new Error("只有社长可以强制结束对局");
+    }
+    if (room.phase !== "playing") {
+      throw new Error("当前不在对局中");
+    }
+    const winner = nextTeam(room.currentTeam);
+    const nextRoom = withEvent(
+      { ...room, phase: "finished" as const, winner, clue: null, lastReveal: null },
+      `社长强制结束了对局`
+    );
+    const scoringActive = isScoringMode(room.settings.scoringMode);
+    if (!scoringActive) {
+      nextRoom.scores = updateScores(room.scores, winner);
+    }
+    await this.store.setRoom(nextRoom);
+    await this.users.recordRoundResult(nextRoom.players, winner);
+    return nextRoom;
+    });
+  }
+
   async sendChatMessage(roomId: string, participantId: string, participantType: ParticipantType, text: string): Promise<Room> {
     return this.withRoomLock(roomId, async () => {
     const room = await this.requireRoom(roomId);

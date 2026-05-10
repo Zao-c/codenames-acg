@@ -29,7 +29,7 @@ export function RoomPage() {
     renderHint,
     chooseTeam, chooseRole, updateBoardMode, updateBuiltinPack, updateScoringMode,
     uploadRoomPack, useAccountPackForRoom, usePublicPackForRoom,
-    startGame, restartGame, returnToLobby, transferHost, disbandRoom,
+    startGame, restartGame, returnToLobby, transferHost, disbandRoom, forceEndGame,
     queueForNextRound, cancelQueueJoin, debugFillRoom,
     submitClue, guessCard, endTurn, sendChatMessage, sendQuickPhrase, sendReaction, copyLink, leaveRoom,
     transferHostTargetId, setTransferHostTargetId, hostTransferCandidates,
@@ -86,7 +86,12 @@ export function RoomPage() {
           </div>
           <div className="bar-actions">
             {room.phase === "playing" ? (
-              <button onClick={() => setFocusMode(true)}>专注模式</button>
+              <>
+                <button onClick={() => setFocusMode(true)}>专注模式</button>
+                {viewer?.isHost ? (
+                  <button onClick={() => { if (window.confirm("确定要强制结束当前对局吗？当前队伍视为认输。")) { g.forceEndGame(); } }}>结束对局</button>
+                ) : null}
+              </>
             ) : null}
             <button onClick={() => { void copyLink(); }}>{copied ? "已复制" : "复制链接"}</button>
           </div>

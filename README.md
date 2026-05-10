@@ -1,80 +1,82 @@
-# acg_codenames
+# 词牌结社 · ACG Codenames
 
-一个面向 ACG 玩家和朋友联机的在线《行动代号》桌游。玩家可以创建房间、分队、担任队长或行动员，用内置词库、个人题库或公共题库开局。
-
-项目当前重点是“小圈子快速开房一起玩”：前端负责房间界面和题库管理，后端负责实时同步、权限判定、房间状态和用户题库。
+一个面向 ACG 玩家和朋友联机的在线《行动代号》桌游。深蓝极简主题，支持实时多人房间、积分模式、结算称号、全房动画特效。
 
 ---
 
 ## 当前功能
 
-- 实时多人房间：创建房间、复制邀请链接、加入房间、重连恢复。
-- 队伍与角色：红队/蓝队、队长/行动员、旁观者。
-- 服务端权威判定：开局、线索、猜词、回合切换、房主操作都由后端验证。
-- 房主控制：返回大厅、转让房主、解散房间。
-- 房间大厅：区分“准备中可加入”“进行中可旁观”“已结束”。
-- 题库系统：内置题库、我的题库、公共题库。
-- 候选题库审核：可导入更复杂的 ACG 词条 JSON，筛选后导出为可玩的词库。
-- AI 提取 Prompt：内置从直播录播、游戏文本、百科和台词中提取候选词条的通用 Prompt。
-- 本地调试：localhost 下支持 solo debug，方便一个人跑完整流程。
+### 房间与联机
+- 实时多人房间：创建房间、复制邀请链接、加入/旁观房间、重连恢复
+- 队伍与角色：红队/蓝队、队长/队员、旁观者、排队加入下一局
+- 社长控制：开始游戏、转让社长、强制结束对局、解散房间、回到大厅
+- 房间大厅：区分准备中 / 进行中 / 已结束三种状态
+- 专注模式：对局中一键收起侧栏，极简 FocusBar + 棋盘 + 操作区
+
+### 棋盘模式
+- 5×5 / 7×7 / 9×9 三种棋盘尺寸
+- 翻牌动画（rotateY 翻转 + 脉冲）
+- 已翻牌显示对应阵营颜色（浅红/浅蓝/浅灰/深色+glow）
+- 队长视角右下角色点标记（红/蓝/灰/黑色圆环）
+- 长词自动缩字号 + 换行，最多 2~3 行，不截断
+- 尺寸自适应：5×5 大卡 / 7×7 中卡 / 9×9 紧凑
+
+### 得分模式
+- **经典模式**：找完己方全部词卡即获胜，分数=胜场数
+- **积分模式**：每次猜词独立计分
+  - 猜中己方词 +10，连击 +2×连击数
+  - 猜错对方词 -5（对方+5）
+  - 踩中刺客 -25（对方+25）
+  - 精准奖励（猜中数=提示数） +10
+  - 胜利队伍 +20
+- 积分面板：实时回合明细 + 历史回合纪录
+
+### 结算称号
+每局结束后自动计算并颁发最多 7 个称号：
+
+| 称号 | 类别 | 条件 |
+|------|------|------|
+| 词牌王者 | 正向 | 猜中己方词最多 |
+| 神谕队长 | 正向 | 提示质量最高 |
+| 羁绊连携 | 正向 | 队长×队员最佳搭档 |
+| 名场面密令 | 正向 | 单回合收益最高的提示 |
+| 主角光环持有者 | 正向 | 连续猜中最长 |
+| 友军认证失败 | 搞笑 | 猜中对方词最多 |
+| 死亡 Flag 回收者 | 搞笑 | 翻开刺客词 |
+| 保守派军师 | 氛围 | 提前结束回合最多 |
+| 队魂担当 | 氛围 | 聊天/互动最活跃 |
+
+### 题库系统
+- **内置题库**：自带 ACG 词库
+- **我的题库**：登录后上传/管理个人题库，公开/取消公开
+- **公共题库**：浏览其他玩家的公开题库，直接复用于开房
+- **题库搜索**：按名称筛选
+- **详情弹窗**：预览词条+管理操作（公开/删除）
+
+### 社交互动
+- 聊天：快捷短语 + 自由输入
+- 送花 / 丢鸡蛋：全房广播动画（花瓣 burst + 屏幕 shake + 横幅）
+- 旁观模式 + 排队加入下一局
+
+### 账户系统
+- 用户名登录（无需密码），保存题库和战绩
+- 游客模式快速进入
+- 切换账户 / 退出登录
+- 上传头像
+- 离线玩家重进房间自动恢复（同名断线记录自动替换）
 
 ---
 
-## 游戏规则
+## 路由结构
 
-行动代号是一款队伍推理和词语联想游戏。玩家分成红蓝两队，每队包含一名队长和若干行动员。
-
-队长能看到棋盘上每张词卡背后的身份，并给出一个线索和数量；行动员只能看到公开词语，需要根据线索猜出己方词卡。猜中己方词卡可以继续推进，猜到对方、中立或刺客会带来风险。
-
-默认棋盘为 `5 x 5` 共 25 张词卡。
-
-| 身份 | 说明 |
-|---|---|
-| 红队词 | 红队需要找出的目标 |
-| 蓝队词 | 蓝队需要找出的目标 |
-| 中立词 | 猜到后通常会结束当前回合 |
-| 刺客词 | 猜到后立即导致当前队伍失败 |
-
-基本流程：
-
-1. 房主创建房间并选择题库。
-2. 玩家加入房间，分配红蓝队和角色。
-3. 房主开始游戏。
-4. 当前队伍队长提交线索。
-5. 当前队伍行动员根据线索猜词。
-6. 回合结束后切换队伍。
-7. 找完己方全部词卡或触发刺客后结算。
-
----
-
-## 题库系统
-
-### 内置题库
-
-项目自带基础 ACG 词库，开房时可以直接选择。
-
-### 我的题库
-
-登录用户名后，可以维护个人题库：
-
-- 上传轻量题库：`string[]` 或 `{ name, entries: string[] }`
-- 上传候选题库：包含 `display`、`aliases`、`type`、`franchise`、`difficulty`、`spoilerRisk` 等字段
-- 在审核界面筛选、批量通过、导出为可玩的个人题库
-- 将个人题库设为公共，或从公共改回私有
-
-### 公共题库
-
-公共题库会出现在首页“公共题库”区域，其他玩家可以直接用它创建房间。
-
-公共题库使用 `发布者 + 题库 ID` 作为唯一身份，因此不同用户即使上传同名或同 ID 的本地题库，也不会互相覆盖。
-
-### AI 提取 Prompt
-
-用于生成候选题库的 Prompt 放在：
-
-- [docs/prompts/acg-word-pack-extraction.md](docs/prompts/acg-word-pack-extraction.md)
-
-推荐流程是先让 AI 生成候选 JSON，再用第二轮审稿 Prompt 做去重、合并和筛选，最后导入游戏里的候选题库审核界面。
+| 路径 | 内容 |
+|------|------|
+| `/login` | 登录页（用户名/游客） |
+| `/` | 大厅（创建/加入房间 + 公开房间列表） |
+| `/create` | 开房设置 |
+| `/packs` | 题库管理 |
+| `/profile` | 个人资料 |
+| `/room/:id` | 游戏房间 |
 
 ---
 
@@ -85,21 +87,18 @@
 | 前端 | React 19 · TypeScript · Vite |
 | 后端 | Node.js · Express · Socket.IO |
 | 共享包 | TypeScript 类型、常量、视图裁剪逻辑 |
-| 房间状态 | Redis 可选；本地开发可用内存存储 |
-| 用户数据 | 本地 JSON 文件存储，路径可配置 |
-| 测试 | TypeScript typecheck · Socket E2E · Playwright smoke |
+| 存储 | 内存房间存储 + JSON 文件用户数据 |
+| 部署 | Nginx 静态文件 + Node 后端 |
 
 ---
 
 ## 本地开发
 
-### 准备
-
+### 环境要求
 - Node.js 20+
 - npm
-- Git
 
-### 安装依赖
+### 安装
 
 ```bash
 npm install
@@ -111,7 +110,7 @@ npm install
 npm run dev:server
 ```
 
-默认监听：`http://localhost:3001`
+默认监听 `http://localhost:3001`
 
 ### 启动前端
 
@@ -119,15 +118,13 @@ npm run dev:server
 npm run dev:web
 ```
 
-默认访问：`http://localhost:5173`
+默认访问 `http://localhost:5173`
 
-### 局域网访问
+### 构建
 
 ```bash
-npm run dev:web:host
+npm run build
 ```
-
-同时把后端 `CLIENT_ORIGIN` 配成实际前端地址，前端 `VITE_SERVER_URL` 配成后端局域网地址。
 
 ---
 
@@ -137,48 +134,21 @@ npm run dev:web:host
 
 | 变量 | 默认值 | 说明 |
 |---|---|---|
-| `PORT` | `3001` | 后端监听端口 |
-| `CLIENT_ORIGIN` | `http://localhost:5173,http://localhost:4173` | 允许跨域的前端地址，多个地址用逗号分隔 |
-| `REDIS_URL` | 空 | Redis 地址；配置后可用于房间状态 |
-| `USE_MEMORY_STORE` | `0` | 设为 `1` 时强制使用内存房间存储 |
-| `ENABLE_DEBUG_TOOLS` | `1` | 设为 `0` 可关闭本地调试工具 |
-| `USER_STORE_FILE` | `apps/server/data/users.json` | 用户资料和题库 JSON 文件路径 |
+| `PORT` | `3001` | 后端端口 |
+| `CLIENT_ORIGIN` | `http://localhost:5173` | 跨域前端地址 |
+| `USE_MEMORY_STORE` | `0` | 强制内存存储 |
+| `ENABLE_DEBUG_TOOLS` | `1` | 调试工具开关 |
+| `USER_STORE_FILE` | `apps/server/data/users.json` | 用户数据路径 |
 
 ### 前端 `apps/web/.env`
 
 | 变量 | 默认值 | 说明 |
 |---|---|---|
-| `VITE_SERVER_URL` | `http://localhost:3001` | 前端连接的后端地址 |
+| `VITE_SERVER_URL` | `http://localhost:3001` | 后端地址 |
 
 ---
 
-## 验证
-
-```bash
-npm run typecheck
-npm run test:e2e
-npm run build
-```
-
-完整检查：
-
-```bash
-npm run verify
-```
-
-浏览器冒烟测试需要先启动前后端：
-
-```bash
-npm run test:browser
-```
-
-截图和报告会写入 `artifacts/browser-smoke/`。
-
----
-
-## 服务器部署
-
-一台轻量服务器即可部署前后端。推荐先用 Nginx 托管前端静态文件，并把 `/api/` 和 `/socket.io/` 反向代理到 Node 后端。
+## 部署
 
 ### 构建
 
@@ -187,40 +157,12 @@ npm install
 npm run build
 ```
 
-构建产物：
-
-```text
-apps/web/dist/                 # 前端静态文件
-apps/server/dist/              # 后端编译产物
-packages/shared/dist/          # 共享包编译产物
-```
-
-### 生产环境变量示例
-
-```bash
-export PORT=3001
-export CLIENT_ORIGIN=http://服务器公网IP
-export VITE_SERVER_URL=http://服务器公网IP
-export USER_STORE_FILE=/data/acg_codenames/users.json
-export ENABLE_DEBUG_TOOLS=0
-```
-
-如需更稳定的房间状态或多进程部署，再接入 Redis：
-
-```bash
-export REDIS_URL=redis://127.0.0.1:6379
-```
+产物：`apps/web/dist/`（前端）、`apps/server/dist/`（后端）、`packages/shared/dist/`
 
 ### 启动后端
 
 ```bash
 npm run start -w @acg-codenames/server
-```
-
-也可以直接运行编译后的入口：
-
-```bash
-node apps/server/dist/apps/server/src/index.js
 ```
 
 ### Nginx 示例
@@ -229,7 +171,6 @@ node apps/server/dist/apps/server/src/index.js
 server {
     listen 80;
     server_name _;
-
     root /var/www/acg_codenames/dist;
     index index.html;
 
@@ -247,18 +188,10 @@ server {
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
         proxy_read_timeout 86400;
     }
 }
 ```
-
-生产环境重点：
-
-- `USER_STORE_FILE` 指向持久化磁盘。
-- 不要把 `apps/server/data/*.json` 提交到仓库。
-- Nginx 必须正确代理 `/socket.io/` 的 WebSocket upgrade。
-- 前端构建时的 `VITE_SERVER_URL` 要指向玩家实际访问的公网地址。
 
 ---
 
@@ -267,34 +200,21 @@ server {
 ```text
 acg_codenames/
 ├── apps/
-│   ├── server/                 # Express + Socket.IO 后端
-│   │   ├── src/
-│   │   │   ├── env.ts          # 环境变量读取
-│   │   │   ├── game.ts         # 房间和对局引擎
-│   │   │   ├── index.ts        # HTTP 与 Socket 入口
-│   │   │   ├── store.ts        # 房间存储
-│   │   │   └── user-store.ts   # 用户和题库存储
-│   │   └── test/e2e.ts         # Socket E2E
-│   └── web/                    # React 前端
-│       └── src/
-│           ├── App.tsx         # 主界面和房间流程
-│           ├── lib/api.ts      # HTTP API 客户端
-│           ├── lib/socket.ts   # Socket 客户端
-│           └── lib/            # 题库审核、音效、本地存储等
-├── docs/prompts/               # AI 题库提取 Prompt
-├── packages/shared/            # 前后端共享类型和规则
-├── scripts/browser-smoke.mjs   # 浏览器冒烟测试
-├── 代号/                       # 题库源文件
-├── package.json
+│   ├── server/src/
+│   │   ├── index.ts        # HTTP + Socket.IO 入口
+│   │   ├── game.ts         # 房间对局引擎
+│   │   ├── store.ts        # 房间存储
+│   │   └── user-store.ts   # 用户题库存储
+│   └── web/src/
+│       ├── App.tsx         # 路由主入口
+│       ├── context/
+│       │   └── GameContext.tsx  # 全局状态+Socket事件
+│       ├── routes/         # 页面组件
+│       └── styles.css      # 主题样式
+├── packages/shared/src/
+│   ├── types.ts            # 共享类型
+│   ├── socket.ts           # Socket 事件类型
+│   ├── constants.ts        # 常量
+│   └── view.ts             # 视图裁剪+权限计算
 └── README.md
 ```
-
----
-
-## 注意事项
-
-- 当前用户数据是本地 JSON 文件，适合个人服务器和早期测试；正式运营建议迁移到数据库。
-- `dist/`、日志、`artifacts/`、`node_modules/` 和运行时数据都已被 git 忽略。
-- 进行中的房间只能旁观，不能直接作为玩家加入。
-- 房主解散房间会广播 `room_closed`，客户端会清空当前房间并回到首页。
-- 本地 debug 工具只适合开发测试，正式环境建议设置 `ENABLE_DEBUG_TOOLS=0`。

@@ -558,6 +558,20 @@ async function bootstrap(): Promise<void> {
       }
     });
 
+    socket.on("force_end_game", async (payload) => {
+      try {
+        const roomId = requireRoomId(payload);
+        const session = requireSession(socket.id, roomId);
+        if (session.participantType !== "player") {
+          throw new Error("旁观者不能结束对局");
+        }
+        const room = await game.forceEndGame(roomId, session.participantId);
+        await sendRoomState(room.id);
+      } catch (error) {
+        fail(socket, error);
+      }
+    });
+
     socket.on("submit_clue", async (payload) => {
       try {
         const body = asObject(payload);
