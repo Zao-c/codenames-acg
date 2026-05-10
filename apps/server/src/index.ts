@@ -6,6 +6,7 @@ import {
   BOARD_MODE_CONFIG,
   MAX_AVATAR_DATA_URL_LENGTH,
   type BoardMode,
+  type ScoringMode,
   type ChatReaction,
   type ClientToServerEvents,
   type CustomWordPackInput,
@@ -74,6 +75,13 @@ function requireBoardMode(value: unknown): BoardMode {
   throw new Error("boardMode 参数无效");
 }
 
+function requireScoringMode(value: unknown): ScoringMode {
+  if (value === "classic" || value === "scoring" || value === "gamble") {
+    return value;
+  }
+  throw new Error("scoringMode 参数无效");
+}
+
 function requireReaction(value: unknown): ChatReaction {
   if (value === "flower" || value === "egg") {
     return value;
@@ -122,6 +130,7 @@ function parseUpdateRoomSettingsPayload(value: unknown): {
   boardMode?: BoardMode;
   builtinWordPackId?: string;
   customWordPack?: CustomWordPackInput | null;
+  scoringMode?: ScoringMode;
 } {
   const body = asObject(value);
   const parsed: {
@@ -129,6 +138,7 @@ function parseUpdateRoomSettingsPayload(value: unknown): {
     boardMode?: BoardMode;
     builtinWordPackId?: string;
     customWordPack?: CustomWordPackInput | null;
+    scoringMode?: ScoringMode;
   } = { roomId: requireString(body, "roomId") };
   if (body.boardMode !== undefined) {
     parsed.boardMode = requireBoardMode(body.boardMode);
@@ -150,6 +160,9 @@ function parseUpdateRoomSettingsPayload(value: unknown): {
         entries
       };
     }
+  }
+  if (body.scoringMode !== undefined) {
+    parsed.scoringMode = requireScoringMode(body.scoringMode);
   }
   return parsed;
 }
@@ -622,6 +635,16 @@ async function bootstrap(): Promise<void> {
           targetParticipantType
         );
         await sendRoomState(room.id);
+        io.to(roomId).emit("reaction_effect", {
+          id: room.messages[room.messages.length - 1]?.id ?? "",
+          roomId,
+          reaction,
+          senderNickname: (room.players.find(p => p.id === session.participantId) ?? room.spectators.find(s => s.id === session.participantId))?.nickname ?? "?",
+          targetNickname: (room.players.find(p => p.id === targetParticipantId) ?? room.spectators.find(s => s.id === targetParticipantId))?.nickname ?? "?",
+          targetParticipantId,
+          targetParticipantType,
+          createdAt: Date.now()
+        });
       } catch (error) {
         fail(socket, error);
       }

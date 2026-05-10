@@ -1,5 +1,6 @@
 import type {
   CancelQueueJoinPayload,
+  ChatReaction,
   ClientSession,
   CreateRoomPayload,
   DebugFillRoomPayload,
@@ -10,6 +11,7 @@ import type {
   JoinRoomPayload,
   JoinSpectatorPayload,
   LeaveRoomPayload,
+  ParticipantType,
   PublicRoomState,
   QueueForNextRoundPayload,
   ReconnectRoomPayload,
@@ -24,7 +26,7 @@ import type {
   SubmitCluePayload,
   SyncRoomStatePayload,
   TransferHostPayload,
-  UpdateRoomSettingsPayload
+  UpdateRoomSettingsPayload,
 } from "./types.js";
 
 export interface ClientToServerEvents {
@@ -52,10 +54,22 @@ export interface ClientToServerEvents {
   cancel_queue_join: (payload: CancelQueueJoinPayload) => void;
 }
 
+export interface ReactionEffectPayload {
+  id: string;
+  roomId: string;
+  reaction: ChatReaction;
+  senderNickname: string;
+  targetNickname: string;
+  targetParticipantId: string;
+  targetParticipantType: ParticipantType;
+  createdAt: number;
+}
+
 export interface ServerToClientEvents {
   room_state: (payload: PublicRoomState) => void;
   session: (payload: ClientSession) => void;
   room_summaries: (payload: RoomSummary[]) => void;
   error_message: (payload: ErrorMessagePayload) => void;
   room_closed: (payload: { roomId: string; reason: string }) => void;
+  reaction_effect: (payload: ReactionEffectPayload) => void;
 }

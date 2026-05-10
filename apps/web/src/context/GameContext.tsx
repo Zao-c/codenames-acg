@@ -468,6 +468,18 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }, [session?.roomId, socket]);
 
   useEffect(() => {
+    function onReactionEffect(p: import("@acg-codenames/shared").ReactionEffectPayload) {
+      setGlobalReaction({ reaction: p.reaction, sender: p.senderNickname, target: p.targetNickname });
+      setReactionEffects((cur) => ({ ...cur, [p.targetParticipantId]: p.reaction }));
+      const t1 = window.setTimeout(() => setReactionEffects((cur) => { const n = { ...cur }; delete n[p.targetParticipantId]; return n; }), 1600);
+      const t2 = window.setTimeout(() => setGlobalReaction(null), 1800);
+      return () => { window.clearTimeout(t1); window.clearTimeout(t2); };
+    }
+    socket.on("reaction_effect", onReactionEffect);
+    return () => { socket.off("reaction_effect", onReactionEffect); };
+  }, [socket]);
+
+  useEffect(() => {
     if (!session || didReconnect || room) return;
     setDidReconnect(true);
     setConnectionState("connecting");
@@ -710,7 +722,26 @@ export function GameProvider({ children }: { children: ReactNode }) {
     clearSession(); setSession(null); setRoom(null); setConnectionState("idle"); setDidReconnect(false); setRevealBanner(null); setError("");
   }
   function logoutNamedUser() { clearIdentity(); clearSession(); setIdentity(null as unknown as LocalIdentity); setNamedAccount(null); setSession(null); setRoom(null); setDidReconnect(false); setNamedUsernameInput(""); setError(""); }
-  async function copyLink() { if (!inviteLink) return; await navigator.clipboard.writeText(inviteLink); setCopied(true); window.setTimeout(() => setCopied(false), 1200); }
+  async function copyLink() {
+    if (!inviteLink) return;
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(inviteLink);
+      } else {
+        const el = document.createElement("textarea");
+        el.value = inviteLink;
+        el.style.position = "fixed"; el.style.opacity = "0";
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand("copy");
+        document.body.removeChild(el);
+      }
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1200);
+    } catch {
+      setError("复制失败，请手动复制房间号: " + inviteLink);
+    }
+  }
   function handleChatScroll() { const list = chatListRef.current; if (!list) return; const nearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 24; stickToChatBottomRef.current = nearBottom; setJumpToLatest(!nearBottom); }
   function scrollChatToBottom() { const list = chatListRef.current; if (!list) return; list.scrollTop = list.scrollHeight; stickToChatBottomRef.current = true; setJumpToLatest(false); }
   function toggleSection(title: string) { setCollapsedSections((prev) => { const next = new Set(prev); next.has(title) ? next.delete(title) : next.add(title); return next; }); }

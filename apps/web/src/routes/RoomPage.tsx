@@ -587,9 +587,34 @@ function RevealBanner({ reveal }: { reveal: NonNullable<ReturnType<typeof useGam
 function ReactionBanner({ reaction }: { reaction: { reaction: ChatReaction; sender: string; target: string } }) {
   const isFlower = reaction.reaction === "flower";
   return (
-    <div className="reaction-banner" key={Date.now()}>
-      <span>{isFlower ? "💐" : "🥚"}</span>
-      <span>{isFlower ? `${reaction.sender} 送花给 ${reaction.target}` : `${reaction.sender} 向 ${reaction.target} 丢鸡蛋`}</span>
+    <div className={isFlower ? "reaction-float reaction-flower" : "reaction-float reaction-egg"} key={Date.now()}>
+      <div className="reaction-float-banner">
+        <span className="reaction-float-emoji">{isFlower ? "💐" : "🥚"}</span>
+        <span className="reaction-float-msg">
+          {isFlower ? `${reaction.sender} 送花给 ${reaction.target} ♡` : `${reaction.sender} 向 ${reaction.target} 丢鸡蛋！！💥`}
+        </span>
+      </div>
+      <div className={isFlower ? "reaction-burst-petals" : "reaction-burst-eggs"}>
+        {Array.from({ length: 16 }, (_, i) => {
+          const angle = (i / 16) * 360;
+          const dist = 60 + Math.random() * 180;
+          const tx = Math.cos((angle * Math.PI) / 180) * dist;
+          const ty = Math.sin((angle * Math.PI) / 180) * dist;
+          const r = (Math.random() - 0.5) * 720;
+          return (
+            <span
+              key={i}
+              className={isFlower ? "burst-petal" : "burst-eggshell"}
+              style={{
+                animationDelay: `${Math.random() * 0.6}s`,
+                "--tx": String(Math.round(tx)),
+                "--ty": String(Math.round(ty)),
+                "--r": `${Math.round(r)}deg`,
+              } as React.CSSProperties}
+            />
+          );
+        })}
+      </div>
     </div>
   );
 }
