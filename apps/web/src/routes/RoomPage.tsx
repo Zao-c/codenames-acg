@@ -625,20 +625,27 @@ function CardButton({ card, disabled, onClick, flash, flashOutcome, pending, rev
   flash: boolean; flashOutcome: RevealOutcome | null; pending: boolean; revealing: boolean; showSpymasterHints: boolean;
 }) {
   const classes = ["card-tile"];
-  const showRevealedRole = Boolean(card.revealed && card.role);
-  const showRoleHint = Boolean(showSpymasterHints && card.role && !card.revealed);
-  if (showRevealedRole) classes.push(card.role!);
-  else classes.push("hidden");
-  if (disabled) classes.push("disabled");
+  if (card.revealed) classes.push("card-revealed", `card-revealed-${card.role}`);
+  if (!card.revealed) classes.push("card-hidden");
+  if (disabled) classes.push("card-disabled");
   if (flash) { classes.push("card-flash"); if (flashOutcome) classes.push(`flash-${flashOutcome}`); }
-  if (pending) classes.push("pending");
-  if (revealing) classes.push("revealing");
-  if (showRoleHint && card.role) classes.push("spymaster-hint", `hint-${card.role}`);
+  if (pending) classes.push("card-pending");
+  if (revealing) classes.push("card-revealing");
+  if (showSpymasterHints && card.role && !card.revealed) classes.push("card-spymaster-hint");
+
+  const hintColor =
+    card.role === "red" ? "var(--red)"
+    : card.role === "blue" ? "var(--blue)"
+    : card.role === "neutral" ? "var(--neutral)"
+    : card.role === "assassin" ? "var(--danger)"
+    : "transparent";
+
   return (
-    <button className={classes.join(" ")} disabled={disabled} onClick={onClick} title={card.revealed ? "已翻开，无法再选" : undefined}>
-      <span>{card.word}</span>
-      {showRoleHint && card.role ? <small>{roleLabelShort(card.role)}</small> : null}
-      {card.revealed ? <div className="flip-badge">已翻牌</div> : null}
+    <button className={classes.join(" ")} disabled={disabled} onClick={onClick}>
+      <span className="card-word">{card.word}</span>
+      {showSpymasterHints && card.role && !card.revealed ? (
+        <span className="card-role-dot" style={{ backgroundColor: hintColor }} />
+      ) : null}
     </button>
   );
 }
