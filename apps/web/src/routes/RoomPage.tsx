@@ -89,7 +89,7 @@ export function RoomPage() {
         <header className="room-bar room-bar-clean">
           <div className="room-bar-main room-bar-stack">
             <div className="room-title-stack">
-              <button className="logo-button" onClick={() => { if (window.confirm("确定要离开房间回到首页吗？")) { leaveRoom(); navigateHome(); } }} title="回到首页">词牌结社</button>
+              <button className="logo-button" onClick={() => { if (window.confirm("确定要离开房间回到首页吗？")) { leaveRoom(); navigateHome(); } }} title="回到首页">✦ 词牌结社</button>
               <strong className="room-code">{room.id}</strong>
               <p className="room-subtitle">{room.wordPackSummary.name}</p>
             </div>

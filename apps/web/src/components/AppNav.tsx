@@ -27,7 +27,7 @@ export function AppNav() {
     return (
       <nav className="app-nav app-nav-room">
         <div className="nav-brand" onClick={() => navigate("/")} role="button" tabIndex={0}>
-          词牌结社
+          ✦ 词牌结社
         </div>
         <div className="nav-links">
           <button onClick={() => { void copyLink(); }}>{copied ? "已复制链接" : "复制邀请链接"}</button>
@@ -60,7 +60,7 @@ export function AppNav() {
   return (
     <nav className="app-nav">
       <div className="nav-brand" onClick={() => navigate("/")} role="button" tabIndex={0}>
-        词牌结社
+        ✦ 词牌结社
       </div>
       <div className="nav-links">
         {navLinks.map((link) => (

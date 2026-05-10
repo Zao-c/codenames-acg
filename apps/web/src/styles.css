@@ -617,7 +617,10 @@ a { color: var(--accent-2); }
 /* ─── nav ─── */
 .app-nav { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; margin-bottom: 8px; }
 .app-nav-room { border-bottom: 1px solid var(--line); padding-bottom: 12px; }
-.nav-brand { font-size: 18px; font-weight: 800; cursor: pointer; user-select: none; }
+.nav-brand { font-family: "PingFang SC", "Microsoft YaHei", sans-serif; font-size: 22px; font-weight: 800; cursor: pointer; user-select: none; letter-spacing: 0.04em; background: linear-gradient(135deg, var(--accent-2) 0%, var(--peach) 60%, var(--pink) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.nav-brand:hover { opacity: 0.85; }
+.logo-button { font-family: "PingFang SC", "Microsoft YaHei", sans-serif; font-size: 20px; font-weight: 800; cursor: pointer; user-select: none; letter-spacing: 0.04em; background: linear-gradient(135deg, var(--accent-2) 0%, var(--peach) 60%, var(--pink) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; border: none; padding: 0; }
+.logo-button:hover { opacity: 0.85; }
 .nav-links { display: flex; gap: 6px; }
 .nav-links button { padding: 8px 14px; font-size: 14px; background: transparent; border: 1px solid transparent; }
 .nav-links button:hover:not(:disabled) { background: var(--surface-soft); }
