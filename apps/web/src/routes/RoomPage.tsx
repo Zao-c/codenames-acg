@@ -6,7 +6,7 @@ import {
   type PublicPlayer, type PublicSpectator, type ChatMessage,
   type RevealOutcome, type PublicCard, type Team, type BoardMode
 } from "@acg-codenames/shared";
-import { useGame, isPlayer, getActionTeamText, getCurrentClueText, getRoomStageLabel, getSelfSummary, queuedForSpectator, roleLabelShort } from "../context/GameContext";
+import { useGame, isPlayer, getRoomStageLabel, getSelfSummary, queuedForSpectator, roleLabelShort } from "../context/GameContext";
 import { AvatarBadge } from "../components/AvatarBadge";
 import { SakuraParticles } from "../lib/SakuraParticles";
 
@@ -98,19 +98,17 @@ export function RoomPage() {
               {room.phase === "playing" ? (
                 <>
                   <span className={`status-pill team-pill team-pill-${room.currentTeam}`}>{TEAM_LABELS[room.currentTeam]}</span>
-                  {room.clue ? <span className="status-pill clue-pill">提示：{room.clue.word} {room.clue.count}</span> : null}
+                  <span className="status-pill clue-pill">{room.clue ? `提示：${room.clue.word} ${room.clue.count}` : "暂无提示"}</span>
                 </>
               ) : null}
-              <span className="status-pill">{room.settings.boardMode}</span>
-              <span className="status-pill">第 {room.roundNumber} 局</span>
-              {isDebugController ? <span className="status-pill">调试</span> : null}
               {room.timerEndsAt ? <TimerPill room={room} /> : null}
               {room.phase === "playing" && room.settings.timerMode === "timed" && !room.timerEndsAt && !room.timerPhase ? (
                 <span className="status-pill timer-pill-paused">⏸ 计时暂停</span>
               ) : null}
               {viewer?.canResumeTimer ? (
-                <button className="primary-button" onClick={g.resumeTimer} style={{ padding: "3px 10px", fontSize: 12, marginLeft: 4 }}>▶ 继续计时</button>
+                <button className="primary-button" onClick={g.resumeTimer} style={{ marginLeft: 4, padding: "3px 10px", fontSize: 12 }}>▶ 继续</button>
               ) : null}
+              <span className="status-pill soft-chip">{room.settings.boardMode} · 第 {room.roundNumber} 局</span>
             </div>
           </div>
           <div className="bar-actions">
@@ -295,14 +293,16 @@ function FocusBar({ room, viewer, onExitFocus, g }: { room: NonNullable<ReturnTy
     <div className="focus-bar">
       <strong className="room-code">{room.id}</strong>
       {room.phase === "playing" ? (
-        <span className={`status-pill team-pill team-pill-${room.currentTeam}`}>{TEAM_LABELS[room.currentTeam]}</span>
+        <>
+          <span className={`status-pill team-pill team-pill-${room.currentTeam}`}>{TEAM_LABELS[room.currentTeam]}</span>
+          <span className="status-pill clue-pill">{room.clue ? `${room.clue.word} ${room.clue.count}` : "等待提示"}</span>
+        </>
       ) : null}
-      <span className="status-pill">{viewer?.targetTeam ? getActionTeamText(viewer.targetTeam) : "等待中"}</span>
-      {room.clue ? <span className="status-pill clue-pill">{room.clue.word} {room.clue.count}</span> : null}
       {room.timerEndsAt ? <TimerPill room={room} /> : null}
       {timerPaused ? <span className="status-pill timer-pill-paused">⏸ 计时暂停</span> : null}
       <span className="flex-spacer" />
-      {viewer?.canResumeTimer ? <button className="primary-button" onClick={g.resumeTimer} style={{ marginRight: 8 }}>▶ 继续计时</button> : null}
+      {viewer?.canResumeTimer ? <button className="primary-button" onClick={g.resumeTimer} style={{ marginRight: 8 }}>▶ 继续</button> : null}
+      {viewer?.canReturnToLobby ? <button onClick={g.returnToLobby} style={{ marginRight: 8 }}>回准备房</button> : null}
       <button onClick={onExitFocus}>退出专注</button>
     </div>
   );
@@ -573,25 +573,22 @@ function BoardPanel({ room, viewer, g, cardMarks, markCard }: {
 }) {
   const { boardColumns, canSeeHiddenRoles, showSpymasterHints, maskSpymasterHints, setMaskSpymasterHints, revealingCardIds, pendingGuess, guessCard: doGuess, renderHint } = g;
   const boardSizeClass = `board-${boardColumns}`;
+  const [showPrivacyTip, setShowPrivacyTip] = useState(false);
   return (
     <section className="panel board-panel" style={{ marginBottom: 12 }}>
       {room.phase === "playing" ? (
         <div className="board-header">
-          <div className="board-status">
-            <div className="status-chip clue-chip">
-              <p className="status-key">当前提示</p>
-              <strong>{getCurrentClueText(room)}</strong>
-            </div>
-            <div className="status-chip">
-              <p className="status-key">行动队伍</p>
-              <strong>{viewer?.targetTeam ? getActionTeamText(viewer.targetTeam) : "等待中"}</strong>
-            </div>
-          </div>
-          <p className="board-hint">{renderHint()}</p>
+          <span className="board-hint">{renderHint()}</span>
           {canSeeHiddenRoles ? (
-            <div className="spymaster-warning">
-              <span>队长模式：你可以看到未翻牌的真实身份，注意屏幕隐私。</span>
-              <button className="chip-button" onClick={() => setMaskSpymasterHints(!maskSpymasterHints)}>{maskSpymasterHints ? "显示提示" : "隐藏提示"}</button>
+            <span className="privacy-toggle" onClick={() => setShowPrivacyTip(!showPrivacyTip)} title="队长模式隐私提示">
+              {showPrivacyTip ? "✕" : "?"}
+            </span>
+          ) : null}
+          {canSeeHiddenRoles && showPrivacyTip ? (
+            <div className="privacy-tip">
+              <span>队长可见未翻牌真实身份，注意屏幕隐私。</span>
+              <button className="chip-button" onClick={() => setMaskSpymasterHints(!maskSpymasterHints)}>{maskSpymasterHints ? "显示标识" : "隐藏标识"}</button>
+              <button className="chip-button" onClick={() => setShowPrivacyTip(false)}>✕</button>
             </div>
           ) : null}
         </div>
