@@ -60,22 +60,22 @@
   --cyan: #0d7c8a;
   --red: #e5484d;
   --blue: #2563eb;
-  --neutral: #8b7355;
+  --neutral: #9ca3af;
   --assassin: #1f2937;
   --red-bg: #fff1f2;
   --red-border: #fecaca;
   --blue-bg: #eff6ff;
   --blue-border: #bfdbfe;
-  --neutral-bg: #f5f0e8;
-  --neutral-border: #d4c8b0;
-  --assassin-bg: #e5e7eb;
-  --assassin-border: #9ca3af;
+  --neutral-bg: #eef0f2;
+  --neutral-border: #d1d5db;
+  --assassin-bg: #d1d5db;
+  --assassin-border: #475569;
   --red-glow: rgba(229,72,77,0.08);
   --blue-glow: rgba(37,99,235,0.08);
   --assassin-glow: rgba(31,41,55,0.08);
   --red-text: #b91c1c;
   --blue-text: #1d4ed8;
-  --neutral-text: #6b5b3f;
+  --neutral-text: #4b5563;
   --assassin-text: #374151;
   --shadow: 0 12px 40px rgba(0,0,0,0.08);
 }
@@ -444,7 +444,6 @@ a { color: var(--accent-2); }
 .card-tile.card-revealed-neutral {
   background: var(--neutral-bg);
   border-color: var(--neutral-border);
-  opacity: 0.55;
   color: var(--neutral-text);
 }
 .card-tile.card-revealed-assassin {
