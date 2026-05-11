@@ -315,6 +315,7 @@ export interface GameContextType {
   submitClue: () => void;
   guessCard: (cardId: string) => void;
   endTurn: () => void;
+  resumeTimer: () => void;
   sendChatMessage: () => void;
   sendQuickPhrase: (text: string) => void;
   sendReaction: (reaction: ChatReaction, targetParticipantId: string, targetParticipantType: ParticipantType) => void;
@@ -756,6 +757,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   function submitClue() { if (!session || !clueWord.trim()) return; socket.emit("submit_clue", { roomId: session.roomId, word: clueWord.trim(), count: clueCount }); if (soundEnabled) playSubmitClue(); setClueWord(""); }
   function guessCard(cardId: string) { if (!session || !viewer?.canGuess || guessLockRef.current) return; guessLockRef.current = true; setPendingGuess(cardId); socket.emit("guess_card", { roomId: session.roomId, cardId }); }
   function endTurn() { if (session) { socket.emit("end_turn", { roomId: session.roomId }); if (soundEnabled) playEndTurn(); } }
+  function resumeTimerFunc() { if (session) { socket.emit("resume_timer", { roomId: session.roomId }); } }
   function sendChatMessage() { if (!session || !chatText.trim()) return; socket.emit("send_chat_message", { roomId: session.roomId, text: chatText.trim() }); setChatText(""); }
   function sendQuickPhrase(text: string) { if (session) socket.emit("send_chat_message", { roomId: session.roomId, text }); }
   function sendReaction(reaction: ChatReaction, targetParticipantId: string, targetParticipantType: ParticipantType) {
@@ -824,7 +826,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     uploadRoomPack, useAccountPackForRoom, usePublicPackForRoom,
     startGame, restartGame, returnToLobby, transferHost, disbandRoom, forceEndGame,
     queueForNextRound, cancelQueueJoin, debugFillRoom,
-    submitClue, guessCard, endTurn, sendChatMessage, sendQuickPhrase, sendReaction, copyLink,
+    submitClue, guessCard, endTurn, resumeTimer: resumeTimerFunc, sendChatMessage, sendQuickPhrase, sendReaction, copyLink,
     clueWord, setClueWord, clueCount, setClueCount,
     chatText, setChatText, copied, focusMode, setFocusMode,
     soundEnabled, setSoundEnabled: handleSetSoundEnabled,

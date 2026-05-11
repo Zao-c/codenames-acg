@@ -46,6 +46,7 @@ export interface ClientToServerEvents {
   submit_clue: (payload: SubmitCluePayload) => void;
   guess_card: (payload: GuessCardPayload) => void;
   end_turn: (payload: EndTurnPayload) => void;
+  resume_timer: (payload: { roomId: string }) => void;
   leave_room: (payload: LeaveRoomPayload) => void;
   sync_room_state: (payload: SyncRoomStatePayload) => void;
   debug_fill_room: (payload: DebugFillRoomPayload) => void;

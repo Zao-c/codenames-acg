@@ -806,8 +806,9 @@ export class GameService {
         currentRoundScore: undefined,
         usedWordIds: nextUsedWordIds,
         timerEndsAt,
-        timerPhase: timerMode === "timed" ? "clue" as const : undefined
-      },
+        timerPhase: timerMode === "timed" ? "clue" as const : undefined,
+        _timedSkipCount: 0
+      } as any,
       `第 ${room.roundNumber} 局开始，${TEAM_LABELS[startingTeam]}先手 ٩(ˊᗜˋ*)و`
     );
     await this.store.setRoom(nextRoom);
@@ -910,8 +911,9 @@ export class GameService {
         lastReveal: null,
         usedWordIds: nextUsedWordIds,
         timerEndsAt,
-        timerPhase: timerMode === "timed" ? "clue" as const : undefined
-      },
+        timerPhase: timerMode === "timed" ? "clue" as const : undefined,
+        _timedSkipCount: 0
+      } as any,
       `第 ${roundNumber} 局开始，${TEAM_LABELS[startingTeam]}先手 ٩(ˊᗜˋ*)و`
     );
     await this.store.setRoom(nextRoom);
@@ -1312,6 +1314,33 @@ export class GameService {
       const spy = room.players.find(p => p.id === giverId);
       if (spy) ensurePlayerStats(nextRoom, spy).preciseClues += 1;
     }
+    await this.store.setRoom(nextRoom);
+    return nextRoom;
+    });
+  }
+
+  async resumeTimer(roomId: string, playerId: string): Promise<Room> {
+    return this.withRoomLock(roomId, async () => {
+    const room = await this.requireRoom(roomId);
+    if (room.hostPlayerId !== playerId) {
+      throw new Error("只有房主可以继续游戏");
+    }
+    if (room.phase !== "playing") {
+      throw new Error("当前不在对局中");
+    }
+    const timerMode: import("@acg-codenames/shared").TimerMode = room.settings.timerMode ?? "unlimited";
+    if (timerMode !== "timed") {
+      throw new Error("只有限时模式需要继续计时");
+    }
+    const nextRoom = withEvent(
+      {
+        ...room,
+        timerEndsAt: now() + getTimerDuration(room, "clue"),
+        timerPhase: "clue" as const,
+        _timedSkipCount: 0
+      } as any,
+      `${room.players.find((p) => p.id === playerId)?.nickname ?? "房主"} 继续计时`
+    );
     await this.store.setRoom(nextRoom);
     return nextRoom;
     });

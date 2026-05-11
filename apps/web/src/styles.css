@@ -370,6 +370,7 @@ a { color: var(--accent-2); }
 .clue-pill { background: rgba(107,182,255,0.12); color: var(--accent); font-weight: 600; }
 .timer-pill { font-variant-numeric: tabular-nums; font-weight: 700; }
 .timer-pill-urgent { background: rgba(255,107,138,0.22); color: var(--danger); animation: timerPulse 1s ease infinite; }
+.timer-pill-paused { background: rgba(255,179,139,0.12); color: var(--peach); font-weight: 700; }
 @keyframes timerPulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }

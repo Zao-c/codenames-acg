@@ -673,6 +673,17 @@ async function bootstrap(): Promise<void> {
       }
     });
 
+    socket.on("resume_timer", async (payload) => {
+      try {
+        const roomId = requireRoomId(payload);
+        const session = requireSession(socket.id, roomId);
+        const room = await game.resumeTimer(roomId, session.participantId);
+        await sendRoomState(room.id);
+      } catch (error) {
+        fail(socket, error);
+      }
+    });
+
     socket.on("send_chat_message", async (payload) => {
       try {
         const body = asObject(payload);
