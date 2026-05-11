@@ -225,6 +225,7 @@ export interface ClueRoundRecord {
   guesses: Array<{
     playerId: string;
     nickname: string;
+    cardWord: string;
     cardRole: CardRole;
     isOwnHit: boolean;
   }>;

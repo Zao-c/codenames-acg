@@ -1146,7 +1146,7 @@ export class GameService {
     if (!room.clueRecords) room.clueRecords = [];
     const clueRecord = room.clueRecords[room.clueRecords.length - 1];
     if (clueRecord && clueRecord.giverPlayerId === room.clue?.giverPlayerId && clueRecord.word === room.clue?.word) {
-      clueRecord.guesses.push({ playerId: player.id, nickname: player.nickname, cardRole: card.role, isOwnHit: outcome === "own-hit" });
+      clueRecord.guesses.push({ playerId: player.id, nickname: player.nickname, cardWord: card.word, cardRole: card.role, isOwnHit: outcome === "own-hit" });
     } else {
       const newRecord: ClueRoundRecord = {
         clueId: "clue-" + Date.now(),
@@ -1155,7 +1155,7 @@ export class GameService {
         giverNickname: room.players.find(p => p.id === room.clue?.giverPlayerId)?.nickname ?? "?",
         word: room.clue?.word ?? "?",
         count: room.clue?.count ?? 0,
-        guesses: [{ playerId: player.id, nickname: player.nickname, cardRole: card.role, isOwnHit: outcome === "own-hit" }]
+        guesses: [{ playerId: player.id, nickname: player.nickname, cardWord: card.word, cardRole: card.role, isOwnHit: outcome === "own-hit" }]
       };
       room.clueRecords.push(newRecord);
     }

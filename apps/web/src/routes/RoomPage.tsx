@@ -207,7 +207,7 @@ export function RoomPage() {
                             {cr.guesses.map((g, j) => (
                               <div key={j} className={`round-guess round-guess-${g.cardRole}`}>
                                 <strong>{g.nickname}</strong>
-                                <span>{g.isOwnHit ? "命中" : "错误"} · {g.cardRole === "red" ? "红方" : g.cardRole === "blue" ? "蓝方" : g.cardRole === "neutral" ? "中立" : "刺客"}</span>
+                                <span>「{g.cardWord}」{g.isOwnHit ? "命中" : "错误"} · {g.cardRole === "red" ? "红方" : g.cardRole === "blue" ? "蓝方" : g.cardRole === "neutral" ? "中立" : "刺客"}</span>
                               </div>
                             ))}
                           </div>
