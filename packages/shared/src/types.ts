@@ -335,6 +335,7 @@ export interface ViewerState {
   canTransferHost: boolean;
   canDisbandRoom: boolean;
   canEditRoom: boolean;
+  canResumeTimer: boolean;
   canQueueForNextRound: boolean;
   canCancelQueue: boolean;
   isQueuedForNextRound: boolean;

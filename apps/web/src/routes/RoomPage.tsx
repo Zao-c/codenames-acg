@@ -105,8 +105,11 @@ export function RoomPage() {
               <span className="status-pill">第 {room.roundNumber} 局</span>
               {isDebugController ? <span className="status-pill">调试</span> : null}
               {room.timerEndsAt ? <TimerPill room={room} /> : null}
-              {room.phase === "playing" && room.settings.timerMode === "timed" && !room.timerEndsAt ? (
+              {room.phase === "playing" && room.settings.timerMode === "timed" && !room.timerEndsAt && !room.timerPhase ? (
                 <span className="status-pill timer-pill-paused">⏸ 计时暂停</span>
+              ) : null}
+              {viewer?.canResumeTimer ? (
+                <button className="primary-button" onClick={g.resumeTimer} style={{ padding: "3px 10px", fontSize: 12, marginLeft: 4 }}>▶ 继续计时</button>
               ) : null}
             </div>
           </div>
@@ -242,7 +245,7 @@ export function RoomPage() {
             <BoardPanel room={room} viewer={viewer} g={g} cardMarks={cardMarks} markCard={markCard} />
 
             {viewer?.participantType === "player" && !isFinished ? (
-              <ActionPanel viewer={viewer} g={g} room={room} />
+              <ActionPanel viewer={viewer} g={g} />
             ) : null}
           </div>
 
@@ -258,7 +261,7 @@ export function RoomPage() {
         <>
           <BoardPanel room={room} viewer={viewer} g={g} cardMarks={cardMarks} markCard={markCard} />
           {viewer?.participantType === "player" ? (
-            <ActionPanel viewer={viewer} g={g} room={room} />
+            <ActionPanel viewer={viewer} g={g} />
           ) : null}
         </>
       ) : null}
@@ -287,7 +290,7 @@ function TimerPill({ room }: { room: NonNullable<ReturnType<typeof useGame>["roo
 }
 
 function FocusBar({ room, viewer, onExitFocus, g }: { room: NonNullable<ReturnType<typeof useGame>["room"]>; viewer: ReturnType<typeof useGame>["viewer"]; onExitFocus: () => void; g: ReturnType<typeof useGame> }) {
-  const timerPaused = room.phase === "playing" && room.settings.timerMode === "timed" && !room.timerEndsAt;
+  const timerPaused = room.phase === "playing" && room.settings.timerMode === "timed" && !room.timerEndsAt && !room.timerPhase;
   return (
     <div className="focus-bar">
       <strong className="room-code">{room.id}</strong>
@@ -299,7 +302,7 @@ function FocusBar({ room, viewer, onExitFocus, g }: { room: NonNullable<ReturnTy
       {room.timerEndsAt ? <TimerPill room={room} /> : null}
       {timerPaused ? <span className="status-pill timer-pill-paused">⏸ 计时暂停</span> : null}
       <span className="flex-spacer" />
-      {timerPaused && viewer?.canEditRoom ? <button className="primary-button" onClick={g.resumeTimer} style={{ marginRight: 8 }}>▶ 继续计时</button> : null}
+      {viewer?.canResumeTimer ? <button className="primary-button" onClick={g.resumeTimer} style={{ marginRight: 8 }}>▶ 继续计时</button> : null}
       <button onClick={onExitFocus}>退出专注</button>
     </div>
   );
@@ -615,9 +618,8 @@ function BoardPanel({ room, viewer, g, cardMarks, markCard }: {
   );
 }
 
-function ActionPanel({ viewer, g, room }: { viewer: NonNullable<ReturnType<typeof useGame>["viewer"]>; g: ReturnType<typeof useGame>; room: NonNullable<ReturnType<typeof useGame>["room"]> }) {
+function ActionPanel({ viewer, g }: { viewer: NonNullable<ReturnType<typeof useGame>["viewer"]>; g: ReturnType<typeof useGame> }) {
   const { clueWord, setClueWord, clueCount, setClueCount, submitClue, renderHint, endTurn, resumeTimer } = g;
-  const timerPaused = room.phase === "playing" && room.settings.timerMode === "timed" && !room.timerEndsAt;
   return (
     <section className="panel" style={{ marginBottom: 12 }}>
       {viewer.canSubmitClue ? (
@@ -637,7 +639,7 @@ function ActionPanel({ viewer, g, room }: { viewer: NonNullable<ReturnType<typeo
       )}
       <div style={{ marginTop: viewer.canSubmitClue ? 8 : 0, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
         <button onClick={endTurn} disabled={!viewer.canEndTurn}>结束回合</button>
-        {timerPaused && viewer.canEditRoom ? (
+        {viewer.canResumeTimer ? (
           <button className="primary-button" onClick={resumeTimer}>▶ 继续计时</button>
         ) : null}
       </div>

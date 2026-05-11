@@ -950,7 +950,9 @@ export class GameService {
         remainingCounts: { red: 0, blue: 0 },
         winner: null,
         roundNumber: room.roundNumber + 1,
-        lastReveal: null
+        lastReveal: null,
+        timerEndsAt: undefined,
+        timerPhase: undefined,
       },
       `${host.nickname} 将密令房带回准备阶段`
     );
