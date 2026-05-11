@@ -788,7 +788,7 @@ export class GameService {
     const nextUsedWordIds = [...(room.usedWordIds ?? []), ...board.map((c) => c.wordId)];
     const timerMode: import("@acg-codenames/shared").TimerMode = room.settings.timerMode ?? "unlimited";
     const timerEndsAt = timerMode === "timed"
-      ? now() + getTimerDuration(room, "clue")
+      ? now() + getTimerDuration(room, "clue") * 1000
       : undefined;
 
     const nextRoom = withEvent(
@@ -896,7 +896,7 @@ export class GameService {
     const { board, remainingCounts } = generateBoard(room.wordPack, room.settings.boardMode, startingTeam, room.settings.neutralCount, room.usedWordIds);
     const nextUsedWordIds = [...(room.usedWordIds ?? []), ...board.map((c) => c.wordId)];
     const timerMode: import("@acg-codenames/shared").TimerMode = room.settings.timerMode ?? "unlimited";
-    const timerEndsAt = timerMode === "timed" ? now() + getTimerDuration(room, "clue") : undefined;
+    const timerEndsAt = timerMode === "timed" ? now() + getTimerDuration(room, "clue") * 1000 : undefined;
     const nextRoom = withEvent(
       {
         ...room,
@@ -1047,7 +1047,7 @@ export class GameService {
           usedGuesses: 0
         },
         lastReveal: null,
-        timerEndsAt: timerMode === "timed" ? now() + getTimerDuration(room, "guess") : undefined,
+        timerEndsAt: timerMode === "timed" ? now() + getTimerDuration(room, "guess") * 1000 : undefined,
         timerPhase: timerMode === "timed" ? "guess" as const : undefined,
         _timedSkipCount: 0
       } as any,
@@ -1306,7 +1306,7 @@ export class GameService {
         roundScoreHistory: roundHistory,
         currentRoundScore: undefined,
         comboStreaks: {},
-        timerEndsAt: timerMode === "timed" ? now() + getTimerDuration(room, "clue") : undefined,
+        timerEndsAt: timerMode === "timed" ? now() + getTimerDuration(room, "clue") * 1000 : undefined,
         timerPhase: timerMode === "timed" ? "clue" as const : undefined
       },
       `${player.nickname} 结束了回合 (ง •_•)ง`
@@ -1337,7 +1337,7 @@ export class GameService {
     const nextRoom = withEvent(
       {
         ...room,
-        timerEndsAt: now() + getTimerDuration(room, "clue"),
+        timerEndsAt: now() + getTimerDuration(room, "clue") * 1000,
         timerPhase: "clue" as const,
         _timedSkipCount: 0
       } as any,
@@ -1644,7 +1644,7 @@ export class GameService {
           roundScoreHistory: latest.roundScoreHistory,
           currentRoundScore: undefined,
           comboStreaks: {},
-          timerEndsAt: timerPaused ? undefined : now() + getTimerDuration(latest, "clue"),
+          timerEndsAt: timerPaused ? undefined : now() + getTimerDuration(latest, "clue") * 1000,
           timerPhase: timerPaused ? undefined : "clue" as const,
           _timedSkipCount: timerPaused ? 0 : nextSkipCount
         } as any,
@@ -1675,7 +1675,7 @@ export class GameService {
           currentRoundScore: undefined,
           comboStreaks: {},
           lastReveal: null,
-          timerEndsAt: now() + getTimerDuration(latest, "clue"),
+          timerEndsAt: now() + getTimerDuration(latest, "clue") * 1000,
           timerPhase: "clue" as const
         },
         `${TEAM_LABELS[latest.currentTeam]} 猜词超时，回合跳过`
