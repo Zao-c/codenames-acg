@@ -309,6 +309,7 @@ export interface Room {
   timerPaused?: boolean;
   timeoutPauseReason?: string;
   consecutiveTimeouts?: number;
+  firstTurnBonusUsed?: boolean;
 }
 
 export interface ViewerIdentity {
@@ -502,7 +503,7 @@ export interface UpdateRoomSettingsPayload {
   timerClueSeconds?: number;
   timerGuessSeconds?: number;
   timerFirstRoundBonus?: boolean;
-  neutralCount?: number;
+  neutralCount?: number | null;
   flipMode?: FlipMode;
 }
 

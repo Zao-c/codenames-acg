@@ -349,7 +349,8 @@ export interface GameContextType {
   maskSpymasterHints: boolean;
   setMaskSpymasterHints: (v: boolean) => void;
   showSakura: boolean;
-  globalReaction: { reaction: ChatReaction; sender: string; target: string } | null;
+  globalReaction: import("@acg-codenames/shared").ReactionEffectPayload | null;
+  reactionQueue: import("@acg-codenames/shared").ReactionEffectPayload[];
   collapsedSections: Set<string>;
   setCollapsedSections: (v: Set<string>) => void;
   toggleSection: (title: string) => void;
@@ -427,7 +428,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [revealingCardIds, setRevealingCardIds] = useState<Set<string>>(new Set());
   const [maskSpymasterHints, setMaskSpymasterHints] = useState(false);
   const [showSakura, setShowSakura] = useState(false);
-  const [globalReaction, setGlobalReaction] = useState<{ reaction: ChatReaction; sender: string; target: string } | null>(null);
+  const [globalReaction, setGlobalReaction] = useState<import("@acg-codenames/shared").ReactionEffectPayload | null>(null);
+  const [reactionQueue, setReactionQueue] = useState<import("@acg-codenames/shared").ReactionEffectPayload[]>([]);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set(["待分队"]));
   const chatListRef = useRef<HTMLDivElement | null>(null);
   const battleListRef = useRef<HTMLDivElement | null>(null);
@@ -443,7 +445,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     timerMode?: import("@acg-codenames/shared").TimerMode;
     timerClueSeconds?: number;
     timerGuessSeconds?: number;
-    neutralCount?: number;
+    neutralCount?: number | null;
     flipMode?: import("@acg-codenames/shared").FlipMode;
   } | null>(null);
 
@@ -470,7 +472,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }
 
   function setIdentity(v: LocalIdentity | null) {
-    persistIdentity(v!);
+    if (!v) {
+      _setIdentity(null);
+      clearIdentity();
+      return;
+    }
+    persistIdentity(v);
   }
 
   // ─── socket event listeners ───────────────────────────
@@ -507,11 +514,15 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     function onReactionEffect(p: import("@acg-codenames/shared").ReactionEffectPayload) {
-      setGlobalReaction({ reaction: p.reaction, sender: p.senderNickname, target: p.targetNickname });
+      setReactionQueue((prev) => [...prev, p]);
       setReactionEffects((cur) => ({ ...cur, [p.targetParticipantId]: p.reaction }));
-      const t1 = window.setTimeout(() => setReactionEffects((cur) => { const n = { ...cur }; delete n[p.targetParticipantId]; return n; }), 1600);
-      const t2 = window.setTimeout(() => setGlobalReaction(null), 1800);
-      return () => { window.clearTimeout(t1); window.clearTimeout(t2); };
+      setGlobalReaction(p);
+      window.setTimeout(() => {
+        setReactionEffects((cur) => { const n = { ...cur }; delete n[p.targetParticipantId]; return n; });
+      }, 1600);
+      window.setTimeout(() => {
+        setReactionQueue((prev) => prev.filter((r) => r.id !== p.id));
+      }, 1800);
     }
     socket.on("reaction_effect", onReactionEffect);
     return () => { socket.off("reaction_effect", onReactionEffect); };
@@ -548,16 +559,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const guessed = room.board.find((c) => c.id === pendingGuess);
     if (guessed?.revealed || room.phase !== "playing" || !viewer?.canGuess) { setPendingGuess(null); guessLockRef.current = false; }
   }, [pendingGuess, room, viewer?.canGuess]);
-  useEffect(() => {
-    const lastMsg = room?.messages.at(-1);
-    if (!lastMsg || lastMsg.type !== "reaction" || !lastMsg.targetParticipantId || lastMsg.id === lastReactionIdRef.current) return;
-    lastReactionIdRef.current = lastMsg.id;
-    setGlobalReaction({ reaction: lastMsg.reaction!, sender: lastMsg.nickname ?? "?", target: lastMsg.targetNickname ?? "?" });
-    setReactionEffects((cur) => ({ ...cur, [lastMsg.targetParticipantId!]: lastMsg.reaction! }));
-    const t1 = window.setTimeout(() => setReactionEffects((cur) => { const n = { ...cur }; delete n[lastMsg.targetParticipantId!]; return n; }), 1600);
-    const t2 = window.setTimeout(() => setGlobalReaction(null), 2000);
-    return () => { window.clearTimeout(t1); window.clearTimeout(t2); };
-  }, [room?.messages]);
   useEffect(() => {
     if (room?.phase === "finished" && room.winner) { if (soundEnabledRef.current) playVictory(); setShowSakura(true); const t = window.setTimeout(() => setShowSakura(false), 8000); return () => window.clearTimeout(t); }
     setShowSakura(false);
@@ -701,7 +702,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   function createRoom() {
     const ji = buildJoinProfile(); if (!ji) return;
-    const pending: { boardMode: BoardMode; builtinWordPackId?: string; customWordPack?: { name: string; entries: string[] }; scoringMode?: ScoringMode; timerMode?: import("@acg-codenames/shared").TimerMode; timerClueSeconds?: number; timerGuessSeconds?: number; neutralCount?: number; flipMode?: import("@acg-codenames/shared").FlipMode } = { boardMode: createBoardMode, scoringMode, timerMode: createTimerMode, timerClueSeconds: createTimerClueSeconds, timerGuessSeconds: createTimerGuessSeconds, neutralCount: createNeutralCount || undefined, flipMode: createFlipMode }; 
+    const pending: { boardMode: BoardMode; builtinWordPackId?: string; customWordPack?: { name: string; entries: string[] }; scoringMode?: ScoringMode; timerMode?: import("@acg-codenames/shared").TimerMode; timerClueSeconds?: number; timerGuessSeconds?: number; neutralCount?: number | null; flipMode?: import("@acg-codenames/shared").FlipMode } = { boardMode: createBoardMode, scoringMode, timerMode: createTimerMode, timerClueSeconds: createTimerClueSeconds, timerGuessSeconds: createTimerGuessSeconds, neutralCount: createNeutralCount === 0 ? null : createNeutralCount, flipMode: createFlipMode }; 
     if (packSource === "builtin") pending.builtinWordPackId = selectedBuiltinPackId;
     else if (selectedAccountPack) pending.customWordPack = { name: selectedAccountPack.name, entries: selectedAccountPack.entries };
     else if (selectedPublicPack) pending.customWordPack = { name: selectedPublicPack.name, entries: selectedPublicPack.entries };
@@ -835,7 +836,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     chatListRef, battleListRef, handleChatScroll, handleBattleScroll, scrollChatToBottom,
     revealBanner, reactionEffects, pendingGuess, revealingCardIds,
     maskSpymasterHints, setMaskSpymasterHints,
-    showSakura, globalReaction,
+    showSakura, globalReaction, reactionQueue,
     collapsedSections, setCollapsedSections, toggleSection,
     canSeeHiddenRoles, showSpymasterHints, stickToChatBottomRef, stickToBattleBottomRef, isDebugController,
     renderHint, boardModes, ROOM_ID_LENGTH, makePublicPackKey,

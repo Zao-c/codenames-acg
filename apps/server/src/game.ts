@@ -374,7 +374,7 @@ function getTimerDuration(room: Room, phase: "clue" | "guess"): number {
   const base = phase === "clue"
     ? (room.settings.timerClueSeconds ?? 90)
     : (room.settings.timerGuessSeconds ?? 90);
-  if (phase === "clue" && room.settings.timerFirstRoundBonus && room.roundNumber === 1) {
+  if (phase === "clue" && room.settings.timerFirstRoundBonus && !room.firstTurnBonusUsed) {
     return base + 30;
   }
   return base;
@@ -686,7 +686,7 @@ export class GameService {
   async updateRoomSettings(
     roomId: string,
     playerId: string,
-    payload: { boardMode?: BoardMode; builtinWordPackId?: string; customWordPack?: CustomWordPackInput | null; scoringMode?: ScoringMode; timerMode?: import("@acg-codenames/shared").TimerMode; timerClueSeconds?: number; timerGuessSeconds?: number; timerFirstRoundBonus?: boolean; neutralCount?: number; flipMode?: import("@acg-codenames/shared").FlipMode; }
+    payload: { boardMode?: BoardMode; builtinWordPackId?: string; customWordPack?: CustomWordPackInput | null; scoringMode?: ScoringMode; timerMode?: import("@acg-codenames/shared").TimerMode; timerClueSeconds?: number; timerGuessSeconds?: number; timerFirstRoundBonus?: boolean; neutralCount?: number | null; flipMode?: import("@acg-codenames/shared").FlipMode; }
   ): Promise<Room> {
     return this.withRoomLock(roomId, async () => {
     const room = await this.requireRoom(roomId);
@@ -724,7 +724,7 @@ export class GameService {
           timerClueSeconds: payload.timerClueSeconds ?? room.settings.timerClueSeconds,
           timerGuessSeconds: payload.timerGuessSeconds ?? room.settings.timerGuessSeconds,
           timerFirstRoundBonus: payload.timerFirstRoundBonus ?? room.settings.timerFirstRoundBonus,
-          neutralCount: payload.neutralCount ?? room.settings.neutralCount,
+          neutralCount: payload.neutralCount === null ? undefined : payload.neutralCount ?? room.settings.neutralCount,
           flipMode: payload.flipMode ?? room.settings.flipMode
         },
         wordPack: nextWordPack
@@ -808,7 +808,8 @@ export class GameService {
         timerEndsAt,
         timerPhase: timerMode === "timed" ? "clue" as const : undefined,
         timerPaused: false,
-        consecutiveTimeouts: 0
+        consecutiveTimeouts: 0,
+        firstTurnBonusUsed: false
       },
       `第 ${room.roundNumber} 局开始，${TEAM_LABELS[startingTeam]}先手 ٩(ˊᗜˋ*)و`
     );
@@ -914,7 +915,8 @@ export class GameService {
         timerEndsAt,
         timerPhase: timerMode === "timed" ? "clue" as const : undefined,
         timerPaused: false,
-        consecutiveTimeouts: 0
+        consecutiveTimeouts: 0,
+        firstTurnBonusUsed: false
       },
       `第 ${roundNumber} 局开始，${TEAM_LABELS[startingTeam]}先手 ٩(ˊᗜˋ*)و`
     );
@@ -1055,7 +1057,8 @@ export class GameService {
         timerEndsAt: timerMode === "timed" ? now() + getTimerDuration(room, "guess") * 1000 : undefined,
         timerPhase: timerMode === "timed" ? "guess" as const : undefined,
         timerPaused: false,
-        consecutiveTimeouts: 0
+        consecutiveTimeouts: 0,
+        firstTurnBonusUsed: true
       } as any,
       `${player.nickname} 给出提示：${cleanWord} ${count}`
     );

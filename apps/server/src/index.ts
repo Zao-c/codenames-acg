@@ -1,4 +1,5 @@
 import cors from "cors";
+import crypto from "node:crypto";
 import express from "express";
 import { createServer } from "node:http";
 import { Server } from "socket.io";
@@ -159,7 +160,7 @@ function parseUpdateRoomSettingsPayload(value: unknown): {
   timerClueSeconds?: number;
   timerGuessSeconds?: number;
   timerFirstRoundBonus?: boolean;
-  neutralCount?: number;
+  neutralCount?: number | null;
   flipMode?: FlipMode;
 } {
   const body = asObject(value);
@@ -173,7 +174,7 @@ function parseUpdateRoomSettingsPayload(value: unknown): {
     timerClueSeconds?: number;
     timerGuessSeconds?: number;
     timerFirstRoundBonus?: boolean;
-    neutralCount?: number;
+    neutralCount?: number | null;
     flipMode?: FlipMode;
   } = { roomId: requireString(body, "roomId") };
   if (body.boardMode !== undefined) {
@@ -213,7 +214,11 @@ function parseUpdateRoomSettingsPayload(value: unknown): {
     parsed.timerFirstRoundBonus = Boolean(body.timerFirstRoundBonus);
   }
   if (body.neutralCount !== undefined) {
-    parsed.neutralCount = requirePositiveInt(body.neutralCount, "neutralCount");
+    if (body.neutralCount === null) {
+      parsed.neutralCount = null;
+    } else {
+      parsed.neutralCount = requirePositiveInt(body.neutralCount, "neutralCount");
+    }
   }
   if (body.flipMode !== undefined) {
     parsed.flipMode = requireFlipMode(body.flipMode);
@@ -715,7 +720,7 @@ async function bootstrap(): Promise<void> {
         );
         await sendRoomState(room.id);
         io.to(roomId).emit("reaction_effect", {
-          id: room.messages[room.messages.length - 1]?.id ?? "",
+          id: crypto.randomUUID(),
           roomId,
           reaction,
           senderNickname: (room.players.find(p => p.id === session.participantId) ?? room.spectators.find(s => s.id === session.participantId))?.nickname ?? "?",

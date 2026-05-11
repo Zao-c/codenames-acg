@@ -789,14 +789,14 @@ function RevealBanner({ reveal }: { reveal: NonNullable<ReturnType<typeof useGam
   );
 }
 
-function ReactionBanner({ reaction }: { reaction: { reaction: ChatReaction; sender: string; target: string } }) {
+function ReactionBanner({ reaction }: { reaction: import("@acg-codenames/shared").ReactionEffectPayload }) {
   const isFlower = reaction.reaction === "flower";
   return (
-    <div className={isFlower ? "reaction-float reaction-flower" : "reaction-float reaction-egg"} key={Date.now()}>
+    <div className={isFlower ? "reaction-float reaction-flower" : "reaction-float reaction-egg"} key={reaction.id}>
       <div className="reaction-float-banner">
         <span className="reaction-float-emoji">{isFlower ? "💐" : "🥚"}</span>
         <span className="reaction-float-msg">
-          {isFlower ? `${reaction.sender} 送花给 ${reaction.target} ♡` : `${reaction.sender} 向 ${reaction.target} 丢鸡蛋！！💥`}
+          {isFlower ? `${reaction.senderNickname} 送花给 ${reaction.targetNickname} ♡` : `${reaction.senderNickname} 向 ${reaction.targetNickname} 丢鸡蛋！！💥`}
         </span>
       </div>
       <div className={isFlower ? "reaction-burst-petals" : "reaction-burst-eggs"}>
