@@ -807,8 +807,9 @@ export class GameService {
         usedWordIds: nextUsedWordIds,
         timerEndsAt,
         timerPhase: timerMode === "timed" ? "clue" as const : undefined,
-        _timedSkipCount: 0
-      } as any,
+        timerPaused: false,
+        consecutiveTimeouts: 0
+      },
       `第 ${room.roundNumber} 局开始，${TEAM_LABELS[startingTeam]}先手 ٩(ˊᗜˋ*)و`
     );
     await this.store.setRoom(nextRoom);
@@ -912,8 +913,9 @@ export class GameService {
         usedWordIds: nextUsedWordIds,
         timerEndsAt,
         timerPhase: timerMode === "timed" ? "clue" as const : undefined,
-        _timedSkipCount: 0
-      } as any,
+        timerPaused: false,
+        consecutiveTimeouts: 0
+      },
       `第 ${roundNumber} 局开始，${TEAM_LABELS[startingTeam]}先手 ٩(ˊᗜˋ*)و`
     );
     await this.store.setRoom(nextRoom);
@@ -953,6 +955,9 @@ export class GameService {
         lastReveal: null,
         timerEndsAt: undefined,
         timerPhase: undefined,
+        timerPaused: false,
+        consecutiveTimeouts: 0,
+        timeoutPauseReason: undefined,
       },
       `${host.nickname} 将密令房带回准备阶段`
     );
@@ -1049,7 +1054,8 @@ export class GameService {
         lastReveal: null,
         timerEndsAt: timerMode === "timed" ? now() + getTimerDuration(room, "guess") * 1000 : undefined,
         timerPhase: timerMode === "timed" ? "guess" as const : undefined,
-        _timedSkipCount: 0
+        timerPaused: false,
+        consecutiveTimeouts: 0
       } as any,
       `${player.nickname} 给出提示：${cleanWord} ${count}`
     );
@@ -1307,7 +1313,9 @@ export class GameService {
         currentRoundScore: undefined,
         comboStreaks: {},
         timerEndsAt: timerMode === "timed" ? now() + getTimerDuration(room, "clue") * 1000 : undefined,
-        timerPhase: timerMode === "timed" ? "clue" as const : undefined
+        timerPhase: timerMode === "timed" ? "clue" as const : undefined,
+        timerPaused: false,
+        consecutiveTimeouts: 0
       },
       `${player.nickname} 结束了回合 (ง •_•)ง`
     );
@@ -1339,8 +1347,10 @@ export class GameService {
         ...room,
         timerEndsAt: now() + getTimerDuration(room, "clue") * 1000,
         timerPhase: "clue" as const,
-        _timedSkipCount: 0
-      } as any,
+        timerPaused: false,
+        consecutiveTimeouts: 0,
+        timeoutPauseReason: undefined
+      },
       `${room.players.find((p) => p.id === playerId)?.nickname ?? "房主"} 继续计时`
     );
     await this.store.setRoom(nextRoom);
@@ -1606,7 +1616,7 @@ export class GameService {
     const expired: Room[] = [];
     const now2 = now();
     for (const room of rooms) {
-      if (room.phase !== "playing" || !room.timerEndsAt || room.timerEndsAt > now2) continue;
+      if (room.phase !== "playing" || room.timerPaused || !room.timerEndsAt || room.timerEndsAt > now2) continue;
       expired.push(room);
     }
     for (const room of expired) {
@@ -1618,12 +1628,11 @@ export class GameService {
   private async tickTimerForRoom(room: Room): Promise<void> {
     return this.withRoomLock(room.id, async () => {
     const latest = await this.requireRoom(room.id);
-    if (latest.phase !== "playing" || !latest.timerEndsAt || latest.timerEndsAt > now()) return;
+    if (latest.phase !== "playing" || latest.timerPaused || !latest.timerEndsAt || latest.timerEndsAt > now()) return;
 
     if (latest.timerPhase === "clue" && !latest.clue) {
-      const skipCount = (latest as any)._timedSkipCount ?? 0;
+      const skipCount = latest.consecutiveTimeouts ?? 0;
       const currentTeam = nextTeam(latest.currentTeam);
-      const clue = latest.clue;
       const scoringActive = isScoringMode(latest.settings.scoringMode);
       let nextScores = latest.scores;
       if (scoringActive && latest.currentRoundScore) {
@@ -1633,21 +1642,23 @@ export class GameService {
         nextScores = { ...latest.scores, [latest.currentTeam]: Math.max(0, latest.scores[latest.currentTeam] - penalty) };
         latest.roundScoreHistory = [...(latest.roundScoreHistory ?? []), prev];
       }
-      const nextSkipCount = skipCount + 1;
-      const timerPaused = nextSkipCount >= 2;
+      const nextConsecutive = skipCount + 1;
+      const timerPaused = nextConsecutive >= 2;
       const nextRoom = withEvent(
         {
           ...latest,
           currentTeam,
-          clue,
+          clue: latest.clue,
           scores: nextScores,
           roundScoreHistory: latest.roundScoreHistory,
           currentRoundScore: undefined,
           comboStreaks: {},
           timerEndsAt: timerPaused ? undefined : now() + getTimerDuration(latest, "clue") * 1000,
           timerPhase: timerPaused ? undefined : "clue" as const,
-          _timedSkipCount: timerPaused ? 0 : nextSkipCount
-        } as any,
+          timerPaused,
+          timeoutPauseReason: timerPaused ? `${TEAM_LABELS[latest.currentTeam]} 连续超时` : undefined,
+          consecutiveTimeouts: timerPaused ? 0 : nextConsecutive
+        },
         timerPaused
           ? `${TEAM_LABELS[latest.currentTeam]} 连续超时，计时暂停，等待房主继续`
           : `${TEAM_LABELS[latest.currentTeam]} 提示超时，回合跳过`
@@ -1676,7 +1687,9 @@ export class GameService {
           comboStreaks: {},
           lastReveal: null,
           timerEndsAt: now() + getTimerDuration(latest, "clue") * 1000,
-          timerPhase: "clue" as const
+          timerPhase: "clue" as const,
+          timerPaused: false,
+          consecutiveTimeouts: 0
         },
         `${TEAM_LABELS[latest.currentTeam]} 猜词超时，回合跳过`
       );

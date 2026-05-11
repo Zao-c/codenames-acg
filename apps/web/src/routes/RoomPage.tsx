@@ -102,7 +102,7 @@ export function RoomPage() {
                 </>
               ) : null}
               {room.timerEndsAt ? <TimerPill room={room} /> : null}
-              {room.phase === "playing" && room.settings.timerMode === "timed" && !room.timerEndsAt && !room.timerPhase ? (
+              {room.timerPaused ? (
                 <span className="status-pill timer-pill-paused">⏸ 计时暂停</span>
               ) : null}
               {viewer?.canResumeTimer ? (
@@ -288,7 +288,6 @@ function TimerPill({ room }: { room: NonNullable<ReturnType<typeof useGame>["roo
 }
 
 function FocusBar({ room, viewer, onExitFocus, g }: { room: NonNullable<ReturnType<typeof useGame>["room"]>; viewer: ReturnType<typeof useGame>["viewer"]; onExitFocus: () => void; g: ReturnType<typeof useGame> }) {
-  const timerPaused = room.phase === "playing" && room.settings.timerMode === "timed" && !room.timerEndsAt && !room.timerPhase;
   return (
     <div className="focus-bar">
       <strong className="room-code">{room.id}</strong>
@@ -299,7 +298,7 @@ function FocusBar({ room, viewer, onExitFocus, g }: { room: NonNullable<ReturnTy
         </>
       ) : null}
       {room.timerEndsAt ? <TimerPill room={room} /> : null}
-      {timerPaused ? <span className="status-pill timer-pill-paused">⏸ 计时暂停</span> : null}
+      {room.timerPaused ? <span className="status-pill timer-pill-paused">⏸ 计时暂停</span> : null}
       <span className="flex-spacer" />
       {viewer?.canResumeTimer ? <button className="primary-button" onClick={g.resumeTimer} style={{ marginRight: 8 }}>▶ 继续</button> : null}
       {viewer?.canReturnToLobby ? <button onClick={g.returnToLobby} style={{ marginRight: 8 }}>回准备房</button> : null}

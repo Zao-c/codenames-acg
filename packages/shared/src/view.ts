@@ -48,8 +48,7 @@ function buildViewerState(room: Room, viewer: ViewerIdentity): ViewerState | nul
     (viewer.isDebugController === true || viewer.team === room.currentTeam);
   const canQueueForNextRound = isSpectator && room.phase !== "lobby" && room.players.length < MAX_PLAYERS;
   const canCancelQueue = isSpectator && viewer.isQueuedForNextRound === true;
-  const timerPaused = room.phase === "playing" && (room.settings.timerMode ?? "unlimited") === "timed" && !room.timerEndsAt && !room.timerPhase;
-  const canResumeTimer = viewer.isHost === true && timerPaused && isPlayer;
+  const canResumeTimer = viewer.isHost === true && room.timerPaused === true && isPlayer;
   const targetTeam = room.phase === "playing" ? room.currentTeam : null;
 
   let statusText = "等待房间同步";

@@ -1,5 +1,15 @@
 import { useGame } from "../context/GameContext";
-import { wordPackSummaries, type ScoringMode, type TimerMode, type FlipMode } from "@acg-codenames/shared";
+import { wordPackSummaries, type ScoringMode, type TimerMode, type FlipMode, type BoardMode } from "@acg-codenames/shared";
+
+const NEUTRAL_COUNT_OPTIONS: Record<BoardMode, number[]> = {
+  "5x5": [3, 5, 7, 9, 11],
+  "7x7": [7, 9, 11, 13, 15, 17, 19],
+  "9x9": [15, 19, 21, 25]
+};
+
+function getNeutralOptions(mode: BoardMode): number[] {
+  return NEUTRAL_COUNT_OPTIONS[mode] ?? [];
+}
 
 export function CreateRoomPage() {
   const {
@@ -110,7 +120,7 @@ export function CreateRoomPage() {
             <strong>中立词数（0=使用默认）</strong>
             <select value={createNeutralCount} onChange={(e) => setCreateNeutralCount(Number(e.target.value))}>
               <option value={0}>使用默认</option>
-              {[3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25].map(v => <option key={v} value={v}>{v}</option>)}
+              {getNeutralOptions(createBoardMode).map(v => <option key={v} value={v}>{v}</option>)}
             </select>
           </div>
         </div>

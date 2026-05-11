@@ -306,6 +306,9 @@ export interface Room {
   usedWordIds?: string[];
   timerEndsAt?: number;
   timerPhase?: "clue" | "guess";
+  timerPaused?: boolean;
+  timeoutPauseReason?: string;
+  consecutiveTimeouts?: number;
 }
 
 export interface ViewerIdentity {
