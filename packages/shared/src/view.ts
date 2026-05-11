@@ -157,7 +157,7 @@ export function sanitizeRoom(room: Room, viewer: ViewerIdentity = {}): PublicRoo
   const revealAll = isSpymaster(viewer) || room.phase === "finished";
   const flipMode: import("./types.js").FlipMode = room.settings.flipMode ?? "word-color";
   const board: PublicCard[] = room.board.map((card) => {
-    const canSeeWord = revealAll || (flipMode === "word-color" && card.revealed);
+    const canSeeWord = !card.revealed || revealAll || flipMode === "word-color";
     return {
       id: card.id,
       wordId: card.wordId,

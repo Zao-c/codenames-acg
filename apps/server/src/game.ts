@@ -1044,8 +1044,9 @@ export class GameService {
         },
         lastReveal: null,
         timerEndsAt: timerMode === "timed" ? now() + getTimerDuration(room, "guess") : undefined,
-        timerPhase: timerMode === "timed" ? "guess" as const : undefined
-      },
+        timerPhase: timerMode === "timed" ? "guess" as const : undefined,
+        _timedSkipCount: 0
+      } as any,
       `${player.nickname} 给出提示：${cleanWord} ${count}`
     );
     ensurePlayerStats(nextRoom, player).cluesGiven += 1;
@@ -1589,6 +1590,7 @@ export class GameService {
     if (latest.phase !== "playing" || !latest.timerEndsAt || latest.timerEndsAt > now()) return;
 
     if (latest.timerPhase === "clue" && !latest.clue) {
+      const skipCount = (latest as any)._timedSkipCount ?? 0;
       const currentTeam = nextTeam(latest.currentTeam);
       const clue = latest.clue;
       const scoringActive = isScoringMode(latest.settings.scoringMode);
@@ -1600,6 +1602,8 @@ export class GameService {
         nextScores = { ...latest.scores, [latest.currentTeam]: Math.max(0, latest.scores[latest.currentTeam] - penalty) };
         latest.roundScoreHistory = [...(latest.roundScoreHistory ?? []), prev];
       }
+      const nextSkipCount = skipCount + 1;
+      const timerPaused = nextSkipCount >= 2;
       const nextRoom = withEvent(
         {
           ...latest,
@@ -1609,10 +1613,13 @@ export class GameService {
           roundScoreHistory: latest.roundScoreHistory,
           currentRoundScore: undefined,
           comboStreaks: {},
-          timerEndsAt: now() + getTimerDuration(latest, "clue"),
-          timerPhase: "clue" as const
-        },
-        `${TEAM_LABELS[latest.currentTeam]} 提示超时，回合跳过`
+          timerEndsAt: timerPaused ? undefined : now() + getTimerDuration(latest, "clue"),
+          timerPhase: timerPaused ? undefined : "clue" as const,
+          _timedSkipCount: timerPaused ? 0 : nextSkipCount
+        } as any,
+        timerPaused
+          ? `${TEAM_LABELS[latest.currentTeam]} 连续超时，计时暂停，等待房主继续`
+          : `${TEAM_LABELS[latest.currentTeam]} 提示超时，回合跳过`
       );
       await this.store.setRoom(nextRoom);
     } else if (latest.timerPhase === "guess" && latest.clue) {

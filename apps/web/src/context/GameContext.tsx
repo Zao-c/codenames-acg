@@ -337,7 +337,9 @@ export interface GameContextType {
   setMobileRoomTab: (v: "board" | "players" | "chat") => void;
   jumpToLatest: boolean;
   chatListRef: React.RefObject<HTMLDivElement | null>;
+  battleListRef: React.RefObject<HTMLDivElement | null>;
   handleChatScroll: () => void;
+  handleBattleScroll: () => void;
   scrollChatToBottom: () => void;
   revealBanner: RevealEvent | null;
   reactionEffects: Record<string, ChatReaction>;
@@ -353,6 +355,7 @@ export interface GameContextType {
   canSeeHiddenRoles: boolean;
   showSpymasterHints: boolean;
   stickToChatBottomRef: React.RefObject<boolean>;
+  stickToBattleBottomRef: React.RefObject<boolean>;
   isDebugController: boolean;
 
   renderHint: () => string;
@@ -426,9 +429,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [globalReaction, setGlobalReaction] = useState<{ reaction: ChatReaction; sender: string; target: string } | null>(null);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set(["待分队"]));
   const chatListRef = useRef<HTMLDivElement | null>(null);
+  const battleListRef = useRef<HTMLDivElement | null>(null);
   const lastRevealIdRef = useRef<string | null>(null);
   const lastReactionIdRef = useRef<string | null>(null);
   const stickToChatBottomRef = useRef(true);
+  const stickToBattleBottomRef = useRef(true);
   const pendingCreateConfigRef = useRef<{
     boardMode: BoardMode;
     builtinWordPackId?: string;
@@ -560,6 +565,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (sideTab !== "chat") return;
     const list = chatListRef.current; if (!list || !stickToChatBottomRef.current) return;
+    list.scrollTop = list.scrollHeight; setJumpToLatest(false);
+  }, [room?.messages, sideTab]);
+  useEffect(() => {
+    if (sideTab !== "battle") return;
+    const list = battleListRef.current; if (!list || !stickToBattleBottomRef.current) return;
     list.scrollTop = list.scrollHeight; setJumpToLatest(false);
   }, [room?.messages, sideTab]);
   useEffect(() => {
@@ -778,6 +788,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
   }
   function handleChatScroll() { const list = chatListRef.current; if (!list) return; const nearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 24; stickToChatBottomRef.current = nearBottom; setJumpToLatest(!nearBottom); }
+  function handleBattleScroll() { const list = battleListRef.current; if (!list) return; const nearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 24; stickToBattleBottomRef.current = nearBottom; setJumpToLatest(!nearBottom); }
   function scrollChatToBottom() { const list = chatListRef.current; if (!list) return; list.scrollTop = list.scrollHeight; stickToChatBottomRef.current = true; setJumpToLatest(false); }
   function toggleSection(title: string) { setCollapsedSections((prev) => { const next = new Set(prev); next.has(title) ? next.delete(title) : next.add(title); return next; }); }
   function renderHint(): string {
@@ -819,12 +830,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
     soundEnabled, setSoundEnabled: handleSetSoundEnabled,
     sideTab, setSideTab, jumpToLatest,
     mobileRoomTab, setMobileRoomTab,
-    chatListRef, handleChatScroll, scrollChatToBottom,
+    chatListRef, battleListRef, handleChatScroll, handleBattleScroll, scrollChatToBottom,
     revealBanner, reactionEffects, pendingGuess, revealingCardIds,
     maskSpymasterHints, setMaskSpymasterHints,
     showSakura, globalReaction,
     collapsedSections, setCollapsedSections, toggleSection,
-    canSeeHiddenRoles, showSpymasterHints, stickToChatBottomRef, isDebugController,
+    canSeeHiddenRoles, showSpymasterHints, stickToChatBottomRef, stickToBattleBottomRef, isDebugController,
     renderHint, boardModes, ROOM_ID_LENGTH, makePublicPackKey,
   };
 

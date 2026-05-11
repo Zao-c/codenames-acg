@@ -639,7 +639,7 @@ function SideTabPanel({ g, room, session }: {
   g: ReturnType<typeof useGame>; room: NonNullable<ReturnType<typeof useGame>["room"]>;
   session: ReturnType<typeof useGame>["session"];
 }) {
-  const { sideTab, setSideTab, chatText, setChatText, chatListRef, handleChatScroll, jumpToLatest, scrollChatToBottom, sendChatMessage, sendQuickPhrase } = g;
+  const { sideTab, setSideTab, chatText, setChatText, chatListRef, battleListRef, handleChatScroll, handleBattleScroll, jumpToLatest, scrollChatToBottom, sendChatMessage, sendQuickPhrase } = g;
   const [collapsed, setCollapsed] = useState(false);
   const chatMessages = useMemo(() => room.messages.filter((m) => m.type === "chat" || m.type === "reaction"), [room.messages]);
   const battleMessages = useMemo(() => room.messages.filter((m) => m.type === "system"), [room.messages]);
@@ -660,17 +660,25 @@ function SideTabPanel({ g, room, session }: {
 
       {!collapsed ? (
         <>
-          {(sideTab === "chat" || sideTab === "battle") ? (
+          {sideTab === "chat" ? (
             <>
-              <div className="chat-list" ref={chatListRef} onScroll={handleChatScroll} style={{ maxHeight: sideTab === "chat" ? 240 : 320 }}>
-                {(sideTab === "chat" ? chatMessages : battleMessages).length === 0 ? (
-                  <p className="empty-text">{sideTab === "chat" ? "还没有聊天。" : "暂无战况记录。"}</p>
-                ) : null}
-                {(sideTab === "chat" ? chatMessages : battleMessages).map((message) => (
+              <div className="chat-list" ref={chatListRef} onScroll={handleChatScroll} style={{ maxHeight: 240 }}>
+                {chatMessages.length === 0 ? <p className="empty-text">还没有聊天。</p> : null}
+                {chatMessages.map((message) => (
                   <MessageRow key={message.id} message={message} selfId={session?.participantId} />
                 ))}
               </div>
               {jumpToLatest ? <button className="chip-button jump-button" onClick={scrollChatToBottom} style={{ margin: "4px 0" }}>⬇ 有新消息</button> : null}
+            </>
+          ) : sideTab === "battle" ? (
+            <>
+              <div className="chat-list" ref={battleListRef} onScroll={handleBattleScroll} style={{ maxHeight: 320 }}>
+                {battleMessages.length === 0 ? <p className="empty-text">暂无战况记录。</p> : null}
+                {battleMessages.map((message) => (
+                  <MessageRow key={message.id} message={message} selfId={session?.participantId} />
+                ))}
+              </div>
+              {jumpToLatest ? <button className="chip-button jump-button" onClick={() => { const list = battleListRef.current; if (!list) return; list.scrollTop = list.scrollHeight; scrollChatToBottom(); }} style={{ margin: "4px 0" }}>⬇ 有新战况</button> : null}
             </>
           ) : null}
 

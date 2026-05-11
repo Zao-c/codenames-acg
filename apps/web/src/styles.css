@@ -600,12 +600,14 @@ a { color: var(--accent-2); }
 @keyframes fadeInUp { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 
 /* ─── participants ─── */
-.participant-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-radius: 10px; transition: border-color 0.2s; }
+.participant-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-radius: 10px; transition: border-color 0.2s; min-width: 0; overflow: hidden; }
 .participant-self { background: var(--surface-softer); margin: 0 -8px; padding: 8px; border-radius: 10px; }
 .participant-team-red { border-left: 3px solid var(--red); padding-left: 6px; }
 .participant-team-blue { border-left: 3px solid var(--blue); padding-left: 6px; }
-.participant-main { display: flex; align-items: center; gap: 8px; }
-.participant-actions { display: flex; gap: 4px; align-items: center; }
+.participant-main { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.participant-main strong,
+.participant-main p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.participant-actions { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
 .role-chip { font-size: 10px; padding: 1px 6px; border-radius: 8px; font-weight: 700; }
 .role-chip-red  { background: var(--red-bg); color: var(--red); }
 .role-chip-blue { background: var(--blue-bg); color: var(--blue); }
@@ -647,7 +649,11 @@ a { color: var(--accent-2); }
 .mobile-nav-tab span:first-child { font-size: 18px; }
 
 /* ─── avatar ─── */
-.avatar-badge { border-radius: 50%; object-fit: cover; }
+.avatar-badge { display: flex; align-items: center; justify-content: center; border-radius: 50%; object-fit: cover; overflow: hidden; flex-shrink: 0; }
+.avatar-badge img { width: 100%; height: 100%; object-fit: cover; }
+.avatar-badge.small  { width: 28px; height: 28px; font-size: 12px; }
+.avatar-badge.medium { width: 40px; height: 40px; font-size: 16px; }
+.avatar-badge.large  { width: 64px; height: 64px; font-size: 24px; }
 .avatar-fallback { display: flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--surface-strong); color: var(--muted); font-weight: 700; }
 
 /* ─── upload field ─── */
