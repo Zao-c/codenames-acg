@@ -22,17 +22,18 @@
   --blue: #3d8bfd;
   --neutral: #b0a090;
   --assassin: #19101a;
-  --red-bg: rgba(255,86,102,0.28);
-  --red-border: rgba(255,86,102,0.55);
-  --blue-bg: rgba(61,139,253,0.28);
-  --blue-border: rgba(61,139,253,0.55);
-  --neutral-bg: rgba(176,160,144,0.18);
-  --neutral-border: rgba(176,160,144,0.35);
-  --assassin-bg: rgba(25,16,26,0.55);
+  --red-bg: rgba(255,86,102,0.35);
+  --red-border: rgba(255,86,102,0.72);
+  --blue-bg: rgba(61,139,253,0.32);
+  --blue-border: rgba(61,139,253,0.68);
+  --neutral-bg: rgba(176,160,144,0.22);
+  --neutral-border: rgba(176,160,144,0.40);
+  --assassin-bg: rgba(25,16,26,0.65);
   --assassin-border: #d9485e;
-  --red-glow: rgba(255,86,102,0.15);
-  --blue-glow: rgba(61,139,253,0.15);
-  --assassin-glow: rgba(217,72,94,0.2);
+  --red-glow: rgba(255,86,102,0.18);
+  --blue-glow: rgba(61,139,253,0.18);
+  --neutral-glow: rgba(176,160,144,0.08);
+  --assassin-glow: rgba(217,72,94,0.22);
   --red-text: #ffb3ba;
   --blue-text: #b3d4ff;
   --neutral-text: #ccc0b0;
@@ -58,25 +59,26 @@
   --pink: #e85d9a;
   --peach: #d9754a;
   --cyan: #0d7c8a;
-  --red: #e5484d;
+  --red: #dc2626;
   --blue: #2563eb;
   --neutral: #9ca3af;
   --assassin: #1f2937;
-  --red-bg: #fff1f2;
-  --red-border: #fecaca;
-  --blue-bg: #eff6ff;
-  --blue-border: #bfdbfe;
-  --neutral-bg: #eef0f2;
-  --neutral-border: #d1d5db;
+  --red-bg: #fee2e2;
+  --red-border: #fca5a5;
+  --blue-bg: #dbeafe;
+  --blue-border: #93c5fd;
+  --neutral-bg: #e5e7eb;
+  --neutral-border: #9ca3af;
   --assassin-bg: #d1d5db;
-  --assassin-border: #475569;
-  --red-glow: rgba(229,72,77,0.08);
-  --blue-glow: rgba(37,99,235,0.08);
-  --assassin-glow: rgba(31,41,55,0.08);
-  --red-text: #b91c1c;
-  --blue-text: #1d4ed8;
-  --neutral-text: #4b5563;
-  --assassin-text: #374151;
+  --assassin-border: #374151;
+  --red-glow: rgba(220,38,38,0.12);
+  --blue-glow: rgba(37,99,235,0.12);
+  --neutral-glow: rgba(156,163,175,0.06);
+  --assassin-glow: rgba(31,41,55,0.10);
+  --red-text: #991b1b;
+  --blue-text: #1e40af;
+  --neutral-text: #374151;
+  --assassin-text: #1f2937;
   --shadow: 0 12px 40px rgba(0,0,0,0.08);
 }
 
@@ -410,7 +412,7 @@ a { color: var(--accent-2); }
 
 .card-tile {
   display: flex; align-items: center; justify-content: center; text-align: center;
-  border-radius: 14px; padding: 12px; cursor: pointer; border: 1px solid var(--line);
+  border-radius: 14px; padding: 11px; cursor: pointer; border: 1px solid var(--line);
   background: var(--surface); user-select: none;
   position: relative; overflow: hidden;
   transition: transform 0.35s ease, background 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease;
@@ -420,36 +422,40 @@ a { color: var(--accent-2); }
 .card-tile.card-hidden {
   background: var(--surface-strong);
   border-color: var(--line-strong);
+  border-width: 1px;
+  font-weight: 600;
+  color: var(--text);
 }
 .card-tile.card-hidden:not(.card-disabled):hover {
   background: rgba(128,128,128,0.15);
   transform: translateY(-2px);
-  border-color: var(--line-strong);
+  border-color: var(--accent);
 }
 
 /* ─── revealed card colors ─── */
-.card-tile.card-revealed { cursor: default; }
+.card-tile.card-revealed { cursor: default; font-weight: 700; border-width: 2px; }
 .card-tile.card-revealed-red {
   background: var(--red-bg);
   border-color: var(--red-border);
-  box-shadow: 0 0 14px var(--red-glow);
+  box-shadow: 0 0 16px var(--red-glow), inset 0 1px 0 rgba(255,255,255,0.07);
   color: var(--red-text);
 }
 .card-tile.card-revealed-blue {
   background: var(--blue-bg);
   border-color: var(--blue-border);
-  box-shadow: 0 0 14px var(--blue-glow);
+  box-shadow: 0 0 16px var(--blue-glow), inset 0 1px 0 rgba(255,255,255,0.07);
   color: var(--blue-text);
 }
 .card-tile.card-revealed-neutral {
   background: var(--neutral-bg);
   border-color: var(--neutral-border);
+  box-shadow: 0 0 8px var(--neutral-glow), inset 0 1px 0 rgba(255,255,255,0.04);
   color: var(--neutral-text);
 }
 .card-tile.card-revealed-assassin {
   background: var(--assassin-bg);
   border-color: var(--assassin-border);
-  box-shadow: 0 0 10px var(--assassin-glow), inset 0 1px 0 rgba(255,255,255,0.04);
+  box-shadow: 0 0 12px var(--assassin-glow), inset 0 1px 0 rgba(255,255,255,0.04);
   color: var(--assassin-text);
 }
 
