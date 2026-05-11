@@ -13,6 +13,7 @@ export const ROOM_TTL_SECONDS = 60 * 60 * 6;
 export const ROOM_TTL_LOBBY_IDLE_SECONDS = 60 * 10;
 export const ROOM_TTL_FINISHED_SECONDS = 60 * 30;
 export const ROOM_TTL_EMPTY_SECONDS = 60 * 2;
+export const ROOM_TTL_PLAYING_IDLE_SECONDS = 60 * 60 * 2;
 export const PLAYER_RECONNECT_TTL_SECONDS = 60 * 60 * 12;
 export const MAX_CHAT_MESSAGES = 80;
 export const MAX_CHAT_LENGTH = 120;

@@ -37,7 +37,7 @@ export function HomePage() {
             />
             <button className="primary-button" onClick={() => joinByRoomCode(false)} disabled={!effectiveIdentity || roomCode.length < 6}>加入</button>
           </div>
-          <button onClick={() => joinByRoomCode(true)} disabled={!effectiveIdentity || roomCode.length < 6} style={{ marginTop: 6 }}>旁观</button>
+          <button onClick={() => joinByRoomCode(true)} disabled={!effectiveIdentity || roomCode.length < 6} className="lobby-spectate-btn">旁观</button>
         </div>
       </div>
 

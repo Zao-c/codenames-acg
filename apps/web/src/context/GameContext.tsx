@@ -330,6 +330,8 @@ export interface GameContextType {
   copied: boolean;
   focusMode: boolean;
   setFocusMode: (v: boolean) => void;
+  enterFocusMode: () => void;
+  exitFocusMode: () => void;
   soundEnabled: boolean;
   setSoundEnabled: (v: boolean) => void;
   sideTab: SideTab;
@@ -399,6 +401,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [publicPacks, setPublicPacks] = useState<PublicWordPack[]>([]);
   const [roomCode, setRoomCode] = useState("");
   const [session, setSession] = useState<ClientSession | null>(loadSession());
+  const activeRoomIdRef = useRef<string | null>(null);
+  const freshSessionRef = useRef(false);
   const [room, setRoom] = useState<PublicRoomState | null>(null);
   const [roomSummaries, setRoomSummaries] = useState<RoomSummary[]>([]);
   const [error, setError] = useState("");
@@ -409,6 +413,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [copied, setCopied] = useState(false);
   const [didReconnect, setDidReconnect] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
+  const clearReactions = useCallback(() => {
+    setReactionQueue([]);
+    setGlobalReaction(null);
+  }, []);
+  const enterFocusMode = useCallback(() => { setFocusMode(true); clearReactions(); }, [clearReactions]);
+  const exitFocusMode = useCallback(() => { setFocusMode(false); }, []);
   const [soundEnabled, setSoundEnabledRaw] = useState(() => {
     try { return localStorage.getItem("sound") !== "off"; } catch { return true; }
   });
@@ -482,8 +492,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   // ─── socket event listeners ───────────────────────────
   useEffect(() => {
-    function onSession(p: ClientSession) { setSession(p); saveSession(p); setConnectionState("ready"); setError(""); }
-    function onRoomState(p: PublicRoomState) { setRoom(p); setConnectionState("ready"); setError(""); setPendingGuess(null); guessLockRef.current = false; }
+    function onSession(p: ClientSession) { setSession(p); saveSession(p); setConnectionState("ready"); setError(""); activeRoomIdRef.current = p.roomId; freshSessionRef.current = true; }
+    function onRoomState(p: PublicRoomState) { if (!loadSession() || p.id !== activeRoomIdRef.current) return; setRoom(p); setConnectionState("ready"); setError(""); setPendingGuess(null); guessLockRef.current = false; }
     function onRoomSummaries(p: RoomSummary[]) { setRoomSummaries(p); }
     function onError(p: { message: string }) {
       if (p.message.includes("重连凭证") || p.message.includes("房间不存在")) {
@@ -494,13 +504,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
         setDidReconnect(false);
         setRevealBanner(null);
         setError("房间已过期，已返回首页");
+        activeRoomIdRef.current = null;
         return;
       }
       setError(p.message); setConnectionState("ready"); setPendingGuess(null); guessLockRef.current = false;
     }
     function onRoomClosed(p: { roomId: string; reason: string }) {
       if (p.roomId !== session?.roomId) return;
-      clearSession(); setSession(null); setRoom(null); setConnectionState("idle"); setDidReconnect(false); setRevealBanner(null); setError(p.reason);
+      clearSession(); setSession(null); setRoom(null); setConnectionState("idle"); setDidReconnect(false); setRevealBanner(null); setError(p.reason); activeRoomIdRef.current = null;
     }
     socket.on("session", onSession);
     socket.on("room_state", onRoomState);
@@ -522,6 +533,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       }, 1600);
       window.setTimeout(() => {
         setReactionQueue((prev) => prev.filter((r) => r.id !== p.id));
+        setGlobalReaction(null);
       }, 1800);
     }
     socket.on("reaction_effect", onReactionEffect);
@@ -530,6 +542,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!session || didReconnect || room) return;
+    if (freshSessionRef.current) {
+      freshSessionRef.current = false;
+      return;
+    }
     setDidReconnect(true);
     setConnectionState("connecting");
     socket.emit("reconnect_room", { roomId: session.roomId, sessionToken: session.sessionToken });
@@ -702,6 +718,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   function createRoom() {
     const ji = buildJoinProfile(); if (!ji) return;
+    clearSession(); setSession(null); setRoom(null); activeRoomIdRef.current = null;
     const pending: { boardMode: BoardMode; builtinWordPackId?: string; customWordPack?: { name: string; entries: string[] }; scoringMode?: ScoringMode; timerMode?: import("@acg-codenames/shared").TimerMode; timerClueSeconds?: number; timerGuessSeconds?: number; neutralCount?: number | null; flipMode?: import("@acg-codenames/shared").FlipMode } = { boardMode: createBoardMode, scoringMode, timerMode: createTimerMode, timerClueSeconds: createTimerClueSeconds, timerGuessSeconds: createTimerGuessSeconds, neutralCount: createNeutralCount === 0 ? null : createNeutralCount, flipMode: createFlipMode }; 
     if (packSource === "builtin") pending.builtinWordPackId = selectedBuiltinPackId;
     else if (selectedAccountPack) pending.customWordPack = { name: selectedAccountPack.name, entries: selectedAccountPack.entries };
@@ -714,6 +731,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
   function joinSpecificRoom(roomId: string, asSpectator: boolean) {
     const ji = buildJoinProfile(); if (!ji) return;
     setConnectionState("connecting"); setError("");
+
+    const storedSession = loadSession();
+    if (storedSession && storedSession.roomId === roomId && storedSession.participantType === "player") {
+      socket.emit("reconnect_room", { roomId, sessionToken: storedSession.sessionToken });
+      return;
+    }
+
     const payload = { roomId, nickname: ji.nickname, profile: { accountType: ji.profile.mode, username: ji.profile.mode === "named" ? ji.profile.username : null, avatarUrl: ji.profile.avatarUrl, userSessionToken: ji.profile.mode === "named" ? ji.profile.userSessionToken : undefined } };
     if (asSpectator) socket.emit("join_spectator", payload);
     else socket.emit("join_room", payload);
@@ -766,10 +790,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
     socket.emit("send_reaction", { roomId: session.roomId, reaction, targetParticipantId, targetParticipantType });
   }
   function leaveRoom() {
-    if (session) socket.emit("leave_room", { roomId: session.roomId });
-    clearSession(); setSession(null); setRoom(null); setConnectionState("idle"); setDidReconnect(false); setRevealBanner(null); setError("");
+    if (session) socket.emit("leave_room", { roomId: session.roomId, sessionToken: session.sessionToken });
+    clearSession(); setSession(null); setRoom(null); setConnectionState("idle"); setDidReconnect(false); setRevealBanner(null); setError(""); activeRoomIdRef.current = null;
   }
-  function logoutNamedUser() { clearIdentity(); clearSession(); setIdentity(null as unknown as LocalIdentity); setNamedAccount(null); setSession(null); setRoom(null); setDidReconnect(false); setNamedUsernameInput(""); setError(""); }
+  function logoutNamedUser() { clearIdentity(); clearSession(); setIdentity(null as unknown as LocalIdentity); setNamedAccount(null); setSession(null); setRoom(null); setDidReconnect(false); setNamedUsernameInput(""); setError(""); activeRoomIdRef.current = null; }
   async function copyLink() {
     if (!inviteLink) return;
     try {
@@ -830,6 +854,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     submitClue, guessCard, endTurn, resumeTimer: resumeTimerFunc, sendChatMessage, sendQuickPhrase, sendReaction, copyLink,
     clueWord, setClueWord, clueCount, setClueCount,
     chatText, setChatText, copied, focusMode, setFocusMode,
+    enterFocusMode, exitFocusMode,
     soundEnabled, setSoundEnabled: handleSetSoundEnabled,
     sideTab, setSideTab, jumpToLatest,
     mobileRoomTab, setMobileRoomTab,

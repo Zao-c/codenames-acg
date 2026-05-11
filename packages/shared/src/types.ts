@@ -470,6 +470,7 @@ export interface EndTurnPayload {
 
 export interface LeaveRoomPayload {
   roomId: string;
+  sessionToken?: string;
 }
 
 export interface SyncRoomStatePayload {

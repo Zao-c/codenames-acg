@@ -15,6 +15,7 @@ import {
   ROOM_TTL_LOBBY_IDLE_SECONDS,
   ROOM_TTL_FINISHED_SECONDS,
   ROOM_TTL_EMPTY_SECONDS,
+  ROOM_TTL_PLAYING_IDLE_SECONDS,
   TEAM_LABELS,
   buildRoomSummary,
   createCustomWordPack,
@@ -595,7 +596,17 @@ export class GameService {
     return this.withRoomLock(roomId, async () => {
     const room = await this.requireRoom(roomId);
     const cleanNickname = normalizeNickname(nickname);
-    if (hasNicknameConflict(room, cleanNickname)) {
+
+    const existing = [...room.players, ...room.spectators].find(
+      (entry) => entry.nickname === cleanNickname
+    );
+    if (existing && "connected" in existing && !existing.connected) {
+      if ("team" in existing) {
+        room.players = room.players.filter((p) => p.id !== existing.id);
+      } else {
+        room.spectators = room.spectators.filter((s) => s.id !== existing.id);
+      }
+    } else if (hasNicknameConflict(room, cleanNickname)) {
       throw new Error("昵称已被占用");
     }
 
@@ -1708,6 +1719,9 @@ export class GameService {
       const idleMs = Date.now() - room.updatedAt;
       const humanPlayers = room.players.filter((p) => !p.isBot);
       if (humanPlayers.length === 0 && idleMs > ROOM_TTL_EMPTY_SECONDS * 1000) {
+        await this.store.deleteRoom(room.id);
+        deleted.push(room.id);
+      } else if (room.phase === "playing" && idleMs > ROOM_TTL_PLAYING_IDLE_SECONDS * 1000) {
         await this.store.deleteRoom(room.id);
         deleted.push(room.id);
       } else if (room.phase === "lobby" && idleMs > ROOM_TTL_LOBBY_IDLE_SECONDS * 1000) {

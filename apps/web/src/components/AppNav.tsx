@@ -15,7 +15,7 @@ function useTheme() {
 }
 
 export function AppNav() {
-  const { effectiveIdentity, room, leaveRoom, copyLink, copied, focusMode, setFocusMode, soundEnabled, setSoundEnabled } = useGame();
+  const { effectiveIdentity, room, leaveRoom, copyLink, copied, focusMode, enterFocusMode, exitFocusMode, soundEnabled, setSoundEnabled } = useGame();
   const navigate = useNavigate();
   const location = useLocation();
   const [light, toggleTheme] = useTheme();
@@ -24,6 +24,7 @@ export function AppNav() {
   const isActive = (path: string) => location.pathname === path ? "selected" : "";
 
   if (inRoom) {
+    if (focusMode) return null;
     return (
       <nav className="app-nav app-nav-room">
         <div className="nav-brand" onClick={() => navigate("/")} role="button" tabIndex={0}>
@@ -31,7 +32,7 @@ export function AppNav() {
         </div>
         <div className="nav-links">
           <button onClick={() => { void copyLink(); }}>{copied ? "已复制链接" : "复制邀请链接"}</button>
-          <button onClick={() => { setFocusMode(!focusMode); }}>{focusMode ? "退出专注" : "专注模式"}</button>
+          <button onClick={enterFocusMode}>专注模式</button>
           <button onClick={toggleTheme} title={light ? "切换暗色主题" : "切换亮色主题"}>{light ? "🌙" : "☀️"}</button>
           <button onClick={() => setSoundEnabled(!soundEnabled)} title={soundEnabled ? "关闭音效" : "开启音效"}>{soundEnabled ? "🔊" : "🔇"}</button>
           <button onClick={() => { if (window.confirm("确定要离开房间吗？")) { leaveRoom(); navigate("/"); } }}>离开房间</button>
@@ -81,7 +82,7 @@ export function AppNav() {
 }
 
 export function MobileNav() {
-  const { room, focusMode, setFocusMode, setSideTab, mobileRoomTab, setMobileRoomTab, effectiveIdentity } = useGame();
+  const { room, focusMode, exitFocusMode, setSideTab, mobileRoomTab, setMobileRoomTab, effectiveIdentity } = useGame();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -92,19 +93,19 @@ export function MobileNav() {
       <nav className="mobile-nav">
         <button
           className={`mobile-nav-tab ${mobileRoomTab === "board" ? "selected" : ""}`}
-          onClick={() => { setMobileRoomTab("board"); setFocusMode(false); }}
+          onClick={() => { setMobileRoomTab("board"); exitFocusMode(); }}
         >
           <span>🎯</span><span>棋盘</span>
         </button>
         <button
           className={`mobile-nav-tab ${mobileRoomTab === "players" ? "selected" : ""}`}
-          onClick={() => { setMobileRoomTab("players"); setFocusMode(false); setSideTab("spectators"); }}
+          onClick={() => { setMobileRoomTab("players"); exitFocusMode(); setSideTab("spectators"); }}
         >
           <span>👥</span><span>玩家</span>
         </button>
         <button
           className={`mobile-nav-tab ${mobileRoomTab === "chat" ? "selected" : ""}`}
-          onClick={() => { setMobileRoomTab("chat"); setFocusMode(false); setSideTab("chat"); }}
+          onClick={() => { setMobileRoomTab("chat"); exitFocusMode(); setSideTab("chat"); }}
         >
           <span>💬</span><span>聊天</span>
         </button>

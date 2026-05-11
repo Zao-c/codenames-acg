@@ -33,12 +33,12 @@ export function RoomPage() {
 
   const {
     room, session,
-    connectionState, error, focusMode, setFocusMode,
+    connectionState, error, focusMode, setFocusMode, enterFocusMode, exitFocusMode,
     clueWord, setClueWord, clueCount, setClueCount,
     chatText, setChatText, copied, sideTab, setSideTab,
     jumpToLatest, chatListRef, handleChatScroll, scrollChatToBottom,
     revealBanner, reactionEffects, pendingGuess, revealingCardIds,
-    maskSpymasterHints, setMaskSpymasterHints, showSakura, globalReaction,
+    maskSpymasterHints, setMaskSpymasterHints, showSakura, reactionQueue,
     collapsedSections, toggleSection,
     canSeeHiddenRoles, showSpymasterHints, isDebugController,
     viewer, self, boardColumns, isLobby, isFinished,
@@ -81,15 +81,16 @@ export function RoomPage() {
   return (
     <section className={`room-layout ${phaseClass}`} key={room.id + (focusMode ? "-f" : "")}>
       <SakuraParticles active={showSakura} />
-      {globalReaction ? <ReactionBanner reaction={globalReaction} /> : null}
+      {reactionQueue.map((reaction) => (
+        <ReactionBanner key={reaction.id} reaction={reaction} />
+      ))}
 
       {focusMode ? (
-        <FocusBar room={room} viewer={viewer} onExitFocus={() => setFocusMode(false)} g={g} />
+        <FocusBar room={room} viewer={viewer} onExitFocus={exitFocusMode} g={g} />
       ) : (
         <header className="room-bar room-bar-clean">
           <div className="room-bar-main room-bar-stack">
             <div className="room-title-stack">
-              <button className="logo-button" onClick={() => { if (window.confirm("确定要离开房间回到首页吗？")) { leaveRoom(); navigateHome(); } }} title="回到首页">✦ 词牌结社</button>
               <strong className="room-code">{room.id}</strong>
               <p className="room-subtitle">{room.wordPackSummary.name}</p>
             </div>
@@ -114,7 +115,7 @@ export function RoomPage() {
           <div className="bar-actions">
             {room.phase === "playing" ? (
               <>
-                <button onClick={() => setFocusMode(true)}>专注模式</button>
+                <button onClick={enterFocusMode}>专注模式</button>
                 {viewer?.isHost ? (
                   <button onClick={() => { if (window.confirm("确定要强制结束当前对局吗？当前队伍视为认输。")) { g.forceEndGame(); } }}>结束对局</button>
                 ) : null}
@@ -301,7 +302,6 @@ function FocusBar({ room, viewer, onExitFocus, g }: { room: NonNullable<ReturnTy
       {room.timerPaused ? <span className="status-pill timer-pill-paused">⏸ 计时暂停</span> : null}
       <span className="flex-spacer" />
       {viewer?.canResumeTimer ? <button className="primary-button" onClick={g.resumeTimer} style={{ marginRight: 8 }}>▶ 继续</button> : null}
-      {viewer?.canReturnToLobby ? <button onClick={g.returnToLobby} style={{ marginRight: 8 }}>回准备房</button> : null}
       <button onClick={onExitFocus}>退出专注</button>
     </div>
   );
@@ -394,7 +394,7 @@ function PlayerSection({ title, players, selfId, reactionEffects, onReact, colla
   const visiblePlayers = collapsed ? players.slice(0, 2) : players;
   return (
     <div style={{ marginBottom: 8 }}>
-      <button className="chip-button" onClick={onToggleCollapse} style={{ marginBottom: 4 }}>
+      <button className="chip-button section-header-btn" onClick={onToggleCollapse}>
         {title} <span className="soft-chip" style={{ marginLeft: 4 }}>{players.length}</span>
         <span style={{ marginLeft: 4 }}>{collapsed ? "▸" : "▾"}</span>
       </button>
@@ -421,7 +421,7 @@ function ParticipantRow({ participant, label, isSelf, effect, onReact }: {
     <div className={`participant-row ${isSelf ? "participant-self" : ""} ${teamClass} ${effect ? `participant-effect-${effect}` : ""}`}>
       <div className="participant-main">
         <AvatarBadge avatarUrl={participant.profile.avatarUrl} fallback={participant.nickname} size="small" effect={effect} />
-        <div>
+        <div className="participant-info">
           <strong>{participant.nickname}{isSelf ? " · 你" : ""}</strong>
           <p>{label}</p>
         </div>
@@ -434,8 +434,8 @@ function ParticipantRow({ participant, label, isSelf, effect, onReact }: {
         {"isBot" in participant && participant.isBot ? <span className="soft-chip">测试位</span> : null}
         {!isSelf ? (
           <>
-            <button onClick={() => onReact("flower", participant.id, type)} title="送花">💐</button>
-            <button onClick={() => onReact("egg", participant.id, type)} title="丢蛋">🥚</button>
+            <button className="reaction-button" onClick={() => onReact("flower", participant.id, type)} title="送花">💐</button>
+            <button className="reaction-button" onClick={() => onReact("egg", participant.id, type)} title="丢蛋">🥚</button>
           </>
         ) : null}
       </div>

@@ -764,10 +764,32 @@ async function bootstrap(): Promise<void> {
 
     socket.on("leave_room", async (payload) => {
       try {
-        const roomId = requireRoomId(payload);
-        const session = requireSession(socket.id, roomId);
-        const room = await game.leaveRoom(roomId, session.participantId, session.participantType);
-        socketSessions.delete(socket.id);
+        const body = asObject(payload);
+        const roomId = requireString(body, "roomId");
+        const sessionToken = typeof body === "object" && body.sessionToken ? requireString(body, "sessionToken") : undefined;
+
+        let participantId: string;
+        let participantType: ParticipantType;
+
+        const boundSession = socketSessions.get(socket.id);
+        if (boundSession && boundSession.roomId === roomId) {
+          participantId = boundSession.participantId;
+          participantType = boundSession.participantType;
+        } else if (sessionToken) {
+          const storedSession = await store.getPlayerSession(sessionToken);
+          if (!storedSession || storedSession.roomId !== roomId) {
+            throw new Error("会话不存在");
+          }
+          participantId = storedSession.participantId;
+          participantType = storedSession.participantType;
+        } else {
+          throw new Error("会话不存在");
+        }
+
+        const room = await game.leaveRoom(roomId, participantId, participantType);
+        if (boundSession) socketSessions.delete(socket.id);
+        socket.leave(roomId);
+        socket.leave(`member:${participantId}`);
         if (room) {
           await sendRoomState(room.id);
         } else {
