@@ -437,7 +437,81 @@ async function testHiddenRolesAndTargetedReaction(): Promise<void> {
     assert.equal(reactionMessage?.reaction, "flower");
     assert.equal(reactionMessage?.targetParticipantId, spectatorSession.participantId);
     assert.equal(reactionMessage?.targetParticipantType, "spectator");
+
+    sockets.redSpy.emit("force_end_game", { roomId: redSpySession.roomId });
+    const finishedOpView = await waitForRoomState(sockets.redOp, (room) => room.phase === "finished");
+    const finishedSpectatorView = await waitForRoomState(sockets.spectator, (room) => room.phase === "finished");
+    assert.ok(finishedOpView.board.every((card) => card.role));
+    assert.ok(finishedSpectatorView.board.every((card) => card.role));
+    assert.ok(finishedOpView.board.some((card) => card.role === "assassin"));
     console.log("ok hidden_roles_and_targeted_reaction");
+  } finally {
+    Object.values(sockets).forEach((socket) => socket.disconnect());
+  }
+}
+
+async function testRandomizeTeams(): Promise<void> {
+  const sockets = {
+    host: createClient(),
+    p2: createClient(),
+    p3: createClient(),
+    p4: createClient(),
+    spectator: createClient()
+  };
+
+  try {
+    await Promise.all(Object.values(sockets).map(waitForConnect));
+    sockets.host.emit("create_room", { nickname: "RandHost", profile: { accountType: "guest" } });
+    const hostSession = await onceSession(sockets.host);
+    await onceRoomState(sockets.host);
+
+    for (const entry of [
+      { socket: sockets.p2, nickname: "RandP2" },
+      { socket: sockets.p3, nickname: "RandP3" },
+      { socket: sockets.p4, nickname: "RandP4" }
+    ]) {
+      entry.socket.emit("join_room", {
+        roomId: hostSession.roomId,
+        nickname: entry.nickname,
+        profile: { accountType: "guest" }
+      });
+      await onceSession(entry.socket);
+      await onceRoomState(entry.socket);
+    }
+
+    sockets.spectator.emit("join_spectator", {
+      roomId: hostSession.roomId,
+      nickname: "RandWatcher",
+      profile: { accountType: "guest" }
+    });
+    await onceSession(sockets.spectator);
+    await onceRoomState(sockets.spectator);
+
+    const spectatorError = onceError(sockets.spectator);
+    sockets.spectator.emit("randomize_teams", { roomId: hostSession.roomId });
+    assert.match(await spectatorError, /旁观者|鏃佽/);
+
+    const nonHostError = onceError(sockets.p2);
+    sockets.p2.emit("randomize_teams", { roomId: hostSession.roomId });
+    assert.match(await nonHostError, /房主|鎴夸富/);
+
+    sockets.host.emit("randomize_teams", { roomId: hostSession.roomId });
+    const randomized = await waitForRoomState(
+      sockets.host,
+      (room) =>
+        room.players.length === 4 &&
+        room.spectators.length === 1 &&
+        room.players.filter((player) => player.team === "red").length === 2 &&
+        room.players.filter((player) => player.team === "blue").length === 2 &&
+        room.players.filter((player) => player.team === "red" && player.role === "spymaster").length === 1 &&
+        room.players.filter((player) => player.team === "blue" && player.role === "spymaster").length === 1
+    );
+    assert.ok(randomized.players.every((player) => player.team === "red" || player.team === "blue"));
+
+    sockets.host.emit("start_game", { roomId: hostSession.roomId });
+    const playing = await waitForRoomState(sockets.host, (room) => room.phase === "playing");
+    assert.equal(playing.phase, "playing");
+    console.log("ok randomize_teams");
   } finally {
     Object.values(sockets).forEach((socket) => socket.disconnect());
   }
@@ -547,6 +621,7 @@ async function main(): Promise<void> {
   await testReconnect(created.roomId, created.session);
   await testStartRejectionWithTwoPlayers();
   await testInvalidSocketPayload();
+  await testRandomizeTeams();
   await testHiddenRolesAndTargetedReaction();
   await testDebugFillDisabledByDefault();
   await testHostControls();

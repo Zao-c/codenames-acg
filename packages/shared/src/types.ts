@@ -432,6 +432,10 @@ export interface SetRolePayload {
   role: PlayerRole;
 }
 
+export interface RandomizeTeamsPayload {
+  roomId: string;
+}
+
 export interface StartGamePayload {
   roomId: string;
 }

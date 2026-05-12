@@ -13,6 +13,7 @@ import type {
   LeaveRoomPayload,
   ParticipantType,
   PublicRoomState,
+  RandomizeTeamsPayload,
   QueueForNextRoundPayload,
   ReconnectRoomPayload,
   ReturnToLobbyPayload,
@@ -36,6 +37,7 @@ export interface ClientToServerEvents {
   reconnect_room: (payload: ReconnectRoomPayload) => void;
   set_team: (payload: SetTeamPayload) => void;
   set_role: (payload: SetRolePayload) => void;
+  randomize_teams: (payload: RandomizeTeamsPayload) => void;
   update_room_settings: (payload: UpdateRoomSettingsPayload) => void;
   start_game: (payload: StartGamePayload) => void;
   restart_game: (payload: RestartGamePayload) => void;

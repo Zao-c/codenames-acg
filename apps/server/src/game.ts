@@ -694,6 +694,53 @@ export class GameService {
     });
   }
 
+  async randomizeTeams(roomId: string, playerId: string): Promise<Room> {
+    return this.withRoomLock(roomId, async () => {
+    const room = await this.requireRoom(roomId);
+    requireLobby(room);
+    if (room.hostPlayerId !== playerId) {
+      throw new Error("只有房主可以随机分队");
+    }
+    if (room.players.length < MIN_PLAYERS_TO_START) {
+      throw new Error("至少需要 4 名玩家才能随机分队");
+    }
+
+    const shuffledPlayers = shuffle(room.players);
+    const firstTeam: Team = Math.random() >= 0.5 ? "red" : "blue";
+    const secondTeam = nextTeam(firstTeam);
+    const firstTeamSize = Math.ceil(shuffledPlayers.length / 2);
+    const firstTeamPlayers = shuffledPlayers.slice(0, firstTeamSize);
+    const secondTeamPlayers = shuffledPlayers.slice(firstTeamSize);
+
+    if (firstTeamPlayers.length < 2 || secondTeamPlayers.length < 2) {
+      throw new Error("至少需要 4 名玩家才能随机分队");
+    }
+
+    const assignment = new Map<string, { team: Team; role: PlayerRole }>();
+    firstTeamPlayers.forEach((player, index) => {
+      assignment.set(player.id, { team: firstTeam, role: index === 0 ? "spymaster" : "operative" });
+    });
+    secondTeamPlayers.forEach((player, index) => {
+      assignment.set(player.id, { team: secondTeam, role: index === 0 ? "spymaster" : "operative" });
+    });
+
+    const nextPlayers = room.players.map((player) => {
+      const next = assignment.get(player.id);
+      return next ? { ...player, team: next.team, role: next.role } : player;
+    });
+    const nextRoom = withEvent(
+      {
+        ...room,
+        players: nextPlayers
+      },
+      "房主随机分配了红蓝队"
+    );
+    validateStart(nextRoom);
+    await this.store.setRoom(nextRoom);
+    return nextRoom;
+    });
+  }
+
   async updateRoomSettings(
     roomId: string,
     playerId: string,

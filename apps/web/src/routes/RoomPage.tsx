@@ -34,7 +34,7 @@ export function RoomPage() {
   const {
     room, session,
     connectionState, error, focusMode, setFocusMode, enterFocusMode, exitFocusMode,
-    clueWord, setClueWord, clueCount, setClueCount,
+    clueWord, setClueWord, clueCountInput, setClueCountInput,
     chatText, setChatText, copied, sideTab, setSideTab,
     jumpToLatest, chatListRef, handleChatScroll, scrollChatToBottom,
     revealBanner, reactionEffects, pendingGuess, revealingCardIds,
@@ -43,7 +43,7 @@ export function RoomPage() {
     canSeeHiddenRoles, showSpymasterHints, isDebugController,
     viewer, self, boardColumns, isLobby, isFinished,
     renderHint,
-    chooseTeam, chooseRole, updateBoardMode, updateBuiltinPack, updateScoringMode,
+    chooseTeam, chooseRole, randomizeTeams, updateBoardMode, updateBuiltinPack, updateScoringMode,
     uploadRoomPack, useAccountPackForRoom, usePublicPackForRoom,
     startGame, restartGame, returnToLobby, transferHost, disbandRoom, forceEndGame,
     queueForNextRound, cancelQueueJoin, debugFillRoom,
@@ -555,6 +555,7 @@ function LobbySettings({ room, viewer, self, g, accountPacks, publicPacks, makeP
       </div>
       {self && isPlayer(self) && self.isHost ? (
         <div className="toolbar-inline" style={{ marginTop: 8, gap: 8 }}>
+          <button onClick={g.randomizeTeams} disabled={!viewer.canEditRoom}>随机分队</button>
           <button className="primary-button" onClick={g.startGame} disabled={!viewer.canStartGame}>开始游戏</button>
           {viewer.canUseDebugFill ? <button onClick={g.debugFillRoom}>补 3 个测试位</button> : null}
         </div>
@@ -615,7 +616,7 @@ function BoardPanel({ room, viewer, g, cardMarks, markCard }: {
 }
 
 function ActionPanel({ viewer, g }: { viewer: NonNullable<ReturnType<typeof useGame>["viewer"]>; g: ReturnType<typeof useGame> }) {
-  const { clueWord, setClueWord, clueCount, setClueCount, submitClue, renderHint, endTurn, resumeTimer } = g;
+  const { clueWord, setClueWord, clueCountInput, setClueCountInput, submitClue, renderHint, endTurn, resumeTimer } = g;
   return (
     <section className="panel" style={{ marginBottom: 12 }}>
       {viewer.canSubmitClue ? (
@@ -626,9 +627,9 @@ function ActionPanel({ viewer, g }: { viewer: NonNullable<ReturnType<typeof useG
           </label>
           <label className="field count-field">
             <span>数字</span>
-            <input type="number" min={1} max={9} value={clueCount} onChange={(e) => setClueCount(Math.max(1, Math.min(9, Number(e.target.value) || 1)))} />
+            <input inputMode="numeric" pattern="[0-9]*" value={clueCountInput} onChange={(e) => setClueCountInput(e.target.value)} />
           </label>
-          <button className="primary-button" onClick={submitClue} disabled={!clueWord.trim()}>提交提示</button>
+          <button className="primary-button" onClick={submitClue} disabled={!clueWord.trim() || clueCountInput === ""}>提交提示</button>
         </div>
       ) : (
         <p className="hint-text">{renderHint()}</p>

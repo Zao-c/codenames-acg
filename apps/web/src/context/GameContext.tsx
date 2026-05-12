@@ -1,6 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   BOARD_MODE_CONFIG,
+  MAX_CLUE_COUNT,
+  MIN_CLUE_COUNT,
   PLAYER_ROLE_LABELS,
   TEAM_LABELS,
   wordPackSummaries,
@@ -44,8 +46,10 @@ import {
   playNeutralHit,
   playOpponentHit,
   playOwnHit,
+  playClick,
   playSubmitClue,
-  playVictory
+  playVictory,
+  unlockAudio
 } from "../lib/sound";
 
 type ConnectionState = "idle" | "connecting" | "ready";
@@ -297,6 +301,7 @@ export interface GameContextType {
 
   chooseTeam: (team: Team | null) => void;
   chooseRole: (role: "spymaster" | "operative") => void;
+  randomizeTeams: () => void;
   updateBoardMode: (boardMode: BoardMode) => void;
   updateScoringMode: (mode: ScoringMode) => void;
   updateBuiltinPack: (wordPackId: string) => void;
@@ -323,8 +328,8 @@ export interface GameContextType {
 
   clueWord: string;
   setClueWord: (v: string) => void;
-  clueCount: number;
-  setClueCount: (v: number) => void;
+  clueCountInput: string;
+  setClueCountInput: (v: string) => void;
   chatText: string;
   setChatText: (v: string) => void;
   copied: boolean;
@@ -408,7 +413,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState("");
   const [connectionState, setConnectionState] = useState<ConnectionState>("idle");
   const [clueWord, setClueWord] = useState("");
-  const [clueCount, setClueCount] = useState(2);
+  const [clueCountInput, setClueCountInputRaw] = useState("2");
   const [chatText, setChatText] = useState("");
   const [copied, setCopied] = useState(false);
   const [didReconnect, setDidReconnect] = useState(false);
@@ -424,9 +429,19 @@ export function GameProvider({ children }: { children: ReactNode }) {
   });
   const soundEnabledRef = useRef(soundEnabled);
   soundEnabledRef.current = soundEnabled;
+  const setClueCountInput = (value: string) => {
+    if (/^\d*$/.test(value)) {
+      setClueCountInputRaw(value);
+      setError("");
+    }
+  };
   const handleSetSoundEnabled = (v: boolean) => {
     setSoundEnabledRaw(v);
     try { localStorage.setItem("sound", v ? "on" : "off"); } catch {}
+    setError(v ? "音效已开启" : "音效已关闭");
+    if (v) {
+      void unlockAudio().then(() => playClick()).catch((err) => console.warn("Audio unlock failed", err));
+    }
   };
   const [mobileRoomTab, setMobileRoomTab] = useState<"board" | "players" | "chat">("board");
   const [sideTab, setSideTab] = useState<SideTab>("chat");
@@ -471,7 +486,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const isLobby = room?.phase === "lobby";
   const isFinished = room?.phase === "finished";
   const isDebugController = Boolean(window.location.hostname === "localhost" && viewer?.isDebugController);
-  const canSeeHiddenRoles = Boolean(viewer && (viewer.role === "spymaster" || viewer.isDebugController));
+  const canSeeHiddenRoles = Boolean(viewer && (room?.phase === "finished" || viewer.role === "spymaster" || viewer.isDebugController));
   const showSpymasterHints = canSeeHiddenRoles && !maskSpymasterHints;
   const boardColumns = room ? BOARD_MODE_CONFIG[room.settings.boardMode].columns : 5;
 
@@ -752,6 +767,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   // ─── room actions ──────────────────────────────────
   function chooseTeam(team: Team | null) { if (session) socket.emit("set_team", { roomId: session.roomId, team }); }
   function chooseRole(role: "spymaster" | "operative") { if (session) socket.emit("set_role", { roomId: session.roomId, role }); }
+  function randomizeTeams() { if (session) socket.emit("randomize_teams", { roomId: session.roomId }); }
   function updateBoardMode(boardMode: BoardMode) { if (session) socket.emit("update_room_settings", { roomId: session.roomId, boardMode }); }
   function updateScoringMode(mode: ScoringMode) { if (session) socket.emit("update_room_settings", { roomId: session.roomId, scoringMode: mode }); }
   function updateBuiltinPack(wordPackId: string) { if (session) socket.emit("update_room_settings", { roomId: session.roomId, builtinWordPackId: wordPackId }); }
@@ -779,7 +795,17 @@ export function GameProvider({ children }: { children: ReactNode }) {
   function queueForNextRound() { if (session) socket.emit("queue_for_next_round", { roomId: session.roomId }); }
   function cancelQueueJoin() { if (session) socket.emit("cancel_queue_join", { roomId: session.roomId }); }
   function debugFillRoom() { if (session) socket.emit("debug_fill_room", { roomId: session.roomId }); }
-  function submitClue() { if (!session || !clueWord.trim()) return; socket.emit("submit_clue", { roomId: session.roomId, word: clueWord.trim(), count: clueCount }); if (soundEnabled) playSubmitClue(); setClueWord(""); }
+  function submitClue() {
+    if (!session || !clueWord.trim()) return;
+    const count = Number(clueCountInput);
+    if (!Number.isInteger(count) || count < MIN_CLUE_COUNT || count > MAX_CLUE_COUNT) {
+      setError(`提示数量无效，请输入 ${MIN_CLUE_COUNT}-${MAX_CLUE_COUNT} 的整数`);
+      return;
+    }
+    socket.emit("submit_clue", { roomId: session.roomId, word: clueWord.trim(), count });
+    if (soundEnabled) playSubmitClue();
+    setClueWord("");
+  }
   function guessCard(cardId: string) { if (!session || !viewer?.canGuess || guessLockRef.current) return; guessLockRef.current = true; setPendingGuess(cardId); socket.emit("guess_card", { roomId: session.roomId, cardId }); }
   function endTurn() { if (session) { socket.emit("end_turn", { roomId: session.roomId }); if (soundEnabled) playEndTurn(); } }
   function resumeTimerFunc() { if (session) { socket.emit("resume_timer", { roomId: session.roomId }); } }
@@ -788,6 +814,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   function sendReaction(reaction: ChatReaction, targetParticipantId: string, targetParticipantType: ParticipantType) {
     if (!session) return;
     socket.emit("send_reaction", { roomId: session.roomId, reaction, targetParticipantId, targetParticipantType });
+    if (soundEnabledRef.current) playClick();
   }
   function leaveRoom() {
     if (session) socket.emit("leave_room", { roomId: session.roomId, sessionToken: session.sessionToken });
@@ -847,12 +874,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
     candidatePack, setCandidatePack, updateCandidateEntry, bulkSetVisibleEntries, exportCandidateAsPlayable, resetCandidateReview,
     transferHostTargetId, setTransferHostTargetId, hostTransferCandidates,
     roomCode, setRoomCode, isLobby, isFinished, viewer, self, inviteLink, boardColumns,
-    chooseTeam, chooseRole, updateBoardMode, updateScoringMode, updateBuiltinPack,
+    chooseTeam, chooseRole, randomizeTeams, updateBoardMode, updateScoringMode, updateBuiltinPack,
     uploadRoomPack, useAccountPackForRoom, usePublicPackForRoom,
     startGame, restartGame, returnToLobby, transferHost, disbandRoom, forceEndGame,
     queueForNextRound, cancelQueueJoin, debugFillRoom,
     submitClue, guessCard, endTurn, resumeTimer: resumeTimerFunc, sendChatMessage, sendQuickPhrase, sendReaction, copyLink,
-    clueWord, setClueWord, clueCount, setClueCount,
+    clueWord, setClueWord, clueCountInput, setClueCountInput,
     chatText, setChatText, copied, focusMode, setFocusMode,
     enterFocusMode, exitFocusMode,
     soundEnabled, setSoundEnabled: handleSetSoundEnabled,

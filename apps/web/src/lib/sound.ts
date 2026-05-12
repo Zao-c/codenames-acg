@@ -7,18 +7,37 @@ function ctx(): AudioContext {
   return audioCtx;
 }
 
+export async function unlockAudio() {
+  try {
+    const c = ctx();
+    if (c.state === "suspended") {
+      await c.resume();
+    }
+    playTone(660, 0.04, "sine", 0.01);
+  } catch (err) {
+    console.warn("Audio unlock failed", err);
+  }
+}
+
 function playTone(frequency: number, duration: number, type: OscillatorType = "sine", volume = 0.18) {
-  const c = ctx();
-  const osc = c.createOscillator();
-  const gain = c.createGain();
-  osc.type = type;
-  osc.frequency.setValueAtTime(frequency, c.currentTime);
-  gain.gain.setValueAtTime(volume, c.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, c.currentTime + duration);
-  osc.connect(gain);
-  gain.connect(c.destination);
-  osc.start(c.currentTime);
-  osc.stop(c.currentTime + duration);
+  try {
+    const c = ctx();
+    if (c.state === "suspended") {
+      void c.resume().catch((err) => console.warn("Audio resume failed", err));
+    }
+    const osc = c.createOscillator();
+    const gain = c.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(frequency, c.currentTime);
+    gain.gain.setValueAtTime(volume, c.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, c.currentTime + duration);
+    osc.connect(gain);
+    gain.connect(c.destination);
+    osc.start(c.currentTime);
+    osc.stop(c.currentTime + duration);
+  } catch (err) {
+    console.warn("Audio play failed", err);
+  }
 }
 
 function playChord(frequencies: number[], duration: number, type: OscillatorType = "sine", volume = 0.12) {
@@ -54,6 +73,10 @@ export function playAssassinHit() {
 
 export function playSubmitClue() {
   playChord([523, 659, 784], 0.2, "sine", 0.1);
+}
+
+export function playClick() {
+  playTone(720, 0.08, "sine", 0.08);
 }
 
 export function playVictory() {

@@ -525,6 +525,20 @@ async function bootstrap(): Promise<void> {
       }
     });
 
+    socket.on("randomize_teams", async (payload) => {
+      try {
+        const roomId = requireRoomId(payload);
+        const session = requireSession(socket.id, roomId);
+        if (session.participantType !== "player") {
+          throw new Error("旁观者不能随机分队");
+        }
+        const room = await game.randomizeTeams(roomId, session.participantId);
+        await sendRoomState(room.id);
+      } catch (error) {
+        fail(socket, error);
+      }
+    });
+
     socket.on("update_room_settings", async (payload) => {
       try {
         const body = parseUpdateRoomSettingsPayload(payload);
