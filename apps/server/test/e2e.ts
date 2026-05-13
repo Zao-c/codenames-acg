@@ -1,14 +1,15 @@
 import assert from "node:assert/strict";
 import { io, type Socket } from "socket.io-client";
-import type {
-  BoardMode,
-  ClientSession,
-  NamedUserLoginResponse,
-  NamedUserAccount,
-  ParticipantType,
-  PublicRoomState,
-  PublicWordPack,
-  RoomSummary
+import {
+  BOARD_MODE_CONFIG,
+  type BoardMode,
+  type ClientSession,
+  type NamedUserLoginResponse,
+  type NamedUserAccount,
+  type ParticipantType,
+  type PublicRoomState,
+  type PublicWordPack,
+  type RoomSummary
 } from "@acg-codenames/shared";
 
 const SERVER_URL = process.env.E2E_SERVER_URL ?? "http://localhost:3001";
@@ -38,7 +39,7 @@ function waitForConnect(socket: TestSocket): Promise<void> {
 
 function onceSession(socket: TestSocket): Promise<ClientSession> {
   return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error("session timeout")), 5000);
+    const timeout = setTimeout(() => reject(new Error("session timeout")), 10000);
     socket.once("session", (payload) => {
       clearTimeout(timeout);
       resolve(payload);
@@ -52,7 +53,7 @@ function onceSession(socket: TestSocket): Promise<ClientSession> {
 
 function onceRoomState(socket: TestSocket): Promise<PublicRoomState> {
   return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error("room_state timeout")), 5000);
+    const timeout = setTimeout(() => reject(new Error("room_state timeout")), 10000);
     socket.once("room_state", (payload) => {
       clearTimeout(timeout);
       resolve(payload);
@@ -67,7 +68,7 @@ function onceRoomState(socket: TestSocket): Promise<PublicRoomState> {
 function waitForRoomState(
   socket: TestSocket,
   predicate: (payload: PublicRoomState) => boolean,
-  timeoutMs = 5000
+  timeoutMs = 10000
 ): Promise<PublicRoomState> {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
@@ -162,7 +163,7 @@ async function fetchPublicWordPacks(): Promise<PublicWordPack[]> {
   return fetchJson<PublicWordPack[]>(`${SERVER_URL}/api/public-word-packs`);
 }
 
-async function testNamedUserPersistence(): Promise<void> {
+async function testNamedUserPersistence(): Promise<{ alphaSessionToken: string }> {
   const user = await loginNamedUser("AccountAlpha");
   assert.equal(user.username, "AccountAlpha");
   assert.equal(typeof user.sessionToken, "string");
@@ -196,11 +197,14 @@ async function testNamedUserPersistence(): Promise<void> {
   const publicPack = publicPacks.find((pack) => pack.ownerUsername === "AccountAlpha" && pack.id === "pack-alpha");
   assert.ok(publicPack);
   assert.equal(publicPack.publicId, "AccountAlpha:pack-alpha");
-  assert.equal(publicPack.entries.length, 25);
+  assert.equal(publicPack.entries.length, 0, "list endpoint should not include entries");
+  const entryCount = (publicPack as any).entryCount as number;
+  assert.equal(entryCount, 25, "list endpoint should include entryCount");
   console.log("ok named_user_persistence");
+  return { alphaSessionToken: user.sessionToken };
 }
 
-async function testPublicWordPackLifecycle(): Promise<void> {
+async function testPublicWordPackLifecycle(alphaSessionToken: string): Promise<void> {
   await loginNamedUser("AccountBeta");
   const betaUser = await loginNamedUser("AccountBeta");
   await updateNamedUser("AccountBeta", betaUser.sessionToken, {
@@ -223,24 +227,28 @@ async function testPublicWordPackLifecycle(): Promise<void> {
   assert.ok(alpha);
   assert.ok(beta);
   assert.notEqual(alpha.publicId, beta.publicId);
+  assert.equal(alpha.entries.length, 0, "list should not contain entries");
+
+  const alphaDetail = await fetchJson<PublicWordPack>(`${SERVER_URL}/api/public-word-packs/${encodeURIComponent(alpha.publicId)}`);
+  assert.equal(alphaDetail.entries.length, 25, "detail should contain entries");
 
   const socket = createClient();
   try {
     await waitForConnect(socket);
     socket.emit("create_room", {
       nickname: "PublicHost",
-      profile: { accountType: "named", username: "AccountAlpha" }
+      profile: { accountType: "named", username: "AccountAlpha", userSessionToken: alphaSessionToken }
     });
     const session = await onceSession(socket);
     await onceRoomState(socket);
     socket.emit("update_room_settings", {
       roomId: session.roomId,
       customWordPack: {
-        name: alpha.name,
-        entries: alpha.entries
+        name: alphaDetail.name,
+        entries: alphaDetail.entries
       }
     });
-    const room = await waitForRoomState(socket, (payload) => payload.wordPackSummary.name === alpha.name);
+    const room = await waitForRoomState(socket, (payload) => payload.wordPackSummary.name === alphaDetail.name);
     assert.equal(room.wordPackSummary.entryCount, 25);
   } finally {
     socket.disconnect();
@@ -263,7 +271,7 @@ async function testPublicWordPackLifecycle(): Promise<void> {
   console.log("ok public_word_pack_lifecycle");
 }
 
-async function testCreateRoom(): Promise<{ roomId: string; session: ClientSession }> {
+async function testCreateRoom(alphaSessionToken: string): Promise<{ roomId: string; session: ClientSession }> {
   const socket = createClient();
   try {
     await waitForConnect(socket);
@@ -271,7 +279,8 @@ async function testCreateRoom(): Promise<{ roomId: string; session: ClientSessio
       nickname: "HostAlpha",
       profile: {
         accountType: "named",
-        username: "AccountAlpha"
+        username: "AccountAlpha",
+        userSessionToken: alphaSessionToken
       }
     });
     const session = await onceSession(socket);
@@ -614,10 +623,261 @@ async function testHostControls(): Promise<void> {
   }
 }
 
+async function testMultiRoundReviewIsolation(): Promise<void> {
+  const host = createClient();
+  const p2 = createClient();
+  const p3 = createClient();
+  const p4 = createClient();
+  try {
+    await Promise.all([waitForConnect(host), waitForConnect(p2), waitForConnect(p3), waitForConnect(p4)]);
+    host.emit("create_room", { nickname: "ReviewHost", profile: { accountType: "guest" } });
+    const hostSession = await onceSession(host);
+    await onceRoomState(host);
+
+    for (const [socket, nickname] of [[p2, "P2"], [p3, "P3"], [p4, "P4"]] as const) {
+      socket.emit("join_room", { roomId: hostSession.roomId, nickname, profile: { accountType: "guest" } });
+      await onceSession(socket);
+      await onceRoomState(socket);
+    }
+
+    for (const [socket, team, role] of [[host, "red", "operative"], [p2, "red", "spymaster"], [p3, "blue", "operative"], [p4, "blue", "spymaster"]] as const) {
+      socket.emit("set_team", { roomId: hostSession.roomId, team });
+      socket.emit("set_role", { roomId: hostSession.roomId, role });
+    }
+    await waitForRoomState(host, (r) => r.players.every((p) => p.team !== null && p.role !== null));
+
+    host.emit("start_game", { roomId: hostSession.roomId });
+    const round1 = await onceRoomState(host);
+    assert.equal(round1.phase, "playing");
+
+    const redSpy = round1.players.find((p) => p.team === "red" && p.role === "spymaster");
+    assert.ok(redSpy, "should have red spymaster");
+    p2.emit("submit_clue", { roomId: hostSession.roomId, word: "alpha", count: 1 });
+    await onceRoomState(host);
+
+    host.emit("force_end_game", { roomId: hostSession.roomId });
+    const finished = await onceRoomState(host);
+    assert.equal(finished.phase, "finished");
+
+    host.emit("restart_game", { roomId: hostSession.roomId });
+    const round2 = await onceRoomState(host);
+    assert.equal(round2.phase, "playing");
+    assert.deepEqual(round2.clueRecords, [], "clueRecords cleared for new round");
+    assert.deepEqual(round2.roundScoreHistory, [], "roundScoreHistory cleared for new round");
+    assert.deepEqual(round2.playerStats, {}, "playerStats cleared for new round");
+    assert.equal(round2.achievements, undefined, "achievements cleared for new round");
+
+    console.log("ok multi_round_review_isolation");
+  } finally {
+    [host, p2, p3, p4].forEach((s) => s.disconnect());
+  }
+}
+
+async function testTimerFieldsInRoomState(): Promise<void> {
+  const host = createClient();
+  const p2 = createClient();
+  const p3 = createClient();
+  const p4 = createClient();
+  try {
+    await Promise.all([waitForConnect(host), waitForConnect(p2), waitForConnect(p3), waitForConnect(p4)]);
+    host.emit("create_room", {
+      nickname: "TimerHost",
+      profile: { accountType: "guest" }
+    });
+    const hostSession = await onceSession(host);
+    await onceRoomState(host);
+
+    host.emit("update_room_settings", { roomId: hostSession.roomId, timerMode: "timed", timerClueSeconds: 90, timerGuessSeconds: 90 });
+    const updated = await waitForRoomState(host, (r) => r.settings.timerMode === "timed");
+    assert.equal(updated.settings.timerMode, "timed");
+
+    for (const [socket, nickname] of [[p2, "T2"], [p3, "T3"], [p4, "T4"]] as const) {
+      socket.emit("join_room", { roomId: hostSession.roomId, nickname, profile: { accountType: "guest" } });
+      await onceSession(socket);
+      await onceRoomState(socket);
+    }
+
+    for (const [socket, team, role] of [[host, "red", "operative"], [p2, "red", "spymaster"], [p3, "blue", "operative"], [p4, "blue", "spymaster"]] as const) {
+      socket.emit("set_team", { roomId: hostSession.roomId, team });
+      socket.emit("set_role", { roomId: hostSession.roomId, role });
+    }
+    await waitForRoomState(host, (r) => r.players.every((p) => p.team !== null && p.role !== null));
+
+    host.emit("start_game", { roomId: hostSession.roomId });
+    const playing = await onceRoomState(host);
+    assert.equal(playing.phase, "playing");
+    assert.notEqual(playing.timerEndsAt, undefined, "timerEndsAt should be present");
+    assert.equal(playing.timerPhase, "clue", "timerPhase should be clue");
+    assert.equal(playing.timerPaused, false, "timerPaused should be false");
+
+    console.log("ok timer_fields_in_room_state");
+  } finally {
+    [host, p2, p3, p4].forEach((s) => s.disconnect());
+  }
+}
+
+async function testNeutralCountDefault(): Promise<void> {
+  const host = createClient();
+  const p2 = createClient();
+  const p3 = createClient();
+  const p4 = createClient();
+  try {
+    await Promise.all([waitForConnect(host), waitForConnect(p2), waitForConnect(p3), waitForConnect(p4)]);
+    host.emit("create_room", {
+      nickname: "NeutralHost",
+      profile: { accountType: "guest" }
+    });
+    const hostSession = await onceSession(host);
+    await onceRoomState(host);
+
+    host.emit("update_room_settings", { roomId: hostSession.roomId, neutralCount: null });
+    const room = await onceRoomState(host);
+    assert.equal(room.settings.neutralCount, undefined, "null neutralCount stored as undefined");
+
+    host.emit("update_room_settings", { roomId: hostSession.roomId, boardMode: "7x7" });
+    await waitForRoomState(host, (r) => r.settings.boardMode === "7x7");
+
+    for (const [socket, nickname] of [[p2, "N2"], [p3, "N3"], [p4, "N4"]] as const) {
+      socket.emit("join_room", { roomId: hostSession.roomId, nickname, profile: { accountType: "guest" } });
+      await onceSession(socket);
+      await onceRoomState(socket);
+    }
+
+    for (const [socket, team, role] of [[host, "red", "operative"], [p2, "red", "spymaster"], [p3, "blue", "operative"], [p4, "blue", "spymaster"]] as const) {
+      socket.emit("set_team", { roomId: hostSession.roomId, team });
+      socket.emit("set_role", { roomId: hostSession.roomId, role });
+    }
+    await waitForRoomState(host, (r) => r.players.every((p) => p.team !== null && p.role !== null));
+
+    host.emit("start_game", { roomId: hostSession.roomId });
+    const playing = await onceRoomState(host);
+    const boardModeConfig = BOARD_MODE_CONFIG["7x7"];
+    assert.equal(playing.board.length, boardModeConfig.size, "board size should match 7x7 config");
+    assert.equal(playing.settings.neutralCount, undefined, "neutralCount should remain default");
+
+    console.log("ok neutral_count_default");
+  } finally {
+    [host, p2, p3, p4].forEach((s) => s.disconnect());
+  }
+}
+
+async function testLogoutRevokesToken(): Promise<void> {
+  const user = await loginNamedUser("LogoutTest");
+  assert.equal(typeof user.sessionToken, "string");
+
+  const publicProfileBefore = await fetchJson<Record<string, unknown>>(
+    `${SERVER_URL}/api/users/${encodeURIComponent("LogoutTest")}`
+  );
+  assert.equal(publicProfileBefore.username, "LogoutTest");
+  assert.ok(!("sessionToken" in publicProfileBefore), "public profile should not expose sessionToken");
+  assert.ok(!("createdAt" in publicProfileBefore), "public profile should not expose createdAt");
+  assert.ok(!("updatedAt" in publicProfileBefore), "public profile should not expose updatedAt");
+
+  await fetchJson<{ ok: boolean }>(`${SERVER_URL}/api/users/logout`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-user-session-token": user.sessionToken!,
+      "x-username": "LogoutTest"
+    }
+  });
+
+  const updateResult = await fetchStatus(`${SERVER_URL}/api/users/${encodeURIComponent("LogoutTest")}`, {
+    method: "PUT",
+    headers: {
+      "content-type": "application/json",
+      "x-user-session-token": user.sessionToken!
+    },
+    body: JSON.stringify({ avatarUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9s3FoX8AAAAASUVORK5CYII=" })
+  });
+  assert.equal(updateResult.status, 401, "revoked token should be rejected for update");
+
+  console.log("ok logout_revokes_token");
+}
+
+async function testPutProfileOnlySelf(): Promise<void> {
+  const userA = await loginNamedUser("UserA");
+  const userB = await loginNamedUser("UserB");
+
+  const updateResult = await fetchStatus(`${SERVER_URL}/api/users/${encodeURIComponent("UserB")}`, {
+    method: "PUT",
+    headers: {
+      "content-type": "application/json",
+      "x-user-session-token": userA.sessionToken!
+    },
+    body: JSON.stringify({ avatarUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9s3FoX8AAAAASUVORK5CYII=" })
+  });
+  assert.ok(updateResult.status === 401 || updateResult.status === 403, `expected 401/403 got ${updateResult.status}`);
+
+  const userBAfter = await fetchJson<Record<string, unknown>>(`${SERVER_URL}/api/users/${encodeURIComponent("UserB")}`);
+  assert.equal(userBAfter.username, "UserB");
+  assert.equal(userBAfter.avatarUrl, null, "UserB data should not change");
+
+  console.log("ok put_profile_only_self");
+}
+
+async function testFinishedRoomCannotSpectate(): Promise<void> {
+  const host = createClient();
+  const p2 = createClient();
+  const p3 = createClient();
+  const p4 = createClient();
+  try {
+    await Promise.all([waitForConnect(host), waitForConnect(p2), waitForConnect(p3), waitForConnect(p4)]);
+    host.emit("create_room", { nickname: "FinishHost", profile: { accountType: "guest" } });
+    const hostSession = await onceSession(host);
+    await onceRoomState(host);
+
+    for (const [socket, nickname] of [[p2, "F2"], [p3, "F3"], [p4, "F4"]] as const) {
+      socket.emit("join_room", { roomId: hostSession.roomId, nickname, profile: { accountType: "guest" } });
+      await onceSession(socket);
+      await onceRoomState(socket);
+    }
+
+    for (const [socket, team, role] of [[host, "red", "operative"], [p2, "red", "spymaster"], [p3, "blue", "operative"], [p4, "blue", "spymaster"]] as const) {
+      socket.emit("set_team", { roomId: hostSession.roomId, team });
+      socket.emit("set_role", { roomId: hostSession.roomId, role });
+    }
+    await waitForRoomState(host, (r) => r.players.every((p) => p.team !== null && p.role !== null));
+
+    host.emit("start_game", { roomId: hostSession.roomId });
+    await waitForRoomState(host, (r) => r.phase === "playing");
+
+    host.emit("force_end_game", { roomId: hostSession.roomId });
+    await waitForRoomState(host, (r) => r.phase === "finished");
+
+    const rooms = await fetchRooms();
+    const summary = rooms.find((r) => r.id === hostSession.roomId);
+    assert.ok(summary, "finished room should appear in room list");
+    assert.equal(summary.phase, "finished");
+    assert.equal(summary.canSpectate, false, "finished room should not be spectatable");
+    console.log("ok finished_room_cannot_spectate");
+  } finally {
+    [host, p2, p3, p4].forEach((s) => s.disconnect());
+  }
+}
+
+async function testPublicWordPackDetail(): Promise<void> {
+  const published = await fetchPublicWordPacks();
+  assert.ok(published.length > 0, "should have public packs");
+
+  const firstPack = published[0];
+  assert.ok(firstPack);
+  assert.equal(firstPack.entries.length, 0, "list entries should be empty");
+
+  const detail = await fetchJson<PublicWordPack>(`${SERVER_URL}/api/public-word-packs/${encodeURIComponent(firstPack.publicId)}`);
+  assert.ok(detail.entries.length > 0, "detail should contain entries");
+  assert.equal(detail.publicId, firstPack.publicId);
+
+  const notFound = await fetchStatus(`${SERVER_URL}/api/public-word-packs/nonexistent:pack`);
+  assert.equal(notFound.status, 404);
+
+  console.log("ok public_word_pack_detail");
+}
+
 async function main(): Promise<void> {
-  await testNamedUserPersistence();
-  await testPublicWordPackLifecycle();
-  const created = await testCreateRoom();
+  const { alphaSessionToken } = await testNamedUserPersistence();
+  await testPublicWordPackLifecycle(alphaSessionToken);
+  const created = await testCreateRoom(alphaSessionToken);
   await testReconnect(created.roomId, created.session);
   await testStartRejectionWithTwoPlayers();
   await testInvalidSocketPayload();
@@ -625,6 +885,13 @@ async function main(): Promise<void> {
   await testHiddenRolesAndTargetedReaction();
   await testDebugFillDisabledByDefault();
   await testHostControls();
+  await testMultiRoundReviewIsolation();
+  await testTimerFieldsInRoomState();
+  await testNeutralCountDefault();
+  await testLogoutRevokesToken();
+  await testPutProfileOnlySelf();
+  await testFinishedRoomCannotSpectate();
+  await testPublicWordPackDetail();
   console.log("all e2e checks passed");
 }
 

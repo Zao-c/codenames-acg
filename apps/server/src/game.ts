@@ -265,10 +265,6 @@ function updateScores(scores: Room["scores"], winner: Team | null): Room["scores
   };
 }
 
-function hasNicknameConflict(room: Room, nickname: string, ignoreId?: string): boolean {
-  return [...room.players, ...room.spectators].some((entry) => entry.id !== ignoreId && entry.nickname === nickname);
-}
-
 function promoteQueuedSpectators(room: Room): {
   players: Player[];
   spectators: Spectator[];
@@ -458,7 +454,7 @@ function computeAchievements(room: Room): Achievement[] {
 
   const reckless = stats.reduce((a, b) => b.extraGuesses > a.extraGuesses ? b : a, stats[0]);
   if (reckless.extraGuesses > 0) {
-    results.push({ id: "reckless", title: "主角光环持有者", playerId: reckless.playerId, nickname: reckless.nickname, description: `提示之外还多猜了 ${reckless.extraGuesses} 张`, tier: "funny" });
+    results.push({ id: "reckless", title: "莽就完事了", playerId: reckless.playerId, nickname: reckless.nickname, description: `提示之外还多猜了 ${reckless.extraGuesses} 张`, tier: "funny" });
   }
 
   const cautious = stats.reduce((a, b) => b.endedTurnEarly > a.endedTurnEarly ? b : a, stats[0]);
@@ -472,6 +468,19 @@ function computeAchievements(room: Room): Achievement[] {
   }
 
   return results.slice(0, 7);
+}
+
+function resetPerGameReviewState(room: Room): Room {
+  return {
+    ...room,
+    clueRecords: [],
+    roundScoreHistory: [],
+    playerStats: {},
+    achievements: undefined,
+    currentRoundScore: undefined,
+    comboStreaks: undefined,
+    lastReveal: null
+  };
 }
 
 function finalizeAchievements(room: Room): Room {
@@ -565,13 +574,31 @@ export class GameService {
     const existing = [...room.players, ...room.spectators].find(
       (entry) => entry.nickname === cleanNickname
     );
-    if (existing && "connected" in existing && !existing.connected) {
-      if ("team" in existing) {
-        room.players = room.players.filter((p) => p.id !== existing.id);
-      } else {
+    if (existing) {
+      if ("connected" in existing && !existing.connected) {
+        if ("team" in existing) {
+          existing.connected = true;
+          existing.sessionToken = crypto.randomUUID();
+          const nextRoom = withEvent(room, `${existing.nickname} 已重连`);
+          await this.store.setRoom(nextRoom);
+          await this.store.setPlayerSession(existing.sessionToken!, createSession(nextRoom.id, existing.id, "player"));
+          return { room: nextRoom, player: existing };
+        }
+
         room.spectators = room.spectators.filter((s) => s.id !== existing.id);
+        if (room.players.length >= MAX_PLAYERS) {
+          room.spectators.push(existing);
+          throw new Error("房间已满");
+        }
+        const convertedPlayer = createPlayerFromSpectator(existing);
+        if (room.hostPlayerId === existing.id) {
+          convertedPlayer.isHost = true;
+        }
+        const nextRoom = withEvent({ ...room, players: [...room.players, convertedPlayer] }, `${convertedPlayer.nickname} 加入了结社 (｡･∀･)ﾉﾞ`);
+        await this.store.setRoom(nextRoom);
+        await this.store.setPlayerSession(convertedPlayer.sessionToken!, createSession(nextRoom.id, convertedPlayer.id, "player"));
+        return { room: nextRoom, player: convertedPlayer };
       }
-    } else if (hasNicknameConflict(room, cleanNickname)) {
       throw new Error("昵称已被占用");
     }
 
@@ -600,14 +627,29 @@ export class GameService {
     const existing = [...room.players, ...room.spectators].find(
       (entry) => entry.nickname === cleanNickname
     );
-    if (existing && "connected" in existing && !existing.connected) {
-      if ("team" in existing) {
-        room.players = room.players.filter((p) => p.id !== existing.id);
+    if (existing) {
+      if ("connected" in existing && !existing.connected) {
+        if ("team" in existing) {
+          const wasHost = room.hostPlayerId === existing.id;
+          room.players = room.players.filter((p) => p.id !== existing.id);
+          if (wasHost) {
+            const nextHostId = room.players.find((p) => !p.isBot)?.id ?? room.players[0]?.id;
+            if (nextHostId) {
+              room.hostPlayerId = nextHostId;
+              room.players = room.players.map((p) => p.id === nextHostId ? { ...p, isHost: true } : p);
+            }
+          }
+        } else {
+          existing.connected = true;
+          existing.sessionToken = crypto.randomUUID();
+          const nextRoom = withEvent(room, `${existing.nickname} 已重连`);
+          await this.store.setRoom(nextRoom);
+          await this.store.setPlayerSession(existing.sessionToken!, createSession(nextRoom.id, existing.id, "spectator"));
+          return { room: nextRoom, spectator: existing };
+        }
       } else {
-        room.spectators = room.spectators.filter((s) => s.id !== existing.id);
+        throw new Error("昵称已被占用");
       }
-    } else if (hasNicknameConflict(room, cleanNickname)) {
-      throw new Error("昵称已被占用");
     }
 
     const spectator = await buildSpectator(cleanNickname, await this.users.resolveProfile(profile, sessionToken));
@@ -849,9 +891,10 @@ export class GameService {
       ? now() + getTimerDuration(room, "clue") * 1000
       : undefined;
 
+    const resetRoom = resetPerGameReviewState(room);
     const nextRoom = withEvent(
       {
-        ...room,
+        ...resetRoom,
         phase: "playing",
         board,
         currentTeam: startingTeam,
@@ -957,9 +1000,10 @@ export class GameService {
     const nextUsedWordIds = [...(room.usedWordIds ?? []), ...board.map((c) => c.wordId)];
     const timerMode: import("@acg-codenames/shared").TimerMode = room.settings.timerMode ?? "unlimited";
     const timerEndsAt = timerMode === "timed" ? now() + getTimerDuration(room, "clue") * 1000 : undefined;
+    const resetRoom = resetPerGameReviewState(room);
     const nextRoom = withEvent(
       {
-        ...room,
+        ...resetRoom,
         phase: "playing",
         board,
         currentTeam: startingTeam,

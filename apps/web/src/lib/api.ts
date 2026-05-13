@@ -5,20 +5,23 @@ const API_BASE = import.meta.env.VITE_SERVER_URL || "";
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
-  const response = await fetch(`${API_BASE}${path}`, {
-    headers: {
-      "content-type": "application/json"
-    },
-    signal: controller.signal,
-    ...init
-  });
-  clearTimeout(timeout);
+  try {
+    const response = await fetch(`${API_BASE}${path}`, {
+      headers: {
+        "content-type": "application/json"
+      },
+      signal: controller.signal,
+      ...init
+    });
 
-  const payload = (await response.json().catch(() => ({}))) as { message?: string };
-  if (!response.ok) {
-    throw new Error(payload.message ?? `${response.status} ${response.statusText}`);
+    const payload = (await response.json().catch(() => ({}))) as { message?: string };
+    if (!response.ok) {
+      throw new Error(payload.message ?? `${response.status} ${response.statusText}`);
+    }
+    return payload as T;
+  } finally {
+    clearTimeout(timeout);
   }
-  return payload as T;
 }
 
 export function loginNamedUser(payload: UsernameLoginPayload): Promise<NamedUserLoginResponse> {
@@ -41,4 +44,19 @@ export function updateNamedUser(username: string, sessionToken: string, payload:
 
 export function listPublicWordPacks(): Promise<PublicWordPack[]> {
   return request<PublicWordPack[]>("/api/public-word-packs");
+}
+
+export function getPublicWordPackDetail(publicId: string): Promise<PublicWordPack> {
+  return request<PublicWordPack>(`/api/public-word-packs/${encodeURIComponent(publicId)}`);
+}
+
+export function logoutNamedUser(username: string, sessionToken: string): Promise<{ ok: boolean }> {
+  return request<{ ok: boolean }>("/api/users/logout", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-user-session-token": sessionToken,
+      "x-username": username
+    }
+  });
 }

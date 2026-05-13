@@ -27,7 +27,17 @@ export function AppNav() {
     if (focusMode) return null;
     return (
       <nav className="app-nav app-nav-room">
-        <div className="nav-brand" onClick={() => navigate("/")} role="button" tabIndex={0}>
+        <div
+          className="nav-brand"
+          onClick={() => {
+            if (room && window.confirm("离开房间并返回大厅？")) {
+              leaveRoom();
+              navigate("/");
+            }
+          }}
+          role="button"
+          tabIndex={0}
+        >
           ✦ 词牌结社
         </div>
         <div className="nav-links">

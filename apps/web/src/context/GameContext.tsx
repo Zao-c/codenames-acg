@@ -28,7 +28,7 @@ import {
   type SavedWordPack,
   type Team
 } from "@acg-codenames/shared";
-import { listPublicWordPacks, loginNamedUser, updateNamedUser } from "../lib/api";
+import { listPublicWordPacks, getPublicWordPackDetail, loginNamedUser, logoutNamedUser as apiLogoutNamedUser, updateNamedUser } from "../lib/api";
 import { getSocket } from "../lib/socket";
 import { clearIdentity, clearSession, loadIdentity, loadRecentUsernames, loadSession, saveIdentity, saveSession, type LocalIdentity } from "../lib/storage";
 import {
@@ -49,6 +49,7 @@ import {
   playClick,
   playSubmitClue,
   playVictory,
+  setSoundMuted,
   unlockAudio
 } from "../lib/sound";
 
@@ -270,6 +271,7 @@ export interface GameContextType {
   leaveRoom: () => void;
   logoutNamedUser: () => void;
   refreshPublicPacks: () => Promise<void>;
+  fetchPublicPackDetail: (publicId: string) => Promise<PublicWordPack | null>;
   addAccountPack: () => Promise<void>;
   importAccountPack: (file: File | null) => Promise<void>;
   removeAccountPack: (packId: string) => Promise<void>;
@@ -439,8 +441,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setSoundEnabledRaw(v);
     try { localStorage.setItem("sound", v ? "on" : "off"); } catch {}
     setError(v ? "音效已开启" : "音效已关闭");
+    setSoundMuted(!v);
     if (v) {
-      void unlockAudio().then(() => playClick()).catch((err) => console.warn("Audio unlock failed", err));
+      unlockAudio().then(() => playClick()).catch((err: unknown) => console.warn("Audio unlock failed", err));
     }
   };
   const [mobileRoomTab, setMobileRoomTab] = useState<"board" | "players" | "chat">("board");
@@ -462,6 +465,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const lastReactionIdRef = useRef<string | null>(null);
   const stickToChatBottomRef = useRef(true);
   const stickToBattleBottomRef = useRef(true);
+  const prevCanSubmitClueRef = useRef(false);
   const pendingCreateConfigRef = useRef<{
     boardMode: BoardMode;
     builtinWordPackId?: string;
@@ -610,6 +614,20 @@ export function GameProvider({ children }: { children: ReactNode }) {
     document.addEventListener("visibilitychange", handler); return () => document.removeEventListener("visibilitychange", handler);
   }, [session, socket]);
 
+  useEffect(() => {
+    const canSubmit = viewer?.canSubmitClue === true;
+    const prevCanSubmit = prevCanSubmitClueRef.current;
+    prevCanSubmitClueRef.current = canSubmit;
+    if (canSubmit && !prevCanSubmit) {
+      setClueWord("");
+      setClueCountInput("2");
+    }
+  }, [viewer?.canSubmitClue]);
+
+  useEffect(() => {
+    setSoundMuted(!soundEnabled);
+  }, []);
+
   // ─── named user loading ───────────────────────────
   useEffect(() => {
     if (!identity || identity.mode !== "named") { setNamedAccount(null); return; }
@@ -656,6 +674,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
       const packs = await listPublicWordPacks(); setPublicPacks(packs);
       setSelectedPublicPackId((cur) => cur && packs.some((p) => makePublicPackKey(p) === cur) ? cur : "");
     } catch (e) { setError(e instanceof Error ? e.message : "公开档案库加载失败"); }
+  }
+
+  async function fetchPublicPackDetail(publicId: string): Promise<PublicWordPack | null> {
+    try {
+      const pack = await getPublicWordPackDetail(publicId);
+      setPublicPacks((prev) => prev.map((p) => makePublicPackKey(p) === publicId ? pack : p));
+      return pack;
+    } catch (e) { setError(e instanceof Error ? e.message : "加载题库详情失败"); return null; }
   }
 
   async function saveAccountPacksInternal(nextPacks: SavedWordPack[]) {
@@ -733,6 +759,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   function createRoom() {
     const ji = buildJoinProfile(); if (!ji) return;
+    if (packSource === "public" && selectedPublicPack && selectedPublicPack.entries.length === 0) {
+      setError("正在加载题库详情...");
+      fetchPublicPackDetail(selectedPublicPack.publicId).then((pack) => { if (pack) createRoom(); });
+      return;
+    }
     clearSession(); setSession(null); setRoom(null); activeRoomIdRef.current = null;
     const pending: { boardMode: BoardMode; builtinWordPackId?: string; customWordPack?: { name: string; entries: string[] }; scoringMode?: ScoringMode; timerMode?: import("@acg-codenames/shared").TimerMode; timerClueSeconds?: number; timerGuessSeconds?: number; neutralCount?: number | null; flipMode?: import("@acg-codenames/shared").FlipMode } = { boardMode: createBoardMode, scoringMode, timerMode: createTimerMode, timerClueSeconds: createTimerClueSeconds, timerGuessSeconds: createTimerGuessSeconds, neutralCount: createNeutralCount === 0 ? null : createNeutralCount, flipMode: createFlipMode }; 
     if (packSource === "builtin") pending.builtinWordPackId = selectedBuiltinPackId;
@@ -780,7 +811,15 @@ export function GameProvider({ children }: { children: ReactNode }) {
     } catch (e) { setError(e instanceof Error ? e.message : "上传房间题库失败"); }
   }
   function useAccountPackForRoom(pack: SavedWordPack) { if (session) socket.emit("update_room_settings", { roomId: session.roomId, customWordPack: { name: pack.name, entries: pack.entries } }); }
-  function usePublicPackForRoom(pack: PublicWordPack) { if (session) socket.emit("update_room_settings", { roomId: session.roomId, customWordPack: { name: pack.name, entries: pack.entries } }); }
+  function usePublicPackForRoom(pack: PublicWordPack) {
+    if (!session) return;
+    if (pack.entries.length === 0) {
+      setError("正在加载题库详情...");
+      fetchPublicPackDetail(pack.publicId).then((fullPack) => { if (fullPack) usePublicPackForRoom(fullPack); });
+      return;
+    }
+    socket.emit("update_room_settings", { roomId: session.roomId, customWordPack: { name: pack.name, entries: pack.entries } });
+  }
   function startGame() { if (session) socket.emit("start_game", { roomId: session.roomId }); }
   function restartGame() { if (session) socket.emit("restart_game", { roomId: session.roomId }); }
   function returnToLobby() { if (session && window.confirm("确定要结束当前对局并回到准备阶段吗？")) socket.emit("return_to_lobby", { roomId: session.roomId }); }
@@ -805,12 +844,29 @@ export function GameProvider({ children }: { children: ReactNode }) {
     socket.emit("submit_clue", { roomId: session.roomId, word: clueWord.trim(), count });
     if (soundEnabled) playSubmitClue();
     setClueWord("");
+    setClueCountInput("2");
   }
   function guessCard(cardId: string) { if (!session || !viewer?.canGuess || guessLockRef.current) return; guessLockRef.current = true; setPendingGuess(cardId); socket.emit("guess_card", { roomId: session.roomId, cardId }); }
   function endTurn() { if (session) { socket.emit("end_turn", { roomId: session.roomId }); if (soundEnabled) playEndTurn(); } }
   function resumeTimerFunc() { if (session) { socket.emit("resume_timer", { roomId: session.roomId }); } }
-  function sendChatMessage() { if (!session || !chatText.trim()) return; socket.emit("send_chat_message", { roomId: session.roomId, text: chatText.trim() }); setChatText(""); }
-  function sendQuickPhrase(text: string) { if (session) socket.emit("send_chat_message", { roomId: session.roomId, text }); }
+  const chatSendLockRef = useRef(false);
+  const lastQuickPhraseRef = useRef({ text: "", time: 0 });
+  function sendChatMessage() {
+    if (!session || !chatText.trim() || chatSendLockRef.current) return;
+    chatSendLockRef.current = true;
+    socket.emit("send_chat_message", { roomId: session.roomId, text: chatText.trim() });
+    setChatText("");
+    window.setTimeout(() => { chatSendLockRef.current = false; }, 500);
+  }
+  function sendQuickPhrase(text: string) {
+    if (!session || chatSendLockRef.current) return;
+    const now = Date.now();
+    if (text === lastQuickPhraseRef.current.text && now - lastQuickPhraseRef.current.time < 500) return;
+    lastQuickPhraseRef.current = { text, time: now };
+    chatSendLockRef.current = true;
+    socket.emit("send_chat_message", { roomId: session.roomId, text });
+    window.setTimeout(() => { chatSendLockRef.current = false; }, 500);
+  }
   function sendReaction(reaction: ChatReaction, targetParticipantId: string, targetParticipantType: ParticipantType) {
     if (!session) return;
     socket.emit("send_reaction", { roomId: session.roomId, reaction, targetParticipantId, targetParticipantType });
@@ -820,7 +876,24 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (session) socket.emit("leave_room", { roomId: session.roomId, sessionToken: session.sessionToken });
     clearSession(); setSession(null); setRoom(null); setConnectionState("idle"); setDidReconnect(false); setRevealBanner(null); setError(""); activeRoomIdRef.current = null;
   }
-  function logoutNamedUser() { clearIdentity(); clearSession(); setIdentity(null as unknown as LocalIdentity); setNamedAccount(null); setSession(null); setRoom(null); setDidReconnect(false); setNamedUsernameInput(""); setError(""); activeRoomIdRef.current = null; }
+  function logoutNamedUser() {
+    const prevIdentity = identity;
+    clearIdentity();
+    _setIdentity(null);
+    setNamedAccount(null);
+    clearSession();
+    setSession(null);
+    setRoom(null);
+    setConnectionState("idle");
+    setDidReconnect(false);
+    setRevealBanner(null);
+    setNamedUsernameInput("");
+    setError("");
+    activeRoomIdRef.current = null;
+    if (prevIdentity?.mode === "named" && prevIdentity?.userSessionToken) {
+      apiLogoutNamedUser(prevIdentity.username, prevIdentity.userSessionToken).catch(() => {});
+    }
+  }
   async function copyLink() {
     if (!inviteLink) return;
     try {
@@ -869,7 +942,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     accountPacks, selectedAccountPack, selectedPublicPack,
     handleNamedLogin, continueAsGuest, handleAvatarUpload,
     createRoom, joinByRoomCode, joinSpecificRoom, leaveRoom, logoutNamedUser,
-    refreshPublicPacks, addAccountPack, importAccountPack, removeAccountPack, toggleAccountPackPublic, chooseAccountPackForCreate,
+    refreshPublicPacks, fetchPublicPackDetail, addAccountPack, importAccountPack, removeAccountPack, toggleAccountPackPublic, chooseAccountPackForCreate,
     savedPackName, setSavedPackName, savedPackEntries, setSavedPackEntries,
     candidatePack, setCandidatePack, updateCandidateEntry, bulkSetVisibleEntries, exportCandidateAsPlayable, resetCandidateReview,
     transferHostTargetId, setTransferHostTargetId, hostTransferCandidates,

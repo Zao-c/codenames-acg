@@ -1,6 +1,8 @@
 import cors from "cors";
 import crypto from "node:crypto";
 import express from "express";
+import rateLimit from "express-rate-limit";
+import helmet from "helmet";
 import { createServer } from "node:http";
 import { Server } from "socket.io";
 import {
@@ -268,7 +270,46 @@ async function bootstrap(): Promise<void> {
   const socketSessions = new Map<string, { roomId: string; participantId: string; participantType: ParticipantType }>();
 
   app.use(cors({ origin: allowedOrigins, credentials: true }));
+  app.use(helmet());
   app.use(express.json({ limit: "256kb" }));
+
+  const apiLimiter = rateLimit({
+    windowMs: 60_000,
+    limit: 120,
+    standardHeaders: true,
+    legacyHeaders: false
+  });
+
+  const authLimiter = rateLimit({
+    windowMs: 60_000,
+    limit: 20,
+    standardHeaders: true,
+    legacyHeaders: false
+  });
+
+  const socketRateCounters = new Map<string, Map<string, { count: number; resetAt: number }>>();
+
+  function checkSocketRate(socketId: string, action: string, limit: number, windowMs: number): void {
+    let actionMap = socketRateCounters.get(socketId);
+    if (!actionMap) {
+      actionMap = new Map();
+      socketRateCounters.set(socketId, actionMap);
+    }
+    const now = Date.now();
+    let entry = actionMap.get(action);
+    if (!entry || now > entry.resetAt) {
+      entry = { count: 1, resetAt: now + windowMs };
+      actionMap.set(action, entry);
+      return;
+    }
+    entry.count += 1;
+    if (entry.count > limit) {
+      throw new Error("操作太频繁，请稍后再试");
+    }
+  }
+
+  app.use("/api/", apiLimiter);
+  app.use("/rooms", apiLimiter);
 
   app.get("/health", (_req, res) => {
     res.json({ ok: true });
@@ -281,13 +322,27 @@ async function bootstrap(): Promise<void> {
 
   app.get("/api/public-word-packs", async (_req, res) => {
     try {
-      res.json(await users.listPublicWordPacks());
+      const packs = await users.listPublicWordPacks();
+      res.json(packs.map((pack) => ({ ...pack, entryCount: pack.entries.length, entries: [] })));
     } catch (error) {
       res.status(400).json({ message: error instanceof Error ? error.message : "Fetch failed" });
     }
   });
 
-  app.post("/api/users/login", async (req, res) => {
+  app.get("/api/public-word-packs/:publicId", async (req, res) => {
+    try {
+      const pack = await users.getPublicWordPackByPublicId(req.params.publicId);
+      if (!pack) {
+        res.status(404).json({ message: "题库不存在" });
+        return;
+      }
+      res.json(pack);
+    } catch (error) {
+      res.status(400).json({ message: error instanceof Error ? error.message : "Fetch failed" });
+    }
+  });
+
+  app.post("/api/users/login", authLimiter, async (req, res) => {
     try {
       const body = asObject(req.body);
       const username = requireString(body, "username");
@@ -349,6 +404,21 @@ async function bootstrap(): Promise<void> {
       res.json(user);
     } catch (error) {
       res.status(400).json({ message: error instanceof Error ? error.message : "Update failed" });
+    }
+  });
+
+  app.post("/api/users/logout", async (req, res) => {
+    try {
+      const sessionToken = req.header("x-user-session-token");
+      const username = req.header("x-username");
+      if (!sessionToken || !username) {
+        res.status(400).json({ message: "缺少认证信息" });
+        return;
+      }
+      await users.revokeSession(username, sessionToken);
+      res.json({ ok: true });
+    } catch (error) {
+      res.status(400).json({ message: error instanceof Error ? error.message : "注销失败" });
     }
   });
 
@@ -647,6 +717,7 @@ async function bootstrap(): Promise<void> {
 
     socket.on("submit_clue", async (payload) => {
       try {
+        checkSocketRate(socket.id, "submit_clue", 3, 10_000);
         const body = asObject(payload);
         const roomId = requireString(body, "roomId");
         const word = requireString(body, "word");
@@ -664,6 +735,7 @@ async function bootstrap(): Promise<void> {
 
     socket.on("guess_card", async (payload) => {
       try {
+        checkSocketRate(socket.id, "guess_card", 8, 5_000);
         const body = asObject(payload);
         const roomId = requireString(body, "roomId");
         const cardId = requireString(body, "cardId");
@@ -680,6 +752,7 @@ async function bootstrap(): Promise<void> {
 
     socket.on("end_turn", async (payload) => {
       try {
+        checkSocketRate(socket.id, "end_turn", 3, 10_000);
         const roomId = requireRoomId(payload);
         const session = requireSession(socket.id, roomId);
         if (session.participantType !== "player") {
@@ -705,6 +778,7 @@ async function bootstrap(): Promise<void> {
 
     socket.on("send_chat_message", async (payload) => {
       try {
+        checkSocketRate(socket.id, "send_chat_message", 5, 5_000);
         const body = asObject(payload);
         const roomId = requireString(body, "roomId");
         const text = requireString(body, "text");
@@ -718,6 +792,7 @@ async function bootstrap(): Promise<void> {
 
     socket.on("send_reaction", async (payload) => {
       try {
+        checkSocketRate(socket.id, "send_reaction", 5, 10_000);
         const body = asObject(payload);
         const roomId = requireString(body, "roomId");
         const reaction = requireReaction(body.reaction);
@@ -843,6 +918,7 @@ async function bootstrap(): Promise<void> {
     });
 
     socket.on("disconnect", async () => {
+      socketRateCounters.delete(socket.id);
       const session = socketSessions.get(socket.id);
       socketSessions.delete(socket.id);
       if (!session) {

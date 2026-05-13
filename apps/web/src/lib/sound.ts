@@ -1,8 +1,23 @@
 let audioCtx: AudioContext | null = null;
+let muted = false;
+const pendingTimers = new Set<number>();
+
+export function setSoundMuted(value: boolean) {
+  muted = value;
+  if (muted) {
+    for (const timer of pendingTimers) {
+      window.clearTimeout(timer);
+    }
+    pendingTimers.clear();
+  }
+}
 
 function ctx(): AudioContext {
   if (!audioCtx) {
     audioCtx = new AudioContext();
+  }
+  if (audioCtx.state === "suspended") {
+    audioCtx.resume().catch(() => {});
   }
   return audioCtx;
 }
@@ -40,6 +55,15 @@ function playTone(frequency: number, duration: number, type: OscillatorType = "s
   }
 }
 
+function scheduleSound(callback: () => void, delay: number) {
+  if (muted) return;
+  const timer = window.setTimeout(() => {
+    pendingTimers.delete(timer);
+    if (!muted) callback();
+  }, delay);
+  pendingTimers.add(timer);
+}
+
 function playChord(frequencies: number[], duration: number, type: OscillatorType = "sine", volume = 0.12) {
   for (const freq of frequencies) {
     playTone(freq, duration, type, volume);
@@ -64,7 +88,7 @@ export function playNeutralHit() {
 export function playAssassinHit() {
   playTone(120, 0.8, "sawtooth", 0.2);
   playTone(80, 0.9, "sawtooth", 0.18);
-  setTimeout(() => {
+  scheduleSound(() => {
     playTone(60, 0.6, "square", 0.22);
     playTone(90, 0.5, "square", 0.18);
     playTone(50, 0.7, "sawtooth", 0.15);
@@ -82,18 +106,18 @@ export function playClick() {
 export function playVictory() {
   const melody = [523, 659, 784, 1047, 784, 1047, 1319];
   melody.forEach((freq, index) => {
-    setTimeout(() => playTone(freq, 0.3, "sine", 0.14), index * 120);
+    scheduleSound(() => playTone(freq, 0.3, "sine", 0.14), index * 120);
   });
 }
 
 export function playGameStart() {
   const rising = [330, 392, 466, 523, 659];
   rising.forEach((freq, index) => {
-    setTimeout(() => playTone(freq, 0.25, "triangle", 0.12), index * 100);
+    scheduleSound(() => playTone(freq, 0.25, "triangle", 0.12), index * 100);
   });
 }
 
 export function playEndTurn() {
   playTone(440, 0.15, "sine", 0.1);
-  setTimeout(() => playTone(350, 0.15, "sine", 0.1), 80);
+  scheduleSound(() => playTone(350, 0.15, "sine", 0.1), 80);
 }
