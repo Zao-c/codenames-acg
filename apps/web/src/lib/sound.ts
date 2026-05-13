@@ -35,6 +35,7 @@ export async function unlockAudio() {
 }
 
 function playTone(frequency: number, duration: number, type: OscillatorType = "sine", volume = 0.18) {
+  if (muted) return;
   try {
     const c = ctx();
     if (c.state === "suspended") {

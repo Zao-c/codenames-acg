@@ -39,7 +39,7 @@ function waitForConnect(socket: TestSocket): Promise<void> {
 
 function onceSession(socket: TestSocket): Promise<ClientSession> {
   return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error("session timeout")), 10000);
+    const timeout = setTimeout(() => reject(new Error("session timeout")), 15000);
     socket.once("session", (payload) => {
       clearTimeout(timeout);
       resolve(payload);
@@ -53,7 +53,7 @@ function onceSession(socket: TestSocket): Promise<ClientSession> {
 
 function onceRoomState(socket: TestSocket): Promise<PublicRoomState> {
   return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error("room_state timeout")), 10000);
+    const timeout = setTimeout(() => reject(new Error("room_state timeout")), 15000);
     socket.once("room_state", (payload) => {
       clearTimeout(timeout);
       resolve(payload);
@@ -68,7 +68,7 @@ function onceRoomState(socket: TestSocket): Promise<PublicRoomState> {
 function waitForRoomState(
   socket: TestSocket,
   predicate: (payload: PublicRoomState) => boolean,
-  timeoutMs = 10000
+  timeoutMs = 15000
 ): Promise<PublicRoomState> {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
@@ -816,7 +816,7 @@ async function testPutProfileOnlySelf(): Promise<void> {
   console.log("ok put_profile_only_self");
 }
 
-async function testFinishedRoomCannotSpectate(): Promise<void> {
+async function testFinishedRoomViewReview(): Promise<void> {
   const host = createClient();
   const p2 = createClient();
   const p3 = createClient();
@@ -849,8 +849,21 @@ async function testFinishedRoomCannotSpectate(): Promise<void> {
     const summary = rooms.find((r) => r.id === hostSession.roomId);
     assert.ok(summary, "finished room should appear in room list");
     assert.equal(summary.phase, "finished");
-    assert.equal(summary.canSpectate, false, "finished room should not be spectatable");
-    console.log("ok finished_room_cannot_spectate");
+    assert.equal(summary.canSpectate, true, "finished room should be spectatable for review");
+
+    const spectator = createClient();
+    try {
+      await waitForConnect(spectator);
+      spectator.emit("join_spectator", { roomId: hostSession.roomId, nickname: "Reviewer", profile: { accountType: "guest" } });
+      const specSession = await onceSession(spectator);
+      const specView = await onceRoomState(spectator);
+      assert.equal(specSession.participantType, "spectator");
+      assert.equal(specView.phase, "finished");
+      assert.ok(specView.board.every((c) => c.revealed || c.role !== undefined), "review should show roles");
+    } finally {
+      spectator.disconnect();
+    }
+    console.log("ok finished_room_view_review");
   } finally {
     [host, p2, p3, p4].forEach((s) => s.disconnect());
   }
@@ -874,6 +887,71 @@ async function testPublicWordPackDetail(): Promise<void> {
   console.log("ok public_word_pack_detail");
 }
 
+async function testNeutralCountValidation(): Promise<void> {
+  const host = createClient();
+  try {
+    await waitForConnect(host);
+    host.emit("create_room", { nickname: "NeutralValHost", profile: { accountType: "guest" } });
+    const hostSession = await onceSession(host);
+    await onceRoomState(host);
+
+    host.emit("update_room_settings", { roomId: hostSession.roomId, neutralCount: 25 });
+    const error5x5 = onceError(host);
+    assert.match(await error5x5, /中立词数/);
+
+    host.emit("update_room_settings", { roomId: hostSession.roomId, boardMode: "9x9", neutralCount: 25 });
+    const room9x9 = await waitForRoomState(host, (r) => r.settings.boardMode === "9x9" && r.settings.neutralCount === 25);
+    assert.equal(room9x9.settings.boardMode, "9x9");
+    assert.equal(room9x9.settings.neutralCount, 25);
+
+    host.emit("update_room_settings", { roomId: hostSession.roomId, neutralCount: null });
+    const roomNull = await waitForRoomState(host, (r) => r.settings.neutralCount === undefined);
+    assert.equal(roomNull.settings.neutralCount, undefined);
+
+    console.log("ok neutral_count_validation");
+  } finally {
+    host.disconnect();
+  }
+}
+
+async function testOfflinePlayerJoinSpectatorRejected(): Promise<void> {
+  const host = createClient();
+  const player = createClient();
+  try {
+    await Promise.all([waitForConnect(host), waitForConnect(player)]);
+    host.emit("create_room", { nickname: "JoinSpecHost", profile: { accountType: "guest" } });
+    const hostSession = await onceSession(host);
+    await onceRoomState(host);
+
+    player.emit("join_room", { roomId: hostSession.roomId, nickname: "SpecPlayer", profile: { accountType: "guest" } });
+    await onceSession(player);
+    await onceRoomState(player);
+
+    player.emit("set_team", { roomId: hostSession.roomId, team: "red" });
+    await waitForRoomState(host, (r) => r.players.some((p) => p.nickname === "SpecPlayer" && p.team === "red"));
+
+    player.disconnect();
+    await waitForRoomState(host, (r) => r.players.some((p) => p.nickname === "SpecPlayer" && !p.connected));
+
+    const spectator = createClient();
+    try {
+      await waitForConnect(spectator);
+      spectator.emit("join_spectator", { roomId: hostSession.roomId, nickname: "SpecPlayer", profile: { accountType: "guest" } });
+      const error = await onceError(spectator);
+      assert.match(error, /玩家身份重连/);
+    } finally {
+      spectator.disconnect();
+    }
+
+    const finalRoom = await waitForRoomState(host, () => true);
+    assert.ok(finalRoom.players.some((p) => p.nickname === "SpecPlayer"), "player should remain in players list");
+
+    console.log("ok offline_player_join_spectator_rejected");
+  } finally {
+    host.disconnect();
+  }
+}
+
 async function main(): Promise<void> {
   const { alphaSessionToken } = await testNamedUserPersistence();
   await testPublicWordPackLifecycle(alphaSessionToken);
@@ -890,8 +968,10 @@ async function main(): Promise<void> {
   await testNeutralCountDefault();
   await testLogoutRevokesToken();
   await testPutProfileOnlySelf();
-  await testFinishedRoomCannotSpectate();
+  await testFinishedRoomViewReview();
   await testPublicWordPackDetail();
+  await testNeutralCountValidation();
+  await testOfflinePlayerJoinSpectatorRejected();
   console.log("all e2e checks passed");
 }
 

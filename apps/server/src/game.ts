@@ -54,6 +54,28 @@ function sampleId(length: number): string {
   return crypto.randomBytes(length).toString("hex").slice(0, length).toUpperCase();
 }
 
+async function generateUniqueRoomId(store: RoomStore): Promise<string> {
+  for (let i = 0; i < 8; i += 1) {
+    const id = sampleId(ROOM_ID_LENGTH);
+    if (!(await store.getRoom(id))) return id;
+  }
+  throw new Error("房间号生成失败，请重试");
+}
+
+const NEUTRAL_COUNT_OPTIONS = {
+  "5x5": [3, 5, 7, 9, 11],
+  "7x7": [7, 9, 11, 13, 15, 17, 19],
+  "9x9": [15, 19, 21, 25]
+} as const;
+
+function validateNeutralCount(neutralCount: number | undefined, boardMode: BoardMode): void {
+  if (neutralCount === undefined) return;
+  const allowed = NEUTRAL_COUNT_OPTIONS[boardMode] as readonly number[];
+  if (!allowed.includes(neutralCount)) {
+    throw new Error(`${boardMode} 棋盘的中立词数只能为 ${allowed.join("、")}`);
+  }
+}
+
 function now(): number {
   return Date.now();
 }
@@ -523,8 +545,9 @@ export class GameService {
   async createRoom(nickname: string, profile?: Partial<UserProfile>, sessionToken?: string): Promise<{ room: Room; player: Player }> {
     const resolvedProfile = await this.users.resolveProfile(profile, sessionToken);
     const player = await buildPlayer(nickname, true, resolvedProfile);
+    const roomId = await generateUniqueRoomId(this.store);
     const room: Room = {
-      id: sampleId(ROOM_ID_LENGTH),
+      id: roomId,
       phase: "lobby",
       players: [player],
       spectators: [],
@@ -630,26 +653,16 @@ export class GameService {
     if (existing) {
       if ("connected" in existing && !existing.connected) {
         if ("team" in existing) {
-          const wasHost = room.hostPlayerId === existing.id;
-          room.players = room.players.filter((p) => p.id !== existing.id);
-          if (wasHost) {
-            const nextHostId = room.players.find((p) => !p.isBot)?.id ?? room.players[0]?.id;
-            if (nextHostId) {
-              room.hostPlayerId = nextHostId;
-              room.players = room.players.map((p) => p.id === nextHostId ? { ...p, isHost: true } : p);
-            }
-          }
-        } else {
-          existing.connected = true;
-          existing.sessionToken = crypto.randomUUID();
-          const nextRoom = withEvent(room, `${existing.nickname} 已重连`);
-          await this.store.setRoom(nextRoom);
-          await this.store.setPlayerSession(existing.sessionToken!, createSession(nextRoom.id, existing.id, "spectator"));
-          return { room: nextRoom, spectator: existing };
+          throw new Error("你是本局玩家，请以玩家身份重连");
         }
-      } else {
-        throw new Error("昵称已被占用");
+        existing.connected = true;
+        existing.sessionToken = crypto.randomUUID();
+        const nextRoom = withEvent(room, `${existing.nickname} 已重连`);
+        await this.store.setRoom(nextRoom);
+        await this.store.setPlayerSession(existing.sessionToken!, createSession(nextRoom.id, existing.id, "spectator"));
+        return { room: nextRoom, spectator: existing };
       }
+      throw new Error("昵称已被占用");
     }
 
     const spectator = await buildSpectator(cleanNickname, await this.users.resolveProfile(profile, sessionToken));
@@ -807,7 +820,9 @@ export class GameService {
     }
 
     const nextBoardMode = payload.boardMode ?? room.settings.boardMode;
+    const nextNeutralCount = payload.neutralCount === null ? undefined : payload.neutralCount ?? room.settings.neutralCount;
     validateWordPackForMode(nextWordPack, nextBoardMode);
+    validateNeutralCount(nextNeutralCount, nextBoardMode);
 
     const wordPackChanged = nextWordPack !== room.wordPack;
 
@@ -824,7 +839,7 @@ export class GameService {
           timerClueSeconds: payload.timerClueSeconds ?? room.settings.timerClueSeconds,
           timerGuessSeconds: payload.timerGuessSeconds ?? room.settings.timerGuessSeconds,
           timerFirstRoundBonus: payload.timerFirstRoundBonus ?? room.settings.timerFirstRoundBonus,
-          neutralCount: payload.neutralCount === null ? undefined : payload.neutralCount ?? room.settings.neutralCount,
+          neutralCount: nextNeutralCount,
           flipMode: payload.flipMode ?? room.settings.flipMode
         },
         wordPack: nextWordPack

@@ -143,7 +143,7 @@ export function buildRoomSummary(room: Room): RoomSummary {
     hostProfile: host?.profile ?? { accountType: "guest", username: null, avatarUrl: null },
     hasOpenSlots: room.players.length < MAX_PLAYERS,
     canJoinDirectly: room.phase === "lobby" && room.players.length < MAX_PLAYERS,
-    canSpectate: room.phase !== "finished",
+    canSpectate: true,
     canQueueForNextRound: room.phase !== "lobby" && room.players.length < MAX_PLAYERS,
     createdAt: room.createdAt,
     updatedAt: room.updatedAt,

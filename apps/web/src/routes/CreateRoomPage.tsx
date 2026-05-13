@@ -50,7 +50,8 @@ export function CreateRoomPage() {
   const currentPackCount: number | null =
     packSource === "builtin" ? (wordPackSummaries.find((p) => p.id === selectedBuiltinPackId)?.entryCount ?? null) :
     packSource === "account" ? (selectedAccountPack?.entries.length ?? null) :
-    selectedPublicPack?.entries.length ?? null;
+    selectedPublicPack ? ((selectedPublicPack as any).entryCount as number | undefined) ?? selectedPublicPack.entries.length ?? null :
+    null;
   const currentPackOwner: string =
     packSource === "public" ? (selectedPublicPack?.ownerUsername ?? "") : "";
 
@@ -161,7 +162,7 @@ export function CreateRoomPage() {
                 return (
                   <button key={key} className={`pack-select-row ${selectedPublicPackId === key ? "pack-select-row-active" : ""}`} onClick={() => setSelectedPublicPackId(key)}>
                     <span className="pack-select-name">{pack.name}</span>
-                    <span className="pack-select-meta">{pack.entries.length} 个词 / {pack.ownerUsername}</span>
+                    <span className="pack-select-meta">{(pack as any).entryCount ?? pack.entries.length} 个词 / {pack.ownerUsername}</span>
                     <span className="pack-select-action">{selectedPublicPackId === key ? "✓ 已选中" : "选择此题库"}</span>
                   </button>
                 );

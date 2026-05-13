@@ -343,7 +343,8 @@ export class JsonUserStore implements UserStore {
   }
 
   private async persist(): Promise<void> {
-    this.writeChain = this.writeChain.then(async () => {
+    const previous = this.writeChain.catch(() => undefined);
+    this.writeChain = previous.then(async () => {
       await fs.mkdir(path.dirname(this.filePath), { recursive: true });
       const payload: UserDatabase = {
         users: Object.fromEntries(this.users.entries())

@@ -393,7 +393,20 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [savedPackName, setSavedPackName] = useState("");
   const [savedPackEntries, setSavedPackEntries] = useState("");
   const [candidatePack, setCandidatePack] = useState<CandidatePack | null>(null);
-  const [createBoardMode, setCreateBoardMode] = useState<BoardMode>("5x5");
+  const [createBoardMode, _setCreateBoardModeRaw] = useState<BoardMode>("5x5");
+  const NEUTRAL_COUNT_OPTIONS: Record<BoardMode, readonly number[]> = {
+    "5x5": [3, 5, 7, 9, 11],
+    "7x7": [7, 9, 11, 13, 15, 17, 19],
+    "9x9": [15, 19, 21, 25]
+  };
+  const setCreateBoardMode = useCallback((v: BoardMode) => {
+    _setCreateBoardModeRaw(v);
+    setCreateNeutralCount((prev) => {
+      if (prev === 0) return 0;
+      const allowed = NEUTRAL_COUNT_OPTIONS[v];
+      return allowed.includes(prev) ? prev : 0;
+    });
+  }, []);
   const [scoringMode, setScoringMode] = useState<ScoringMode>("classic");
   const [createTimerMode, setCreateTimerMode] = useState<import("@acg-codenames/shared").TimerMode>("unlimited");
   const [createTimerClueSeconds, setCreateTimerClueSeconds] = useState(90);
@@ -626,7 +639,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     setSoundMuted(!soundEnabled);
-  }, []);
+  }, [soundEnabled]);
 
   // ─── named user loading ───────────────────────────
   useEffect(() => {
