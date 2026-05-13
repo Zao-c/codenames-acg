@@ -9,6 +9,7 @@ import {
   type NamedUserAccount,
   type NamedUserLoginResponse,
   type PublicWordPack,
+  type PublicWordPackSummary,
   type SavedWordPack,
   type UpdateNamedUserPayload,
   type UserProfile,
@@ -209,17 +210,24 @@ export class JsonUserStore implements UserStore {
     this.sessions.delete(sessionToken);
   }
 
-  async listPublicWordPacks(): Promise<PublicWordPack[]> {
+  async listPublicWordPacks(): Promise<PublicWordPackSummary[]> {
     await this.ensureLoaded();
     return Array.from(this.users.values())
       .flatMap((user) =>
         user.customWordPacks
           .filter((pack) => pack.isPublic === true)
           .map((pack) => ({
-            ...pack,
+            id: pack.id,
             publicId: `${user.username}:${pack.id}`,
+            name: pack.name,
+            description: pack.description,
+            entryCount: pack.entries.length,
             ownerUsername: user.username,
-            ownerAvatarUrl: user.avatarUrl
+            ownerAvatarUrl: user.avatarUrl,
+            isPublic: pack.isPublic,
+            publishedAt: pack.publishedAt,
+            createdAt: pack.createdAt,
+            updatedAt: pack.updatedAt
           }))
       )
       .sort((a, b) => (b.publishedAt ?? b.updatedAt) - (a.publishedAt ?? a.updatedAt));

@@ -3,6 +3,7 @@ import type {
   NamedUserLoginResponse,
   ParticipantType,
   PublicWordPack,
+  PublicWordPackSummary,
   Room,
   SavedWordPack,
   UpdateNamedUserPayload,
@@ -32,7 +33,7 @@ export interface UserStore {
   update(username: string, payload: UpdateNamedUserPayload): Promise<NamedUserAccount>;
   verifySession(username: string, sessionToken: string): Promise<boolean>;
   revokeSession(username: string, sessionToken: string): Promise<void>;
-  listPublicWordPacks(): Promise<PublicWordPack[]>;
+  listPublicWordPacks(): Promise<PublicWordPackSummary[]>;
   getPublicWordPackByPublicId(publicId: string): Promise<PublicWordPack | null>;
   resolveProfile(profile?: Partial<UserProfile>, sessionToken?: string): Promise<UserProfile>;
   noteRoomHosted(username: string | null | undefined): Promise<void>;

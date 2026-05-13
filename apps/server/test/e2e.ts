@@ -159,8 +159,8 @@ async function fetchStatus(url: string, init?: RequestInit): Promise<{ status: n
   return { status: response.status, body: (await response.json().catch(() => ({}))) as { message?: string } };
 }
 
-async function fetchPublicWordPacks(): Promise<PublicWordPack[]> {
-  return fetchJson<PublicWordPack[]>(`${SERVER_URL}/api/public-word-packs`);
+async function fetchPublicWordPacks(): Promise<any[]> {
+  return fetchJson<any[]>(`${SERVER_URL}/api/public-word-packs`);
 }
 
 async function testNamedUserPersistence(): Promise<{ alphaSessionToken: string }> {
@@ -197,9 +197,9 @@ async function testNamedUserPersistence(): Promise<{ alphaSessionToken: string }
   const publicPack = publicPacks.find((pack) => pack.ownerUsername === "AccountAlpha" && pack.id === "pack-alpha");
   assert.ok(publicPack);
   assert.equal(publicPack.publicId, "AccountAlpha:pack-alpha");
-  assert.equal(publicPack.entries.length, 0, "list endpoint should not include entries");
-  const entryCount = (publicPack as any).entryCount as number;
-  assert.equal(entryCount, 25, "list endpoint should include entryCount");
+  assert.ok(publicPack.entries === undefined || publicPack.entries.length === 0, "list endpoint should not include entries");
+  assert.equal(typeof publicPack.entryCount, "number", "list endpoint should include entryCount");
+  assert.equal(publicPack.entryCount, 25, "entryCount should be 25");
   console.log("ok named_user_persistence");
   return { alphaSessionToken: user.sessionToken };
 }
@@ -227,7 +227,7 @@ async function testPublicWordPackLifecycle(alphaSessionToken: string): Promise<v
   assert.ok(alpha);
   assert.ok(beta);
   assert.notEqual(alpha.publicId, beta.publicId);
-  assert.equal(alpha.entries.length, 0, "list should not contain entries");
+  assert.ok(alpha.entries === undefined || alpha.entries.length === 0, "list should not contain entries");
 
   const alphaDetail = await fetchJson<PublicWordPack>(`${SERVER_URL}/api/public-word-packs/${encodeURIComponent(alpha.publicId)}`);
   assert.equal(alphaDetail.entries.length, 25, "detail should contain entries");
@@ -875,7 +875,7 @@ async function testPublicWordPackDetail(): Promise<void> {
 
   const firstPack = published[0];
   assert.ok(firstPack);
-  assert.equal(firstPack.entries.length, 0, "list entries should be empty");
+  assert.ok(firstPack.entries === undefined || firstPack.entries.length === 0, "list entries should be empty");
 
   const detail = await fetchJson<PublicWordPack>(`${SERVER_URL}/api/public-word-packs/${encodeURIComponent(firstPack.publicId)}`);
   assert.ok(detail.entries.length > 0, "detail should contain entries");
@@ -895,8 +895,8 @@ async function testNeutralCountValidation(): Promise<void> {
     const hostSession = await onceSession(host);
     await onceRoomState(host);
 
-    host.emit("update_room_settings", { roomId: hostSession.roomId, neutralCount: 25 });
     const error5x5 = onceError(host);
+    host.emit("update_room_settings", { roomId: hostSession.roomId, neutralCount: 25 });
     assert.match(await error5x5, /中立词数/);
 
     host.emit("update_room_settings", { roomId: hostSession.roomId, boardMode: "9x9", neutralCount: 25 });
@@ -943,7 +943,8 @@ async function testOfflinePlayerJoinSpectatorRejected(): Promise<void> {
       spectator.disconnect();
     }
 
-    const finalRoom = await waitForRoomState(host, () => true);
+    host.emit("sync_room_state", { roomId: hostSession.roomId });
+    const finalRoom = await onceRoomState(host);
     assert.ok(finalRoom.players.some((p) => p.nickname === "SpecPlayer"), "player should remain in players list");
 
     console.log("ok offline_player_join_spectator_rejected");

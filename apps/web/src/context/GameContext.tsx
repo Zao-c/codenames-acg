@@ -22,6 +22,7 @@ import {
   type PublicRoomState,
   type PublicSpectator,
   type PublicWordPack,
+  type PublicWordPackSummary,
   type RevealEvent,
   type RevealOutcome,
   type RoomSummary,
@@ -69,7 +70,7 @@ function makePackId(): string {
   return `pack-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function makePublicPackKey(pack: PublicWordPack): string {
+function makePublicPackKey(pack: { publicId: string }): string {
   return pack.publicId;
 }
 
@@ -235,7 +236,7 @@ export interface GameContextType {
   setError: (v: string) => void;
   connectionState: ConnectionState;
   effectiveIdentity: LocalIdentity | null;
-  publicPacks: PublicWordPack[];
+  publicPacks: PublicWordPackSummary[];
   createBoardMode: BoardMode;
   setCreateBoardMode: (v: BoardMode) => void;
   scoringMode: ScoringMode;
@@ -260,7 +261,7 @@ export interface GameContextType {
   setSelectedPublicPackId: (v: string) => void;
   accountPacks: SavedWordPack[];
   selectedAccountPack: SavedWordPack | null;
-  selectedPublicPack: PublicWordPack | null;
+  selectedPublicPack: PublicWordPackSummary | null;
 
   handleNamedLogin: (usernameOverride?: string) => Promise<void>;
   continueAsGuest: () => void;
@@ -309,7 +310,7 @@ export interface GameContextType {
   updateBuiltinPack: (wordPackId: string) => void;
   uploadRoomPack: (file: File | null) => Promise<void>;
   useAccountPackForRoom: (pack: SavedWordPack) => void;
-  usePublicPackForRoom: (pack: PublicWordPack) => void;
+  usePublicPackForRoom: (pack: PublicWordPackSummary) => void;
   startGame: () => void;
   restartGame: () => void;
   returnToLobby: () => void;
@@ -372,7 +373,7 @@ export interface GameContextType {
   renderHint: () => string;
   boardModes: BoardMode[];
   ROOM_ID_LENGTH: number;
-  makePublicPackKey: (pack: PublicWordPack) => string;
+  makePublicPackKey: (pack: { publicId: string }) => string;
 }
 
 const GameContext = createContext<GameContextType | null>(null);
@@ -418,7 +419,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [selectedAccountPackId, setSelectedAccountPackId] = useState("");
   const [selectedPublicPackId, setSelectedPublicPackId] = useState("");
   const [transferHostTargetId, setTransferHostTargetId] = useState("");
-  const [publicPacks, setPublicPacks] = useState<PublicWordPack[]>([]);
+  const [publicPacks, setPublicPacks] = useState<PublicWordPackSummary[]>([]);
   const [roomCode, setRoomCode] = useState("");
   const [session, setSession] = useState<ClientSession | null>(loadSession());
   const activeRoomIdRef = useRef<string | null>(null);
@@ -691,9 +692,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   async function fetchPublicPackDetail(publicId: string): Promise<PublicWordPack | null> {
     try {
-      const pack = await getPublicWordPackDetail(publicId);
-      setPublicPacks((prev) => prev.map((p) => makePublicPackKey(p) === publicId ? pack : p));
-      return pack;
+      return await getPublicWordPackDetail(publicId);
     } catch (e) { setError(e instanceof Error ? e.message : "加载题库详情失败"); return null; }
   }
 
@@ -772,16 +771,28 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   function createRoom() {
     const ji = buildJoinProfile(); if (!ji) return;
-    if (packSource === "public" && selectedPublicPack && selectedPublicPack.entries.length === 0) {
+    if (packSource === "public" && selectedPublicPack) {
       setError("正在加载题库详情...");
-      fetchPublicPackDetail(selectedPublicPack.publicId).then((pack) => { if (pack) createRoom(); });
+      fetchPublicPackDetail(selectedPublicPack.publicId).then((pack) => {
+        if (!pack) return;
+        createRoomWithEntries(pack.name, pack.entries);
+      });
       return;
     }
     clearSession(); setSession(null); setRoom(null); activeRoomIdRef.current = null;
     const pending: { boardMode: BoardMode; builtinWordPackId?: string; customWordPack?: { name: string; entries: string[] }; scoringMode?: ScoringMode; timerMode?: import("@acg-codenames/shared").TimerMode; timerClueSeconds?: number; timerGuessSeconds?: number; neutralCount?: number | null; flipMode?: import("@acg-codenames/shared").FlipMode } = { boardMode: createBoardMode, scoringMode, timerMode: createTimerMode, timerClueSeconds: createTimerClueSeconds, timerGuessSeconds: createTimerGuessSeconds, neutralCount: createNeutralCount === 0 ? null : createNeutralCount, flipMode: createFlipMode }; 
     if (packSource === "builtin") pending.builtinWordPackId = selectedBuiltinPackId;
     else if (selectedAccountPack) pending.customWordPack = { name: selectedAccountPack.name, entries: selectedAccountPack.entries };
-    else if (selectedPublicPack) pending.customWordPack = { name: selectedPublicPack.name, entries: selectedPublicPack.entries };
+    pendingCreateConfigRef.current = pending;
+    setConnectionState("connecting"); setError("");
+    socket.emit("create_room", { nickname: ji.nickname, profile: { accountType: ji.profile.mode, username: ji.profile.mode === "named" ? ji.profile.username : null, avatarUrl: ji.profile.avatarUrl, userSessionToken: ji.profile.mode === "named" ? ji.profile.userSessionToken : undefined } });
+  }
+
+  function createRoomWithEntries(packName: string, packEntries: string[]) {
+    const ji = buildJoinProfile(); if (!ji) return;
+    clearSession(); setSession(null); setRoom(null); activeRoomIdRef.current = null;
+    const pending: { boardMode: BoardMode; builtinWordPackId?: string; customWordPack?: { name: string; entries: string[] }; scoringMode?: ScoringMode; timerMode?: import("@acg-codenames/shared").TimerMode; timerClueSeconds?: number; timerGuessSeconds?: number; neutralCount?: number | null; flipMode?: import("@acg-codenames/shared").FlipMode } = { boardMode: createBoardMode, scoringMode, timerMode: createTimerMode, timerClueSeconds: createTimerClueSeconds, timerGuessSeconds: createTimerGuessSeconds, neutralCount: createNeutralCount === 0 ? null : createNeutralCount, flipMode: createFlipMode }; 
+    pending.customWordPack = { name: packName, entries: packEntries };
     pendingCreateConfigRef.current = pending;
     setConnectionState("connecting"); setError("");
     socket.emit("create_room", { nickname: ji.nickname, profile: { accountType: ji.profile.mode, username: ji.profile.mode === "named" ? ji.profile.username : null, avatarUrl: ji.profile.avatarUrl, userSessionToken: ji.profile.mode === "named" ? ji.profile.userSessionToken : undefined } });
@@ -824,14 +835,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
     } catch (e) { setError(e instanceof Error ? e.message : "上传房间题库失败"); }
   }
   function useAccountPackForRoom(pack: SavedWordPack) { if (session) socket.emit("update_room_settings", { roomId: session.roomId, customWordPack: { name: pack.name, entries: pack.entries } }); }
-  function usePublicPackForRoom(pack: PublicWordPack) {
+  function usePublicPackForRoom(pack: PublicWordPackSummary) {
     if (!session) return;
-    if (pack.entries.length === 0) {
-      setError("正在加载题库详情...");
-      fetchPublicPackDetail(pack.publicId).then((fullPack) => { if (fullPack) usePublicPackForRoom(fullPack); });
-      return;
-    }
-    socket.emit("update_room_settings", { roomId: session.roomId, customWordPack: { name: pack.name, entries: pack.entries } });
+    setError("正在加载题库详情...");
+    fetchPublicPackDetail(pack.publicId).then((fullPack) => {
+      if (fullPack) socket.emit("update_room_settings", { roomId: session.roomId, customWordPack: { name: fullPack.name, entries: fullPack.entries } });
+    });
   }
   function startGame() { if (session) socket.emit("start_game", { roomId: session.roomId }); }
   function restartGame() { if (session) socket.emit("restart_game", { roomId: session.roomId }); }

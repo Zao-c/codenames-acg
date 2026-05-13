@@ -1,4 +1,4 @@
-import type { NamedUserAccount, NamedUserLoginResponse, PublicWordPack, UpdateNamedUserPayload, UsernameLoginPayload } from "@acg-codenames/shared";
+import type { NamedUserAccount, NamedUserLoginResponse, PublicWordPack, PublicWordPackSummary, UpdateNamedUserPayload, UsernameLoginPayload } from "@acg-codenames/shared";
 
 const API_BASE = import.meta.env.VITE_SERVER_URL || "";
 
@@ -42,8 +42,8 @@ export function updateNamedUser(username: string, sessionToken: string, payload:
   });
 }
 
-export function listPublicWordPacks(): Promise<PublicWordPack[]> {
-  return request<PublicWordPack[]>("/api/public-word-packs");
+export function listPublicWordPacks(): Promise<PublicWordPackSummary[]> {
+  return request<PublicWordPackSummary[]>("/api/public-word-packs");
 }
 
 export function getPublicWordPackDetail(publicId: string): Promise<PublicWordPack> {

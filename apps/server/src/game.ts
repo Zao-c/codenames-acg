@@ -70,10 +70,14 @@ const NEUTRAL_COUNT_OPTIONS = {
 
 function validateNeutralCount(neutralCount: number | undefined, boardMode: BoardMode): void {
   if (neutralCount === undefined) return;
-  const allowed = NEUTRAL_COUNT_OPTIONS[boardMode] as readonly number[];
-  if (!allowed.includes(neutralCount)) {
+  if (!isNeutralCountAllowed(neutralCount, boardMode)) {
+    const allowed = NEUTRAL_COUNT_OPTIONS[boardMode] as readonly number[];
     throw new Error(`${boardMode} 棋盘的中立词数只能为 ${allowed.join("、")}`);
   }
+}
+
+function isNeutralCountAllowed(neutralCount: number, boardMode: BoardMode): boolean {
+  return (NEUTRAL_COUNT_OPTIONS[boardMode] as readonly number[]).includes(neutralCount);
 }
 
 function now(): number {
@@ -820,7 +824,23 @@ export class GameService {
     }
 
     const nextBoardMode = payload.boardMode ?? room.settings.boardMode;
-    const nextNeutralCount = payload.neutralCount === null ? undefined : payload.neutralCount ?? room.settings.neutralCount;
+    const boardModeChanged = payload.boardMode !== undefined && payload.boardMode !== room.settings.boardMode;
+
+    let nextNeutralCount: number | undefined;
+    if (payload.neutralCount === null) {
+      nextNeutralCount = undefined;
+    } else if (payload.neutralCount !== undefined) {
+      nextNeutralCount = payload.neutralCount;
+    } else if (boardModeChanged) {
+      const currentNeutral = room.settings.neutralCount;
+      nextNeutralCount =
+        currentNeutral !== undefined && isNeutralCountAllowed(currentNeutral, nextBoardMode)
+          ? currentNeutral
+          : undefined;
+    } else {
+      nextNeutralCount = room.settings.neutralCount;
+    }
+
     validateWordPackForMode(nextWordPack, nextBoardMode);
     validateNeutralCount(nextNeutralCount, nextBoardMode);
 

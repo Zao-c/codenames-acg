@@ -530,11 +530,10 @@ function LobbySettings({ room, viewer, self, g, accountPacks, publicPacks, makeP
             {publicPacks.length === 0 ? <p className="empty-text">还没有公共题库。</p> : null}
             {publicPacks.map((pack) => {
               const key = makePublicPackKey(pack);
-              const displayCount = (pack as any).entryCount as number | undefined;
               return (
                 <button key={key} className={`pack-select-row ${currentPublicPack && makePublicPackKey(currentPublicPack) === key ? "pack-select-row-active" : ""}`} disabled={!viewer.canEditRoom} onClick={() => g.usePublicPackForRoom(pack)}>
                   <span className="pack-select-name">{pack.name}</span>
-                  <span className="pack-select-meta">{displayCount ?? pack.entries.length ?? 0} 个词 / {pack.ownerUsername}</span>
+                  <span className="pack-select-meta">{pack.entryCount} 个词 / {pack.ownerUsername}</span>
                   <span className="pack-select-action">{currentPublicPack && makePublicPackKey(currentPublicPack) === key ? "✓ 已选中" : "选择此题库"}</span>
                 </button>
               );

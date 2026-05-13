@@ -322,8 +322,7 @@ async function bootstrap(): Promise<void> {
 
   app.get("/api/public-word-packs", async (_req, res) => {
     try {
-      const packs = await users.listPublicWordPacks();
-      res.json(packs.map((pack) => ({ ...pack, entryCount: pack.entries.length, entries: [] })));
+      res.json(await users.listPublicWordPacks());
     } catch (error) {
       res.status(400).json({ message: error instanceof Error ? error.message : "Fetch failed" });
     }
