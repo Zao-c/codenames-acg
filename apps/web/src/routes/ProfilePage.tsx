@@ -25,7 +25,7 @@ export function ProfilePage() {
 
   return (
     <>
-      <section className="panel">
+      <section className="panel profile-panel">
         <div className="profile-card">
           <AvatarBadge
             avatarUrl={effectiveIdentity.avatarUrl}
