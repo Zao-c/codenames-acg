@@ -646,4 +646,8 @@ export interface GameReplay {
   finalBoard: ReplayBoardCard[];
   rounds: ReplayRound[];
   keyEvents: ReplayKeyEvent[];
+  achievements?: AchievementUnlockPayload[];
+  saved?: boolean;
+  savedBy?: string[];
+  visibility?: "link-only" | "private" | "public";
 }

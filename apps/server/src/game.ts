@@ -55,6 +55,7 @@ import {
   type RoundHighlight,
   type RoundHighlightCard,
 } from "@acg-codenames/shared";
+import { REPLAY_TTL_SECONDS } from "./store.js";
 import type { ReplayStore, RoomSession, RoomStore, UserStore } from "./types.js";
 
 function sampleId(length: number): string {
@@ -2084,8 +2085,6 @@ export function buildAchievementUnlocksFromHighlight(
 }
 
 export function buildReplay(room: Room, replayId: string): GameReplay {
-  const REPLAY_TTL_SECONDS = 7 * 24 * 60 * 60;
-
   const boardMode = room.settings.boardMode;
   const scoringMode = room.settings.scoringMode;
   const timerMode = room.settings.timerMode ?? "unlimited";
@@ -2206,7 +2205,15 @@ export function buildReplay(room: Room, replayId: string): GameReplay {
     durationMs: createdAt - room.createdAt,
     finalBoard,
     rounds,
-    keyEvents: keyEvents.slice(0, 20)
+    keyEvents: keyEvents.slice(0, 20),
+    achievements: (room.achievements ?? []).map((a) => ({
+      id: a.id,
+      title: a.title,
+      playerId: a.playerId,
+      nickname: a.nickname,
+      description: a.description
+    })),
+    visibility: "link-only"
   };
 }
 
