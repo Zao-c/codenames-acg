@@ -1,10 +1,11 @@
 import type {
+  AchievementUnlockPayload,
   CancelQueueJoinPayload,
   ChatReaction,
   ClientSession,
   CreateRoomPayload,
-  DebugFillRoomPayload,
   DanmakuMessage,
+  DebugFillRoomPayload,
   DisbandRoomPayload,
   EndTurnPayload,
   ErrorMessagePayload,
@@ -20,6 +21,7 @@ import type {
   ReturnToLobbyPayload,
   RestartGamePayload,
   RoomSummary,
+  RoundHighlight,
   SendChatMessagePayload,
   SendReactionPayload,
   SetRolePayload,
@@ -78,4 +80,6 @@ export interface ServerToClientEvents {
   room_closed: (payload: { roomId: string; reason: string }) => void;
   danmaku_message: (payload: DanmakuMessage) => void;
   reaction_effect: (payload: ReactionEffectPayload) => void;
+  round_highlight: (payload: RoundHighlight) => void;
+  achievement_unlock: (payload: AchievementUnlockPayload) => void;
 }

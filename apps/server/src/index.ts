@@ -23,7 +23,7 @@ import {
   type UserProfile
 } from "@acg-codenames/shared";
 import { env } from "./env.js";
-import { GameService } from "./game.js";
+import { GameService, buildAchievementUnlocksFromHighlight } from "./game.js";
 import { createRoomStore } from "./store.js";
 import { JsonUserStore } from "./user-store.js";
 
@@ -446,6 +446,19 @@ async function bootstrap(): Promise<void> {
     await broadcastRoomSummaries();
   }
 
+  async function emitRoundHighlights(roomId: string): Promise<void> {
+    const room = await game.getRoom(roomId);
+    if (!room) return;
+    const highlights = room.roundHighlights ?? [];
+    if (highlights.length === 0) return;
+    const lastHl = highlights[highlights.length - 1];
+    io.to(roomId).emit("round_highlight", lastHl);
+    const achievements = buildAchievementUnlocksFromHighlight(lastHl, room);
+    for (const ach of achievements) {
+      io.to(roomId).emit("achievement_unlock", ach);
+    }
+  }
+
   function bind(socketId: string, roomId: string, participantId: string, participantType: ParticipantType): void {
     socketSessions.set(socketId, { roomId, participantId, participantType });
   }
@@ -744,6 +757,7 @@ async function bootstrap(): Promise<void> {
         }
         const room = await game.guessCard(roomId, session.participantId, cardId);
         await sendRoomState(room.id);
+        await emitRoundHighlights(room.id);
       } catch (error) {
         fail(socket, error);
       }
@@ -759,6 +773,7 @@ async function bootstrap(): Promise<void> {
         }
         const room = await game.endTurn(roomId, session.participantId);
         await sendRoomState(room.id);
+        await emitRoundHighlights(room.id);
       } catch (error) {
         fail(socket, error);
       }

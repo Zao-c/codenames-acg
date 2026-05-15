@@ -36,6 +36,7 @@ export function RoomPage() {
     connectionState, error, focusMode, setFocusMode, enterFocusMode, exitFocusMode,
     clueWord, setClueWord, clueCountInput, setClueCountInput,
     chatText, setChatText, danmakuQueue, showDanmaku, copied, sideTab, setSideTab,
+    roundHighlights, roundAchievements, highlightToast, achievementToast,
     jumpToLatest, chatListRef, handleChatScroll, scrollChatToBottom,
     revealBanner, reactionEffects, pendingGuess, revealingCardIds,
     maskSpymasterHints, setMaskSpymasterHints, showSakura, reactionQueue,
@@ -85,6 +86,8 @@ export function RoomPage() {
         <ReactionBanner key={reaction.id} reaction={reaction} />
       ))}
       {showDanmaku ? <DanmakuLayer items={danmakuQueue} /> : null}
+      {highlightToast ? <RoundHighlightToast highlight={highlightToast} /> : null}
+      {achievementToast ? <AchievementToast achievement={achievementToast} /> : null}
 
       {focusMode ? (
         <FocusBar room={room} viewer={viewer} onExitFocus={exitFocusMode} g={g} />
@@ -219,6 +222,15 @@ export function RoomPage() {
                   </section>
                 ) : null}
 
+                {room.roundHighlights && room.roundHighlights.length > 0 ? (
+                  <section className="panel round-highlight-section" style={{ marginTop: 16 }}>
+                    <div className="panel-heading"><h2>高光复盘</h2></div>
+                    {(room.roundHighlights ?? []).map((hl) => (
+                      <RoundHighlightCard key={hl.id} highlight={hl} />
+                    ))}
+                  </section>
+                ) : null}
+
                 {room.roundScoreHistory && room.roundScoreHistory.length > 0 ? (
                   <section className="panel" style={{ marginTop: 16 }}>
                     <div className="panel-heading"><h2>积分明细</h2></div>
@@ -302,6 +314,64 @@ function DanmakuLayer({ items }: { items: DanmakuMessage[] }) {
           <span>{item.text}</span>
         </div>
       ))}
+    </div>
+  );
+}
+
+function RoundHighlightToast({ highlight }: { highlight: import("@acg-codenames/shared").RoundHighlight }) {
+  return (
+    <div className="round-highlight-toast" aria-hidden="true">
+      <span className="round-highlight-toast-icon">✨</span>
+      <span className="round-highlight-toast-text">
+        {highlight.captainTitle} / {highlight.teamTitle}
+      </span>
+    </div>
+  );
+}
+
+function AchievementToast({ achievement }: { achievement: import("@acg-codenames/shared").AchievementUnlockPayload }) {
+  return (
+    <div className="round-highlight-toast achievement-toast" aria-hidden="true">
+      <span className="round-highlight-toast-icon">🏆</span>
+      <span className="round-highlight-toast-text">
+        {achievement.nickname} 获得成就：{achievement.title}
+      </span>
+    </div>
+  );
+}
+
+function RoundHighlightCard({ highlight }: { highlight: import("@acg-codenames/shared").RoundHighlight }) {
+  return (
+    <div className="round-highlight-card">
+      <div className="round-highlight-card-header">
+        <span className="round-highlight-card-icon">✨ 本回合高光</span>
+        <span className="soft-chip">{highlight.clueWord} {highlight.clueCount}</span>
+      </div>
+      {highlight.hitCards.length > 0 ? (
+        <div className="round-highlight-tags">
+          {highlight.hitCards.map((c) => (
+            <span key={c.id} className="round-highlight-tag round-highlight-tag-hit">{c.word}</span>
+          ))}
+        </div>
+      ) : null}
+      {highlight.wrongCards.length > 0 ? (
+        <div className="round-highlight-tags">
+          {highlight.wrongCards.map((c) => (
+            <span key={c.id} className="round-highlight-tag round-highlight-tag-wrong">{c.word}</span>
+          ))}
+        </div>
+      ) : null}
+      {highlight.missedCards.length > 0 ? (
+        <div className="round-highlight-tags">
+          {highlight.missedCards.map((c) => (
+            <span key={c.id} className="round-highlight-tag round-highlight-tag-missed">{c.word}</span>
+          ))}
+        </div>
+      ) : null}
+      <div className="round-highlight-card-footer">
+        <span>队长：{highlight.captainTitle}</span>
+        <span>队员：{highlight.teamTitle}</span>
+      </div>
     </div>
   );
 }
@@ -716,7 +786,10 @@ function SideTabPanel({ g, room, session }: {
           ) : sideTab === "battle" ? (
             <>
               <div className="chat-list" ref={battleListRef} onScroll={handleBattleScroll} style={{ maxHeight: 320 }}>
-                {battleMessages.length === 0 ? <p className="empty-text">暂无战况记录。</p> : null}
+                {battleMessages.length === 0 && (room.roundHighlights?.length ?? 0) === 0 ? <p className="empty-text">暂无战况记录。</p> : null}
+                {(room.roundHighlights ?? []).map((hl) => (
+                  <RoundHighlightCard key={hl.id} highlight={hl} />
+                ))}
                 {battleMessages.map((message) => (
                   <MessageRow key={message.id} message={message} selfId={session?.participantId} />
                 ))}

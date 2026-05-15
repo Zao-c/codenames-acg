@@ -26,6 +26,8 @@ import {
   type PublicWordPackSummary,
   type RevealEvent,
   type RevealOutcome,
+  type RoundHighlight,
+  type AchievementUnlockPayload,
   type RoomSummary,
   type SavedWordPack,
   type Team
@@ -339,6 +341,10 @@ export interface GameContextType {
   danmakuQueue: DanmakuMessage[];
   showDanmaku: boolean;
   setShowDanmaku: (v: boolean) => void;
+  roundHighlights: RoundHighlight[];
+  roundAchievements: AchievementUnlockPayload[];
+  highlightToast: RoundHighlight | null;
+  achievementToast: AchievementUnlockPayload | null;
   copied: boolean;
   focusMode: boolean;
   setFocusMode: (v: boolean) => void;
@@ -600,6 +606,36 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
     socket.on("reaction_effect", onReactionEffect);
     return () => { socket.off("reaction_effect", onReactionEffect); };
+  }, [socket]);
+
+  const [roundHighlights, setRoundHighlights] = useState<RoundHighlight[]>([]);
+  const [highlightToast, setHighlightToast] = useState<RoundHighlight | null>(null);
+  const highlightToastTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    function onRoundHighlight(p: RoundHighlight) {
+      setRoundHighlights((prev) => [...prev, p]);
+      setHighlightToast(p);
+      if (highlightToastTimerRef.current !== null) window.clearTimeout(highlightToastTimerRef.current);
+      highlightToastTimerRef.current = window.setTimeout(() => setHighlightToast(null), 3500);
+    }
+    socket.on("round_highlight", onRoundHighlight);
+    return () => { socket.off("round_highlight", onRoundHighlight); };
+  }, [socket]);
+
+  const [roundAchievements, setRoundAchievements] = useState<AchievementUnlockPayload[]>([]);
+  const [achievementToast, setAchievementToast] = useState<AchievementUnlockPayload | null>(null);
+  const achievementToastTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    function onAchievementUnlock(p: AchievementUnlockPayload) {
+      setRoundAchievements((prev) => [...prev, p]);
+      setAchievementToast(p);
+      if (achievementToastTimerRef.current !== null) window.clearTimeout(achievementToastTimerRef.current);
+      achievementToastTimerRef.current = window.setTimeout(() => setAchievementToast(null), 3500);
+    }
+    socket.on("achievement_unlock", onAchievementUnlock);
+    return () => { socket.off("achievement_unlock", onAchievementUnlock); };
   }, [socket]);
 
   useEffect(() => {
@@ -925,7 +961,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }
   function leaveRoom() {
     if (session) socket.emit("leave_room", { roomId: session.roomId, sessionToken: session.sessionToken });
-    clearSession(); setSession(null); setRoom(null); setConnectionState("idle"); setDidReconnect(false); setRevealBanner(null); setDanmakuQueue([]); setError(""); activeRoomIdRef.current = null;
+    clearSession(); setSession(null); setRoom(null); setConnectionState("idle"); setDidReconnect(false); setRevealBanner(null); setDanmakuQueue([]); setRoundHighlights([]); setRoundAchievements([]); setHighlightToast(null); setAchievementToast(null); setError(""); activeRoomIdRef.current = null;
   }
   function logoutNamedUser() {
     const prevIdentity = identity;
@@ -1006,6 +1042,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     submitClue, guessCard, endTurn, resumeTimer: resumeTimerFunc, sendChatMessage, sendQuickPhrase, sendReaction, copyLink,
     clueWord, setClueWord, clueCountInput, setClueCountInput,
     chatText, setChatText, danmakuQueue, showDanmaku: showDanmakuRaw, setShowDanmaku,
+    roundHighlights, roundAchievements, highlightToast, achievementToast,
     copied, focusMode, setFocusMode,
     enterFocusMode, exitFocusMode,
     soundEnabled, setSoundEnabled: handleSetSoundEnabled,

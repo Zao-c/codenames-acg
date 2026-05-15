@@ -46,7 +46,10 @@ import {
   type UserProfile,
   type WordPack,
   type Achievement,
+  type AchievementUnlockPayload,
   type ClueRoundRecord,
+  type RoundHighlight,
+  type RoundHighlightCard,
 } from "@acg-codenames/shared";
 import type { RoomSession, RoomStore, UserStore } from "./types.js";
 
@@ -1392,6 +1395,15 @@ export class GameService {
       },
       event
     );
+    if (!clue) {
+      const lastRecord = nextRoom.clueRecords?.[nextRoom.clueRecords.length - 1];
+      if (lastRecord) {
+        const highlights = [...(nextRoom.roundHighlights ?? [])];
+        const hl = buildRoundHighlightFromRecord(lastRecord, nextRoom, highlights.length);
+        highlights.push(hl);
+        nextRoom.roundHighlights = highlights;
+      }
+    }
     await this.store.setRoom(nextRoom);
     if (winner) {
       await this.users.recordRoundResult(nextRoom.players, winner);
@@ -1463,6 +1475,13 @@ export class GameService {
     if (giverId && room.clue!.usedGuesses >= room.clue!.count) {
       const spy = room.players.find(p => p.id === giverId);
       if (spy) ensurePlayerStats(nextRoom, spy).preciseClues += 1;
+    }
+    const lastRecord = nextRoom.clueRecords?.[nextRoom.clueRecords.length - 1];
+    if (lastRecord) {
+      const highlights = [...(nextRoom.roundHighlights ?? [])];
+      const hl = buildRoundHighlightFromRecord(lastRecord, nextRoom, highlights.length);
+      highlights.push(hl);
+      nextRoom.roundHighlights = highlights;
     }
     await this.store.setRoom(nextRoom);
     return nextRoom;
@@ -1833,6 +1852,13 @@ export class GameService {
         },
         `${TEAM_LABELS[latest.currentTeam]} 猜词超时，回合跳过`
       );
+      const lastRecord = nextRoom.clueRecords?.[nextRoom.clueRecords.length - 1];
+      if (lastRecord) {
+        const highlights = [...(nextRoom.roundHighlights ?? [])];
+        const hl = buildRoundHighlightFromRecord(lastRecord, nextRoom, highlights.length);
+        highlights.push(hl);
+        nextRoom.roundHighlights = highlights;
+      }
       await this.store.setRoom(nextRoom);
     }
     });
@@ -1868,4 +1894,171 @@ export class GameService {
     }
     return room;
   }
+}
+
+export function buildRoundHighlightFromRecord(
+  record: ClueRoundRecord,
+  room: Room,
+  roundIndex: number
+): RoundHighlight {
+  const hitCards: RoundHighlightCard[] = [];
+  const wrongCards: RoundHighlightCard[] = [];
+  for (const g of record.guesses) {
+    const card: RoundHighlightCard = {
+      id: g.playerId + "-" + g.cardWord,
+      word: g.cardWord,
+      role: g.cardRole,
+      guessedByNickname: g.nickname
+    };
+    if (g.isOwnHit) {
+      hitCards.push(card);
+    } else {
+      wrongCards.push(card);
+    }
+  }
+
+  const assassinHit = record.guesses.some((g) => g.cardRole === "assassin");
+  const opponentHitCount = record.guesses.filter((g) => !g.isOwnHit && (g.cardRole === "red" || g.cardRole === "blue")).length;
+  const wrongHitCount = record.guesses.filter((g) => !g.isOwnHit).length;
+
+  let captainTitle = "";
+  if (assassinHit) {
+    captainTitle = "刺客引路人";
+  } else if (opponentHitCount > 0) {
+    captainTitle = "诈骗队长";
+  } else if (hitCards.length === record.count && wrongCards.length === 0) {
+    captainTitle = "神谕队长";
+  } else if (hitCards.length >= Math.ceil(record.count / 2)) {
+    captainTitle = "稳健队长";
+  } else if (hitCards.length === 0) {
+    captainTitle = "谜语人";
+  } else {
+    captainTitle = "普通队长";
+  }
+
+  let teamTitle = "";
+  if (hitCards.length === record.count && wrongCards.length === 0) {
+    teamTitle = "脑回路同步";
+  } else if (wrongHitCount >= 2) {
+    teamTitle = "脑补过度";
+  } else if (assassinHit) {
+    teamTitle = "命运选择者";
+  } else if (hitCards.length > 0 && wrongCards.length === 0) {
+    teamTitle = "执行到位";
+  } else {
+    teamTitle = "仍在解码";
+  }
+
+  const missedCards: RoundHighlightCard[] = [];
+  if (hitCards.length < record.count) {
+    const revealedWordIds = new Set(record.guesses.map((g) => g.cardWord));
+    const remainingOwnCards = room.board.filter(
+      (c) => c.role === record.team && !c.revealed
+    );
+    const missedCount = record.count - hitCards.length;
+    remainingOwnCards.slice(0, missedCount).forEach((c) => {
+      missedCards.push({
+        id: c.id,
+        word: c.word,
+        role: c.role,
+        guessedByNickname: ""
+      });
+    });
+  }
+
+  return {
+    id: "hl-" + Date.now() + "-" + roundIndex,
+    roundIndex,
+    team: record.team,
+    clueWord: record.word,
+    clueCount: record.count,
+    giverPlayerId: record.giverPlayerId,
+    giverNickname: record.giverNickname,
+    hitCards,
+    wrongCards,
+    missedCards,
+    assassinHit,
+    captainTitle,
+    teamTitle
+  };
+}
+
+export function buildAchievementUnlocksFromHighlight(
+  highlight: RoundHighlight,
+  room: Room
+): AchievementUnlockPayload[] {
+  const results: AchievementUnlockPayload[] = [];
+
+  if (highlight.captainTitle === "神谕队长") {
+    results.push({
+      id: "ach-oracle",
+      title: "神谕队长",
+      playerId: highlight.giverPlayerId,
+      nickname: highlight.giverNickname,
+      description: "单回合提示全中且无误伤"
+    });
+  }
+
+  if (highlight.captainTitle === "诈骗队长") {
+    results.push({
+      id: "ach-fraud",
+      title: "诈骗队长",
+      playerId: highlight.giverPlayerId,
+      nickname: highlight.giverNickname,
+      description: "单回合造成对手误伤"
+    });
+  }
+
+  if (highlight.captainTitle === "刺客引路人") {
+    results.push({
+      id: "ach-assassin-lead",
+      title: "刺客引路人",
+      playerId: highlight.giverPlayerId,
+      nickname: highlight.giverNickname,
+      description: "提示后队友翻到刺客"
+    });
+  }
+
+  if (highlight.teamTitle === "脑回路同步") {
+    for (const hc of highlight.hitCards) {
+      const guessPlayer = room.players.find((p) => p.nickname === hc.guessedByNickname);
+      if (guessPlayer && !results.some((r) => r.playerId === guessPlayer.id && r.id === "ach-sync")) {
+        results.push({
+          id: "ach-sync",
+          title: "脑回路同步",
+          playerId: guessPlayer.id,
+          nickname: guessPlayer.nickname,
+          description: "单回合猜中全部目标"
+        });
+      }
+    }
+  }
+
+  if (highlight.assassinHit) {
+    const assassinGuess = highlight.wrongCards.find((c) => c.role === "assassin");
+    if (assassinGuess) {
+      const guessPlayer = room.players.find((p) => p.nickname === assassinGuess.guessedByNickname);
+      if (guessPlayer) {
+        results.push({
+          id: "ach-assassin-friend",
+          title: "刺客亲友",
+          playerId: guessPlayer.id,
+          nickname: guessPlayer.nickname,
+          description: "本局翻到刺客"
+        });
+      }
+    }
+  }
+
+  if (highlight.captainTitle === "谜语人") {
+    results.push({
+      id: "ach-riddler",
+      title: "谜语人",
+      playerId: highlight.giverPlayerId,
+      nickname: highlight.giverNickname,
+      description: "提示后队友全部猜错"
+    });
+  }
+
+  return results;
 }

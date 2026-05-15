@@ -245,6 +245,37 @@ export interface ClueRoundRecord {
   }>;
 }
 
+export interface RoundHighlightCard {
+  id: string;
+  word: string;
+  role: string;
+  guessedByNickname: string;
+}
+
+export interface RoundHighlight {
+  id: string;
+  roundIndex: number;
+  team: Team;
+  clueWord: string;
+  clueCount: number;
+  giverPlayerId: string;
+  giverNickname: string;
+  hitCards: RoundHighlightCard[];
+  wrongCards: RoundHighlightCard[];
+  missedCards: RoundHighlightCard[];
+  assassinHit: boolean;
+  captainTitle: string;
+  teamTitle: string;
+}
+
+export interface AchievementUnlockPayload {
+  id: string;
+  title: string;
+  playerId: string;
+  nickname: string;
+  description: string;
+}
+
 export interface PlayerRoundStats {
   playerId: string;
   nickname: string;
@@ -317,6 +348,7 @@ export interface Room {
   roundScoreHistory?: RoundScoreDetail[];
   playerStats?: Record<string, PlayerRoundStats>;
   achievements?: Achievement[];
+  roundHighlights?: RoundHighlight[];
   usedWordIds?: string[];
   timerEndsAt?: number;
   timerPhase?: "clue" | "guess";
