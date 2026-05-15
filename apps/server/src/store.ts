@@ -1,6 +1,8 @@
 import { createClient } from "redis";
-import { PLAYER_RECONNECT_TTL_SECONDS, ROOM_TTL_SECONDS, ROOM_TTL_LOBBY_IDLE_SECONDS, ROOM_TTL_FINISHED_SECONDS, ROOM_TTL_EMPTY_SECONDS, type Room } from "@acg-codenames/shared";
-import type { RoomSession, RoomStore } from "./types.js";
+import { PLAYER_RECONNECT_TTL_SECONDS, ROOM_TTL_SECONDS, ROOM_TTL_LOBBY_IDLE_SECONDS, ROOM_TTL_FINISHED_SECONDS, ROOM_TTL_EMPTY_SECONDS, type GameReplay, type Room } from "@acg-codenames/shared";
+import type { ReplayStore, RoomSession, RoomStore } from "./types.js";
+
+export const REPLAY_TTL_SECONDS = 7 * 24 * 60 * 60;
 
 function computeRoomTTL(room: Room): number {
   const humanPlayers = room.players.filter((p) => !p.isBot);
@@ -19,9 +21,10 @@ function isStaleRoom(room: Room): boolean {
   return idleMs > ROOM_TTL_SECONDS * 1000;
 }
 
-class MemoryRoomStore implements RoomStore {
+class MemoryRoomStore implements RoomStore, ReplayStore {
   private readonly rooms = new Map<string, { value: Room; expiresAt: number }>();
   private readonly sessions = new Map<string, { value: RoomSession; expiresAt: number }>();
+  private readonly replays = new Map<string, { value: GameReplay; expiresAt: number }>();
 
   async getRoom(roomId: string): Promise<Room | null> {
     this.pruneExpired();
@@ -62,10 +65,27 @@ class MemoryRoomStore implements RoomStore {
         this.sessions.delete(sessionToken);
       }
     }
+    for (const [replayId, entry] of this.replays.entries()) {
+      if (entry.expiresAt <= current) {
+        this.replays.delete(replayId);
+      }
+    }
+  }
+
+  async saveReplay(replay: GameReplay): Promise<void> {
+    this.replays.set(replay.id, { value: replay, expiresAt: replay.expiresAt });
+  }
+
+  async getReplay(replayId: string): Promise<GameReplay | null> {
+    this.pruneExpired();
+    const entry = this.replays.get(replayId);
+    if (!entry) return null;
+    if (entry.expiresAt <= Date.now()) { this.replays.delete(replayId); return null; }
+    return entry.value;
   }
 }
 
-class RedisRoomStore implements RoomStore {
+class RedisRoomStore implements RoomStore, ReplayStore {
   constructor(
     private readonly get: (key: string) => Promise<string | null>,
     private readonly set: (key: string, value: string, ttlSeconds: number) => Promise<void>,
@@ -108,9 +128,18 @@ class RedisRoomStore implements RoomStore {
   async setPlayerSession(sessionToken: string, session: RoomSession): Promise<void> {
     await this.set(`session:${sessionToken}`, JSON.stringify(session), PLAYER_RECONNECT_TTL_SECONDS);
   }
+
+  async saveReplay(replay: GameReplay): Promise<void> {
+    await this.set(`replay:${replay.id}`, JSON.stringify(replay), REPLAY_TTL_SECONDS);
+  }
+
+  async getReplay(replayId: string): Promise<GameReplay | null> {
+    const raw = await this.get(`replay:${replayId}`);
+    return raw ? (JSON.parse(raw) as GameReplay) : null;
+  }
 }
 
-export async function createRoomStore(redisUrl: string, forceMemory: boolean): Promise<RoomStore> {
+export async function createRoomStore(redisUrl: string, forceMemory: boolean): Promise<RoomStore & ReplayStore> {
   if (!redisUrl || forceMemory) {
     return new MemoryRoomStore();
   }

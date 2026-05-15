@@ -24,7 +24,8 @@ import {
 } from "@acg-codenames/shared";
 import { env } from "./env.js";
 import { GameService, buildAchievementUnlocksFromHighlight } from "./game.js";
-import { createRoomStore } from "./store.js";
+import { REPLAY_TTL_SECONDS, createRoomStore } from "./store.js";
+import type { ReplayStore } from "./types.js";
 import { JsonUserStore } from "./user-store.js";
 
 type PayloadRecord = Record<string, unknown>;
@@ -252,7 +253,7 @@ function parseUpdateNamedUserPayload(value: unknown): UpdateNamedUserPayload {
 async function bootstrap(): Promise<void> {
   const store = await createRoomStore(env.redisUrl, env.useMemoryStore);
   const users = new JsonUserStore(env.userStoreFile);
-  const game = new GameService(store, users, { enableDebugTools: env.enableDebugTools });
+  const game = new GameService(store, users, { enableDebugTools: env.enableDebugTools }, store);
   const app = express();
   const httpServer = createServer(app);
   const allowedOrigins = env.clientOrigin
@@ -336,6 +337,19 @@ async function bootstrap(): Promise<void> {
         return;
       }
       res.json(pack);
+    } catch (error) {
+      res.status(400).json({ message: error instanceof Error ? error.message : "Fetch failed" });
+    }
+  });
+
+  app.get("/api/replays/:replayId", async (req, res) => {
+    try {
+      const replay = await game.getReplay(req.params.replayId);
+      if (!replay) {
+        res.status(404).json({ message: "复盘不存在或已过期" });
+        return;
+      }
+      res.json(replay);
     } catch (error) {
       res.status(400).json({ message: error instanceof Error ? error.message : "Fetch failed" });
     }
@@ -722,6 +736,13 @@ async function bootstrap(): Promise<void> {
         }
         const room = await game.forceEndGame(roomId, session.participantId);
         await sendRoomState(room.id);
+        if (room.phase === "finished" && !room.replayId) {
+          const replayId = await game.generateReplay(room.id);
+          if (replayId) {
+            room.replayId = replayId;
+            await sendRoomState(room.id);
+          }
+        }
       } catch (error) {
         fail(socket, error);
       }
@@ -758,6 +779,13 @@ async function bootstrap(): Promise<void> {
         const room = await game.guessCard(roomId, session.participantId, cardId);
         await sendRoomState(room.id);
         await emitRoundHighlights(room.id);
+        if (room.phase === "finished" && !room.replayId) {
+          const replayId = await game.generateReplay(room.id);
+          if (replayId) {
+            room.replayId = replayId;
+            await sendRoomState(room.id);
+          }
+        }
       } catch (error) {
         fail(socket, error);
       }

@@ -1,4 +1,5 @@
 import type {
+  GameReplay,
   NamedUserAccount,
   NamedUserLoginResponse,
   ParticipantType,
@@ -38,4 +39,9 @@ export interface UserStore {
   resolveProfile(profile?: Partial<UserProfile>, sessionToken?: string): Promise<UserProfile>;
   noteRoomHosted(username: string | null | undefined): Promise<void>;
   recordRoundResult(players: Room["players"], winner: "red" | "blue"): Promise<void>;
+}
+
+export interface ReplayStore {
+  saveReplay(replay: GameReplay): Promise<void>;
+  getReplay(replayId: string): Promise<GameReplay | null>;
 }

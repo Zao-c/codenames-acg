@@ -356,6 +356,7 @@ export interface Room {
   timeoutPauseReason?: string;
   consecutiveTimeouts?: number;
   firstTurnBonusUsed?: boolean;
+  replayId?: string;
 }
 
 export interface ViewerIdentity {
@@ -585,4 +586,64 @@ export interface UsernameLoginPayload {
 export interface UpdateNamedUserPayload {
   avatarUrl?: string | null;
   customWordPacks?: SavedWordPack[];
+}
+
+export interface ReplayBoardCard {
+  id: string;
+  word: string;
+  role: "red" | "blue" | "neutral" | "assassin";
+  revealed: boolean;
+  guessedByNickname?: string;
+  guessedByTeam?: Team;
+}
+
+export interface ReplayRound {
+  index: number;
+  team: Team;
+  clueWord: string;
+  clueCount: number;
+  giverNickname: string;
+  guesses: {
+    word: string;
+    role: "red" | "blue" | "neutral" | "assassin";
+    guessedByNickname: string;
+    result: "hit" | "opponent" | "neutral" | "assassin";
+  }[];
+  missed?: { word: string; role: Team }[];
+  captainLabel?: string;
+  teamLabel?: string;
+}
+
+export interface ReplayKeyEvent {
+  id: string;
+  type: "great_clue" | "wrong_hit" | "assassin" | "last_second" | "low_accuracy_clue" | "combo";
+  title: string;
+  description: string;
+  roundIndex?: number;
+  playerNickname?: string;
+  team?: Team;
+}
+
+export interface GameReplay {
+  id: string;
+  roomId: string;
+  createdAt: number;
+  expiresAt: number;
+  mode: {
+    boardMode: BoardMode;
+    scoringMode: ScoringMode;
+    timerMode: TimerMode;
+  };
+  players: {
+    id: string;
+    nickname: string;
+    team: Team | null;
+    role: PlayerRole;
+    isHost?: boolean;
+  }[];
+  winner: Team | null;
+  durationMs?: number;
+  finalBoard: ReplayBoardCard[];
+  rounds: ReplayRound[];
+  keyEvents: ReplayKeyEvent[];
 }

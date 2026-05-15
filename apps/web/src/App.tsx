@@ -7,6 +7,7 @@ import { LoginPage } from "./routes/LoginPage";
 import { CreateRoomPage } from "./routes/CreateRoomPage";
 import { PacksPage } from "./routes/PacksPage";
 import { ProfilePage } from "./routes/ProfilePage";
+import { ReplayPage } from "./routes/ReplayPage";
 import { RoomPage } from "./routes/RoomPage";
 
 function JoinRoomFromLink() {
@@ -75,6 +76,7 @@ export default function App() {
           <Route path="/create" element={<CreateRoomPage />} />
           <Route path="/packs" element={<PacksPage />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/replay/:replayId" element={<ReplayPage />} />
           <Route path="/room/:roomId" element={<RoomGuard />} />
         </Routes>
       </main>

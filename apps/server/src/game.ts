@@ -48,10 +48,14 @@ import {
   type Achievement,
   type AchievementUnlockPayload,
   type ClueRoundRecord,
+  type GameReplay,
+  type ReplayBoardCard,
+  type ReplayKeyEvent,
+  type ReplayRound,
   type RoundHighlight,
   type RoundHighlightCard,
 } from "@acg-codenames/shared";
-import type { RoomSession, RoomStore, UserStore } from "./types.js";
+import type { ReplayStore, RoomSession, RoomStore, UserStore } from "./types.js";
 
 function sampleId(length: number): string {
   return crypto.randomBytes(length).toString("hex").slice(0, length).toUpperCase();
@@ -524,7 +528,8 @@ export class GameService {
   constructor(
     private readonly store: RoomStore,
     private readonly users: UserStore,
-    private readonly options: { enableDebugTools: boolean } = { enableDebugTools: false }
+    private readonly options: { enableDebugTools: boolean } = { enableDebugTools: false },
+    private readonly replayStore?: ReplayStore
   ) {}
 
   private async withRoomLock<T>(roomId: string, fn: () => Promise<T>): Promise<T> {
@@ -1770,6 +1775,21 @@ export class GameService {
     });
   }
 
+  async generateReplay(roomId: string): Promise<string | null> {
+    if (!this.replayStore) return null;
+    const room = await this.requireRoom(roomId);
+    if (room.phase !== "finished") return null;
+    const replayId = sampleReplayId();
+    const replay = buildReplay(room, replayId);
+    await this.replayStore.saveReplay(replay);
+    return replayId;
+  }
+
+  async getReplay(replayId: string): Promise<GameReplay | null> {
+    if (!this.replayStore) return null;
+    return this.replayStore.getReplay(replayId);
+  }
+
   async tickTimers(): Promise<Room[]> {
     const rooms = await this.store.listRooms();
     const expired: Room[] = [];
@@ -2061,4 +2081,135 @@ export function buildAchievementUnlocksFromHighlight(
   }
 
   return results;
+}
+
+export function buildReplay(room: Room, replayId: string): GameReplay {
+  const REPLAY_TTL_SECONDS = 7 * 24 * 60 * 60;
+
+  const boardMode = room.settings.boardMode;
+  const scoringMode = room.settings.scoringMode;
+  const timerMode = room.settings.timerMode ?? "unlimited";
+
+  const players = room.players.map((p) => ({
+    id: p.id,
+    nickname: p.nickname,
+    team: p.team,
+    role: p.role,
+    isHost: p.isHost
+  }));
+
+  const finalBoard: ReplayBoardCard[] = room.board.map((c) => ({
+    id: c.id,
+    word: c.word,
+    role: c.role,
+    revealed: c.revealed,
+    guessedByNickname: undefined,
+    guessedByTeam: c.revealedBy
+  }));
+
+  for (const cr of room.clueRecords ?? []) {
+    for (const g of cr.guesses) {
+      const card = finalBoard.find((c) => c.word === g.cardWord && c.role === g.cardRole);
+      if (card) {
+        card.guessedByNickname = g.nickname;
+      }
+    }
+  }
+
+  const rounds: ReplayRound[] = [];
+  const keyEvents: ReplayKeyEvent[] = [];
+
+  for (let i = 0; i < (room.clueRecords?.length ?? 0); i += 1) {
+    const cr = room.clueRecords![i];
+    const hl = room.roundHighlights?.[i];
+    const round: ReplayRound = {
+      index: i + 1,
+      team: cr.team,
+      clueWord: cr.word,
+      clueCount: cr.count,
+      giverNickname: cr.giverNickname,
+      guesses: cr.guesses.map((g) => ({
+        word: g.cardWord,
+        role: g.cardRole,
+        guessedByNickname: g.nickname,
+        result: g.isOwnHit ? "hit" as const : g.cardRole === "assassin" ? "assassin" as const : g.cardRole === "neutral" ? "neutral" as const : "opponent" as const
+      })),
+      captainLabel: hl?.captainTitle,
+      teamLabel: hl?.teamTitle
+    };
+
+    if (hl && hl.missedCards.length > 0) {
+      round.missed = hl.missedCards.map((c) => ({ word: c.word, role: c.role as Team }));
+    }
+
+    rounds.push(round);
+
+    const ownHits = cr.guesses.filter((g) => g.isOwnHit).length;
+    const wrongHits = cr.guesses.filter((g) => !g.isOwnHit);
+    const assassinHit = cr.guesses.some((g) => g.cardRole === "assassin");
+
+    if (ownHits >= 3 && wrongHits.length === 0) {
+      keyEvents.push({
+        id: `ke-great-${i}`,
+        type: "great_clue",
+        title: "神提示",
+        description: `${TEAM_LABELS[cr.team]}「${cr.word} ${cr.count}」命中 ${ownHits} 张`,
+        roundIndex: i + 1,
+        team: cr.team
+      });
+    }
+
+    if (ownHits === 0 && cr.guesses.length > 0) {
+      keyEvents.push({
+        id: `ke-low-${i}`,
+        type: "low_accuracy_clue",
+        title: "谜语提示",
+        description: `${TEAM_LABELS[cr.team]}「${cr.word} ${cr.count}」无人理解`,
+        roundIndex: i + 1,
+        team: cr.team
+      });
+    }
+
+    for (const g of wrongHits) {
+      if (g.cardRole === "assassin") {
+        keyEvents.push({
+          id: `ke-assassin-${i}`,
+          type: "assassin",
+          title: "刺客名场面",
+          description: `${g.nickname} 翻到了「${g.cardWord}」`,
+          roundIndex: i + 1,
+          playerNickname: g.nickname
+        });
+      } else if (g.cardRole === "red" || g.cardRole === "blue") {
+        keyEvents.push({
+          id: `ke-wrong-${i}-${g.cardWord}`,
+          type: "wrong_hit",
+          title: "误伤",
+          description: `${g.nickname} 翻到了${TEAM_LABELS[g.cardRole as Team]}牌「${g.cardWord}」`,
+          roundIndex: i + 1,
+          playerNickname: g.nickname,
+          team: g.cardRole
+        });
+      }
+    }
+  }
+
+  const createdAt = Date.now();
+  return {
+    id: replayId,
+    roomId: room.id,
+    createdAt,
+    expiresAt: createdAt + REPLAY_TTL_SECONDS * 1000,
+    mode: { boardMode, scoringMode, timerMode },
+    players,
+    winner: room.winner,
+    durationMs: createdAt - room.createdAt,
+    finalBoard,
+    rounds,
+    keyEvents: keyEvents.slice(0, 20)
+  };
+}
+
+function sampleReplayId(): string {
+  return crypto.randomBytes(4).toString("hex").toUpperCase();
 }

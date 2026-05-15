@@ -15,6 +15,18 @@ export function RoomPage() {
   const g = useGame();
   const navigate = useNavigate();
 
+  function CopyReplayLink({ replayId }: { replayId: string }) {
+    const [copied, setCopied] = useState(false);
+    const copy = useCallback(() => {
+      const url = `${window.location.origin}/replay/${replayId}`;
+      navigator.clipboard.writeText(url).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }).catch(() => {});
+    }, [replayId]);
+    return <button onClick={copy}>{copied ? "已复制链接" : "复制链接"}</button>;
+  }
+
   type PlayerMark = "red" | "blue" | "neutral" | "assassin" | null;
   const [cardMarks, setCardMarks] = useState<Record<string, PlayerMark>>({});
 
@@ -175,6 +187,14 @@ export function RoomPage() {
                     {viewer?.canReturnToLobby ? <button onClick={returnToLobby}>回到准备房间</button> : null}
                   </div>
                 </section>
+
+                {room.replayId ? (
+                  <section className="replay-entry-bar" style={{ marginTop: 16, display: "flex", gap: 10, alignItems: "center", justifyContent: "center", flexWrap: "wrap" }}>
+                    <span className="hint-text" style={{ margin: 0 }}>本局复盘已生成</span>
+                    <button className="primary-button" onClick={() => navigate(`/replay/${room.replayId}`)}>查看复盘</button>
+                    <CopyReplayLink replayId={room.replayId} />
+                  </section>
+                ) : null}
 
                 {room.achievements && room.achievements.length > 0 ? (
                   <section className="panel achievements-panel" style={{ marginTop: 16 }}>
