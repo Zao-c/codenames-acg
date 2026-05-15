@@ -5,9 +5,18 @@ export function HomePage() {
   const {
     effectiveIdentity,
     roomSummaries, joinByRoomCode, joinSpecificRoom,
-    roomCode, setRoomCode, error
+    roomCode, setRoomCode, error, setError
   } = useGame();
   const navigate = useNavigate();
+
+  const requireAuth = (fn: () => void) => {
+    if (!effectiveIdentity) {
+      setError("请先登录");
+      navigate("/login");
+      return;
+    }
+    fn();
+  };
 
   return (
     <>
@@ -23,7 +32,7 @@ export function HomePage() {
         <div className="lobby-card">
           <h3>创建房间</h3>
           <p>选择词牌与棋盘，邀请朋友加入</p>
-          <button className="primary-button" onClick={() => navigate("/create")} disabled={!effectiveIdentity}>创建房间</button>
+          <button className="primary-button" onClick={() => requireAuth(() => navigate("/create"))}>创建房间</button>
         </div>
         <div className="lobby-card">
           <h3>加入房间</h3>
@@ -35,9 +44,9 @@ export function HomePage() {
               placeholder="输入房号"
               maxLength={6}
             />
-            <button className="primary-button" onClick={() => joinByRoomCode(false)} disabled={!effectiveIdentity || roomCode.length < 6}>加入</button>
+            <button className="primary-button" onClick={() => requireAuth(() => joinByRoomCode(false))} disabled={roomCode.length < 6}>加入</button>
           </div>
-          <button onClick={() => joinByRoomCode(true)} disabled={!effectiveIdentity || roomCode.length < 6} className="lobby-spectate-btn">旁观</button>
+          <button onClick={() => requireAuth(() => joinByRoomCode(true))} disabled={roomCode.length < 6} className="lobby-spectate-btn">旁观</button>
         </div>
       </div>
 
@@ -67,12 +76,12 @@ export function HomePage() {
                   <p className="panel-subtle">{summary.lastEvent}</p>
                 </div>
                 <div className="room-list-actions">
-                  {summary.canJoinDirectly ? (
-                    <button disabled={!effectiveIdentity} onClick={() => joinSpecificRoom(summary.id, false)}>加入</button>
-                  ) : summary.canSpectate ? (
-                    <button disabled={!effectiveIdentity} onClick={() => joinSpecificRoom(summary.id, true)}>旁观</button>
+                  {summary.phase === "finished" ? (
+                    <button onClick={() => requireAuth(() => joinSpecificRoom(summary.id, true))}>查看复盘</button>
+                  ) : summary.canJoinDirectly ? (
+                    <button onClick={() => requireAuth(() => joinSpecificRoom(summary.id, false))}>加入</button>
                   ) : (
-                    <button disabled>已结束</button>
+                    <button onClick={() => requireAuth(() => joinSpecificRoom(summary.id, true))}>旁观</button>
                   )}
                 </div>
               </div>

@@ -49,6 +49,20 @@ export interface PublicWordPack extends SavedWordPack {
   ownerAvatarUrl: string | null;
 }
 
+export interface PublicWordPackSummary {
+  id: string;
+  publicId: string;
+  name: string;
+  description?: string;
+  entryCount: number;
+  ownerUsername: string;
+  ownerAvatarUrl: string | null;
+  isPublic?: boolean;
+  publishedAt?: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface CandidatePackSourceMeta {
   generatedBy?: string;
   sourceMaterial?: string;

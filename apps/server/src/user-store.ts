@@ -9,6 +9,7 @@ import {
   type NamedUserAccount,
   type NamedUserLoginResponse,
   type PublicWordPack,
+  type PublicWordPackSummary,
   type SavedWordPack,
   type UpdateNamedUserPayload,
   type UserProfile,
@@ -160,16 +161,14 @@ export class JsonUserStore implements UserStore {
     return this.users.get(userKey(username)) ?? null;
   }
 
-  getPublicProfile(account: NamedUserAccount): Omit<NamedUserAccount, "customWordPacks"> & { customWordPacks: Pick<SavedWordPack, "id" | "name" | "description" | "isPublic">[] } {
+  getPublicProfile(account: NamedUserAccount) {
     return {
       username: account.username,
       avatarUrl: account.avatarUrl,
       customWordPacks: account.customWordPacks
         .filter((pack) => pack.isPublic === true)
         .map((pack) => ({ id: pack.id, name: pack.name, description: pack.description, isPublic: true })),
-      stats: account.stats,
-      createdAt: account.createdAt,
-      updatedAt: account.updatedAt
+      stats: account.stats
     };
   }
 
@@ -204,20 +203,52 @@ export class JsonUserStore implements UserStore {
     return true;
   }
 
-  async listPublicWordPacks(): Promise<PublicWordPack[]> {
+  async revokeSession(username: string, sessionToken: string): Promise<void> {
+    await this.ensureLoaded();
+    const entry = this.sessions.get(sessionToken);
+    if (!entry || entry.userKey !== userKey(username)) return;
+    this.sessions.delete(sessionToken);
+  }
+
+  async listPublicWordPacks(): Promise<PublicWordPackSummary[]> {
     await this.ensureLoaded();
     return Array.from(this.users.values())
       .flatMap((user) =>
         user.customWordPacks
           .filter((pack) => pack.isPublic === true)
           .map((pack) => ({
-            ...pack,
+            id: pack.id,
             publicId: `${user.username}:${pack.id}`,
+            name: pack.name,
+            description: pack.description,
+            entryCount: pack.entries.length,
             ownerUsername: user.username,
-            ownerAvatarUrl: user.avatarUrl
+            ownerAvatarUrl: user.avatarUrl,
+            isPublic: pack.isPublic,
+            publishedAt: pack.publishedAt,
+            createdAt: pack.createdAt,
+            updatedAt: pack.updatedAt
           }))
       )
       .sort((a, b) => (b.publishedAt ?? b.updatedAt) - (a.publishedAt ?? a.updatedAt));
+  }
+
+  async getPublicWordPackByPublicId(publicId: string): Promise<PublicWordPack | null> {
+    await this.ensureLoaded();
+    const colonIndex = publicId.indexOf(":");
+    if (colonIndex < 1) return null;
+    const username = publicId.slice(0, colonIndex);
+    const packId = publicId.slice(colonIndex + 1);
+    const account = this.users.get(userKey(username));
+    if (!account) return null;
+    const pack = account.customWordPacks.find((p) => p.id === packId);
+    if (!pack || pack.isPublic !== true) return null;
+    return {
+      ...pack,
+      publicId: `${account.username}:${pack.id}`,
+      ownerUsername: account.username,
+      ownerAvatarUrl: account.avatarUrl
+    };
   }
 
   async resolveProfile(profile?: Partial<UserProfile>, sessionToken?: string): Promise<UserProfile> {
@@ -320,7 +351,8 @@ export class JsonUserStore implements UserStore {
   }
 
   private async persist(): Promise<void> {
-    this.writeChain = this.writeChain.then(async () => {
+    const previous = this.writeChain.catch(() => undefined);
+    this.writeChain = previous.then(async () => {
       await fs.mkdir(path.dirname(this.filePath), { recursive: true });
       const payload: UserDatabase = {
         users: Object.fromEntries(this.users.entries())

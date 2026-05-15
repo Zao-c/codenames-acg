@@ -91,7 +91,7 @@ class RedisRoomStore implements RoomStore {
   }
 
   async setRoom(room: Room): Promise<void> {
-    await this.set(`room:${room.id}`, JSON.stringify(room), ROOM_TTL_SECONDS);
+    await this.set(`room:${room.id}`, JSON.stringify(room), computeRoomTTL(room));
     await this.addRoomId(room.id);
   }
 

@@ -79,7 +79,7 @@ export function RoomPage() {
     : "room-layout-playing";
 
   return (
-    <section className={`room-layout ${phaseClass}`} key={room.id + (focusMode ? "-f" : "")}>
+    <section className={`room-layout ${phaseClass}`} key={room.id}>
       <SakuraParticles active={showSakura} />
       {reactionQueue.map((reaction) => (
         <ReactionBanner key={reaction.id} reaction={reaction} />
@@ -333,7 +333,7 @@ function HostControls({ viewer, returnToLobby, transferHost, disbandRoom, hostTr
 }) {
   return (
     <div className="panel" style={{ padding: 16, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-      <button onClick={returnToLobby} disabled={!viewer.canReturnToLobby}>回到大厅</button>
+      {viewer.canReturnToLobby ? <button onClick={returnToLobby}>回到大厅</button> : null}
       <select value={transferHostTargetId} onChange={(e) => setTransferHostTargetId(e.target.value)} disabled={!viewer.canTransferHost}>
         {hostTransferCandidates.length === 0 ? <option value="">暂无可转让玩家</option> : null}
         {hostTransferCandidates.map((p) => (<option key={p.id} value={p.id}>{p.nickname}</option>))}
@@ -551,7 +551,7 @@ function LobbySettings({ room, viewer, self, g, accountPacks, publicPacks, makeP
               return (
                 <button key={key} className={`pack-select-row ${currentPublicPack && makePublicPackKey(currentPublicPack) === key ? "pack-select-row-active" : ""}`} disabled={!viewer.canEditRoom} onClick={() => g.usePublicPackForRoom(pack)}>
                   <span className="pack-select-name">{pack.name}</span>
-                  <span className="pack-select-meta">{pack.entries.length} 个词 / {pack.ownerUsername}</span>
+                  <span className="pack-select-meta">{pack.entryCount} 个词 / {pack.ownerUsername}</span>
                   <span className="pack-select-action">{currentPublicPack && makePublicPackKey(currentPublicPack) === key ? "✓ 已选中" : "选择此题库"}</span>
                 </button>
               );

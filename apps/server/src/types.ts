@@ -3,10 +3,12 @@ import type {
   NamedUserLoginResponse,
   ParticipantType,
   PublicWordPack,
+  PublicWordPackSummary,
   Room,
   SavedWordPack,
   UpdateNamedUserPayload,
-  UserProfile
+  UserProfile,
+  UserStats
 } from "@acg-codenames/shared";
 
 export interface RoomSession {
@@ -27,10 +29,12 @@ export interface RoomStore {
 export interface UserStore {
   login(username: string): Promise<NamedUserLoginResponse>;
   get(username: string): Promise<NamedUserAccount | null>;
-  getPublicProfile(account: NamedUserAccount): Omit<NamedUserAccount, "customWordPacks"> & { customWordPacks: Pick<SavedWordPack, "id" | "name" | "description" | "isPublic">[] };
+  getPublicProfile(account: NamedUserAccount): { username: string; avatarUrl: string | null; customWordPacks: Pick<SavedWordPack, "id" | "name" | "description" | "isPublic">[]; stats: UserStats };
   update(username: string, payload: UpdateNamedUserPayload): Promise<NamedUserAccount>;
   verifySession(username: string, sessionToken: string): Promise<boolean>;
-  listPublicWordPacks(): Promise<PublicWordPack[]>;
+  revokeSession(username: string, sessionToken: string): Promise<void>;
+  listPublicWordPacks(): Promise<PublicWordPackSummary[]>;
+  getPublicWordPackByPublicId(publicId: string): Promise<PublicWordPack | null>;
   resolveProfile(profile?: Partial<UserProfile>, sessionToken?: string): Promise<UserProfile>;
   noteRoomHosted(username: string | null | undefined): Promise<void>;
   recordRoundResult(players: Room["players"], winner: "red" | "blue"): Promise<void>;

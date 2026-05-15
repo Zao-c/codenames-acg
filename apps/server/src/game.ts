@@ -54,6 +54,32 @@ function sampleId(length: number): string {
   return crypto.randomBytes(length).toString("hex").slice(0, length).toUpperCase();
 }
 
+async function generateUniqueRoomId(store: RoomStore): Promise<string> {
+  for (let i = 0; i < 8; i += 1) {
+    const id = sampleId(ROOM_ID_LENGTH);
+    if (!(await store.getRoom(id))) return id;
+  }
+  throw new Error("房间号生成失败，请重试");
+}
+
+const NEUTRAL_COUNT_OPTIONS = {
+  "5x5": [3, 5, 7, 9, 11],
+  "7x7": [7, 9, 11, 13, 15, 17, 19],
+  "9x9": [15, 19, 21, 25]
+} as const;
+
+function validateNeutralCount(neutralCount: number | undefined, boardMode: BoardMode): void {
+  if (neutralCount === undefined) return;
+  if (!isNeutralCountAllowed(neutralCount, boardMode)) {
+    const allowed = NEUTRAL_COUNT_OPTIONS[boardMode] as readonly number[];
+    throw new Error(`${boardMode} 棋盘的中立词数只能为 ${allowed.join("、")}`);
+  }
+}
+
+function isNeutralCountAllowed(neutralCount: number, boardMode: BoardMode): boolean {
+  return (NEUTRAL_COUNT_OPTIONS[boardMode] as readonly number[]).includes(neutralCount);
+}
+
 function now(): number {
   return Date.now();
 }
@@ -265,10 +291,6 @@ function updateScores(scores: Room["scores"], winner: Team | null): Room["scores
   };
 }
 
-function hasNicknameConflict(room: Room, nickname: string, ignoreId?: string): boolean {
-  return [...room.players, ...room.spectators].some((entry) => entry.id !== ignoreId && entry.nickname === nickname);
-}
-
 function promoteQueuedSpectators(room: Room): {
   players: Player[];
   spectators: Spectator[];
@@ -458,7 +480,7 @@ function computeAchievements(room: Room): Achievement[] {
 
   const reckless = stats.reduce((a, b) => b.extraGuesses > a.extraGuesses ? b : a, stats[0]);
   if (reckless.extraGuesses > 0) {
-    results.push({ id: "reckless", title: "主角光环持有者", playerId: reckless.playerId, nickname: reckless.nickname, description: `提示之外还多猜了 ${reckless.extraGuesses} 张`, tier: "funny" });
+    results.push({ id: "reckless", title: "莽就完事了", playerId: reckless.playerId, nickname: reckless.nickname, description: `提示之外还多猜了 ${reckless.extraGuesses} 张`, tier: "funny" });
   }
 
   const cautious = stats.reduce((a, b) => b.endedTurnEarly > a.endedTurnEarly ? b : a, stats[0]);
@@ -472,6 +494,19 @@ function computeAchievements(room: Room): Achievement[] {
   }
 
   return results.slice(0, 7);
+}
+
+function resetPerGameReviewState(room: Room): Room {
+  return {
+    ...room,
+    clueRecords: [],
+    roundScoreHistory: [],
+    playerStats: {},
+    achievements: undefined,
+    currentRoundScore: undefined,
+    comboStreaks: undefined,
+    lastReveal: null
+  };
 }
 
 function finalizeAchievements(room: Room): Room {
@@ -514,8 +549,9 @@ export class GameService {
   async createRoom(nickname: string, profile?: Partial<UserProfile>, sessionToken?: string): Promise<{ room: Room; player: Player }> {
     const resolvedProfile = await this.users.resolveProfile(profile, sessionToken);
     const player = await buildPlayer(nickname, true, resolvedProfile);
+    const roomId = await generateUniqueRoomId(this.store);
     const room: Room = {
-      id: sampleId(ROOM_ID_LENGTH),
+      id: roomId,
       phase: "lobby",
       players: [player],
       spectators: [],
@@ -565,13 +601,31 @@ export class GameService {
     const existing = [...room.players, ...room.spectators].find(
       (entry) => entry.nickname === cleanNickname
     );
-    if (existing && "connected" in existing && !existing.connected) {
-      if ("team" in existing) {
-        room.players = room.players.filter((p) => p.id !== existing.id);
-      } else {
+    if (existing) {
+      if ("connected" in existing && !existing.connected) {
+        if ("team" in existing) {
+          existing.connected = true;
+          existing.sessionToken = crypto.randomUUID();
+          const nextRoom = withEvent(room, `${existing.nickname} 已重连`);
+          await this.store.setRoom(nextRoom);
+          await this.store.setPlayerSession(existing.sessionToken!, createSession(nextRoom.id, existing.id, "player"));
+          return { room: nextRoom, player: existing };
+        }
+
         room.spectators = room.spectators.filter((s) => s.id !== existing.id);
+        if (room.players.length >= MAX_PLAYERS) {
+          room.spectators.push(existing);
+          throw new Error("房间已满");
+        }
+        const convertedPlayer = createPlayerFromSpectator(existing);
+        if (room.hostPlayerId === existing.id) {
+          convertedPlayer.isHost = true;
+        }
+        const nextRoom = withEvent({ ...room, players: [...room.players, convertedPlayer] }, `${convertedPlayer.nickname} 加入了结社 (｡･∀･)ﾉﾞ`);
+        await this.store.setRoom(nextRoom);
+        await this.store.setPlayerSession(convertedPlayer.sessionToken!, createSession(nextRoom.id, convertedPlayer.id, "player"));
+        return { room: nextRoom, player: convertedPlayer };
       }
-    } else if (hasNicknameConflict(room, cleanNickname)) {
       throw new Error("昵称已被占用");
     }
 
@@ -600,13 +654,18 @@ export class GameService {
     const existing = [...room.players, ...room.spectators].find(
       (entry) => entry.nickname === cleanNickname
     );
-    if (existing && "connected" in existing && !existing.connected) {
-      if ("team" in existing) {
-        room.players = room.players.filter((p) => p.id !== existing.id);
-      } else {
-        room.spectators = room.spectators.filter((s) => s.id !== existing.id);
+    if (existing) {
+      if ("connected" in existing && !existing.connected) {
+        if ("team" in existing) {
+          throw new Error("你是本局玩家，请以玩家身份重连");
+        }
+        existing.connected = true;
+        existing.sessionToken = crypto.randomUUID();
+        const nextRoom = withEvent(room, `${existing.nickname} 已重连`);
+        await this.store.setRoom(nextRoom);
+        await this.store.setPlayerSession(existing.sessionToken!, createSession(nextRoom.id, existing.id, "spectator"));
+        return { room: nextRoom, spectator: existing };
       }
-    } else if (hasNicknameConflict(room, cleanNickname)) {
       throw new Error("昵称已被占用");
     }
 
@@ -765,7 +824,25 @@ export class GameService {
     }
 
     const nextBoardMode = payload.boardMode ?? room.settings.boardMode;
+    const boardModeChanged = payload.boardMode !== undefined && payload.boardMode !== room.settings.boardMode;
+
+    let nextNeutralCount: number | undefined;
+    if (payload.neutralCount === null) {
+      nextNeutralCount = undefined;
+    } else if (payload.neutralCount !== undefined) {
+      nextNeutralCount = payload.neutralCount;
+    } else if (boardModeChanged) {
+      const currentNeutral = room.settings.neutralCount;
+      nextNeutralCount =
+        currentNeutral !== undefined && isNeutralCountAllowed(currentNeutral, nextBoardMode)
+          ? currentNeutral
+          : undefined;
+    } else {
+      nextNeutralCount = room.settings.neutralCount;
+    }
+
     validateWordPackForMode(nextWordPack, nextBoardMode);
+    validateNeutralCount(nextNeutralCount, nextBoardMode);
 
     const wordPackChanged = nextWordPack !== room.wordPack;
 
@@ -782,7 +859,7 @@ export class GameService {
           timerClueSeconds: payload.timerClueSeconds ?? room.settings.timerClueSeconds,
           timerGuessSeconds: payload.timerGuessSeconds ?? room.settings.timerGuessSeconds,
           timerFirstRoundBonus: payload.timerFirstRoundBonus ?? room.settings.timerFirstRoundBonus,
-          neutralCount: payload.neutralCount === null ? undefined : payload.neutralCount ?? room.settings.neutralCount,
+          neutralCount: nextNeutralCount,
           flipMode: payload.flipMode ?? room.settings.flipMode
         },
         wordPack: nextWordPack
@@ -849,9 +926,10 @@ export class GameService {
       ? now() + getTimerDuration(room, "clue") * 1000
       : undefined;
 
+    const resetRoom = resetPerGameReviewState(room);
     const nextRoom = withEvent(
       {
-        ...room,
+        ...resetRoom,
         phase: "playing",
         board,
         currentTeam: startingTeam,
@@ -957,9 +1035,10 @@ export class GameService {
     const nextUsedWordIds = [...(room.usedWordIds ?? []), ...board.map((c) => c.wordId)];
     const timerMode: import("@acg-codenames/shared").TimerMode = room.settings.timerMode ?? "unlimited";
     const timerEndsAt = timerMode === "timed" ? now() + getTimerDuration(room, "clue") * 1000 : undefined;
+    const resetRoom = resetPerGameReviewState(room);
     const nextRoom = withEvent(
       {
-        ...room,
+        ...resetRoom,
         phase: "playing",
         board,
         currentTeam: startingTeam,

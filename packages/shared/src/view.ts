@@ -35,6 +35,7 @@ function buildViewerState(room: Room, viewer: ViewerIdentity): ViewerState | nul
   const canSubmitClue =
     isPlayer &&
     room.phase === "playing" &&
+    !room.clue &&
     (viewer.isDebugController === true || (viewer.team === room.currentTeam && viewer.role === "spymaster"));
   const canGuess =
     isPlayer &&
@@ -197,6 +198,12 @@ export function sanitizeRoom(room: Room, viewer: ViewerIdentity = {}): PublicRoo
     playerStats: room.playerStats,
     usedWordIds: room.usedWordIds,
     wordPackSummary: toWordPackSummary(room.wordPack),
+    timerEndsAt: room.timerEndsAt,
+    timerPhase: room.timerPhase,
+    timerPaused: room.timerPaused,
+    timeoutPauseReason: room.timeoutPauseReason,
+    consecutiveTimeouts: room.consecutiveTimeouts,
+    firstTurnBonusUsed: room.firstTurnBonusUsed,
     viewer: buildViewerState(room, viewer)
   };
 }

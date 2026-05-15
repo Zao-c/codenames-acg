@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { useGame } from "../context/GameContext";
 import { CandidateReview } from "../lib/CandidateReview";
-import type { SavedWordPack, PublicWordPack } from "@acg-codenames/shared";
+import type { SavedWordPack, PublicWordPack, PublicWordPackSummary } from "@acg-codenames/shared";
 
 export function PacksPage() {
   const {
@@ -17,7 +17,7 @@ export function PacksPage() {
   } = useGame();
   const [tab, setTab] = useState<"mine" | "public" | "import">("mine");
   const [search, setSearch] = useState("");
-  const [modalPack, setModalPack] = useState<SavedWordPack | PublicWordPack | null>(null);
+  const [modalPack, setModalPack] = useState<SavedWordPack | PublicWordPackSummary | null>(null);
   const [editingPack, setEditingPack] = useState<SavedWordPack | null>(null);
 
   const filter = (name: string) => name.toLowerCase().includes(search.toLowerCase());
@@ -136,7 +136,7 @@ export function PacksPage() {
                 <div className="pack-row" key={makePublicPackKey(pack)}>
                   <div className="pack-row-info">
                     <strong>{pack.name}</strong>
-                    <div className="pack-row-meta">{pack.entries.length} 个词 / {pack.ownerUsername}</div>
+                    <div className="pack-row-meta">{pack.entryCount} 个词 / {pack.ownerUsername}</div>
                   </div>
                   <div className="pack-row-actions">
                     <button onClick={() => { setSelectedPublicPackId(makePublicPackKey(pack)); setPackSource("public"); }}>用于开房</button>
@@ -187,26 +187,26 @@ export function PacksPage() {
           <div className="pack-modal" onClick={(e) => e.stopPropagation()}>
             <h3>{modalPack.name}</h3>
             <p className="hint-text">
-              {"entries" in modalPack && Array.isArray(modalPack.entries)
+              {"entries" in modalPack && Array.isArray((modalPack as SavedWordPack).entries)
                 ? `${(modalPack as SavedWordPack).entries.length} 个词`
-                : `${(modalPack as PublicWordPack).entries.length} 个词`}
-              {"ownerUsername" in modalPack ? ` / ${(modalPack as PublicWordPack).ownerUsername}` : ""}
+                : `${(modalPack as PublicWordPackSummary).entryCount} 个词`}
+              {"ownerUsername" in modalPack ? ` / ${(modalPack as PublicWordPackSummary).ownerUsername}` : ""}
             </p>
-            {"entries" in modalPack && Array.isArray(modalPack.entries) ? (
+            {"entries" in modalPack && Array.isArray((modalPack as SavedWordPack).entries) ? (
               <div className="pack-modal-words">
-                {(modalPack.entries as string[]).slice(0, 80).map((w, i) => (
+                {((modalPack as SavedWordPack).entries).slice(0, 80).map((w, i) => (
                   <span key={i} className="pack-modal-word">{w}</span>
                 ))}
-                {modalPack.entries.length > 80 ? <span className="pack-modal-word">等共 {modalPack.entries.length} 个词...</span> : null}
+                {(modalPack as SavedWordPack).entries.length > 80 ? <span className="pack-modal-word">等共 {(modalPack as SavedWordPack).entries.length} 个词...</span> : null}
               </div>
             ) : null}
             <div className="pack-modal-actions">
               <button className="primary-button" onClick={() => setModalPack(null)}>关闭</button>
-              {"entries" in modalPack && Array.isArray(modalPack.entries) ? (
+              {"entries" in modalPack && Array.isArray((modalPack as SavedWordPack).entries) ? (
                 <>
-                  <button onClick={() => copyEntries(modalPack.entries as string[])}>复制全部</button>
-                  <button onClick={() => downloadFile(modalPack.name, (modalPack.entries as string[]).join("\n"), "txt", "text/plain")}>导出 TXT</button>
-                  <button onClick={() => downloadFile(modalPack.name, JSON.stringify({ name: modalPack.name, entries: modalPack.entries }, null, 2), "json", "application/json")}>导出 JSON</button>
+                  <button onClick={() => copyEntries((modalPack as SavedWordPack).entries)}>复制全部</button>
+                  <button onClick={() => downloadFile(modalPack.name, ((modalPack as SavedWordPack).entries).join("\n"), "txt", "text/plain")}>导出 TXT</button>
+                  <button onClick={() => downloadFile(modalPack.name, JSON.stringify({ name: modalPack.name, entries: (modalPack as SavedWordPack).entries }, null, 2), "json", "application/json")}>导出 JSON</button>
                   {"isPublic" in modalPack ? (
                     <>
                       <button onClick={() => duplicatePack(modalPack as SavedWordPack)}>另存副本</button>

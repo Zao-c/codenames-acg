@@ -18,7 +18,13 @@ export function saveSession(session: ClientSession): void {
 
 export function loadSession(): ClientSession | null {
   const raw = sessionStorage.getItem(SESSION_KEY);
-  return raw ? (JSON.parse(raw) as ClientSession) : null;
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as ClientSession;
+  } catch {
+    sessionStorage.removeItem(SESSION_KEY);
+    return null;
+  }
 }
 
 export function clearSession(): void {
