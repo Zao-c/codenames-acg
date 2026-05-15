@@ -13,7 +13,7 @@ export function ProfilePage() {
 
   if (!effectiveIdentity) {
     return (
-      <section className="panel">
+      <section className="panel profile-panel">
         <div className="panel-heading">
           <h2>个人资料</h2>
         </div>

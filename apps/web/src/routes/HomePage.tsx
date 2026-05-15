@@ -11,7 +11,7 @@ export function HomePage() {
 
   return (
     <>
-      <section className="hero">
+      <section className="hero home-hero">
         <p className="eyebrow">ACG 猜词推理派对 ( •̀ ω •́ )✧</p>
         <h1 className="hero-title">词牌结社</h1>
         {effectiveIdentity ? (
@@ -41,7 +41,7 @@ export function HomePage() {
         </div>
       </div>
 
-      <section className="panel panel-light">
+      <section className="panel panel-light public-room-panel">
         <div className="panel-heading">
           <h2>公开房间</h2>
           <span className="soft-chip">{roomSummaries.length} 个</span>

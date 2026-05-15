@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useState, useMemo, type KeyboardEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   TEAM_LABELS, PLAYER_ROLE_LABELS,
   wordPackSummaries, type ChatReaction, type ParticipantType,
   type PublicPlayer, type PublicSpectator, type ChatMessage,
-  type RevealOutcome, type PublicCard, type Team, type BoardMode
+  type RevealOutcome, type PublicCard, type Team, type BoardMode, type DanmakuMessage
 } from "@acg-codenames/shared";
 import { useGame, isPlayer, getRoomStageLabel, getSelfSummary, queuedForSpectator, roleLabelShort } from "../context/GameContext";
 import { AvatarBadge } from "../components/AvatarBadge";
@@ -35,7 +35,7 @@ export function RoomPage() {
     room, session,
     connectionState, error, focusMode, setFocusMode, enterFocusMode, exitFocusMode,
     clueWord, setClueWord, clueCountInput, setClueCountInput,
-    chatText, setChatText, copied, sideTab, setSideTab,
+    chatText, setChatText, danmakuQueue, showDanmaku, copied, sideTab, setSideTab,
     jumpToLatest, chatListRef, handleChatScroll, scrollChatToBottom,
     revealBanner, reactionEffects, pendingGuess, revealingCardIds,
     maskSpymasterHints, setMaskSpymasterHints, showSakura, reactionQueue,
@@ -84,6 +84,7 @@ export function RoomPage() {
       {reactionQueue.map((reaction) => (
         <ReactionBanner key={reaction.id} reaction={reaction} />
       ))}
+      {showDanmaku ? <DanmakuLayer items={danmakuQueue} /> : null}
 
       {focusMode ? (
         <FocusBar room={room} viewer={viewer} onExitFocus={exitFocusMode} g={g} />
@@ -285,6 +286,23 @@ function TimerPill({ room }: { room: NonNullable<ReturnType<typeof useGame>["roo
     <span className={`status-pill timer-pill ${left <= 10 ? "timer-pill-urgent" : ""}`}>
       {room.timerPhase === "clue" ? "⏳ 提示" : "⏳ 猜词"} {left}s
     </span>
+  );
+}
+
+function DanmakuLayer({ items }: { items: DanmakuMessage[] }) {
+  return (
+    <div className="danmaku-layer" aria-hidden="true">
+      {items.map((item, index) => (
+        <div
+          key={item.id}
+          className="danmaku-item"
+          style={{ top: `${10 + (index % 4) * 34}px` }}
+        >
+          <strong>{item.senderNickname}</strong>
+          <span>{item.text}</span>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -617,10 +635,18 @@ function BoardPanel({ room, viewer, g, cardMarks, markCard }: {
 
 function ActionPanel({ viewer, g }: { viewer: NonNullable<ReturnType<typeof useGame>["viewer"]>; g: ReturnType<typeof useGame> }) {
   const { clueWord, setClueWord, clueCountInput, setClueCountInput, submitClue, renderHint, endTurn, resumeTimer } = g;
+  function handleClueKeyDown(e: KeyboardEvent<HTMLDivElement>) {
+    if (!(e.target instanceof HTMLInputElement)) return;
+    if (e.key !== "Enter") return;
+    if (e.nativeEvent.isComposing) return;
+    e.preventDefault();
+    if (!clueWord.trim() || !clueCountInput.trim() || !viewer.canSubmitClue) return;
+    submitClue();
+  }
   return (
     <section className="panel" style={{ marginBottom: 12 }}>
       {viewer.canSubmitClue ? (
-        <div className="clue-form">
+        <div className="clue-form" onKeyDown={handleClueKeyDown}>
           <label className="field">
             <span>提示词</span>
             <input value={clueWord} onChange={(e) => setClueWord(e.target.value)} maxLength={12} placeholder="例如：机甲 / 学园 / 主角团" />
@@ -648,10 +674,18 @@ function SideTabPanel({ g, room, session }: {
   g: ReturnType<typeof useGame>; room: NonNullable<ReturnType<typeof useGame>["room"]>;
   session: ReturnType<typeof useGame>["session"];
 }) {
-  const { sideTab, setSideTab, chatText, setChatText, chatListRef, battleListRef, handleChatScroll, handleBattleScroll, jumpToLatest, scrollChatToBottom, sendChatMessage, sendQuickPhrase } = g;
+  const { sideTab, setSideTab, chatText, setChatText, chatListRef, battleListRef, handleChatScroll, handleBattleScroll, jumpToLatest, scrollChatToBottom, sendChatMessage, sendQuickPhrase, showDanmaku, setShowDanmaku } = g;
   const [collapsed, setCollapsed] = useState(false);
   const chatMessages = useMemo(() => room.messages.filter((m) => m.type === "chat" || m.type === "reaction"), [room.messages]);
   const battleMessages = useMemo(() => room.messages.filter((m) => m.type === "system"), [room.messages]);
+  function handleChatKeyDown(e: KeyboardEvent<HTMLDivElement>) {
+    if (!(e.target instanceof HTMLInputElement)) return;
+    if (e.key !== "Enter") return;
+    if (e.nativeEvent.isComposing || e.shiftKey) return;
+    e.preventDefault();
+    if (!chatText.trim()) return;
+    sendChatMessage();
+  }
 
   return (
     <div className={`panel side-panel${collapsed ? " side-panel-collapsed" : ""}`}>
@@ -693,11 +727,15 @@ function SideTabPanel({ g, room, session }: {
 
           {sideTab === "chat" ? (
             <>
-              <div className="chat-bar" style={{ marginTop: 8 }}>
+              <div className="chat-bar" onKeyDown={handleChatKeyDown} style={{ marginTop: 8 }}>
                 <input value={chatText} onChange={(e) => setChatText(e.target.value)} maxLength={120} placeholder="发一句话..." style={{ flex: 1 }} />
                 <button onClick={sendChatMessage} disabled={!chatText.trim()}>发送</button>
               </div>
               <div className="chip-wrap" style={{ marginTop: 6 }}>
+                <label className="danmaku-toggle">
+                  <input type="checkbox" checked={showDanmaku} onChange={(e) => setShowDanmaku(e.target.checked)} />
+                  <span>弹幕</span>
+                </label>
                 <button className="chip-button" onClick={() => sendQuickPhrase("GG")}>GG</button>
                 <button className="chip-button" onClick={() => sendQuickPhrase("大佬带带我")}>大佬带带我</button>
                 <button className="chip-button" onClick={() => sendQuickPhrase("好猜！")}>好猜！</button>

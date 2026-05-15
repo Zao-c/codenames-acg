@@ -56,7 +56,7 @@ export function CreateRoomPage() {
 
   return (
     <>
-      <section className="panel">
+      <section className="panel create-room-panel">
         <div className="panel-heading">
           <h2>创建房间</h2>
           <span className="soft-chip">{createBoardMode}</span>

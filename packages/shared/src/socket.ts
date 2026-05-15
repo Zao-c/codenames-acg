@@ -4,6 +4,7 @@ import type {
   ClientSession,
   CreateRoomPayload,
   DebugFillRoomPayload,
+  DanmakuMessage,
   DisbandRoomPayload,
   EndTurnPayload,
   ErrorMessagePayload,
@@ -75,5 +76,6 @@ export interface ServerToClientEvents {
   room_summaries: (payload: RoomSummary[]) => void;
   error_message: (payload: ErrorMessagePayload) => void;
   room_closed: (payload: { roomId: string; reason: string }) => void;
+  danmaku_message: (payload: DanmakuMessage) => void;
   reaction_effect: (payload: ReactionEffectPayload) => void;
 }

@@ -71,7 +71,7 @@ export function PacksPage() {
 
   return (
     <>
-      <section className="panel">
+      <section className="panel packs-tabs-panel">
         <div className="panel-heading">
           <h2>题库</h2>
         </div>
@@ -93,7 +93,7 @@ export function PacksPage() {
       </section>
 
       {tab === "mine" ? (
-        <section className="panel">
+        <section className="panel pack-list-panel">
           <div className="panel-heading">
             <h2>我的题库</h2>
             <span className="soft-chip">{accountPacks.length} 个</span>
@@ -123,7 +123,7 @@ export function PacksPage() {
           )}
         </section>
       ) : tab === "public" ? (
-        <section className="panel">
+        <section className="panel pack-list-panel">
           <div className="panel-heading">
             <h2>公共题库</h2>
             <span className="soft-chip">{publicPacks.length} 个</span>
@@ -148,7 +148,7 @@ export function PacksPage() {
           )}
         </section>
       ) : (
-        <section className="panel">
+        <section className="panel upload-panel">
           <div className="panel-heading">
             <h2>{editingPack ? `编辑：${editingPack.name}` : "上传 / 导入"}</h2>
           </div>
@@ -162,7 +162,7 @@ export function PacksPage() {
                 <span>词条</span>
                 <textarea value={savedPackEntries} onChange={(e) => setSavedPackEntries(e.target.value)} placeholder="每行一个词，至少 25 行" />
               </label>
-              <div className="toolbar-inline">
+              <div className="toolbar-inline upload-actions">
                 {editingPack ? (
                   <>
                     <button className="primary-button" onClick={handleSaveEdit}>保存修改</button>

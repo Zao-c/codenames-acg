@@ -67,7 +67,7 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <main className="page">
+      <main className={`page ${location.pathname.startsWith("/room/") ? "page-room" : "page-main"}`}>
         <AppNav />
         <Routes>
           <Route path="/" element={<HomePage />} />

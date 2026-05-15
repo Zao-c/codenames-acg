@@ -14,6 +14,7 @@ import {
   type ChatMessage,
   type ChatReaction,
   type ClientSession,
+  type DanmakuMessage,
   type JoinRequest,
   type NamedUserAccount,
   type ParticipantType,
@@ -332,6 +333,9 @@ export interface GameContextType {
   setClueCountInput: (v: string) => void;
   chatText: string;
   setChatText: (v: string) => void;
+  danmakuQueue: DanmakuMessage[];
+  showDanmaku: boolean;
+  setShowDanmaku: (v: boolean) => void;
   copied: boolean;
   focusMode: boolean;
   setFocusMode: (v: boolean) => void;
@@ -415,6 +419,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [clueWord, setClueWord] = useState("");
   const [clueCountInput, setClueCountInputRaw] = useState("2");
   const [chatText, setChatText] = useState("");
+  const [danmakuQueue, setDanmakuQueue] = useState<DanmakuMessage[]>([]);
+  const [showDanmakuRaw, setShowDanmakuRaw] = useState(() => {
+    try { return localStorage.getItem("showDanmaku") !== "off"; } catch { return true; }
+  });
   const [copied, setCopied] = useState(false);
   const [didReconnect, setDidReconnect] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
@@ -442,6 +450,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (v) {
       void unlockAudio().then(() => playClick()).catch((err) => console.warn("Audio unlock failed", err));
     }
+  };
+  const setShowDanmaku = (v: boolean) => {
+    setShowDanmakuRaw(v);
+    if (!v) setDanmakuQueue([]);
+    try { localStorage.setItem("showDanmaku", v ? "on" : "off"); } catch {}
   };
   const [mobileRoomTab, setMobileRoomTab] = useState<"board" | "players" | "chat">("board");
   const [sideTab, setSideTab] = useState<SideTab>("chat");
@@ -537,6 +550,22 @@ export function GameProvider({ children }: { children: ReactNode }) {
     socket.on("disconnect", () => setConnectionState("connecting"));
     return () => { socket.off("session", onSession); socket.off("room_state", onRoomState); socket.off("room_summaries", onRoomSummaries); socket.off("error_message", onError); socket.off("room_closed", onRoomClosed); socket.io.off("reconnect"); socket.off("disconnect"); };
   }, [session?.roomId, socket]);
+
+  useEffect(() => {
+    setDanmakuQueue([]);
+  }, [session?.roomId]);
+
+  useEffect(() => {
+    function onDanmakuMessage(p: DanmakuMessage) {
+      if (!showDanmakuRaw || p.roomId !== session?.roomId) return;
+      setDanmakuQueue((prev) => [...prev.slice(-7), p]);
+      window.setTimeout(() => {
+        setDanmakuQueue((prev) => prev.filter((item) => item.id !== p.id));
+      }, 7600);
+    }
+    socket.on("danmaku_message", onDanmakuMessage);
+    return () => { socket.off("danmaku_message", onDanmakuMessage); };
+  }, [session?.roomId, showDanmakuRaw, socket]);
 
   useEffect(() => {
     function onReactionEffect(p: import("@acg-codenames/shared").ReactionEffectPayload) {
@@ -796,7 +825,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   function cancelQueueJoin() { if (session) socket.emit("cancel_queue_join", { roomId: session.roomId }); }
   function debugFillRoom() { if (session) socket.emit("debug_fill_room", { roomId: session.roomId }); }
   function submitClue() {
-    if (!session || !clueWord.trim()) return;
+    if (!session || !viewer?.canSubmitClue || !clueWord.trim()) return;
     const count = Number(clueCountInput);
     if (!Number.isInteger(count) || count < MIN_CLUE_COUNT || count > MAX_CLUE_COUNT) {
       setError(`提示数量无效，请输入 ${MIN_CLUE_COUNT}-${MAX_CLUE_COUNT} 的整数`);
@@ -818,9 +847,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }
   function leaveRoom() {
     if (session) socket.emit("leave_room", { roomId: session.roomId, sessionToken: session.sessionToken });
-    clearSession(); setSession(null); setRoom(null); setConnectionState("idle"); setDidReconnect(false); setRevealBanner(null); setError(""); activeRoomIdRef.current = null;
+    clearSession(); setSession(null); setRoom(null); setConnectionState("idle"); setDidReconnect(false); setRevealBanner(null); setDanmakuQueue([]); setError(""); activeRoomIdRef.current = null;
   }
-  function logoutNamedUser() { clearIdentity(); clearSession(); setIdentity(null as unknown as LocalIdentity); setNamedAccount(null); setSession(null); setRoom(null); setDidReconnect(false); setNamedUsernameInput(""); setError(""); activeRoomIdRef.current = null; }
+  function logoutNamedUser() { clearIdentity(); clearSession(); setIdentity(null as unknown as LocalIdentity); setNamedAccount(null); setSession(null); setRoom(null); setDidReconnect(false); setDanmakuQueue([]); setNamedUsernameInput(""); setError(""); activeRoomIdRef.current = null; }
   async function copyLink() {
     if (!inviteLink) return;
     try {
@@ -880,7 +909,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
     queueForNextRound, cancelQueueJoin, debugFillRoom,
     submitClue, guessCard, endTurn, resumeTimer: resumeTimerFunc, sendChatMessage, sendQuickPhrase, sendReaction, copyLink,
     clueWord, setClueWord, clueCountInput, setClueCountInput,
-    chatText, setChatText, copied, focusMode, setFocusMode,
+    chatText, setChatText, danmakuQueue, showDanmaku: showDanmakuRaw, setShowDanmaku,
+    copied, focusMode, setFocusMode,
     enterFocusMode, exitFocusMode,
     soundEnabled, setSoundEnabled: handleSetSoundEnabled,
     sideTab, setSideTab, jumpToLatest,

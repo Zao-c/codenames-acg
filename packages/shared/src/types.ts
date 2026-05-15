@@ -517,6 +517,14 @@ export interface SendChatMessagePayload {
   text: string;
 }
 
+export interface DanmakuMessage {
+  id: string;
+  roomId: string;
+  senderNickname: string;
+  text: string;
+  createdAt: number;
+}
+
 export interface SendReactionPayload {
   roomId: string;
   reaction: ChatReaction;

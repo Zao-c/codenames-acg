@@ -12,7 +12,7 @@
     "dev:web:host": "npm --workspace @acg-codenames/web run dev -- --host 0.0.0.0",
     "dev:server": "npm run dev -w @acg-codenames/server",
     "test:e2e": "npm run test -w @acg-codenames/server",
-    "test:e2e:local": "start-server-and-test dev:server http://localhost:3001 test:e2e",
+    "test:e2e:local": "set WAIT_ON_TIMEOUT=15000&& set PORT=3011&& set E2E_SERVER_URL=http://localhost:3011&& start-server-and-test dev:server http://localhost:3011/health test:e2e",
     "test:browser": "node scripts/browser-smoke.mjs",
     "verify": "npm run typecheck && npm run test:e2e:local && npm run build",
     "check": "npm run check --workspaces",

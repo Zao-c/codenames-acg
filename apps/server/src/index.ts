@@ -711,6 +711,19 @@ async function bootstrap(): Promise<void> {
         const session = requireSession(socket.id, roomId);
         const room = await game.sendChatMessage(roomId, session.participantId, session.participantType, text);
         await sendRoomState(room.id);
+        if (session.participantType === "spectator") {
+          const sender =
+            room.spectators.find((s) => s.id === session.participantId) ??
+            room.players.find((p) => p.id === session.participantId);
+          const chatMessage = [...room.messages].reverse().find((message) => message.type === "chat" && message.playerId === session.participantId);
+          io.to(roomId).emit("danmaku_message", {
+            id: crypto.randomUUID(),
+            roomId,
+            senderNickname: sender?.nickname ?? "?",
+            text: chatMessage?.text ?? text.trim(),
+            createdAt: Date.now()
+          });
+        }
       } catch (error) {
         fail(socket, error);
       }
