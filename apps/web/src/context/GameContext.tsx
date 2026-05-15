@@ -927,9 +927,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (session) socket.emit("leave_room", { roomId: session.roomId, sessionToken: session.sessionToken });
     clearSession(); setSession(null); setRoom(null); setConnectionState("idle"); setDidReconnect(false); setRevealBanner(null); setDanmakuQueue([]); setError(""); activeRoomIdRef.current = null;
   }
-<<<<<<< HEAD
-  function logoutNamedUser() { clearIdentity(); clearSession(); setIdentity(null as unknown as LocalIdentity); setNamedAccount(null); setSession(null); setRoom(null); setDidReconnect(false); setDanmakuQueue([]); setNamedUsernameInput(""); setError(""); activeRoomIdRef.current = null; }
-=======
   function logoutNamedUser() {
     const prevIdentity = identity;
     clearIdentity();
@@ -941,6 +938,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setConnectionState("idle");
     setDidReconnect(false);
     setRevealBanner(null);
+    setDanmakuQueue([]);
     setNamedUsernameInput("");
     setError("");
     activeRoomIdRef.current = null;
@@ -948,7 +946,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
       apiLogoutNamedUser(prevIdentity.username, prevIdentity.userSessionToken).catch(() => {});
     }
   }
->>>>>>> f1bc871095f5e429c2c92a3e05d608db7682c83f
   async function copyLink() {
     if (!inviteLink) return;
     try {
