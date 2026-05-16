@@ -208,7 +208,11 @@ export function sanitizeRoom(room: Room, viewer: ViewerIdentity = {}): PublicRoo
     timeoutPauseReason: room.timeoutPauseReason,
     consecutiveTimeouts: room.consecutiveTimeouts,
     firstTurnBonusUsed: room.firstTurnBonusUsed,
-    viewer: buildViewerState(room, viewer)
+    replayId: room.replayId,
+    currentRoundScore: room.currentRoundScore,
+    comboStreaks: room.comboStreaks,
+    viewer: buildViewerState(room, viewer),
+    serverNow: Date.now()
   };
 }
 

@@ -65,22 +65,22 @@
   --blue: #2563eb;
   --neutral: #9ca3af;
   --assassin: #1f2937;
-  --red-bg: #fef2f2;
-  --red-border: #fecaca;
-  --blue-bg: #eff6ff;
-  --blue-border: #bfdbfe;
+  --red-bg: #fecdd3;
+  --red-border: #f43f5e;
+  --blue-bg: #bfdbfe;
+  --blue-border: #3b82f6;
   --neutral-bg: #e5e7eb;
   --neutral-border: #9ca3af;
-  --assassin-bg: #d1d5db;
+  --assassin-bg: #111827;
   --assassin-border: #374151;
-  --red-glow: rgba(220,38,38,0.10);
-  --blue-glow: rgba(37,99,235,0.10);
-  --neutral-glow: rgba(156,163,175,0.05);
-  --assassin-glow: rgba(31,41,55,0.08);
-  --red-text: #991b1b;
-  --blue-text: #1e40af;
-  --neutral-text: #374151;
-  --assassin-text: #1f2937;
+  --red-glow: rgba(244,63,94,0.22);
+  --blue-glow: rgba(59,130,246,0.22);
+  --neutral-glow: rgba(156,163,175,0.08);
+  --assassin-glow: rgba(17,24,39,0.24);
+  --red-text: #be123c;
+  --blue-text: #1d4ed8;
+  --neutral-text: #4b5563;
+  --assassin-text: #f9fafb;
   --shadow: 0 12px 40px rgba(0,0,0,0.06);
 }
 
@@ -613,6 +613,29 @@ a { color: var(--accent-2); }
   font-weight: 600;
   color: var(--text);
 }
+.card-tile.card-hidden-known {
+  border-width: 2px;
+}
+.card-tile.card-hidden.card-hidden-known.card-hidden-known-red {
+  background: var(--red-bg);
+  border-color: var(--red-border);
+  color: var(--red-text);
+}
+.card-tile.card-hidden.card-hidden-known.card-hidden-known-blue {
+  background: var(--blue-bg);
+  border-color: var(--blue-border);
+  color: var(--blue-text);
+}
+.card-tile.card-hidden.card-hidden-known.card-hidden-known-neutral {
+  background: var(--neutral-bg);
+  border-color: var(--neutral-border);
+  color: var(--neutral-text);
+}
+.card-tile.card-hidden.card-hidden-known.card-hidden-known-assassin {
+  background: var(--assassin-bg);
+  border-color: var(--assassin-border);
+  color: var(--assassin-text);
+}
 .card-tile.card-hidden:not(.card-disabled):hover {
   background: rgba(128,128,128,0.15);
   transform: translateY(-2px);
@@ -620,26 +643,26 @@ a { color: var(--accent-2); }
 }
 
 /* ─── revealed card colors ─── */
-.card-tile.card-revealed { cursor: default; font-weight: 700; border-width: 2px; }
-.card-tile.card-revealed-red {
+.card-tile.card-revealed { cursor: default; font-weight: 700; border-width: 2px; opacity: 1; }
+.card-tile.card-revealed.card-revealed-red {
   background: var(--red-bg);
   border-color: var(--red-border);
   box-shadow: 0 0 16px var(--red-glow), inset 0 1px 0 rgba(255,255,255,0.07);
   color: var(--red-text);
 }
-.card-tile.card-revealed-blue {
+.card-tile.card-revealed.card-revealed-blue {
   background: var(--blue-bg);
   border-color: var(--blue-border);
   box-shadow: 0 0 16px var(--blue-glow), inset 0 1px 0 rgba(255,255,255,0.07);
   color: var(--blue-text);
 }
-.card-tile.card-revealed-neutral {
+.card-tile.card-revealed.card-revealed-neutral {
   background: var(--neutral-bg);
   border-color: var(--neutral-border);
   box-shadow: 0 0 8px var(--neutral-glow), inset 0 1px 0 rgba(255,255,255,0.04);
   color: var(--neutral-text);
 }
-.card-tile.card-revealed-assassin {
+.card-tile.card-revealed.card-revealed-assassin {
   background: var(--assassin-bg);
   border-color: var(--assassin-border);
   box-shadow: 0 0 12px var(--assassin-glow), inset 0 1px 0 rgba(255,255,255,0.04);
@@ -1177,8 +1200,6 @@ a { color: var(--accent-2); }
 .replay-event-desc { font-size: 13px; color: var(--muted); margin: 0; }
 
 /* light mode overrides */
-:root.light .replay-board-card { color: var(--text); }
-:root.light .replay-board-word { color: var(--text); }
 :root.light .replay-meta-item { background: var(--surface-soft); border-color: var(--line); }
 :root.light .replay-round { background: var(--surface-soft); }
 :root.light .replay-event { background: var(--surface-soft); border-color: var(--line); }
@@ -1371,4 +1392,50 @@ a { color: var(--accent-2); }
   0% { opacity: 0.9; transform: translate(0,0) rotate(0deg) scale(1); }
   30% { opacity: 1; }
   100% { opacity: 0; transform: translate(calc(var(--tx, 0) * 1px), calc(var(--ty, 0) * 1px)) rotate(var(--r, 0deg)) scale(0.2); }
+}
+
+/* ─── light mode card role enforce ─── */
+:root.light .card-tile.card-revealed {
+  opacity: 1;
+}
+:root.light .card-tile.card-revealed.card-revealed-red {
+  background: #fecdd3; border-color: #f43f5e; color: #be123c; box-shadow: none;
+}
+:root.light .card-tile.card-revealed.card-revealed-blue {
+  background: #bfdbfe; border-color: #3b82f6; color: #1d4ed8; box-shadow: none;
+}
+:root.light .card-tile.card-revealed.card-revealed-neutral {
+  background: #e5e7eb; border-color: #9ca3af; color: #4b5563; box-shadow: none;
+}
+:root.light .card-tile.card-revealed.card-revealed-assassin {
+  background: #111827; border-color: #374151; color: #f9fafb; box-shadow: none;
+}
+
+:root.light .card-tile.card-hidden.card-hidden-known {
+  opacity: 1;
+}
+:root.light .card-tile.card-hidden.card-hidden-known.card-hidden-known-red {
+  background: #fecdd3; border-color: #f43f5e; color: #be123c;
+}
+:root.light .card-tile.card-hidden.card-hidden-known.card-hidden-known-blue {
+  background: #bfdbfe; border-color: #3b82f6; color: #1d4ed8;
+}
+:root.light .card-tile.card-hidden.card-hidden-known.card-hidden-known-neutral {
+  background: #e5e7eb; border-color: #9ca3af; color: #4b5563;
+}
+:root.light .card-tile.card-hidden.card-hidden-known.card-hidden-known-assassin {
+  background: #111827; border-color: #374151; color: #f9fafb;
+}
+
+:root.light .replay-board-card.replay-card-role-red {
+  background: #fecdd3; border-color: #f43f5e; color: #be123c;
+}
+:root.light .replay-board-card.replay-card-role-blue {
+  background: #bfdbfe; border-color: #3b82f6; color: #1d4ed8;
+}
+:root.light .replay-board-card.replay-card-role-neutral {
+  background: #e5e7eb; border-color: #9ca3af; color: #4b5563;
+}
+:root.light .replay-board-card.replay-card-role-assassin {
+  background: #111827; border-color: #374151; color: #f9fafb;
 }

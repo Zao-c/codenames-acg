@@ -1443,7 +1443,8 @@ export class GameService {
         remainingCounts,
         scores: winner && !scoringActive ? updateScores(room.scores, winner) : nextScores,
         lastReveal,
-        achievements: winner ? computeAchievements(room) : undefined
+        achievements: winner ? computeAchievements(room) : undefined,
+        ...(winner ? { timerEndsAt: undefined as undefined, timerPhase: undefined as undefined, timerPaused: false, timeoutPauseReason: undefined as undefined } : {})
       },
       event
     );
@@ -1580,7 +1581,7 @@ export class GameService {
     }
     const winner = nextTeam(room.currentTeam);
     const nextRoom = withEvent(
-      { ...room, phase: "finished" as const, winner, clue: null, lastReveal: null },
+      { ...room, phase: "finished" as const, winner, clue: null, lastReveal: null, timerEndsAt: undefined, timerPhase: undefined, timerPaused: false, timeoutPauseReason: undefined },
       `社长强制结束了对局`
     );
     const scoringActive = isScoringMode(room.settings.scoringMode);

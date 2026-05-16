@@ -417,6 +417,7 @@ export interface PublicRoomState extends Omit<Room, "players" | "spectators" | "
   board: PublicCard[];
   wordPackSummary: WordPackSummary;
   viewer: ViewerState | null;
+  serverNow: number;
 }
 
 export interface RoomSummary {

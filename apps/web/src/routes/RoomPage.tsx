@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useMemo, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useState, useMemo, useRef, type KeyboardEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   TEAM_LABELS, PLAYER_ROLE_LABELS,
@@ -118,7 +118,7 @@ export function RoomPage() {
                   <span className="status-pill clue-pill">{room.clue ? `提示：${room.clue.word} ${room.clue.count}` : "暂无提示"}</span>
                 </>
               ) : null}
-              {room.timerEndsAt ? <TimerPill room={room} /> : null}
+              {room.phase === "playing" && room.timerEndsAt ? <TimerPill room={room} /> : null}
               {room.timerPaused ? (
                 <span className="status-pill timer-pill-paused">⏸ 计时暂停</span>
               ) : null}
@@ -194,7 +194,11 @@ export function RoomPage() {
                     <button className="primary-button" onClick={() => navigate(`/replay/${room.replayId}`)}>查看复盘</button>
                     <CopyReplayLink replayId={room.replayId} />
                   </section>
-                ) : null}
+                ) : (
+                  <section className="replay-entry-bar" style={{ marginTop: 16, display: "flex", gap: 10, alignItems: "center", justifyContent: "center", flexWrap: "wrap", opacity: 0.6 }}>
+                    <span className="hint-text" style={{ margin: 0 }}>复盘生成中...</span>
+                  </section>
+                )}
 
                 {room.achievements && room.achievements.length > 0 ? (
                   <section className="panel achievements-panel" style={{ marginTop: 16 }}>
@@ -307,8 +311,19 @@ export function RoomPage() {
 
 function TimerPill({ room }: { room: NonNullable<ReturnType<typeof useGame>["room"]> }) {
   const [left, setLeft] = useState(0);
+  const offsetRef = useRef(0);
+
   useEffect(() => {
-    const tick = () => setLeft(Math.max(0, Math.ceil(((room.timerEndsAt ?? 0) - Date.now()) / 1000)));
+    if (room.serverNow) {
+      offsetRef.current = room.serverNow - Date.now();
+    }
+  });
+
+  useEffect(() => {
+    const tick = () => {
+      const now = Date.now() + offsetRef.current;
+      setLeft(Math.max(0, Math.ceil(((room.timerEndsAt ?? 0) - now) / 1000)));
+    };
     tick();
     const i = window.setInterval(tick, 500);
     return () => window.clearInterval(i);
@@ -406,7 +421,7 @@ function FocusBar({ room, viewer, onExitFocus, g }: { room: NonNullable<ReturnTy
           <span className="status-pill clue-pill">{room.clue ? `${room.clue.word} ${room.clue.count}` : "等待提示"}</span>
         </>
       ) : null}
-      {room.timerEndsAt ? <TimerPill room={room} /> : null}
+      {room.phase === "playing" && room.timerEndsAt ? <TimerPill room={room} /> : null}
       {room.timerPaused ? <span className="status-pill timer-pill-paused">⏸ 计时暂停</span> : null}
       <span className="flex-spacer" />
       {viewer?.canResumeTimer ? <button className="primary-button" onClick={g.resumeTimer} style={{ marginRight: 8 }}>▶ 继续</button> : null}
@@ -997,7 +1012,16 @@ function CardButton({ card, disabled, onClick, flash, flashOutcome, pending, rev
   const classes = ["card-tile"];
   if (card.revealed) classes.push("card-revealed", `card-revealed-${card.role}`);
   if (!card.revealed) classes.push("card-hidden");
+  if (!card.revealed && card.role) classes.push("card-hidden-known", `card-hidden-known-${card.role}`);
   if (disabled) classes.push("card-disabled");
+
+  console.log("CARD_RENDER_DEBUG", {
+    word: card.word,
+    revealed: card.revealed,
+    role: card.role,
+    disabled,
+    className: classes.join(" "),
+  });
   if (flash) { classes.push("card-flash"); if (flashOutcome) classes.push(`flash-${flashOutcome}`); }
   if (pending) classes.push("card-pending");
   if (revealing) classes.push("card-revealing");
