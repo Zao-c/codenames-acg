@@ -642,7 +642,6 @@ export class GameService {
 
     const cleanNickname = normalizeNickname(nickname);
     const resolvedProfile = await this.users.resolveProfile(profile, sessionToken);
-    const resolvedProfile = await this.users.resolveProfile(profile, sessionToken);
 
     const existing = [...room.players, ...room.spectators].find(
       (entry) => entry.nickname === cleanNickname
@@ -696,6 +695,7 @@ export class GameService {
     return this.withRoomLock(roomId, async () => {
     const room = await this.requireRoom(roomId);
     const cleanNickname = normalizeNickname(nickname);
+    const resolvedProfile = await this.users.resolveProfile(profile, sessionToken);
 
     const existing = [...room.players, ...room.spectators].find(
       (entry) => entry.nickname === cleanNickname
