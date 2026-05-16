@@ -1777,7 +1777,7 @@ export class GameService {
     participant.connected = false;
     const nextRoom = withEvent(room, `${participant.nickname} 暂时离线`);
 
-    if (room.phase === "lobby" && participantType === "player" && !(participant as Player).isBot) {
+    if (room.phase === "lobby" && !(participant as Player).isBot) {
       const DISCONNECT_KICK_DELAY = 2 * 60 * 1000;
       setTimeout(async () => {
         try {

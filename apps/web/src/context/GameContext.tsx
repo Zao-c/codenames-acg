@@ -1015,13 +1015,18 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }
   function leaveRoom() {
     if (session) {
-      const recoverable = loadRecoverableSessions();
-      recoverable[session.roomId] = {
-        sessionToken: session.sessionToken,
-        participantType: session.participantType,
-        savedAt: Date.now()
-      };
-      saveRecoverableSessions(recoverable);
+      const isPlaying = room?.phase === "playing" || room?.phase === "finished";
+      if (isPlaying) {
+        const recoverable = loadRecoverableSessions();
+        recoverable[session.roomId] = {
+          sessionToken: session.sessionToken,
+          participantType: session.participantType,
+          savedAt: Date.now()
+        };
+        saveRecoverableSessions(recoverable);
+      } else {
+        removeRecoverableSession(session.roomId);
+      }
       socket.emit("leave_room", { roomId: session.roomId, sessionToken: session.sessionToken });
     }
     clearSession(); setSession(null); setRoom(null); setConnectionState("idle"); setDidReconnect(false); setRevealBanner(null); setDanmakuQueue([]); setRoundHighlights([]); setRoundAchievements([]); setHighlightToast(null); setAchievementToast(null); setError(""); activeRoomIdRef.current = null;
