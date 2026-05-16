@@ -59,10 +59,17 @@ export default function App() {
   }, [room?.id]);
 
   useEffect(() => {
-    const codeFromUrl = new URLSearchParams(location.search).get("room");
+    const params = new URLSearchParams(location.search);
+    const codeFromUrl = params.get("room");
+    const replayFromUrl = params.get("replay");
     if (codeFromUrl) {
-      navigate(`/room/${codeFromUrl.toUpperCase()}`, { replace: true });
-      setRoomCode(codeFromUrl.toUpperCase());
+      navigate(`/room/${codeFromUrl.trim().toUpperCase()}`, { replace: true });
+      setRoomCode(codeFromUrl.trim().toUpperCase());
+      return;
+    }
+    if (replayFromUrl) {
+      navigate(`/replay/${replayFromUrl.trim()}`, { replace: true });
+      return;
     }
   }, []);
 

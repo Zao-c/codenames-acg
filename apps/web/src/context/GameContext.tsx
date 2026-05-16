@@ -519,7 +519,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const viewer = room?.viewer ?? null;
   const self: RoomParticipant | null =
     room?.players.find((p) => p.id === session?.participantId) ?? room?.spectators.find((s) => s.id === session?.participantId) ?? null;
-  const inviteLink = session ? `${window.location.origin}/room/${session.roomId}` : "";
+  const inviteLink = session ? `${window.location.origin}/?room=${session.roomId}` : "";
   const isLobby = room?.phase === "lobby";
   const isFinished = room?.phase === "finished";
   const isDebugController = Boolean(window.location.hostname === "localhost" && viewer?.isDebugController);
@@ -1023,22 +1023,24 @@ export function GameProvider({ children }: { children: ReactNode }) {
   async function copyLink() {
     if (!inviteLink) return;
     try {
-      if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(inviteLink);
-      } else {
-        const el = document.createElement("textarea");
-        el.value = inviteLink;
-        el.style.position = "fixed"; el.style.opacity = "0";
-        document.body.appendChild(el);
-        el.select();
-        document.execCommand("copy");
-        document.body.removeChild(el);
-      }
+      await navigator.clipboard.writeText(inviteLink);
       setCopied(true);
-      window.setTimeout(() => setCopied(false), 1200);
     } catch {
-      setError("复制失败，请手动复制房间号: " + inviteLink);
+      try {
+        const textarea = document.createElement("textarea");
+        textarea.value = inviteLink;
+        textarea.style.position = "fixed"; textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        textarea.remove();
+        setCopied(true);
+      } catch {
+        setError("复制失败，请手动复制: " + inviteLink);
+        return;
+      }
     }
+    window.setTimeout(() => setCopied(false), 1200);
   }
   function handleChatScroll() { const list = chatListRef.current; if (!list) return; const nearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 24; stickToChatBottomRef.current = nearBottom; setJumpToLatest(!nearBottom); }
   function handleBattleScroll() { const list = battleListRef.current; if (!list) return; const nearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 24; stickToBattleBottomRef.current = nearBottom; setJumpToLatest(!nearBottom); }

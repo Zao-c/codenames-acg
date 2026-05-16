@@ -18,7 +18,7 @@ export function RoomPage() {
   function CopyReplayLink({ replayId }: { replayId: string }) {
     const [copied, setCopied] = useState(false);
     const copy = useCallback(() => {
-      const url = `${window.location.origin}/replay/${replayId}`;
+      const url = `${window.location.origin}/?replay=${replayId}`;
       navigator.clipboard.writeText(url).then(() => {
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
