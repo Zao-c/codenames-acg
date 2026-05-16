@@ -669,6 +669,73 @@ a { color: var(--accent-2); }
   color: var(--assassin-text);
 }
 
+:root.light .card-tile.card-revealed.card-revealed-red {
+  background-color: #dc2626 !important;
+  border-color: #991b1b !important;
+  color: #fff !important;
+  box-shadow: none !important;
+}
+:root.light .card-tile.card-revealed.card-revealed-blue {
+  background-color: #2563eb !important;
+  border-color: #1e40af !important;
+  color: #fff !important;
+  box-shadow: none !important;
+}
+:root.light .card-tile.card-revealed.card-revealed-neutral {
+  background-color: #ca8a04 !important;
+  border-color: #a16207 !important;
+  color: #fff !important;
+  box-shadow: none !important;
+}
+:root.light .card-tile.card-revealed.card-revealed-assassin {
+  background-color: #111827 !important;
+  border-color: #374151 !important;
+  color: #f9fafb !important;
+  box-shadow: none !important;
+}
+
+:root.light .card-tile.card-hidden.card-hidden-known.card-hidden-known-red {
+  background-color: #dc2626 !important;
+  border-color: #991b1b !important;
+  color: #fff !important;
+}
+:root.light .card-tile.card-hidden.card-hidden-known.card-hidden-known-blue {
+  background-color: #2563eb !important;
+  border-color: #1e40af !important;
+  color: #fff !important;
+}
+:root.light .card-tile.card-hidden.card-hidden-known.card-hidden-known-neutral {
+  background-color: #ca8a04 !important;
+  border-color: #a16207 !important;
+  color: #fff !important;
+}
+:root.light .card-tile.card-hidden.card-hidden-known.card-hidden-known-assassin {
+  background-color: #111827 !important;
+  border-color: #374151 !important;
+  color: #f9fafb !important;
+}
+
+:root.light .replay-board-card.replay-card-role-red {
+  background-color: #dc2626 !important;
+  border-color: #991b1b !important;
+  color: #fff !important;
+}
+:root.light .replay-board-card.replay-card-role-blue {
+  background-color: #2563eb !important;
+  border-color: #1e40af !important;
+  color: #fff !important;
+}
+:root.light .replay-board-card.replay-card-role-neutral {
+  background-color: #ca8a04 !important;
+  border-color: #a16207 !important;
+  color: #fff !important;
+}
+:root.light .replay-board-card.replay-card-role-assassin {
+  background-color: #111827 !important;
+  border-color: #374151 !important;
+  color: #f9fafb !important;
+}
+
 /* ─── spymaster hint badge ─── */
 .card-spymaster-hint { overflow: visible; }
 .card-role-badge {
@@ -737,6 +804,9 @@ a { color: var(--accent-2); }
 .card-disabled {
   opacity: 0.6;
   cursor: default;
+}
+.card-tile.card-revealed.card-disabled {
+  opacity: 1;
 }
 
 .board-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
@@ -1394,48 +1464,3 @@ a { color: var(--accent-2); }
   100% { opacity: 0; transform: translate(calc(var(--tx, 0) * 1px), calc(var(--ty, 0) * 1px)) rotate(var(--r, 0deg)) scale(0.2); }
 }
 
-/* ─── light mode card role enforce ─── */
-:root.light .card-tile.card-revealed {
-  opacity: 1;
-}
-:root.light .card-tile.card-revealed.card-revealed-red {
-  background: #fecdd3; border-color: #f43f5e; color: #be123c; box-shadow: none;
-}
-:root.light .card-tile.card-revealed.card-revealed-blue {
-  background: #bfdbfe; border-color: #3b82f6; color: #1d4ed8; box-shadow: none;
-}
-:root.light .card-tile.card-revealed.card-revealed-neutral {
-  background: #e5e7eb; border-color: #9ca3af; color: #4b5563; box-shadow: none;
-}
-:root.light .card-tile.card-revealed.card-revealed-assassin {
-  background: #111827; border-color: #374151; color: #f9fafb; box-shadow: none;
-}
-
-:root.light .card-tile.card-hidden.card-hidden-known {
-  opacity: 1;
-}
-:root.light .card-tile.card-hidden.card-hidden-known.card-hidden-known-red {
-  background: #fecdd3; border-color: #f43f5e; color: #be123c;
-}
-:root.light .card-tile.card-hidden.card-hidden-known.card-hidden-known-blue {
-  background: #bfdbfe; border-color: #3b82f6; color: #1d4ed8;
-}
-:root.light .card-tile.card-hidden.card-hidden-known.card-hidden-known-neutral {
-  background: #e5e7eb; border-color: #9ca3af; color: #4b5563;
-}
-:root.light .card-tile.card-hidden.card-hidden-known.card-hidden-known-assassin {
-  background: #111827; border-color: #374151; color: #f9fafb;
-}
-
-:root.light .replay-board-card.replay-card-role-red {
-  background: #fecdd3; border-color: #f43f5e; color: #be123c;
-}
-:root.light .replay-board-card.replay-card-role-blue {
-  background: #bfdbfe; border-color: #3b82f6; color: #1d4ed8;
-}
-:root.light .replay-board-card.replay-card-role-neutral {
-  background: #e5e7eb; border-color: #9ca3af; color: #4b5563;
-}
-:root.light .replay-board-card.replay-card-role-assassin {
-  background: #111827; border-color: #374151; color: #f9fafb;
-}

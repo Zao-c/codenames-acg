@@ -722,7 +722,7 @@ function BoardPanel({ room, viewer, g, cardMarks, markCard }: {
             key={card.id}
             card={card}
             boardColumns={boardColumns}
-            disabled={!viewer?.canGuess || card.revealed || room.phase !== "playing" || pendingGuess === card.id}
+            canClick={!!viewer?.canGuess && !card.revealed && room.phase === "playing" && pendingGuess !== card.id}
             onClick={() => doGuess(card.id)}
             flash={room.lastReveal?.cardId === card.id}
             flashOutcome={room.lastReveal?.cardId === card.id ? room.lastReveal.outcome : null}
@@ -1003,8 +1003,8 @@ function fontSizeForBoard(boardColumns: number, wordLength: number): string {
   return "11px";
 }
 
-function CardButton({ card, disabled, onClick, flash, flashOutcome, pending, revealing, showSpymasterHints, boardColumns, mark, onMark }: {
-  card: PublicCard; disabled: boolean; onClick: () => void; boardColumns: number;
+function CardButton({ card, canClick, onClick, flash, flashOutcome, pending, revealing, showSpymasterHints, boardColumns, mark, onMark }: {
+  card: PublicCard; canClick: boolean; onClick: () => void; boardColumns: number;
   flash: boolean; flashOutcome: RevealOutcome | null; pending: boolean; revealing: boolean; showSpymasterHints: boolean;
   mark: "red" | "blue" | "neutral" | "assassin" | null;
   onMark: () => void;
@@ -1013,15 +1013,7 @@ function CardButton({ card, disabled, onClick, flash, flashOutcome, pending, rev
   if (card.revealed) classes.push("card-revealed", `card-revealed-${card.role}`);
   if (!card.revealed) classes.push("card-hidden");
   if (!card.revealed && card.role) classes.push("card-hidden-known", `card-hidden-known-${card.role}`);
-  if (disabled) classes.push("card-disabled");
-
-  console.log("CARD_RENDER_DEBUG", {
-    word: card.word,
-    revealed: card.revealed,
-    role: card.role,
-    disabled,
-    className: classes.join(" "),
-  });
+  if (!canClick) classes.push("card-disabled");
   if (flash) { classes.push("card-flash"); if (flashOutcome) classes.push(`flash-${flashOutcome}`); }
   if (pending) classes.push("card-pending");
   if (revealing) classes.push("card-revealing");
@@ -1051,8 +1043,12 @@ function CardButton({ card, disabled, onClick, flash, flashOutcome, pending, rev
   const wordLen = card.word.length;
   const dynamicFontSize = fontSizeForBoard(boardColumns, wordLen);
 
+  const handleClick = () => {
+    if (canClick) onClick();
+  };
+
   return (
-    <button className={classes.join(" ")} disabled={disabled} onClick={onClick} onContextMenu={(e) => { e.preventDefault(); onMark(); }}>
+    <button className={classes.join(" ")} aria-disabled={!canClick} onClick={handleClick} onContextMenu={(e) => { e.preventDefault(); onMark(); }}>
       <span className="card-word" style={{ fontSize: dynamicFontSize }}>{card.word}</span>
       {markLabel ? <span className={markClass}>{markLabel}</span> : null}
       {showSpymasterHints && card.role && !card.revealed ? (
