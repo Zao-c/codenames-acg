@@ -173,6 +173,7 @@ export interface JoinRequest {
 }
 
 export interface Clue {
+  id?: string;
   word: string;
   count: number;
   team: Team;
@@ -239,6 +240,7 @@ export interface ClueRoundRecord {
   guesses: Array<{
     playerId: string;
     nickname: string;
+    cardId?: string;
     cardWord: string;
     cardRole: CardRole;
     isOwnHit: boolean;
@@ -254,6 +256,7 @@ export interface RoundHighlightCard {
 
 export interface RoundHighlight {
   id: string;
+  clueId?: string;
   roundIndex: number;
   team: Team;
   clueWord: string;
@@ -353,6 +356,7 @@ export interface Room {
   timerEndsAt?: number;
   timerPhase?: "clue" | "guess";
   timerPaused?: boolean;
+  pausedTimerPhase?: "clue" | "guess";
   timeoutPauseReason?: string;
   consecutiveTimeouts?: number;
   firstTurnBonusUsed?: boolean;

@@ -611,6 +611,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [roundHighlights, setRoundHighlights] = useState<RoundHighlight[]>([]);
   const [highlightToast, setHighlightToast] = useState<RoundHighlight | null>(null);
   const highlightToastTimerRef = useRef<number | null>(null);
+  const roundUiScopeRef = useRef<{ roomId: string | null; phase: PublicRoomState["phase"] | null; gameKey: string | null }>({
+    roomId: null,
+    phase: null,
+    gameKey: null
+  });
 
   useEffect(() => {
     function onRoundHighlight(p: RoundHighlight) {
@@ -626,6 +631,39 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [roundAchievements, setRoundAchievements] = useState<AchievementUnlockPayload[]>([]);
   const [achievementToast, setAchievementToast] = useState<AchievementUnlockPayload | null>(null);
   const achievementToastTimerRef = useRef<number | null>(null);
+
+  const clearRoundUiCache = useCallback(() => {
+    setRoundHighlights([]);
+    setRoundAchievements([]);
+    setHighlightToast(null);
+    setAchievementToast(null);
+    if (highlightToastTimerRef.current !== null) {
+      window.clearTimeout(highlightToastTimerRef.current);
+      highlightToastTimerRef.current = null;
+    }
+    if (achievementToastTimerRef.current !== null) {
+      window.clearTimeout(achievementToastTimerRef.current);
+      achievementToastTimerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    const roomId = session?.roomId ?? null;
+    const phase = room?.phase ?? null;
+    const gameKey = room && room.phase === "playing" && room.board.length > 0
+      ? `${room.id}:${room.roundNumber}:${room.board.map((card) => card.id).join(",")}`
+      : null;
+    const prev = roundUiScopeRef.current;
+    const roomChanged = prev.roomId !== roomId;
+    const returnedToLobbyAfterFinished = phase === "lobby" && prev.phase === "finished";
+    const newPlayingGame = gameKey !== null && prev.gameKey !== null && prev.gameKey !== gameKey;
+
+    if (roomChanged || returnedToLobbyAfterFinished || newPlayingGame) {
+      clearRoundUiCache();
+    }
+
+    roundUiScopeRef.current = { roomId, phase, gameKey: gameKey ?? prev.gameKey };
+  }, [clearRoundUiCache, room, session?.roomId]);
 
   useEffect(() => {
     function onAchievementUnlock(p: AchievementUnlockPayload) {

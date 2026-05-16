@@ -5,6 +5,7 @@ import type {
   PublicPlayer,
   PublicRoomState,
   PublicSpectator,
+  RoundHighlight,
   Room,
   RoomSummary,
   ViewerIdentity,
@@ -170,6 +171,7 @@ export function sanitizeRoom(room: Room, viewer: ViewerIdentity = {}): PublicRoo
       revealedBy: card.revealedBy
     };
   });
+  const roundHighlights = sanitizeRoundHighlightsForPhase(room.roundHighlights, room.phase);
 
   return {
     id: room.id,
@@ -194,6 +196,7 @@ export function sanitizeRoom(room: Room, viewer: ViewerIdentity = {}): PublicRoo
     lastReveal: room.lastReveal,
     achievements: room.achievements,
     clueRecords: room.clueRecords,
+    roundHighlights,
     roundScoreHistory: room.roundScoreHistory,
     playerStats: room.playerStats,
     usedWordIds: room.usedWordIds,
@@ -201,9 +204,19 @@ export function sanitizeRoom(room: Room, viewer: ViewerIdentity = {}): PublicRoo
     timerEndsAt: room.timerEndsAt,
     timerPhase: room.timerPhase,
     timerPaused: room.timerPaused,
+    pausedTimerPhase: room.pausedTimerPhase,
     timeoutPauseReason: room.timeoutPauseReason,
     consecutiveTimeouts: room.consecutiveTimeouts,
     firstTurnBonusUsed: room.firstTurnBonusUsed,
     viewer: buildViewerState(room, viewer)
   };
+}
+
+export function sanitizeRoundHighlightsForPhase(
+  highlights: RoundHighlight[] | undefined,
+  phase: Room["phase"]
+): RoundHighlight[] | undefined {
+  if (!highlights) return undefined;
+  if (phase === "finished") return highlights;
+  return highlights.map((highlight) => ({ ...highlight, missedCards: [] }));
 }

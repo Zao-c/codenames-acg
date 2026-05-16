@@ -388,13 +388,25 @@ function emptyRoundScore(team: Team): RoundScoreDetail {
 }
 
 function computeScoreDelta(round: RoundScoreDetail): number {
-  return round.ownPoints + round.comboBonus - round.neutralPenalty + round.opponentPointsLost - round.assassinPenalty + round.precisionBonus + round.victoryBonus;
+  return round.ownPoints + round.comboBonus - round.neutralPenalty - round.opponentPointsLost - round.assassinPenalty + round.precisionBonus + round.victoryBonus;
 }
 
 function applyScore(room: Room, team: Team, delta: number): { scores: RoomScore } {
   const scores = { ...room.scores };
   scores[team] = Math.max(0, scores[team] + delta);
   return { scores };
+}
+
+function applyScoreToScores(scores: RoomScore, team: Team, delta: number): RoomScore {
+  return { ...scores, [team]: Math.max(0, scores[team] + delta) };
+}
+
+function hasStableProfileIdentity(profile: UserProfile): boolean {
+  return profile.accountType === "named" && Boolean(profile.username);
+}
+
+function sameStableProfileIdentity(a: UserProfile, b: UserProfile): boolean {
+  return hasStableProfileIdentity(a) && hasStableProfileIdentity(b) && a.username === b.username;
 }
 
 function isScoringMode(mode: ScoringMode): boolean {
@@ -525,13 +537,36 @@ function finalizeAchievements(room: Room): Room {
 export class GameService {
   private readonly roomLocks = new Map<string, Promise<void>>();
   private readonly heldRoomLocks = new AsyncLocalStorage<Set<string>>();
+  private readonly disconnectKickTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   constructor(
     private readonly store: RoomStore,
     private readonly users: UserStore,
-    private readonly options: { enableDebugTools: boolean } = { enableDebugTools: false },
+    private readonly options: { enableDebugTools: boolean; disconnectKickDelayMs?: number } = { enableDebugTools: false },
     private readonly replayStore?: ReplayStore
   ) {}
+
+  private disconnectTimerKey(roomId: string, participantId: string, participantType: ParticipantType): string {
+    return `${roomId}:${participantType}:${participantId}`;
+  }
+
+  private clearDisconnectKickTimer(roomId: string, participantId: string, participantType: ParticipantType): void {
+    const key = this.disconnectTimerKey(roomId, participantId, participantType);
+    const timer = this.disconnectKickTimers.get(key);
+    if (timer) {
+      clearTimeout(timer);
+      this.disconnectKickTimers.delete(key);
+    }
+  }
+
+  private clearRoomDisconnectKickTimers(roomId: string): void {
+    for (const [key, timer] of this.disconnectKickTimers.entries()) {
+      if (key.startsWith(`${roomId}:`)) {
+        clearTimeout(timer);
+        this.disconnectKickTimers.delete(key);
+      }
+    }
+  }
 
   private async withRoomLock<T>(roomId: string, fn: () => Promise<T>): Promise<T> {
     if (this.heldRoomLocks.getStore()?.has(roomId)) {
@@ -606,12 +641,14 @@ export class GameService {
     requireLobby(room);
 
     const cleanNickname = normalizeNickname(nickname);
+    const resolvedProfile = await this.users.resolveProfile(profile, sessionToken);
+    const resolvedProfile = await this.users.resolveProfile(profile, sessionToken);
 
     const existing = [...room.players, ...room.spectators].find(
       (entry) => entry.nickname === cleanNickname
     );
     if (existing) {
-      if ("connected" in existing && !existing.connected) {
+      if ("connected" in existing && !existing.connected && sameStableProfileIdentity(existing.profile, resolvedProfile)) {
         if ("team" in existing) {
           existing.connected = true;
           existing.sessionToken = crypto.randomUUID();
@@ -642,7 +679,7 @@ export class GameService {
       throw new Error("房间已满");
     }
 
-    const player = await buildPlayer(cleanNickname, false, await this.users.resolveProfile(profile, sessionToken));
+    const player = await buildPlayer(cleanNickname, false, resolvedProfile);
     const nextRoom = withEvent({ ...room, players: [...room.players, player] }, `${player.nickname} 加入了结社 (｡･∀･)ﾉﾞ`);
     await this.store.setRoom(nextRoom);
     await this.store.setPlayerSession(player.sessionToken!, createSession(nextRoom.id, player.id, "player"));
@@ -664,7 +701,7 @@ export class GameService {
       (entry) => entry.nickname === cleanNickname
     );
     if (existing) {
-      if ("connected" in existing && !existing.connected) {
+      if ("connected" in existing && !existing.connected && sameStableProfileIdentity(existing.profile, resolvedProfile)) {
         if ("team" in existing) {
           throw new Error("你是本局玩家，请以玩家身份重连");
         }
@@ -678,7 +715,7 @@ export class GameService {
       throw new Error("昵称已被占用");
     }
 
-    const spectator = await buildSpectator(cleanNickname, await this.users.resolveProfile(profile, sessionToken));
+    const spectator = await buildSpectator(cleanNickname, resolvedProfile);
     const nextRoom = withEvent(
       {
         ...room,
@@ -833,7 +870,7 @@ export class GameService {
     }
 
     const nextBoardMode = payload.boardMode ?? room.settings.boardMode;
-    const boardModeChanged = payload.boardMode !== undefined && payload.boardMode !== room.settings.boardMode;
+    const boardModeChanged = nextBoardMode !== room.settings.boardMode;
 
     let nextNeutralCount: number | undefined;
     if (payload.neutralCount === null) {
@@ -858,7 +895,7 @@ export class GameService {
     const nextRoom = withEvent(
       {
         ...room,
-        usedWordIds: wordPackChanged ? undefined : room.usedWordIds,
+        usedWordIds: wordPackChanged || boardModeChanged ? undefined : room.usedWordIds,
         settings: {
           ...room.settings,
           boardMode: nextBoardMode,
@@ -1189,10 +1226,12 @@ export class GameService {
     }
 
     const timerMode: import("@acg-codenames/shared").TimerMode = room.settings.timerMode ?? "unlimited";
+    const clueId = "clue-" + now() + "-" + crypto.randomBytes(2).toString("hex");
     const nextRoom = withEvent(
       {
         ...room,
         clue: {
+          id: clueId,
           word: cleanWord,
           count,
           team: room.currentTeam,
@@ -1300,11 +1339,18 @@ export class GameService {
 
     if (!room.clueRecords) room.clueRecords = [];
     const clueRecord = room.clueRecords[room.clueRecords.length - 1];
-    if (clueRecord && clueRecord.giverPlayerId === room.clue?.giverPlayerId && clueRecord.word === room.clue?.word) {
+    const activeClueId = getClueId(room.clue);
+    if (
+      clueRecord &&
+      (
+        clueRecord.clueId === activeClueId ||
+        (!room.clue?.id && clueRecord.giverPlayerId === room.clue?.giverPlayerId && clueRecord.word === room.clue?.word)
+      )
+    ) {
       clueRecord.guesses.push({ playerId: player.id, nickname: player.nickname, cardWord: card.word, cardRole: card.role, isOwnHit: outcome === "own-hit" });
     } else {
       const newRecord: ClueRoundRecord = {
-        clueId: "clue-" + Date.now(),
+        clueId: activeClueId,
         team: actingTeam,
         giverPlayerId: room.clue?.giverPlayerId ?? "?",
         giverNickname: room.players.find(p => p.id === room.clue?.giverPlayerId)?.nickname ?? "?",
@@ -1402,7 +1448,7 @@ export class GameService {
       event
     );
     if (!clue) {
-      const lastRecord = nextRoom.clueRecords?.[nextRoom.clueRecords.length - 1];
+      const lastRecord = findRecordForClue(nextRoom.clueRecords, room.clue);
       if (lastRecord) {
         const highlights = [...(nextRoom.roundHighlights ?? [])];
         const hl = buildRoundHighlightFromRecord(lastRecord, nextRoom, highlights.length);
@@ -1482,7 +1528,7 @@ export class GameService {
       const spy = room.players.find(p => p.id === giverId);
       if (spy) ensurePlayerStats(nextRoom, spy).preciseClues += 1;
     }
-    const lastRecord = nextRoom.clueRecords?.[nextRoom.clueRecords.length - 1];
+    const lastRecord = findRecordForClue(nextRoom.clueRecords, room.clue);
     if (lastRecord) {
       const highlights = [...(nextRoom.roundHighlights ?? [])];
       const hl = buildRoundHighlightFromRecord(lastRecord, nextRoom, highlights.length);
@@ -1776,14 +1822,24 @@ export class GameService {
     });
   }
 
-  async generateReplay(roomId: string): Promise<string | null> {
-    if (!this.replayStore) return null;
-    const room = await this.requireRoom(roomId);
-    if (room.phase !== "finished") return null;
-    const replayId = sampleReplayId();
-    const replay = buildReplay(room, replayId);
-    await this.replayStore.saveReplay(replay);
-    return replayId;
+  async ensureReplay(roomId: string): Promise<string | undefined> {
+    return this.withRoomLock(roomId, async () => {
+      if (!this.replayStore) return undefined;
+      const room = await this.requireRoom(roomId);
+      if (room.replayId) return room.replayId;
+      if (room.phase !== "finished") return undefined;
+
+      const replayId = sampleReplayId();
+      const replay = buildReplay(room, replayId);
+      await this.replayStore.saveReplay(replay);
+      const nextRoom = { ...room, replayId, updatedAt: now() };
+      await this.store.setRoom(nextRoom);
+      return replayId;
+    });
+  }
+
+  async generateReplay(roomId: string): Promise<string | undefined> {
+    return this.ensureReplay(roomId);
   }
 
   async getReplay(replayId: string): Promise<GameReplay | null> {
@@ -1873,7 +1929,7 @@ export class GameService {
         },
         `${TEAM_LABELS[latest.currentTeam]} 猜词超时，回合跳过`
       );
-      const lastRecord = nextRoom.clueRecords?.[nextRoom.clueRecords.length - 1];
+      const lastRecord = findRecordForClue(nextRoom.clueRecords, latest.clue);
       if (lastRecord) {
         const highlights = [...(nextRoom.roundHighlights ?? [])];
         const hl = buildRoundHighlightFromRecord(lastRecord, nextRoom, highlights.length);
@@ -1989,6 +2045,7 @@ export function buildRoundHighlightFromRecord(
 
   return {
     id: "hl-" + Date.now() + "-" + roundIndex,
+    clueId: record.clueId,
     roundIndex,
     team: record.team,
     clueWord: record.word,
@@ -2004,15 +2061,32 @@ export function buildRoundHighlightFromRecord(
   };
 }
 
+function getClueId(clue: Clue | null | undefined): string {
+  if (clue?.id) return clue.id;
+  return `legacy-${clue?.team ?? "unknown"}-${clue?.giverPlayerId ?? "unknown"}-${clue?.word ?? "unknown"}`;
+}
+
+function findRecordForClue(
+  records: ClueRoundRecord[] | undefined,
+  clue: Clue | null | undefined
+): ClueRoundRecord | undefined {
+  if (!records || !clue) return undefined;
+  const clueId = getClueId(clue);
+  return records.find((record) => record.clueId === clueId) ??
+    records.find((record) => !clue.id && record.giverPlayerId === clue.giverPlayerId && record.word === clue.word);
+}
+
 export function buildAchievementUnlocksFromHighlight(
   highlight: RoundHighlight,
   room: Room
 ): AchievementUnlockPayload[] {
   const results: AchievementUnlockPayload[] = [];
+  const highlightKey = highlight.clueId ?? highlight.id;
+  const achievementId = (type: string, playerId: string): string => `${type}-${highlightKey}-${playerId}`;
 
   if (highlight.captainTitle === "神谕队长") {
     results.push({
-      id: "ach-oracle",
+      id: achievementId("ach-oracle", highlight.giverPlayerId),
       title: "神谕队长",
       playerId: highlight.giverPlayerId,
       nickname: highlight.giverNickname,
@@ -2022,7 +2096,7 @@ export function buildAchievementUnlocksFromHighlight(
 
   if (highlight.captainTitle === "诈骗队长") {
     results.push({
-      id: "ach-fraud",
+      id: achievementId("ach-fraud", highlight.giverPlayerId),
       title: "诈骗队长",
       playerId: highlight.giverPlayerId,
       nickname: highlight.giverNickname,
@@ -2032,7 +2106,7 @@ export function buildAchievementUnlocksFromHighlight(
 
   if (highlight.captainTitle === "刺客引路人") {
     results.push({
-      id: "ach-assassin-lead",
+      id: achievementId("ach-assassin-lead", highlight.giverPlayerId),
       title: "刺客引路人",
       playerId: highlight.giverPlayerId,
       nickname: highlight.giverNickname,
@@ -2043,9 +2117,10 @@ export function buildAchievementUnlocksFromHighlight(
   if (highlight.teamTitle === "脑回路同步") {
     for (const hc of highlight.hitCards) {
       const guessPlayer = room.players.find((p) => p.nickname === hc.guessedByNickname);
-      if (guessPlayer && !results.some((r) => r.playerId === guessPlayer.id && r.id === "ach-sync")) {
+      const id = guessPlayer ? achievementId("ach-sync", guessPlayer.id) : "";
+      if (guessPlayer && !results.some((r) => r.id === id)) {
         results.push({
-          id: "ach-sync",
+          id,
           title: "脑回路同步",
           playerId: guessPlayer.id,
           nickname: guessPlayer.nickname,
@@ -2061,7 +2136,7 @@ export function buildAchievementUnlocksFromHighlight(
       const guessPlayer = room.players.find((p) => p.nickname === assassinGuess.guessedByNickname);
       if (guessPlayer) {
         results.push({
-          id: "ach-assassin-friend",
+          id: achievementId("ach-assassin-friend", guessPlayer.id),
           title: "刺客亲友",
           playerId: guessPlayer.id,
           nickname: guessPlayer.nickname,
@@ -2073,7 +2148,7 @@ export function buildAchievementUnlocksFromHighlight(
 
   if (highlight.captainTitle === "谜语人") {
     results.push({
-      id: "ach-riddler",
+      id: achievementId("ach-riddler", highlight.giverPlayerId),
       title: "谜语人",
       playerId: highlight.giverPlayerId,
       nickname: highlight.giverNickname,
@@ -2120,7 +2195,7 @@ export function buildReplay(room: Room, replayId: string): GameReplay {
 
   for (let i = 0; i < (room.clueRecords?.length ?? 0); i += 1) {
     const cr = room.clueRecords![i];
-    const hl = room.roundHighlights?.[i];
+    const hl = room.roundHighlights?.find((highlight) => highlight.clueId === cr.clueId) ?? room.roundHighlights?.[i];
     const round: ReplayRound = {
       index: i + 1,
       team: cr.team,

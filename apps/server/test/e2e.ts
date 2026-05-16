@@ -644,23 +644,31 @@ async function testMultiRoundReviewIsolation(): Promise<void> {
       socket.emit("set_team", { roomId: hostSession.roomId, team });
       socket.emit("set_role", { roomId: hostSession.roomId, role });
     }
-    await waitForRoomState(host, (r) => r.players.every((p) => p.team !== null && p.role !== null));
+    await waitForRoomState(host, (r) => {
+      const reviewHost = r.players.find((p) => p.nickname === "ReviewHost");
+      const p2Player = r.players.find((p) => p.nickname === "P2");
+      const p3Player = r.players.find((p) => p.nickname === "P3");
+      const p4Player = r.players.find((p) => p.nickname === "P4");
+      return reviewHost?.team === "red" && reviewHost.role === "operative" &&
+        p2Player?.team === "red" && p2Player.role === "spymaster" &&
+        p3Player?.team === "blue" && p3Player.role === "operative" &&
+        p4Player?.team === "blue" && p4Player.role === "spymaster";
+    });
 
     host.emit("start_game", { roomId: hostSession.roomId });
-    const round1 = await onceRoomState(host);
+    const round1 = await waitForRoomState(host, (room) => room.phase === "playing");
     assert.equal(round1.phase, "playing");
 
-    const redSpy = round1.players.find((p) => p.team === "red" && p.role === "spymaster");
-    assert.ok(redSpy, "should have red spymaster");
-    p2.emit("submit_clue", { roomId: hostSession.roomId, word: "alpha", count: 1 });
-    await onceRoomState(host);
+    const spymasterByTeam = round1.currentTeam === "red" ? p2 : p4;
+    spymasterByTeam.emit("submit_clue", { roomId: hostSession.roomId, word: "alpha", count: 1 });
+    await waitForRoomState(host, (room) => room.clue?.word === "alpha");
 
     host.emit("force_end_game", { roomId: hostSession.roomId });
-    const finished = await onceRoomState(host);
+    const finished = await waitForRoomState(host, (room) => room.phase === "finished");
     assert.equal(finished.phase, "finished");
 
     host.emit("restart_game", { roomId: hostSession.roomId });
-    const round2 = await onceRoomState(host);
+    const round2 = await waitForRoomState(host, (room) => room.phase === "playing" && room.roundNumber === finished.roundNumber + 1);
     assert.equal(round2.phase, "playing");
     assert.deepEqual(round2.clueRecords, [], "clueRecords cleared for new round");
     assert.deepEqual(round2.roundScoreHistory, [], "roundScoreHistory cleared for new round");
@@ -701,10 +709,19 @@ async function testTimerFieldsInRoomState(): Promise<void> {
       socket.emit("set_team", { roomId: hostSession.roomId, team });
       socket.emit("set_role", { roomId: hostSession.roomId, role });
     }
-    await waitForRoomState(host, (r) => r.players.every((p) => p.team !== null && p.role !== null));
+    await waitForRoomState(host, (r) => {
+      const timerHost = r.players.find((p) => p.nickname === "TimerHost");
+      const p2Player = r.players.find((p) => p.nickname === "T2");
+      const p3Player = r.players.find((p) => p.nickname === "T3");
+      const p4Player = r.players.find((p) => p.nickname === "T4");
+      return timerHost?.team === "red" && timerHost.role === "operative" &&
+        p2Player?.team === "red" && p2Player.role === "spymaster" &&
+        p3Player?.team === "blue" && p3Player.role === "operative" &&
+        p4Player?.team === "blue" && p4Player.role === "spymaster";
+    });
 
     host.emit("start_game", { roomId: hostSession.roomId });
-    const playing = await onceRoomState(host);
+    const playing = await waitForRoomState(host, (room) => room.phase === "playing");
     assert.equal(playing.phase, "playing");
     assert.notEqual(playing.timerEndsAt, undefined, "timerEndsAt should be present");
     assert.equal(playing.timerPhase, "clue", "timerPhase should be clue");
@@ -747,10 +764,19 @@ async function testNeutralCountDefault(): Promise<void> {
       socket.emit("set_team", { roomId: hostSession.roomId, team });
       socket.emit("set_role", { roomId: hostSession.roomId, role });
     }
-    await waitForRoomState(host, (r) => r.players.every((p) => p.team !== null && p.role !== null));
+    await waitForRoomState(host, (r) => {
+      const neutralHost = r.players.find((p) => p.nickname === "NeutralHost");
+      const p2Player = r.players.find((p) => p.nickname === "N2");
+      const p3Player = r.players.find((p) => p.nickname === "N3");
+      const p4Player = r.players.find((p) => p.nickname === "N4");
+      return neutralHost?.team === "red" && neutralHost.role === "operative" &&
+        p2Player?.team === "red" && p2Player.role === "spymaster" &&
+        p3Player?.team === "blue" && p3Player.role === "operative" &&
+        p4Player?.team === "blue" && p4Player.role === "spymaster";
+    });
 
     host.emit("start_game", { roomId: hostSession.roomId });
-    const playing = await onceRoomState(host);
+    const playing = await waitForRoomState(host, (room) => room.phase === "playing");
     const boardModeConfig = BOARD_MODE_CONFIG["7x7"];
     assert.equal(playing.board.length, boardModeConfig.size, "board size should match 7x7 config");
     assert.equal(playing.settings.neutralCount, undefined, "neutralCount should remain default");
@@ -891,7 +917,7 @@ async function testNeutralCountValidation(): Promise<void> {
   const host = createClient();
   try {
     await waitForConnect(host);
-    host.emit("create_room", { nickname: "NeutralValHost", profile: { accountType: "guest" } });
+    host.emit("create_room", { nickname: "NValHost", profile: { accountType: "guest" } });
     const hostSession = await onceSession(host);
     await onceRoomState(host);
 

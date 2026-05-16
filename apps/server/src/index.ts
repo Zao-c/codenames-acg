@@ -17,6 +17,7 @@ import {
   type CustomWordPackInput,
   type ParticipantType,
   type PlayerRole,
+  sanitizeRoundHighlightsForPhase,
   type ServerToClientEvents,
   type Team,
   type UpdateNamedUserPayload,
@@ -465,9 +466,10 @@ async function bootstrap(): Promise<void> {
     if (!room) return;
     const highlights = room.roundHighlights ?? [];
     if (highlights.length === 0) return;
-    const lastHl = highlights[highlights.length - 1];
+    const sanitizedHighlights = sanitizeRoundHighlightsForPhase(highlights, room.phase) ?? [];
+    const lastHl = sanitizedHighlights[sanitizedHighlights.length - 1];
     io.to(roomId).emit("round_highlight", lastHl);
-    const achievements = buildAchievementUnlocksFromHighlight(lastHl, room);
+    const achievements = buildAchievementUnlocksFromHighlight(highlights[highlights.length - 1], room);
     for (const ach of achievements) {
       io.to(roomId).emit("achievement_unlock", ach);
     }
@@ -735,14 +737,10 @@ async function bootstrap(): Promise<void> {
           throw new Error("旁观者不能结束对局");
         }
         const room = await game.forceEndGame(roomId, session.participantId);
-        await sendRoomState(room.id);
-        if (room.phase === "finished" && !room.replayId) {
-          const replayId = await game.generateReplay(room.id);
-          if (replayId) {
-            room.replayId = replayId;
-            await sendRoomState(room.id);
-          }
+        if (room.phase === "finished") {
+          await game.ensureReplay(room.id);
         }
+        await sendRoomState(room.id);
       } catch (error) {
         fail(socket, error);
       }
@@ -777,15 +775,11 @@ async function bootstrap(): Promise<void> {
           throw new Error("旁观者不能猜词");
         }
         const room = await game.guessCard(roomId, session.participantId, cardId);
+        if (room.phase === "finished") {
+          await game.ensureReplay(room.id);
+        }
         await sendRoomState(room.id);
         await emitRoundHighlights(room.id);
-        if (room.phase === "finished" && !room.replayId) {
-          const replayId = await game.generateReplay(room.id);
-          if (replayId) {
-            room.replayId = replayId;
-            await sendRoomState(room.id);
-          }
-        }
       } catch (error) {
         fail(socket, error);
       }

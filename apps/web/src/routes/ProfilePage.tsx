@@ -27,7 +27,7 @@ function computeAchievements(stats: UserStats | null): AchievementItem[] {
     {
       id: "oracle",
       title: "神谕队长",
-      description: "单回合提示全中且无误伤",
+      description: "累计获胜 3 场",
       unlocked: stats ? stats.wins >= 3 : false
     },
     {
