@@ -279,6 +279,7 @@ export interface GameContextType {
   fetchPublicPackDetail: (publicId: string) => Promise<PublicWordPack | null>;
   addAccountPack: () => Promise<void>;
   importAccountPack: (file: File | null) => Promise<void>;
+  editAccountPack: (packId: string, name: string, entries: string) => Promise<void>;
   removeAccountPack: (packId: string) => Promise<void>;
   toggleAccountPackPublic: (packId: string) => Promise<void>;
   chooseAccountPackForCreate: (packId: string) => void;
@@ -837,6 +838,17 @@ export function GameProvider({ children }: { children: ReactNode }) {
     } catch (e) { setError(e instanceof Error ? e.message : "导入题库失败"); }
   }
 
+  async function editAccountPack(packId: string, name: string, entries: string) {
+    if (!namedAccount) { setError("请先使用用户名登录"); return; }
+    const trimmedName = name.trim();
+    if (!trimmedName) { setError("请输入题库名称"); return; }
+    const parsed = parsePackEntries(entries);
+    await saveAccountPacksInternal(namedAccount.customWordPacks.map((p) => {
+      if (p.id !== packId) return p;
+      return { ...p, name: trimmedName, entries: parsed, updatedAt: Date.now() };
+    }));
+  }
+
   async function removeAccountPack(packId: string) {
     if (!namedAccount) return;
     try { await saveAccountPacksInternal(namedAccount.customWordPacks.filter((p) => p.id !== packId)); if (selectedAccountPackId === packId) setSelectedAccountPackId(""); } catch (e) { setError(e instanceof Error ? e.message : "删除题库失败"); }
@@ -1093,7 +1105,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     accountPacks, selectedAccountPack, selectedPublicPack,
     handleNamedLogin, continueAsGuest, handleAvatarUpload,
     createRoom, joinByRoomCode, joinSpecificRoom, leaveRoom, logoutNamedUser,
-    refreshPublicPacks, fetchPublicPackDetail, addAccountPack, importAccountPack, removeAccountPack, toggleAccountPackPublic, chooseAccountPackForCreate,
+    refreshPublicPacks, fetchPublicPackDetail, addAccountPack, importAccountPack, editAccountPack, removeAccountPack, toggleAccountPackPublic, chooseAccountPackForCreate,
     savedPackName, setSavedPackName, savedPackEntries, setSavedPackEntries,
     candidatePack, setCandidatePack, updateCandidateEntry, bulkSetVisibleEntries, exportCandidateAsPlayable, resetCandidateReview,
     transferHostTargetId, setTransferHostTargetId, hostTransferCandidates,

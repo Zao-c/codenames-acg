@@ -14,7 +14,7 @@ export function PacksPage() {
     candidatePack, setCandidatePack,
     updateCandidateEntry, bulkSetVisibleEntries, exportCandidateAsPlayable,
     setPackSource, setSelectedPublicPackId, setSelectedAccountPackId, chooseAccountPackForCreate,
-    makePublicPackKey, fetchPublicPackDetail
+    editAccountPack, makePublicPackKey, fetchPublicPackDetail
   } = useGame();
   const navigate = useNavigate();
   const [tab, setTab] = useState<"mine" | "public" | "import">("mine");
@@ -49,12 +49,9 @@ export function PacksPage() {
 
   const handleSaveEdit = useCallback(() => {
     if (!editingPack || !savedPackEntries.trim()) return;
-    const entries = savedPackEntries.split(/[\n,]/).map((e) => e.trim()).filter(Boolean);
-    if (entries.length < 1) return;
-    importAccountPack(new File([entries.join("\n")], editingPack.name + ".txt", { type: "text/plain" }));
-    removeAccountPack(editingPack.id);
+    editAccountPack(editingPack.id, savedPackName, savedPackEntries);
     setEditingPack(null);
-  }, [editingPack, savedPackEntries, importAccountPack, removeAccountPack]);
+  }, [editingPack, savedPackName, savedPackEntries, editAccountPack]);
 
   if (candidatePack) {
     return (
