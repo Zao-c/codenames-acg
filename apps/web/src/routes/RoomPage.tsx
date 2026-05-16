@@ -19,21 +19,41 @@ export function RoomPage() {
     const [copied, setCopied] = useState(false);
     const copy = useCallback(() => {
       const url = `${window.location.origin}/?replay=${replayId}`;
-      navigator.clipboard.writeText(url).then(() => {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      }).catch(() => {
+      try {
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(url).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+          }).catch(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+          });
+        } else {
+          const textarea = document.createElement("textarea");
+          textarea.value = url;
+          textarea.style.position = "fixed";
+          textarea.style.left = "-9999px";
+          document.body.appendChild(textarea);
+          textarea.focus();
+          textarea.select();
+          document.execCommand("copy");
+          textarea.remove();
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        }
+      } catch {
         const textarea = document.createElement("textarea");
         textarea.value = url;
         textarea.style.position = "fixed";
-        textarea.style.opacity = "0";
+        textarea.style.left = "-9999px";
         document.body.appendChild(textarea);
+        textarea.focus();
         textarea.select();
         try { document.execCommand("copy"); } catch (_) {}
         textarea.remove();
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
-      });
+      }
     }, [replayId]);
     return <button onClick={copy}>{copied ? "已复制" : "复制链接"}</button>;
   }
