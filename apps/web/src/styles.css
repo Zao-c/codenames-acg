@@ -840,6 +840,58 @@ a { color: var(--accent-2); }
 .privacy-toggle:hover { background: var(--accent); color: #fff; }
 .privacy-tip { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 6px 10px; border-radius: 8px; background: var(--surface-soft); font-size: 12px; color: var(--muted); }
 
+/* ─── turn banner ─── */
+.turn-banner {
+  text-align: center;
+  padding: 8px 16px;
+  border-radius: 10px;
+  margin-bottom: 12px;
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  animation: turnBannerPulse 0.6s ease-out;
+}
+.turn-banner-red {
+  background: var(--red-bg);
+  border: 1px solid var(--red-border);
+  color: var(--red-text);
+}
+.turn-banner-blue {
+  background: var(--blue-bg);
+  border: 1px solid var(--blue-border);
+  color: var(--blue-text);
+}
+.turn-banner-text { position: relative; z-index: 1; }
+@keyframes turnBannerPulse {
+  0% { transform: scale(0.96); opacity: 0.6; }
+  50% { transform: scale(1.01); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* ─── spymaster clue form highlight ─── */
+.clue-form-hint {
+  width: 100%;
+  margin: -4px 0 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  letter-spacing: 0.03em;
+}
+.clue-form {
+   display: flex;
+   gap: 10px;
+   align-items: flex-end;
+   flex-wrap: wrap;
+   padding: 10px;
+   border: 2px solid var(--accent);
+   border-radius: 12px;
+   background: var(--surface-soft);
+ }
+
 /* ─── result / achievement ─── */
 .result-banner { padding: 24px; border-radius: 18px; text-align: center; margin-bottom: 16px; }
 .result-banner.winner-red { background: var(--red-bg); border: 1px solid var(--red-border); }
@@ -1075,7 +1127,6 @@ a { color: var(--accent-2); }
 
 /* ─── action panel ─── */
 .action-panel { margin-top: 16px; }
-.clue-form { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
 .clue-form .field { max-width: 200px; }
 .count-field { max-width: 80px !important; }
 

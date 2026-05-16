@@ -289,7 +289,7 @@ export function RoomPage() {
             <BoardPanel room={room} viewer={viewer} g={g} cardMarks={cardMarks} markCard={markCard} />
 
             {viewer?.participantType === "player" && !isFinished ? (
-              <ActionPanel viewer={viewer} g={g} />
+              <ActionPanel viewer={viewer} room={room} g={g} />
             ) : null}
           </div>
 
@@ -305,7 +305,7 @@ export function RoomPage() {
         <>
           <BoardPanel room={room} viewer={viewer} g={g} cardMarks={cardMarks} markCard={markCard} />
           {viewer?.participantType === "player" ? (
-            <ActionPanel viewer={viewer} g={g} />
+            <ActionPanel viewer={viewer} room={room} g={g} />
           ) : null}
         </>
       ) : null}
@@ -705,6 +705,12 @@ function BoardPanel({ room, viewer, g, cardMarks, markCard }: {
   const { boardColumns, canSeeHiddenRoles, showSpymasterHints, maskSpymasterHints, setMaskSpymasterHints, revealingCardIds, pendingGuess, guessCard: doGuess, renderHint } = g;
   const boardSizeClass = `board-${boardColumns}`;
   const [showPrivacyTip, setShowPrivacyTip] = useState(false);
+
+  const turnBanner = room.phase === "playing" && room.clue
+    ? `${TEAM_LABELS[room.currentTeam]}队员 · 请选择词牌`
+    : room.phase === "playing" && !room.clue
+    ? `${TEAM_LABELS[room.currentTeam]}队长 · 出题中`
+    : null;
   return (
     <section className="panel board-panel" style={{ marginBottom: 12 }}>
       {room.phase === "playing" ? (
@@ -722,6 +728,11 @@ function BoardPanel({ room, viewer, g, cardMarks, markCard }: {
               <button className="chip-button" onClick={() => setShowPrivacyTip(false)}>✕</button>
             </div>
           ) : null}
+        </div>
+      ) : null}
+      {turnBanner ? (
+        <div className={`turn-banner turn-banner-${room.currentTeam}`} key={`${room.currentTeam}-${!!room.clue}-${room.roundNumber}`}>
+          <span className="turn-banner-text">{turnBanner}</span>
         </div>
       ) : null}
       <div className={`board-grid ${boardSizeClass}`}>
@@ -746,7 +757,7 @@ function BoardPanel({ room, viewer, g, cardMarks, markCard }: {
   );
 }
 
-function ActionPanel({ viewer, g }: { viewer: NonNullable<ReturnType<typeof useGame>["viewer"]>; g: ReturnType<typeof useGame> }) {
+function ActionPanel({ viewer, room, g }: { viewer: NonNullable<ReturnType<typeof useGame>["viewer"]>; room: NonNullable<ReturnType<typeof useGame>["room"]>; g: ReturnType<typeof useGame> }) {
   const { clueWord, setClueWord, clueCountInput, setClueCountInput, submitClue, renderHint, endTurn, resumeTimer } = g;
   function handleClueKeyDown(e: KeyboardEvent<HTMLDivElement>) {
     if (!(e.target instanceof HTMLInputElement)) return;
@@ -760,6 +771,7 @@ function ActionPanel({ viewer, g }: { viewer: NonNullable<ReturnType<typeof useG
     <section className="panel" style={{ marginBottom: 12 }}>
       {viewer.canSubmitClue ? (
         <div className="clue-form" onKeyDown={handleClueKeyDown}>
+          <p className="clue-form-hint">你是本回合队长 · 请在这里输入提示词</p>
           <label className="field">
             <span>提示词</span>
             <input value={clueWord} onChange={(e) => setClueWord(e.target.value)} maxLength={12} placeholder="例如：机甲 / 学园 / 主角团" />
