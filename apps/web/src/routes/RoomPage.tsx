@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, useMemo, useRef, type KeyboardEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { copyText } from "../lib/clipboard";
 import {
   TEAM_LABELS, PLAYER_ROLE_LABELS,
   wordPackSummaries, type ChatReaction, type ParticipantType,
@@ -17,44 +18,20 @@ export function RoomPage() {
 
   function CopyReplayLink({ replayId }: { replayId: string }) {
     const [copied, setCopied] = useState(false);
-    const copy = useCallback(() => {
+    const [fail, setFail] = useState(false);
+    const copy = useCallback(async () => {
       const url = `${window.location.origin}/?replay=${replayId}`;
-      try {
-        if (navigator.clipboard) {
-          navigator.clipboard.writeText(url).then(() => {
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-          }).catch(() => {
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-          });
-        } else {
-          const textarea = document.createElement("textarea");
-          textarea.value = url;
-          textarea.style.position = "fixed";
-          textarea.style.left = "-9999px";
-          document.body.appendChild(textarea);
-          textarea.focus();
-          textarea.select();
-          document.execCommand("copy");
-          textarea.remove();
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2000);
-        }
-      } catch {
-        const textarea = document.createElement("textarea");
-        textarea.value = url;
-        textarea.style.position = "fixed";
-        textarea.style.left = "-9999px";
-        document.body.appendChild(textarea);
-        textarea.focus();
-        textarea.select();
-        try { document.execCommand("copy"); } catch (_) {}
-        textarea.remove();
+      const ok = await copyText(url);
+      if (ok) {
+        setFail(false);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
+      } else {
+        setCopied(false);
+        setFail(true);
       }
     }, [replayId]);
+    if (fail) return <button onClick={copy}>复制失败，请手动复制: {window.location.origin}/?replay={replayId}</button>;
     return <button onClick={copy}>{copied ? "已复制" : "复制链接"}</button>;
   }
 

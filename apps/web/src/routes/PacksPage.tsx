@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { useGame } from "../context/GameContext";
 import { CandidateReview } from "../lib/CandidateReview";
 import type { SavedWordPack, PublicWordPack, PublicWordPackSummary } from "@acg-codenames/shared";
@@ -13,8 +14,9 @@ export function PacksPage() {
     candidatePack, setCandidatePack,
     updateCandidateEntry, bulkSetVisibleEntries, exportCandidateAsPlayable,
     setPackSource, setSelectedPublicPackId, setSelectedAccountPackId, chooseAccountPackForCreate,
-    makePublicPackKey
+    makePublicPackKey, fetchPublicPackDetail
   } = useGame();
+  const navigate = useNavigate();
   const [tab, setTab] = useState<"mine" | "public" | "import">("mine");
   const [search, setSearch] = useState("");
   const [modalPack, setModalPack] = useState<SavedWordPack | PublicWordPackSummary | null>(null);
@@ -110,7 +112,7 @@ export function PacksPage() {
                       <div className="pack-row-meta">{pack.entries.length} 个词 / {pack.isPublic ? "已公开" : "仅自己可用"}</div>
                     </div>
                     <div className="pack-row-actions">
-                      <button onClick={() => { chooseAccountPackForCreate(pack.id); }}>用于开房</button>
+                      <button onClick={() => { navigate(`/create`); chooseAccountPackForCreate(pack.id); }}>用于开房</button>
                       <button onClick={() => setModalPack(pack)}>详情</button>
                       <button onClick={() => { setEditingPack(pack); setSavedPackName(pack.name); setSavedPackEntries(pack.entries.join("\n")); setTab("import"); }}>编辑</button>
                     </div>
@@ -139,8 +141,13 @@ export function PacksPage() {
                     <div className="pack-row-meta">{pack.entryCount} 个词 / {pack.ownerUsername}</div>
                   </div>
                   <div className="pack-row-actions">
-                    <button onClick={() => { setSelectedPublicPackId(makePublicPackKey(pack)); setPackSource("public"); }}>用于开房</button>
-                    <button onClick={() => setModalPack(pack)}>预览</button>
+                    <button onClick={() => { navigate(`/create`); setSelectedPublicPackId(makePublicPackKey(pack)); setPackSource("public"); }}>用于开房</button>
+                    <button onClick={() => {
+                      const publicId = makePublicPackKey(pack);
+                      fetchPublicPackDetail(publicId).then((full) => {
+                        if (full) setModalPack({ ...pack, entries: full.entries } as unknown as SavedWordPack);
+                      });
+                    }}>预览</button>
                   </div>
                 </div>
               ))}

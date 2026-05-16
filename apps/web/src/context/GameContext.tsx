@@ -35,6 +35,7 @@ import {
 import { listPublicWordPacks, getPublicWordPackDetail, loginNamedUser, logoutNamedUser as apiLogoutNamedUser, updateNamedUser } from "../lib/api";
 import { getSocket } from "../lib/socket";
 import { clearIdentity, clearSession, loadIdentity, loadRecentUsernames, loadSession, saveIdentity, saveSession, type LocalIdentity } from "../lib/storage";
+import { copyText } from "../lib/clipboard";
 import {
   defaultExportFilters,
   exportPlayablePack,
@@ -446,6 +447,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     try { return localStorage.getItem("showDanmaku") !== "off"; } catch { return true; }
   });
   const [copied, setCopied] = useState(false);
+  const [copyFail, setCopyFail] = useState(false);
   const [didReconnect, setDidReconnect] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
   const clearReactions = useCallback(() => {
@@ -1040,25 +1042,15 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   async function copyLink() {
     if (!inviteText) return;
-    try {
-      await navigator.clipboard.writeText(inviteText);
+    const ok = await copyText(inviteText);
+    if (ok) {
+      setCopyFail(false);
       setCopied(true);
-    } catch {
-      try {
-        const textarea = document.createElement("textarea");
-        textarea.value = inviteText;
-        textarea.style.position = "fixed"; textarea.style.opacity = "0";
-        document.body.appendChild(textarea);
-        textarea.select();
-        document.execCommand("copy");
-        textarea.remove();
-        setCopied(true);
-      } catch {
-        setError("复制失败，请手动复制: " + inviteText);
-        return;
-      }
+      window.setTimeout(() => setCopied(false), 1200);
+    } else {
+      setCopied(false);
+      setError("复制失败，请手动复制: " + inviteText);
     }
-    window.setTimeout(() => setCopied(false), 1200);
   }
   function handleChatScroll() { const list = chatListRef.current; if (!list) return; const nearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 24; stickToChatBottomRef.current = nearBottom; setJumpToLatest(!nearBottom); }
   function handleBattleScroll() { const list = battleListRef.current; if (!list) return; const nearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 24; stickToBattleBottomRef.current = nearBottom; setJumpToLatest(!nearBottom); }

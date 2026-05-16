@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { fetchReplay } from "../lib/api";
+import { copyText } from "../lib/clipboard";
 import { TEAM_LABELS, type GameReplay, type Team } from "@acg-codenames/shared";
 
 function ReplayBoard({ finalBoard }: { finalBoard: GameReplay["finalBoard"] }) {
@@ -57,6 +58,7 @@ export function ReplayPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [copyFail, setCopyFail] = useState(false);
 
   useEffect(() => {
     if (!replayId) return;
@@ -66,42 +68,16 @@ export function ReplayPage() {
       .catch((e) => { setError(e instanceof Error ? e.message : "加载复盘失败"); setLoading(false); });
   }, [replayId]);
 
-  const copyReplayLink = () => {
+  const copyReplayLink = async () => {
     const url = `${window.location.origin}/?replay=${replayId}`;
-    try {
-      if (navigator.clipboard) {
-        navigator.clipboard.writeText(url).then(() => {
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2000);
-        }).catch(() => {
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2000);
-        });
-      } else {
-        const textarea = document.createElement("textarea");
-        textarea.value = url;
-        textarea.style.position = "fixed";
-        textarea.style.left = "-9999px";
-        document.body.appendChild(textarea);
-        textarea.focus();
-        textarea.select();
-        document.execCommand("copy");
-        textarea.remove();
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      }
-    } catch {
-      const textarea = document.createElement("textarea");
-      textarea.value = url;
-      textarea.style.position = "fixed";
-      textarea.style.left = "-9999px";
-      document.body.appendChild(textarea);
-      textarea.focus();
-      textarea.select();
-      try { document.execCommand("copy"); } catch (_) {}
-      textarea.remove();
+    const ok = await copyText(url);
+    if (ok) {
+      setCopyFail(false);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    } else {
+      setCopied(false);
+      setCopyFail(true);
     }
   };
 
@@ -133,7 +109,7 @@ export function ReplayPage() {
           {replay.roomId ? (
             <button onClick={() => navigate(`/room/${replay.roomId}`)}>← 返回原房间</button>
           ) : null}
-          <button onClick={copyReplayLink}>{copied ? "已复制" : "复制复盘链接"}</button>
+          <button onClick={copyReplayLink}>{copyFail ? `复制失败，请手动复制: ${window.location.origin}/?replay=${replayId}` : copied ? "已复制" : "复制复盘链接"}</button>
           <button onClick={() => navigate("/")}>回到大厅</button>
         </div>
         <h1 className="replay-title">对局复盘</h1>
