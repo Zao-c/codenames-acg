@@ -911,6 +911,18 @@ export function GameProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    const recoverableRaw = sessionStorage.getItem("acg-codenames-recoverable");
+    if (recoverableRaw) {
+      try {
+        const recoverable = JSON.parse(recoverableRaw) as { roomId: string; sessionToken: string };
+        if (recoverable.roomId === roomId) {
+          sessionStorage.removeItem("acg-codenames-recoverable");
+          socket.emit("reconnect_room", { roomId, sessionToken: recoverable.sessionToken });
+          return;
+        }
+      } catch { }
+    }
+
     const payload = { roomId, nickname: ji.nickname, profile: { accountType: ji.profile.mode, username: ji.profile.mode === "named" ? ji.profile.username : null, avatarUrl: ji.profile.avatarUrl, userSessionToken: ji.profile.mode === "named" ? ji.profile.userSessionToken : undefined } };
     if (asSpectator) socket.emit("join_spectator", payload);
     else socket.emit("join_room", payload);
@@ -998,7 +1010,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (soundEnabledRef.current) playClick();
   }
   function leaveRoom() {
-    if (session) socket.emit("leave_room", { roomId: session.roomId, sessionToken: session.sessionToken });
+    if (session) {
+      sessionStorage.setItem("acg-codenames-recoverable", JSON.stringify({ roomId: session.roomId, sessionToken: session.sessionToken }));
+      socket.emit("leave_room", { roomId: session.roomId, sessionToken: session.sessionToken });
+    }
     clearSession(); setSession(null); setRoom(null); setConnectionState("idle"); setDidReconnect(false); setRevealBanner(null); setDanmakuQueue([]); setRoundHighlights([]); setRoundAchievements([]); setHighlightToast(null); setAchievementToast(null); setError(""); activeRoomIdRef.current = null;
   }
   function logoutNamedUser() {
@@ -1020,15 +1035,18 @@ export function GameProvider({ children }: { children: ReactNode }) {
       apiLogoutNamedUser(prevIdentity.username, prevIdentity.userSessionToken).catch(() => {});
     }
   }
+  const boardModeLabel = room?.settings.boardMode ?? "";
+  const inviteText = session ? `词牌结社好友局 ${session.roomId}（${boardModeLabel}）:\n${window.location.origin}/?room=${session.roomId}` : "";
+
   async function copyLink() {
-    if (!inviteLink) return;
+    if (!inviteText) return;
     try {
-      await navigator.clipboard.writeText(inviteLink);
+      await navigator.clipboard.writeText(inviteText);
       setCopied(true);
     } catch {
       try {
         const textarea = document.createElement("textarea");
-        textarea.value = inviteLink;
+        textarea.value = inviteText;
         textarea.style.position = "fixed"; textarea.style.opacity = "0";
         document.body.appendChild(textarea);
         textarea.select();
@@ -1036,7 +1054,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         textarea.remove();
         setCopied(true);
       } catch {
-        setError("复制失败，请手动复制: " + inviteLink);
+        setError("复制失败，请手动复制: " + inviteText);
         return;
       }
     }

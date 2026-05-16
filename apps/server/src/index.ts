@@ -924,7 +924,7 @@ async function bootstrap(): Promise<void> {
           throw new Error("会话不存在");
         }
 
-        const room = await game.leaveRoom(roomId, participantId, participantType);
+        const room = await game.markDisconnected(roomId, participantId, participantType);
         if (boundSession) socketSessions.delete(socket.id);
         socket.leave(roomId);
         socket.leave(`member:${participantId}`);
