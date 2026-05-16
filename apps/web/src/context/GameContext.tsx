@@ -489,6 +489,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [reactionEffects, setReactionEffects] = useState<Record<string, ChatReaction>>({});
   const [pendingGuess, setPendingGuess] = useState<string | null>(null);
   const guessLockRef = useRef(false);
+  const endTurnLockRef = useRef(false);
   const [revealingCardIds, setRevealingCardIds] = useState<Set<string>>(new Set());
   const [maskSpymasterHints, setMaskSpymasterHints] = useState(false);
   const [showSakura, setShowSakura] = useState(false);
@@ -553,7 +554,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       recoverable[p.roomId] = { sessionToken: p.sessionToken, participantType: p.participantType, savedAt: Date.now() };
       saveRecoverableSessions(recoverable);
     }
-    function onRoomState(p: PublicRoomState) { if (!loadSession() || p.id !== activeRoomIdRef.current) return; setRoom(p); setConnectionState("ready"); setError(""); setPendingGuess(null); guessLockRef.current = false; }
+    function onRoomState(p: PublicRoomState) { if (!loadSession() || p.id !== activeRoomIdRef.current) return; setRoom(p); setConnectionState("ready"); setError(""); setPendingGuess(null); guessLockRef.current = false; endTurnLockRef.current = false; }
     function onRoomSummaries(p: RoomSummary[]) { setRoomSummaries(p); }
     function onError(p: { message: string }) {
       if (p.message.includes("重连凭证") || p.message.includes("房间不存在")) {
@@ -569,7 +570,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         activeRoomIdRef.current = null;
         return;
       }
-      setError(p.message); setConnectionState("ready"); setPendingGuess(null); guessLockRef.current = false;
+      setError(p.message); setConnectionState("ready"); setPendingGuess(null); guessLockRef.current = false; endTurnLockRef.current = false;
     }
     function onRoomClosed(p: { roomId: string; reason: string }) {
       if (p.roomId !== session?.roomId) return;
@@ -1000,7 +1001,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setClueCountInput("2");
   }
   function guessCard(cardId: string) { if (!session || !viewer?.canGuess || guessLockRef.current) return; guessLockRef.current = true; setPendingGuess(cardId); socket.emit("guess_card", { roomId: session.roomId, cardId }); }
-  function endTurn() { if (session) { socket.emit("end_turn", { roomId: session.roomId }); if (soundEnabled) playEndTurn(); } }
+  function endTurn() { if (session && !endTurnLockRef.current) { endTurnLockRef.current = true; socket.emit("end_turn", { roomId: session.roomId }); if (soundEnabled) playEndTurn(); } }
   function resumeTimerFunc() { if (session) { socket.emit("resume_timer", { roomId: session.roomId }); } }
   const chatSendLockRef = useRef(false);
   const lastQuickPhraseRef = useRef({ text: "", time: 0 });
