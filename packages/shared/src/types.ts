@@ -438,6 +438,7 @@ export interface RoomSummary {
   createdAt: number;
   updatedAt: number;
   lastEvent: string;
+  replayId?: string;
 }
 
 export interface ClientSession {

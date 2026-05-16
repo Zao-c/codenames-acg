@@ -56,6 +56,7 @@ export function ReplayPage() {
   const [replay, setReplay] = useState<GameReplay | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!replayId) return;
@@ -64,6 +65,25 @@ export function ReplayPage() {
       .then((r) => { setReplay(r); setLoading(false); })
       .catch((e) => { setError(e instanceof Error ? e.message : "加载复盘失败"); setLoading(false); });
   }, [replayId]);
+
+  const copyReplayLink = () => {
+    const url = `${window.location.origin}/replay/${replayId}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {
+      const textarea = document.createElement("textarea");
+      textarea.value = url;
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      try { document.execCommand("copy"); } catch (_) {}
+      textarea.remove();
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
 
   if (loading) {
     return (
@@ -90,7 +110,11 @@ export function ReplayPage() {
     <div className="replay-page">
       <section className="panel replay-panel replay-hero">
         <div className="replay-hero-header">
-          <button onClick={() => navigate("/")} style={{ alignSelf: "flex-start" }}>← 返回大厅</button>
+          {replay.roomId ? (
+            <button onClick={() => navigate(`/room/${replay.roomId}`)}>← 返回原房间</button>
+          ) : null}
+          <button onClick={copyReplayLink}>{copied ? "已复制" : "复制复盘链接"}</button>
+          <button onClick={() => navigate("/")}>回到大厅</button>
         </div>
         <h1 className="replay-title">对局复盘</h1>
         <div className="replay-meta-grid">

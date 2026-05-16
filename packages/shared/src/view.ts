@@ -148,7 +148,8 @@ export function buildRoomSummary(room: Room): RoomSummary {
     canQueueForNextRound: room.phase !== "lobby" && room.players.length < MAX_PLAYERS,
     createdAt: room.createdAt,
     updatedAt: room.updatedAt,
-    lastEvent: room.lastEvent
+    lastEvent: room.lastEvent,
+    replayId: room.replayId
   };
 }
 

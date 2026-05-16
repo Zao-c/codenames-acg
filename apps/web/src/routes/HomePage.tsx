@@ -77,7 +77,10 @@ export function HomePage() {
                 </div>
                 <div className="room-list-actions">
                   {summary.phase === "finished" ? (
-                    <button onClick={() => requireAuth(() => joinSpecificRoom(summary.id, true))}>查看复盘</button>
+                    <button onClick={() => requireAuth(() => {
+                      if (summary.replayId) navigate(`/replay/${summary.replayId}`);
+                      else joinSpecificRoom(summary.id, true);
+                    })}>查看复盘</button>
                   ) : summary.canJoinDirectly ? (
                     <button onClick={() => requireAuth(() => joinSpecificRoom(summary.id, false))}>加入</button>
                   ) : (

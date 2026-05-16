@@ -906,7 +906,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setConnectionState("connecting"); setError("");
 
     const storedSession = loadSession();
-    if (storedSession && storedSession.roomId === roomId && storedSession.participantType === "player") {
+    if (storedSession && storedSession.roomId === roomId) {
       socket.emit("reconnect_room", { roomId, sessionToken: storedSession.sessionToken });
       return;
     }

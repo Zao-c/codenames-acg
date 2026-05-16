@@ -61,26 +61,26 @@
   --pink: #db2777;
   --peach: #d97706;
   --cyan: #0891b2;
-  --red: #dc2626;
-  --blue: #2563eb;
-  --neutral: #9ca3af;
-  --assassin: #1f2937;
-  --red-bg: #fecdd3;
-  --red-border: #f43f5e;
-  --blue-bg: #bfdbfe;
-  --blue-border: #3b82f6;
-  --neutral-bg: #e5e7eb;
-  --neutral-border: #9ca3af;
-  --assassin-bg: #111827;
-  --assassin-border: #374151;
-  --red-glow: rgba(244,63,94,0.22);
-  --blue-glow: rgba(59,130,246,0.22);
-  --neutral-glow: rgba(156,163,175,0.08);
-  --assassin-glow: rgba(17,24,39,0.24);
-  --red-text: #be123c;
-  --blue-text: #1d4ed8;
-  --neutral-text: #4b5563;
-  --assassin-text: #f9fafb;
+  --red: #c24a56;
+  --blue: #4c7ecf;
+  --neutral: #9b8e7d;
+  --assassin: #3b4252;
+  --red-bg: #f8d7dc;
+  --red-border: #e88b98;
+  --blue-bg: #d8e6f8;
+  --blue-border: #7da7e8;
+  --neutral-bg: #e8e3dc;
+  --neutral-border: #c9bfb1;
+  --assassin-bg: #3b4252;
+  --assassin-border: #1f2937;
+  --red-glow: rgba(232,139,152,0.16);
+  --blue-glow: rgba(125,167,232,0.16);
+  --neutral-glow: rgba(160,145,125,0.10);
+  --assassin-glow: rgba(31,41,55,0.16);
+  --red-text: #9f2738;
+  --blue-text: #24559f;
+  --neutral-text: #5f5548;
+  --assassin-text: #f8fafc;
   --shadow: 0 12px 40px rgba(0,0,0,0.06);
 }
 
@@ -615,6 +615,7 @@ a { color: var(--accent-2); }
 }
 .card-tile.card-hidden-known {
   border-width: 2px;
+  opacity: 0.76;
 }
 .card-tile.card-hidden.card-hidden-known.card-hidden-known-red {
   background: var(--red-bg);
@@ -657,10 +658,10 @@ a { color: var(--accent-2); }
   color: var(--blue-text);
 }
 .card-tile.card-revealed.card-revealed-neutral {
-  background: var(--neutral-bg);
-  border-color: var(--neutral-border);
-  box-shadow: 0 0 8px var(--neutral-glow), inset 0 1px 0 rgba(255,255,255,0.04);
-  color: var(--neutral-text);
+  background: linear-gradient(180deg, rgba(163,148,128,0.52), rgba(122,110,92,0.56));
+  border-color: rgba(199,189,170,0.48);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.18), inset 0 0 0 1px rgba(255,255,255,0.06);
+  color: #f0ebe1;
 }
 .card-tile.card-revealed.card-revealed-assassin {
   background: var(--assassin-bg);
@@ -669,71 +670,75 @@ a { color: var(--accent-2); }
   color: var(--assassin-text);
 }
 
+:root.light .card-tile.card-revealed {
+  opacity: 1;
+  border-width: 2px;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08), inset 0 0 0 1.5px rgba(255, 255, 255, 0.36);
+}
 :root.light .card-tile.card-revealed.card-revealed-red {
-  background-color: #dc2626 !important;
-  border-color: #991b1b !important;
-  color: #fff !important;
-  box-shadow: none !important;
+  background: linear-gradient(180deg, #fae0e4, #f5cbd2) !important;
+  border-color: #e88b98 !important;
+  color: #9f2738 !important;
 }
 :root.light .card-tile.card-revealed.card-revealed-blue {
-  background-color: #2563eb !important;
-  border-color: #1e40af !important;
-  color: #fff !important;
-  box-shadow: none !important;
+  background: linear-gradient(180deg, #e3eefc, #cddff6) !important;
+  border-color: #7da7e8 !important;
+  color: #24559f !important;
 }
 :root.light .card-tile.card-revealed.card-revealed-neutral {
-  background-color: #ca8a04 !important;
-  border-color: #a16207 !important;
-  color: #fff !important;
-  box-shadow: none !important;
+  background: linear-gradient(180deg, #ddd6cc, #c8beb0) !important;
+  border-color: #9f9282 !important;
+  color: #3f372f !important;
 }
 :root.light .card-tile.card-revealed.card-revealed-assassin {
-  background-color: #111827 !important;
-  border-color: #374151 !important;
-  color: #f9fafb !important;
-  box-shadow: none !important;
+  background: linear-gradient(180deg, #64748b, #334155) !important;
+  border-color: #1f2937 !important;
+  color: #f8fafc !important;
 }
 
+:root.light .card-tile.card-hidden-known {
+  opacity: 0.76;
+}
 :root.light .card-tile.card-hidden.card-hidden-known.card-hidden-known-red {
-  background-color: #dc2626 !important;
-  border-color: #991b1b !important;
-  color: #fff !important;
+  background: #fbe8eb !important;
+  border-color: #f0c4cc !important;
+  color: #b44d5a !important;
 }
 :root.light .card-tile.card-hidden.card-hidden-known.card-hidden-known-blue {
-  background-color: #2563eb !important;
-  border-color: #1e40af !important;
-  color: #fff !important;
+  background: #eaf1fb !important;
+  border-color: #c5d8f5 !important;
+  color: #5a7bb8 !important;
 }
 :root.light .card-tile.card-hidden.card-hidden-known.card-hidden-known-neutral {
-  background-color: #ca8a04 !important;
-  border-color: #a16207 !important;
-  color: #fff !important;
+  background: #f0ece6 !important;
+  border-color: #ddd6cb !important;
+  color: #8a7e6f !important;
 }
 :root.light .card-tile.card-hidden.card-hidden-known.card-hidden-known-assassin {
-  background-color: #111827 !important;
-  border-color: #374151 !important;
-  color: #f9fafb !important;
+  background: #e2e4e8 !important;
+  border-color: #9ca3af !important;
+  color: #4b5563 !important;
 }
 
 :root.light .replay-board-card.replay-card-role-red {
-  background-color: #dc2626 !important;
-  border-color: #991b1b !important;
-  color: #fff !important;
+  background: linear-gradient(180deg, #fae0e4, #f5cbd2) !important;
+  border-color: #e88b98 !important;
+  color: #9f2738 !important;
 }
 :root.light .replay-board-card.replay-card-role-blue {
-  background-color: #2563eb !important;
-  border-color: #1e40af !important;
-  color: #fff !important;
+  background: linear-gradient(180deg, #e3eefc, #cddff6) !important;
+  border-color: #7da7e8 !important;
+  color: #24559f !important;
 }
 :root.light .replay-board-card.replay-card-role-neutral {
-  background-color: #ca8a04 !important;
-  border-color: #a16207 !important;
-  color: #fff !important;
+  background: linear-gradient(180deg, #ddd6cc, #c8beb0) !important;
+  border-color: #9f9282 !important;
+  color: #3f372f !important;
 }
 :root.light .replay-board-card.replay-card-role-assassin {
-  background-color: #111827 !important;
-  border-color: #374151 !important;
-  color: #f9fafb !important;
+  background: linear-gradient(180deg, #64748b, #334155) !important;
+  border-color: #1f2937 !important;
+  color: #f8fafc !important;
 }
 
 /* ─── spymaster hint badge ─── */
@@ -772,6 +777,26 @@ a { color: var(--accent-2); }
   display: block; width: 100%;
 }
 .card-revealed .card-word { color: inherit; }
+
+.card-revealed-mark {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1;
+  background: #60a5fa;
+  color: #ffffff;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.22);
+  pointer-events: none;
+  z-index: 2;
+}
 
 /* ─── flip animation ─── */
 .card-revealing {

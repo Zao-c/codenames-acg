@@ -22,9 +22,20 @@ export function RoomPage() {
       navigator.clipboard.writeText(url).then(() => {
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
-      }).catch(() => {});
+      }).catch(() => {
+        const textarea = document.createElement("textarea");
+        textarea.value = url;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.select();
+        try { document.execCommand("copy"); } catch (_) {}
+        textarea.remove();
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      });
     }, [replayId]);
-    return <button onClick={copy}>{copied ? "已复制链接" : "复制链接"}</button>;
+    return <button onClick={copy}>{copied ? "已复制" : "复制链接"}</button>;
   }
 
   type PlayerMark = "red" | "blue" | "neutral" | "assassin" | null;
@@ -1050,6 +1061,7 @@ function CardButton({ card, canClick, onClick, flash, flashOutcome, pending, rev
   return (
     <button className={classes.join(" ")} aria-disabled={!canClick} onClick={handleClick} onContextMenu={(e) => { e.preventDefault(); onMark(); }}>
       <span className="card-word" style={{ fontSize: dynamicFontSize }}>{card.word}</span>
+      {card.revealed ? <span className="card-revealed-mark">✓</span> : null}
       {markLabel ? <span className={markClass}>{markLabel}</span> : null}
       {showSpymasterHints && card.role && !card.revealed ? (
         <span className={hintBadgeClass}>{hintLabel}</span>
