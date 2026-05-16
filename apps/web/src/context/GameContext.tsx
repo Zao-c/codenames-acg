@@ -34,7 +34,7 @@ import {
 } from "@acg-codenames/shared";
 import { listPublicWordPacks, getPublicWordPackDetail, loginNamedUser, logoutNamedUser as apiLogoutNamedUser, updateNamedUser } from "../lib/api";
 import { getSocket } from "../lib/socket";
-import { clearIdentity, clearSession, loadIdentity, loadRecentUsernames, loadSession, saveIdentity, saveSession, type LocalIdentity } from "../lib/storage";
+import { clearIdentity, clearSession, loadIdentity, loadRecentUsernames, loadSession, saveIdentity, saveSession, loadRecoverableSessions, saveRecoverableSessions, removeRecoverableSession, type LocalIdentity } from "../lib/storage";
 import { copyText } from "../lib/clipboard";
 import {
   defaultExportFilters,
@@ -546,11 +546,18 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   // ─── socket event listeners ───────────────────────────
   useEffect(() => {
-    function onSession(p: ClientSession) { setSession(p); saveSession(p); setConnectionState("ready"); setError(""); activeRoomIdRef.current = p.roomId; freshSessionRef.current = true; }
+    function onSession(p: ClientSession) {
+      setSession(p); saveSession(p); setConnectionState("ready"); setError(""); activeRoomIdRef.current = p.roomId; freshSessionRef.current = true;
+      const recoverable = loadRecoverableSessions();
+      recoverable[p.roomId] = { sessionToken: p.sessionToken, participantType: p.participantType, savedAt: Date.now() };
+      saveRecoverableSessions(recoverable);
+    }
     function onRoomState(p: PublicRoomState) { if (!loadSession() || p.id !== activeRoomIdRef.current) return; setRoom(p); setConnectionState("ready"); setError(""); setPendingGuess(null); guessLockRef.current = false; }
     function onRoomSummaries(p: RoomSummary[]) { setRoomSummaries(p); }
     function onError(p: { message: string }) {
       if (p.message.includes("重连凭证") || p.message.includes("房间不存在")) {
+        const currentRoomId = session?.roomId ?? activeRoomIdRef.current;
+        if (currentRoomId) removeRecoverableSession(currentRoomId);
         clearSession();
         setSession(null);
         setRoom(null);
@@ -913,16 +920,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const recoverableRaw = sessionStorage.getItem("acg-codenames-recoverable");
-    if (recoverableRaw) {
-      try {
-        const recoverable = JSON.parse(recoverableRaw) as { roomId: string; sessionToken: string };
-        if (recoverable.roomId === roomId) {
-          sessionStorage.removeItem("acg-codenames-recoverable");
-          socket.emit("reconnect_room", { roomId, sessionToken: recoverable.sessionToken });
-          return;
-        }
-      } catch { }
+    const recoverable = loadRecoverableSessions();
+    const saved = recoverable[roomId];
+    if (saved?.sessionToken) {
+      socket.emit("reconnect_room", { roomId, sessionToken: saved.sessionToken });
+      return;
     }
 
     const payload = { roomId, nickname: ji.nickname, profile: { accountType: ji.profile.mode, username: ji.profile.mode === "named" ? ji.profile.username : null, avatarUrl: ji.profile.avatarUrl, userSessionToken: ji.profile.mode === "named" ? ji.profile.userSessionToken : undefined } };
@@ -1013,7 +1015,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }
   function leaveRoom() {
     if (session) {
-      sessionStorage.setItem("acg-codenames-recoverable", JSON.stringify({ roomId: session.roomId, sessionToken: session.sessionToken }));
+      const recoverable = loadRecoverableSessions();
+      recoverable[session.roomId] = {
+        sessionToken: session.sessionToken,
+        participantType: session.participantType,
+        savedAt: Date.now()
+      };
+      saveRecoverableSessions(recoverable);
       socket.emit("leave_room", { roomId: session.roomId, sessionToken: session.sessionToken });
     }
     clearSession(); setSession(null); setRoom(null); setConnectionState("idle"); setDidReconnect(false); setRevealBanner(null); setDanmakuQueue([]); setRoundHighlights([]); setRoundAchievements([]); setHighlightToast(null); setAchievementToast(null); setError(""); activeRoomIdRef.current = null;
