@@ -927,7 +927,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const payload = { roomId, nickname: ji.nickname, profile: { accountType: ji.profile.mode, username: ji.profile.mode === "named" ? ji.profile.username : null, avatarUrl: ji.profile.avatarUrl, userSessionToken: ji.profile.mode === "named" ? ji.profile.userSessionToken : undefined } };
+    const payload = { roomId, nickname: ji.nickname, profile: { accountType: ji.profile.mode, username: ji.profile.mode === "named" ? ji.profile.username : null, avatarUrl: ji.profile.avatarUrl, userSessionToken: ji.profile.mode === "named" ? ji.profile.userSessionToken : undefined }, sessionToken: saved?.sessionToken ?? undefined };
     if (asSpectator) socket.emit("join_spectator", payload);
     else socket.emit("join_room", payload);
   }

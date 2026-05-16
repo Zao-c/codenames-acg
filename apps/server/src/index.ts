@@ -545,8 +545,22 @@ async function bootstrap(): Promise<void> {
         const roomId = requireString(body, "roomId");
         const nickname = requireString(body, "nickname");
         const profile = optionalProfile(body.profile);
-        const sessionToken = body.profile && typeof body.profile === "object" ? optionalUserSessionToken((body.profile as PayloadRecord).userSessionToken) : undefined;
-        const { room, player } = await game.joinRoom(roomId, nickname, profile, sessionToken);
+        const userSessionToken = body.profile && typeof body.profile === "object" ? optionalUserSessionToken((body.profile as PayloadRecord).userSessionToken) : undefined;
+        const roomSessionToken = typeof body.sessionToken === "string" ? body.sessionToken : undefined;
+
+        if (roomSessionToken) {
+          try {
+            const restored = await game.reconnectRoom(roomId, roomSessionToken);
+            bind(socket.id, restored.room.id, restored.participantId, restored.participantType);
+            socket.join(restored.room.id);
+            socket.join(`member:${restored.participantId}`);
+            emitSession(socket, restored.room.id, restored.participantId, restored.participantType, roomSessionToken);
+            await sendRoomState(restored.room.id);
+            return;
+          } catch { /* fallback to normal join */ }
+        }
+
+        const { room, player } = await game.joinRoom(roomId, nickname, profile, userSessionToken);
         bind(socket.id, room.id, player.id, "player");
         socket.join(room.id);
         socket.join(`member:${player.id}`);
@@ -563,8 +577,22 @@ async function bootstrap(): Promise<void> {
         const roomId = requireString(body, "roomId");
         const nickname = requireString(body, "nickname");
         const profile = optionalProfile(body.profile);
-        const sessionToken = body.profile && typeof body.profile === "object" ? optionalUserSessionToken((body.profile as PayloadRecord).userSessionToken) : undefined;
-        const { room, spectator } = await game.joinSpectator(roomId, nickname, profile, sessionToken);
+        const userSessionToken = body.profile && typeof body.profile === "object" ? optionalUserSessionToken((body.profile as PayloadRecord).userSessionToken) : undefined;
+        const roomSessionToken = typeof body.sessionToken === "string" ? body.sessionToken : undefined;
+
+        if (roomSessionToken) {
+          try {
+            const restored = await game.reconnectRoom(roomId, roomSessionToken);
+            bind(socket.id, restored.room.id, restored.participantId, restored.participantType);
+            socket.join(restored.room.id);
+            socket.join(`member:${restored.participantId}`);
+            emitSession(socket, restored.room.id, restored.participantId, restored.participantType, roomSessionToken);
+            await sendRoomState(restored.room.id);
+            return;
+          } catch { /* fallback to normal join */ }
+        }
+
+        const { room, spectator } = await game.joinSpectator(roomId, nickname, profile, userSessionToken);
         bind(socket.id, room.id, spectator.id, "spectator");
         socket.join(room.id);
         socket.join(`member:${spectator.id}`);
