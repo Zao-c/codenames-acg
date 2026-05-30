@@ -2,6 +2,14 @@ export type Team = "red" | "blue";
 export type CardRole = Team | "neutral" | "assassin";
 export type PlayerRole = "spymaster" | "operative";
 export type RoomPhase = "lobby" | "playing" | "finished";
+export type GameMode = "codenames" | "reveal-guess";
+export type RevealGuessPhase =
+  | "pre-round"
+  | "revealing"
+  | "buzzing"
+  | "judging"
+  | "round-end"
+  | "game-end";
 export type WordCategory = "title" | "character" | "organization" | "trope" | "production" | "fandom" | "custom";
 export type BoardMode = "5x5" | "7x7" | "9x9";
 export type ScoringMode = "classic" | "scoring" | "gamble";
@@ -63,6 +71,45 @@ export interface PublicWordPackSummary {
   updatedAt: number;
 }
 
+// ── Image Packs (图库) ──
+
+export interface ImagePackEntry {
+  id: string;
+  url: string;
+  label: string;
+}
+
+export interface SavedImagePack {
+  id: string;
+  name: string;
+  description?: string;
+  entries: ImagePackEntry[];
+  isPublic?: boolean;
+  publishedAt?: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface PublicImagePack extends SavedImagePack {
+  publicId: string;
+  ownerUsername: string;
+  ownerAvatarUrl: string | null;
+}
+
+export interface PublicImagePackSummary {
+  id: string;
+  publicId: string;
+  name: string;
+  description?: string;
+  entryCount: number;
+  ownerUsername: string;
+  ownerAvatarUrl: string | null;
+  isPublic?: boolean;
+  publishedAt?: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface CandidatePackSourceMeta {
   generatedBy?: string;
   sourceMaterial?: string;
@@ -104,6 +151,7 @@ export interface NamedUserAccount {
   username: string;
   avatarUrl: string | null;
   customWordPacks: SavedWordPack[];
+  customImagePacks: SavedImagePack[];
   stats: UserStats;
   createdAt: number;
   updatedAt: number;
@@ -182,7 +230,7 @@ export interface Clue {
 }
 
 export interface RoomSettings {
-  ruleSet: "classic";
+  ruleSet: GameMode;
   boardMode: BoardMode;
   wordPackId: string;
   scoringMode: ScoringMode;
@@ -192,6 +240,141 @@ export interface RoomSettings {
   timerFirstRoundBonus?: boolean;
   neutralCount?: number;
   flipMode?: FlipMode;
+  revealGuessSettings?: RevealGuessSettings;
+}
+
+export type RevealLimitMode = "once-per-player" | "free-after-all-used" | "free";
+
+export interface RevealGuessSettings {
+  puzzleCount: number;
+  timerEnabled: boolean;
+  primaryGuessSeconds: number;
+  buzzGuessSeconds: number;
+  revealLimitMode: RevealLimitMode;
+}
+
+export interface RevealCell {
+  id: string;
+  row: number;
+  col: number;
+  revealed: boolean;
+  revealedBy?: string;
+  revealedAt?: number;
+}
+
+export interface RevealGuessPlayerRoundState {
+  hasRevealed: boolean;
+  hasGuessed: boolean;
+  revealedCellId?: string;
+}
+
+export interface RevealGuessPendingAnswer {
+  id: string;
+  playerId: string;
+  playerNickname: string;
+  answer: string;
+  submittedAt: number;
+  type: "priority" | "buzz" | "formal";
+  status: "pending" | "correct" | "wrong" | "partial";
+  judgeNote?: string;
+}
+
+export interface RevealGuessScoreEvent {
+  id: string;
+  puzzleIndex: number;
+  playerId: string;
+  playerNickname: string;
+  amount: number;
+  reason: "correct-guess" | "self-reveal-bonus" | "reveal-assist" | "judge-adjust";
+  createdAt: number;
+}
+
+export interface RevealPuzzle {
+  id: string;
+  index: number;
+  imageUrl: string;
+  answer: string;
+  aliases: string[];
+  hints: string[];
+  cells: RevealCell[];
+  revealedCount: number;
+  priorityGuesserId?: string;
+  buzzingOpen: boolean;
+  buzzQueue: string[];
+  pendingAnswers: RevealGuessPendingAnswer[];
+  timerEndsAt?: number;
+  timerPhase?: "primary-guess" | "buzz";
+  timerPaused?: boolean;
+  revealRecords: Array<{ playerId: string; cellId: string; revealedAt: number }>;
+  playerRoundStates: Record<string, RevealGuessPlayerRoundState>;
+  phase: RevealGuessPhase;
+  freeRevealUnlocked: boolean;
+}
+
+export interface RevealGuessState {
+  puzzles: RevealPuzzle[];
+  currentPuzzleIndex: number;
+  scores: Record<string, number>;
+  scoreEvents: RevealGuessScoreEvent[];
+  settings: RevealGuessSettings;
+}
+
+export interface PublicRevealGuessState {
+  phase: RevealGuessPhase;
+  currentPuzzleIndex: number;
+  puzzleCount: number;
+  puzzleList: Array<{
+    index: number;
+    imageUrl: string;
+    hasAnswer: boolean;
+    aliasCount: number;
+    hintCount: number;
+  }>;
+  scores: Record<string, number>;
+  scoreEvents: RevealGuessScoreEvent[];
+  settings: RevealGuessSettings;
+  currentPuzzle: {
+    index: number;
+    imageUrl: string;
+    answer?: string;
+    aliases?: string[];
+    cells: RevealCell[];
+    revealedCount: number;
+    buzzingOpen: boolean;
+    buzzQueueLength: number;
+    myBuzzPosition?: number;
+    priorityGuesserNickname?: string;
+    phase: RevealGuessPhase;
+    freeRevealUnlocked: boolean;
+    myHasRevealed?: boolean;
+    hints: string[];
+    timerEndsAt?: number;
+    timerPhase?: "primary-guess" | "buzz";
+    timerPaused?: boolean;
+    myPendingAnswer?: {
+      id: string;
+      answer: string;
+      status: RevealGuessPendingAnswer["status"];
+      judgeNote?: string;
+      submittedAt: number;
+    };
+    otherPendingAnswers: Array<{
+      id: string;
+      playerNickname: string;
+      status: RevealGuessPendingAnswer["status"];
+      submittedAt: number;
+      answer?: string;
+      type?: string;
+    }>;
+  } | null;
+  lastPuzzleResult?: {
+    index: number;
+    answer: string;
+    aliases: string[];
+    imageUrl: string;
+    cells: RevealCell[];
+    scoreEvents: RevealGuessScoreEvent[];
+  };
 }
 
 export interface ChatMessage {
@@ -341,6 +524,7 @@ export interface Room {
   roundNumber: number;
   messages: ChatMessage[];
   hostPlayerId: string;
+  judgePlayerId?: string;
   createdAt: number;
   updatedAt: number;
   lastEvent: string;
@@ -361,6 +545,8 @@ export interface Room {
   consecutiveTimeouts?: number;
   firstTurnBonusUsed?: boolean;
   replayId?: string;
+  gameMode?: GameMode;
+  revealGuessState?: RevealGuessState;
 }
 
 export interface ViewerIdentity {
@@ -397,6 +583,21 @@ export interface ViewerState {
   isQueuedForNextRound: boolean;
   targetTeam: Team | null;
   statusText: string;
+  isJudge?: boolean;
+  canRevealCell?: boolean;
+  canSubmitRevealAnswer?: boolean;
+  canBuzzIn?: boolean;
+  canOpenBuzzing?: boolean;
+  canJudgeAnswer?: boolean;
+  canAdjustRevealScore?: boolean;
+  canCreateRevealPuzzle?: boolean;
+  canSkipRevealPuzzle?: boolean;
+  canNextRevealPuzzle?: boolean;
+  canSendRevealHint?: boolean;
+  canEndRevealGame?: boolean;
+  isPriorityGuesser?: boolean;
+  hasRevealedThisPuzzle?: boolean;
+  hasGuessedThisPuzzle?: boolean;
 }
 
 export type PublicPlayer = Omit<Player, "sessionToken">;
@@ -411,19 +612,21 @@ export interface PublicCard {
   revealedBy?: Team;
 }
 
-export interface PublicRoomState extends Omit<Room, "players" | "spectators" | "board" | "wordPack"> {
+export interface PublicRoomState extends Omit<Room, "players" | "spectators" | "board" | "wordPack" | "revealGuessState"> {
   players: PublicPlayer[];
   spectators: PublicSpectator[];
   board: PublicCard[];
   wordPackSummary: WordPackSummary;
   viewer: ViewerState | null;
   serverNow: number;
+  revealGuessPublic?: PublicRevealGuessState;
 }
 
 export interface RoomSummary {
   id: string;
   phase: RoomPhase;
   boardMode: BoardMode;
+  gameMode: GameMode;
   roundNumber: number;
   wordPackSummary: WordPackSummary;
   playerCount: number;
@@ -592,6 +795,7 @@ export interface UsernameLoginPayload {
 export interface UpdateNamedUserPayload {
   avatarUrl?: string | null;
   customWordPacks?: SavedWordPack[];
+  customImagePacks?: SavedImagePack[];
 }
 
 export interface ReplayBoardCard {
@@ -656,4 +860,122 @@ export interface GameReplay {
   saved?: boolean;
   savedBy?: string[];
   visibility?: "link-only" | "private" | "public";
+}
+
+export interface CreateRevealPuzzlePayload {
+  roomId: string;
+  imageUrl: string;
+  answer: string;
+  aliases?: string[];
+  hints?: string[];
+}
+
+export interface CreateRevealGuessRoomPayload {
+  nickname: string;
+  profile?: Partial<UserProfile>;
+  settings?: Partial<RevealGuessSettings>;
+}
+
+export interface StartRevealGamePayload {
+  roomId: string;
+}
+
+export interface EndRevealGamePayload {
+  roomId: string;
+}
+
+export interface RevealCellPayload {
+  roomId: string;
+  cellId: string;
+}
+
+export interface WaivePriorityGuessPayload {
+  roomId: string;
+}
+
+export interface SubmitRevealAnswerPayload {
+  roomId: string;
+  answer: string;
+  type: "priority" | "buzz" | "formal";
+}
+
+export interface OpenBuzzingPayload {
+  roomId: string;
+}
+
+export interface BuzzInPayload {
+  roomId: string;
+}
+
+export interface JudgeRevealAnswerPayload {
+  roomId: string;
+  answerId: string;
+  verdict: "correct" | "wrong" | "partial";
+  note?: string;
+}
+
+export interface ResetRevealPlayerGuessPayload {
+  roomId: string;
+  targetPlayerId: string;
+}
+
+export interface SendRevealHintPayload {
+  roomId: string;
+  hint: string;
+}
+
+export interface SkipRevealPuzzlePayload {
+  roomId: string;
+}
+
+export interface NextRevealPuzzlePayload {
+  roomId: string;
+}
+
+export interface AdjustRevealScorePayload {
+  roomId: string;
+  targetPlayerId: string;
+  amount: number;
+  reason: string;
+}
+
+export interface ResumeRevealTimerPayload {
+  roomId: string;
+}
+
+export interface RevealHintBroadcast {
+  puzzleIndex: number;
+  hint: string;
+  sentBy: string;
+  sentAt: number;
+}
+
+export interface RevealAnswerUpdateBroadcast {
+  puzzleIndex: number;
+  answer: RevealGuessPendingAnswer;
+}
+
+export interface RevealScoreUpdateBroadcast {
+  playerId: string;
+  playerNickname: string;
+  newScore: number;
+  event: RevealGuessScoreEvent;
+}
+
+export interface RevealCellAnimatedBroadcast {
+  puzzleIndex: number;
+  cellId: string;
+  row: number;
+  col: number;
+  revealedBy: string;
+  revealedByNickname: string;
+}
+
+export interface RevealBuzzingOpenBroadcast {
+  puzzleIndex: number;
+}
+
+export interface RevealGameEndedBroadcast {
+  winnerId?: string;
+  finalScores: Record<string, number>;
 }

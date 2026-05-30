@@ -61,11 +61,13 @@ export function AppNav() {
         { path: "/", label: "大厅" },
         { path: "/create", label: "开房" },
         { path: "/packs", label: "题库" },
+        { path: "/gallery", label: "图库" },
         { path: "/profile", label: "我的" },
       ]
     : [
         { path: "/login", label: "登录" },
         { path: "/packs", label: "题库" },
+        { path: "/gallery", label: "图库" },
       ];
 
   return (

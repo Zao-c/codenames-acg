@@ -23,6 +23,7 @@ function buildViewerState(room: Room, viewer: ViewerIdentity): ViewerState | nul
 
   const isPlayer = viewer.participantType === "player";
   const isSpectator = viewer.participantType === "spectator";
+  const isCodenamesMode = room.settings.ruleSet !== "reveal-guess";
   const canEditRoom = viewer.isHost === true && room.phase === "lobby" && isPlayer;
   const canStartGame = canEditRoom;
   const canRestartGame = viewer.isHost === true && room.phase === "finished" && isPlayer;
@@ -30,20 +31,24 @@ function buildViewerState(room: Room, viewer: ViewerIdentity): ViewerState | nul
   const canTransferHost = viewer.isHost === true && isPlayer && room.players.some((player) => !player.isBot && player.id !== viewer.participantId);
   const canDisbandRoom = viewer.isHost === true && isPlayer;
   const canUseDebugFill =
+    isCodenamesMode &&
     viewer.isDebugController === true &&
     room.phase === "lobby" &&
     room.players.filter((player) => !player.isBot).length === 1;
   const canSubmitClue =
+    isCodenamesMode &&
     isPlayer &&
     room.phase === "playing" &&
     !room.clue &&
     (viewer.isDebugController === true || (viewer.team === room.currentTeam && viewer.role === "spymaster"));
   const canGuess =
+    isCodenamesMode &&
     isPlayer &&
     room.phase === "playing" &&
     !!room.clue &&
     (viewer.isDebugController === true || (viewer.team === room.currentTeam && viewer.role === "operative"));
   const canEndTurn =
+    isCodenamesMode &&
     isPlayer &&
     room.phase === "playing" &&
     !!room.clue &&
@@ -51,7 +56,7 @@ function buildViewerState(room: Room, viewer: ViewerIdentity): ViewerState | nul
   const canQueueForNextRound = isSpectator && room.phase !== "lobby" && room.players.length < MAX_PLAYERS;
   const canCancelQueue = isSpectator && viewer.isQueuedForNextRound === true;
   const canResumeTimer = viewer.isHost === true && room.timerPaused === true && isPlayer;
-  const targetTeam = room.phase === "playing" ? room.currentTeam : null;
+  const targetTeam = isCodenamesMode && room.phase === "playing" ? room.currentTeam : null;
 
   let statusText = "等待房间同步";
   if (room.phase === "lobby") {
@@ -135,6 +140,7 @@ export function buildRoomSummary(room: Room): RoomSummary {
     id: room.id,
     phase: room.phase,
     boardMode: room.settings.boardMode,
+    gameMode: room.settings.ruleSet,
     roundNumber: room.roundNumber,
     wordPackSummary: toWordPackSummary(room.wordPack),
     playerCount: room.players.length,
@@ -177,6 +183,7 @@ export function sanitizeRoom(room: Room, viewer: ViewerIdentity = {}): PublicRoo
   return {
     id: room.id,
     phase: room.phase,
+    gameMode: room.settings.ruleSet,
     players,
     spectators,
     joinQueue: room.joinQueue,
@@ -191,6 +198,7 @@ export function sanitizeRoom(room: Room, viewer: ViewerIdentity = {}): PublicRoo
     roundNumber: room.roundNumber,
     messages: room.messages,
     hostPlayerId: room.hostPlayerId,
+    judgePlayerId: room.judgePlayerId,
     createdAt: room.createdAt,
     updatedAt: room.updatedAt,
     lastEvent: room.lastEvent,

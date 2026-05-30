@@ -6,6 +6,7 @@ import { HomePage } from "./routes/HomePage";
 import { LoginPage } from "./routes/LoginPage";
 import { CreateRoomPage } from "./routes/CreateRoomPage";
 import { PacksPage } from "./routes/PacksPage";
+import { ImagePacksPage } from "./routes/ImagePacksPage";
 import { ProfilePage } from "./routes/ProfilePage";
 import { ReplayPage } from "./routes/ReplayPage";
 import { RoomPage } from "./routes/RoomPage";
@@ -82,6 +83,7 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/create" element={<CreateRoomPage />} />
           <Route path="/packs" element={<PacksPage />} />
+          <Route path="/gallery" element={<ImagePacksPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/replay/:replayId" element={<ReplayPage />} />
           <Route path="/room/:roomId" element={<RoomGuard />} />

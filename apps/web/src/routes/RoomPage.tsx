@@ -10,6 +10,7 @@ import {
 import { useGame, isPlayer, getRoomStageLabel, getSelfSummary, queuedForSpectator, roleLabelShort } from "../context/GameContext";
 import { AvatarBadge } from "../components/AvatarBadge";
 import { SakuraParticles } from "../lib/SakuraParticles";
+import { RevealGuessRoom } from "../components/reveal-guess/RevealGuessRoom";
 
 export function RoomPage() {
   const { roomId } = useParams<{ roomId: string }>();
@@ -91,6 +92,10 @@ export function RoomPage() {
         <button className="primary-button" onClick={navigateHome}>返回首页</button>
       </section>
     );
+  }
+
+  if (room.gameMode === "reveal-guess" || room.revealGuessPublic) {
+    return <RevealGuessRoom />;
   }
 
   const phaseClass =

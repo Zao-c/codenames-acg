@@ -1,36 +1,58 @@
 import type {
   AchievementUnlockPayload,
+  AdjustRevealScorePayload,
+  BuzzInPayload,
   CancelQueueJoinPayload,
   ChatReaction,
   ClientSession,
+  CreateRevealPuzzlePayload,
+  CreateRevealGuessRoomPayload,
   CreateRoomPayload,
   DanmakuMessage,
   DebugFillRoomPayload,
   DisbandRoomPayload,
+  EndRevealGamePayload,
   EndTurnPayload,
   ErrorMessagePayload,
   GuessCardPayload,
   JoinRoomPayload,
   JoinSpectatorPayload,
+  JudgeRevealAnswerPayload,
   LeaveRoomPayload,
+  NextRevealPuzzlePayload,
+  OpenBuzzingPayload,
   ParticipantType,
   PublicRoomState,
   RandomizeTeamsPayload,
   QueueForNextRoundPayload,
   ReconnectRoomPayload,
+  ResetRevealPlayerGuessPayload,
+  ResumeRevealTimerPayload,
   ReturnToLobbyPayload,
   RestartGamePayload,
+  RevealAnswerUpdateBroadcast,
+  RevealBuzzingOpenBroadcast,
+  RevealCellAnimatedBroadcast,
+  RevealCellPayload,
+  RevealGameEndedBroadcast,
+  RevealHintBroadcast,
+  RevealScoreUpdateBroadcast,
   RoomSummary,
   RoundHighlight,
   SendChatMessagePayload,
   SendReactionPayload,
+  SendRevealHintPayload,
   SetRolePayload,
   SetTeamPayload,
+  SkipRevealPuzzlePayload,
   StartGamePayload,
+  StartRevealGamePayload,
   SubmitCluePayload,
+  SubmitRevealAnswerPayload,
   SyncRoomStatePayload,
   TransferHostPayload,
   UpdateRoomSettingsPayload,
+  WaivePriorityGuessPayload,
 } from "./types.js";
 
 export interface ClientToServerEvents {
@@ -59,6 +81,26 @@ export interface ClientToServerEvents {
   send_reaction: (payload: SendReactionPayload) => void;
   queue_for_next_round: (payload: QueueForNextRoundPayload) => void;
   cancel_queue_join: (payload: CancelQueueJoinPayload) => void;
+  create_reveal_guess_room: (payload: CreateRevealGuessRoomPayload) => void;
+  reveal_guess_add_puzzle: (payload: CreateRevealPuzzlePayload) => void;
+  reveal_guess_start: (payload: StartRevealGamePayload) => void;
+  end_reveal_game: (payload: EndRevealGamePayload) => void;
+  reveal_guess_reveal_cell: (payload: RevealCellPayload) => void;
+  waive_priority_guess: (payload: WaivePriorityGuessPayload) => void;
+  reveal_guess_submit_answer: (payload: SubmitRevealAnswerPayload) => void;
+  reveal_guess_open_buzz: (payload: OpenBuzzingPayload) => void;
+  reveal_guess_close_buzz: (payload: { roomId: string }) => void;
+  reveal_guess_buzz_in: (payload: BuzzInPayload) => void;
+  reveal_guess_judge_answer: (payload: JudgeRevealAnswerPayload) => void;
+  reset_reveal_player_guess: (payload: ResetRevealPlayerGuessPayload) => void;
+  reveal_guess_show_hint: (payload: SendRevealHintPayload) => void;
+  reveal_guess_skip_puzzle: (payload: SkipRevealPuzzlePayload) => void;
+  reveal_guess_next_puzzle: (payload: NextRevealPuzzlePayload) => void;
+  reveal_guess_adjust_score: (payload: AdjustRevealScorePayload) => void;
+  reveal_guess_transfer_judge: (payload: { roomId: string; newJudgeId: string }) => void;
+  reveal_guess_return_to_setup: (payload: { roomId: string }) => void;
+  reveal_guess_open_free_reveal: (payload: { roomId: string }) => void;
+  resume_reveal_timer: (payload: ResumeRevealTimerPayload) => void;
 }
 
 export interface ReactionEffectPayload {
@@ -82,4 +124,10 @@ export interface ServerToClientEvents {
   reaction_effect: (payload: ReactionEffectPayload) => void;
   round_highlight: (payload: RoundHighlight) => void;
   achievement_unlock: (payload: AchievementUnlockPayload) => void;
+  reveal_hint: (payload: RevealHintBroadcast) => void;
+  reveal_answer_update: (payload: RevealAnswerUpdateBroadcast) => void;
+  reveal_score_update: (payload: RevealScoreUpdateBroadcast) => void;
+  reveal_cell_animated: (payload: RevealCellAnimatedBroadcast) => void;
+  reveal_buzzing_open: (payload: RevealBuzzingOpenBroadcast) => void;
+  reveal_game_ended: (payload: RevealGameEndedBroadcast) => void;
 }

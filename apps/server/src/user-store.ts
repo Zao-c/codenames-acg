@@ -8,8 +8,11 @@ import {
   MIN_CUSTOM_WORD_PACK_ENTRIES,
   type NamedUserAccount,
   type NamedUserLoginResponse,
+  type PublicImagePack,
+  type PublicImagePackSummary,
   type PublicWordPack,
   type PublicWordPackSummary,
+  type SavedImagePack,
   type SavedWordPack,
   type UpdateNamedUserPayload,
   type UserProfile,
@@ -114,6 +117,7 @@ function defaultUser(username: string): NamedUserAccount {
     username,
     avatarUrl: null,
     customWordPacks: [],
+    customImagePacks: [],
     stats: emptyStats(),
     createdAt: timestamp,
     updatedAt: timestamp
@@ -125,6 +129,27 @@ function normalizeSavedPacks(packs: SavedWordPack[] | undefined): SavedWordPack[
     return undefined;
   }
   return packs.map(normalizeWordPack);
+}
+
+function normalizeImagePack(pack: SavedImagePack): SavedImagePack {
+  const entries = [...(pack.entries ?? [])]
+    .filter(e => e.url && typeof e.url === "string")
+    .map(e => ({ id: e.id || crypto.randomUUID(), url: e.url, label: (e.label ?? "").slice(0, 200) }));
+  return {
+    id: pack.id || crypto.randomUUID(),
+    name: String(pack.name || "").slice(0, MAX_WORD_PACK_NAME_LENGTH),
+    description: pack.description?.slice(0, 300),
+    entries,
+    isPublic: pack.isPublic === true,
+    publishedAt: pack.publishedAt,
+    createdAt: pack.createdAt || now(),
+    updatedAt: now(),
+  };
+}
+
+function normalizeSavedImagePacks(packs: SavedImagePack[] | undefined): SavedImagePack[] | undefined {
+  if (!packs) return undefined;
+  return packs.map(normalizeImagePack);
 }
 
 export class JsonUserStore implements UserStore {
@@ -168,6 +193,9 @@ export class JsonUserStore implements UserStore {
       customWordPacks: account.customWordPacks
         .filter((pack) => pack.isPublic === true)
         .map((pack) => ({ id: pack.id, name: pack.name, description: pack.description, isPublic: true })),
+      customImagePacks: account.customImagePacks
+        .filter((pack) => pack.isPublic === true)
+        .map((pack) => ({ id: pack.id, name: pack.name, description: pack.description, isPublic: true })),
       stats: account.stats
     };
   }
@@ -184,6 +212,7 @@ export class JsonUserStore implements UserStore {
       ...current,
       avatarUrl: payload.avatarUrl === undefined ? current.avatarUrl : normalizeAvatarUrl(payload.avatarUrl),
       customWordPacks: normalizeSavedPacks(payload.customWordPacks) ?? current.customWordPacks,
+      customImagePacks: normalizeSavedImagePacks(payload.customImagePacks) ?? current.customImagePacks,
       updatedAt: now()
     };
     this.users.set(key, updated);
@@ -242,6 +271,47 @@ export class JsonUserStore implements UserStore {
     const account = this.users.get(userKey(username));
     if (!account) return null;
     const pack = account.customWordPacks.find((p) => p.id === packId);
+    if (!pack || pack.isPublic !== true) return null;
+    return {
+      ...pack,
+      publicId: `${account.username}:${pack.id}`,
+      ownerUsername: account.username,
+      ownerAvatarUrl: account.avatarUrl
+    };
+  }
+
+  async listPublicImagePacks(): Promise<PublicImagePackSummary[]> {
+    await this.ensureLoaded();
+    const summaries: PublicImagePackSummary[] = [];
+    for (const account of this.users.values()) {
+      for (const pack of account.customImagePacks.filter(p => p.isPublic === true)) {
+        summaries.push({
+          id: pack.id,
+          publicId: `${account.username}:${pack.id}`,
+          name: pack.name,
+          description: pack.description,
+          entryCount: pack.entries.length,
+          ownerUsername: account.username,
+          ownerAvatarUrl: account.avatarUrl,
+          isPublic: pack.isPublic,
+          publishedAt: pack.publishedAt ?? pack.createdAt,
+          createdAt: pack.createdAt,
+          updatedAt: pack.updatedAt,
+        });
+      }
+    }
+    return summaries.sort((a, b) => (b.publishedAt ?? b.updatedAt) - (a.publishedAt ?? a.updatedAt));
+  }
+
+  async getPublicImagePackByPublicId(publicId: string): Promise<PublicImagePack | null> {
+    await this.ensureLoaded();
+    const colonIndex = publicId.indexOf(":");
+    if (colonIndex < 1) return null;
+    const username = publicId.slice(0, colonIndex);
+    const packId = publicId.slice(colonIndex + 1);
+    const account = this.users.get(userKey(username));
+    if (!account) return null;
+    const pack = account.customImagePacks.find((p) => p.id === packId);
     if (!pack || pack.isPublic !== true) return null;
     return {
       ...pack,

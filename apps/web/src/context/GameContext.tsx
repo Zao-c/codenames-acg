@@ -1,4 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+
+function genId(): string {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
+  return "id-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10);
+}
 import {
   BOARD_MODE_CONFIG,
   MAX_CLUE_COUNT,
@@ -24,7 +29,12 @@ import {
   type PublicSpectator,
   type PublicWordPack,
   type PublicWordPackSummary,
+  type SavedImagePack,
+  type PublicImagePack,
+  type PublicImagePackSummary,
+  type PublicRevealGuessState,
   type RevealEvent,
+  type RevealGuessSettings,
   type RevealOutcome,
   type RoundHighlight,
   type AchievementUnlockPayload,
@@ -32,7 +42,7 @@ import {
   type SavedWordPack,
   type Team
 } from "@acg-codenames/shared";
-import { listPublicWordPacks, getPublicWordPackDetail, loginNamedUser, logoutNamedUser as apiLogoutNamedUser, updateNamedUser } from "../lib/api";
+import { listPublicWordPacks, getPublicWordPackDetail, listPublicImagePacks, getPublicImagePackDetail, loginNamedUser, logoutNamedUser as apiLogoutNamedUser, updateNamedUser } from "../lib/api";
 import { getSocket } from "../lib/socket";
 import { clearIdentity, clearSession, loadIdentity, loadRecentUsernames, loadSession, saveIdentity, saveSession, loadRecoverableSessions, saveRecoverableSessions, removeRecoverableSession, type LocalIdentity } from "../lib/storage";
 import { copyText } from "../lib/clipboard";
@@ -271,6 +281,7 @@ export interface GameContextType {
   continueAsGuest: () => void;
   handleAvatarUpload: (file: File | null) => Promise<void>;
   createRoom: () => void;
+  createRevealGuessRoom: (settings?: Partial<RevealGuessSettings>) => void;
   joinByRoomCode: (asSpectator: boolean) => void;
   joinSpecificRoom: (roomId: string, asSpectator: boolean) => void;
   leaveRoom: () => void;
@@ -283,6 +294,16 @@ export interface GameContextType {
   removeAccountPack: (packId: string) => Promise<void>;
   toggleAccountPackPublic: (packId: string) => Promise<void>;
   chooseAccountPackForCreate: (packId: string) => void;
+
+  // Image packs
+  publicImagePacks: PublicImagePackSummary[];
+  accountImagePacks: SavedImagePack[];
+  refreshPublicImagePacks: () => Promise<void>;
+  fetchPublicImagePackDetail: (publicId: string) => Promise<PublicImagePack | null>;
+  addAccountImagePack: (name: string, entries: { url: string; label: string }[]) => Promise<void>;
+  editAccountImagePack: (packId: string, name: string, entries: { url: string; label: string }[]) => Promise<void>;
+  removeAccountImagePack: (packId: string) => Promise<void>;
+  toggleAccountImagePackPublic: (packId: string) => Promise<void>;
 
   savedPackName: string;
   setSavedPackName: (v: string) => void;
@@ -432,6 +453,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [selectedPublicPackId, setSelectedPublicPackId] = useState("");
   const [transferHostTargetId, setTransferHostTargetId] = useState("");
   const [publicPacks, setPublicPacks] = useState<PublicWordPackSummary[]>([]);
+  const [publicImagePacks, setPublicImagePacks] = useState<PublicImagePackSummary[]>([]);
   const [roomCode, setRoomCode] = useState("");
   const [session, setSession] = useState<ClientSession | null>(loadSession());
   const activeRoomIdRef = useRef<string | null>(null);
@@ -516,6 +538,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   } | null>(null);
 
   const accountPacks = namedAccount?.customWordPacks ?? [];
+  const accountImagePacks = namedAccount?.customImagePacks ?? [];
   const selectedAccountPack = accountPacks.find((pack) => pack.id === selectedAccountPackId) ?? null;
   const selectedPublicPack = publicPacks.find((pack) => makePublicPackKey(pack) === selectedPublicPackId) ?? null;
   const hostTransferCandidates = room?.players.filter((player) => !player.isBot && player.id !== session?.participantId) ?? [];
@@ -765,7 +788,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       _setIdentity(ni); saveIdentity(ni); setRecentUsers(loadRecentUsernames());
     }).catch((e) => setError(e instanceof Error ? e.message : "加载账户失败"));
   }, [identity?.mode, identity?.username]);
-  useEffect(() => { void refreshPublicPacks(); }, []);
+  useEffect(() => { void refreshPublicPacks(); void refreshPublicImagePacks(); }, []);
 
   // ─── handlers ──────────────────────────────────────
   async function handleNamedLogin(usernameOverride?: string) {
@@ -804,10 +827,32 @@ export function GameProvider({ children }: { children: ReactNode }) {
     } catch (e) { setError(e instanceof Error ? e.message : "公开档案库加载失败"); }
   }
 
+  async function refreshPublicImagePacks() {
+    try {
+      const packs = await listPublicImagePacks(); setPublicImagePacks(packs);
+    } catch (e) { setError(e instanceof Error ? e.message : "公开图库加载失败"); }
+  }
+
   async function fetchPublicPackDetail(publicId: string): Promise<PublicWordPack | null> {
     try {
       return await getPublicWordPackDetail(publicId);
     } catch (e) { setError(e instanceof Error ? e.message : "加载题库详情失败"); return null; }
+  }
+
+  async function fetchPublicImagePackDetail(publicId: string): Promise<PublicImagePack | null> {
+    try {
+      return await getPublicImagePackDetail(publicId);
+    } catch (e) { setError(e instanceof Error ? e.message : "加载图库详情失败"); return null; }
+  }
+
+  async function saveAccountImagePacksInternal(nextPacks: SavedImagePack[]) {
+    if (!namedAccount) throw new Error("请先使用用户名登录");
+    const prev = namedAccount;
+    setNamedAccount({ ...namedAccount, customImagePacks: nextPacks, updatedAt: Date.now() });
+    try {
+      const updated = await updateNamedUser(namedAccount.username, requireNamedUserSessionToken(identity), { customImagePacks: nextPacks });
+      setNamedAccount({ ...updated, customImagePacks: updated.customImagePacks.length > 0 ? updated.customImagePacks : nextPacks });
+    } catch (e) { setNamedAccount(prev); setError(e instanceof Error ? e.message : "保存图库失败"); throw e; }
   }
 
   async function saveAccountPacksInternal(nextPacks: SavedWordPack[]) {
@@ -867,6 +912,46 @@ export function GameProvider({ children }: { children: ReactNode }) {
     } catch (e) { setError(e instanceof Error ? e.message : "更新题库公开状态失败"); }
   }
 
+  // ── Image Pack CRUD ──
+
+  async function addAccountImagePack(name: string, entries: { url: string; label: string }[]) {
+    if (!namedAccount) { setError("请先使用用户名登录后再创建图库"); return; }
+    try {
+      const ts = Date.now();
+      const pack: SavedImagePack = {
+        id: genId(), name, entries: entries.map(e => ({ id: genId(), url: e.url, label: e.label })),
+        createdAt: ts, updatedAt: ts,
+      };
+      await saveAccountImagePacksInternal([...namedAccount.customImagePacks, pack]);
+      setError("");
+    } catch (e) { setError(e instanceof Error ? e.message : "创建图库失败"); }
+  }
+
+  async function editAccountImagePack(packId: string, name: string, entries: { url: string; label: string }[]) {
+    if (!namedAccount) { setError("请先登录"); return; }
+    await saveAccountImagePacksInternal(namedAccount.customImagePacks.map(p => {
+      if (p.id !== packId) return p;
+      return { ...p, name, entries: entries.map(e => ({ id: e.url, url: e.url, label: e.label })), updatedAt: Date.now() };
+    }));
+  }
+
+  async function removeAccountImagePack(packId: string) {
+    if (!namedAccount) { setError("请先登录"); return; }
+    await saveAccountImagePacksInternal(namedAccount.customImagePacks.filter(p => p.id !== packId));
+  }
+
+  async function toggleAccountImagePackPublic(packId: string) {
+    if (!namedAccount) { setError("请先登录"); return; }
+    const ts = Date.now();
+    try {
+      await saveAccountImagePacksInternal(namedAccount.customImagePacks.map((p) => {
+        if (p.id !== packId) return p;
+        const nextIsPublic = p.isPublic !== true;
+        return { ...p, isPublic: nextIsPublic, publishedAt: nextIsPublic ? p.publishedAt ?? ts : undefined, updatedAt: ts };
+      }));
+    } catch (e) { setError(e instanceof Error ? e.message : "更新图库公开状态失败"); }
+  }
+
   function chooseAccountPackForCreate(packId: string) { setSelectedAccountPackId(packId); setPackSource("account"); setError(""); }
 
   function updateCandidateEntry(display: string, patch: Partial<CandidateEntry>) {
@@ -921,6 +1006,22 @@ export function GameProvider({ children }: { children: ReactNode }) {
     pendingCreateConfigRef.current = pending;
     setConnectionState("connecting"); setError("");
     socket.emit("create_room", { nickname: ji.nickname, profile: { accountType: ji.profile.mode, username: ji.profile.mode === "named" ? ji.profile.username : null, avatarUrl: ji.profile.avatarUrl, userSessionToken: ji.profile.mode === "named" ? ji.profile.userSessionToken : undefined } });
+  }
+
+  function createRevealGuessRoom(settings?: Partial<RevealGuessSettings>) {
+    const ji = buildJoinProfile(); if (!ji) return;
+    clearSession(); setSession(null); setRoom(null); activeRoomIdRef.current = null;
+    setConnectionState("connecting"); setError("");
+    socket.emit("create_reveal_guess_room", {
+      nickname: ji.nickname,
+      profile: {
+        accountType: ji.profile.mode,
+        username: ji.profile.mode === "named" ? ji.profile.username : null,
+        avatarUrl: ji.profile.avatarUrl,
+        userSessionToken: ji.profile.mode === "named" ? ji.profile.userSessionToken : undefined
+      },
+      settings
+    });
   }
 
   function joinSpecificRoom(roomId: string, asSpectator: boolean) {
@@ -1063,8 +1164,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
       apiLogoutNamedUser(prevIdentity.username, prevIdentity.userSessionToken).catch(() => {});
     }
   }
-  const boardModeLabel = room?.settings.boardMode ?? "";
-  const inviteText = session ? `词牌结社好友局 ${session.roomId}（${boardModeLabel}）:\n${window.location.origin}/?room=${session.roomId}` : "";
+  const gameMode = room?.gameMode;
+  const gameLabel = gameMode === "reveal-guess" ? "揭幕猜番" : "词牌模式";
+  const specLabel = gameMode === "reveal-guess" ? "9x9" : (room?.settings?.boardMode ?? "");
+  const inviteText = session ? `词牌结社好友局 ${session.roomId}（${gameLabel} · ${specLabel}）:\n${window.location.origin}/?room=${session.roomId}` : "";
 
   async function copyLink() {
     if (!inviteText) return;
@@ -1106,8 +1209,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
     accountPacks, selectedAccountPack, selectedPublicPack,
     handleNamedLogin, continueAsGuest, handleAvatarUpload,
     createRoom, joinByRoomCode, joinSpecificRoom, leaveRoom, logoutNamedUser,
+    createRevealGuessRoom,
     refreshPublicPacks, fetchPublicPackDetail, addAccountPack, importAccountPack, editAccountPack, removeAccountPack, toggleAccountPackPublic, chooseAccountPackForCreate,
     savedPackName, setSavedPackName, savedPackEntries, setSavedPackEntries,
+    accountImagePacks,
+    publicImagePacks, refreshPublicImagePacks, fetchPublicImagePackDetail,
+    addAccountImagePack, editAccountImagePack, removeAccountImagePack, toggleAccountImagePackPublic,
     candidatePack, setCandidatePack, updateCandidateEntry, bulkSetVisibleEntries, exportCandidateAsPlayable, resetCandidateReview,
     transferHostTargetId, setTransferHostTargetId, hostTransferCandidates,
     roomCode, setRoomCode, isLobby, isFinished, viewer, self, inviteLink, boardColumns,

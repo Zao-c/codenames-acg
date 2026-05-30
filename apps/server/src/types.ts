@@ -3,6 +3,8 @@ import type {
   NamedUserAccount,
   NamedUserLoginResponse,
   ParticipantType,
+  PublicImagePack,
+  PublicImagePackSummary,
   PublicWordPack,
   PublicWordPackSummary,
   Room,
@@ -36,6 +38,8 @@ export interface UserStore {
   revokeSession(username: string, sessionToken: string): Promise<void>;
   listPublicWordPacks(): Promise<PublicWordPackSummary[]>;
   getPublicWordPackByPublicId(publicId: string): Promise<PublicWordPack | null>;
+  listPublicImagePacks(): Promise<PublicImagePackSummary[]>;
+  getPublicImagePackByPublicId(publicId: string): Promise<PublicImagePack | null>;
   resolveProfile(profile?: Partial<UserProfile>, sessionToken?: string): Promise<UserProfile>;
   noteRoomHosted(username: string | null | undefined): Promise<void>;
   recordRoundResult(players: Room["players"], winner: "red" | "blue"): Promise<void>;

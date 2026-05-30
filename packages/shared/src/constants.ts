@@ -1,4 +1,4 @@
-import type { BoardMode, RoomSettings } from "./types.js";
+import type { BoardMode, RevealGuessSettings, RoomSettings } from "./types.js";
 
 export const MAX_PLAYERS = 8;
 export const MIN_PLAYERS_TO_START = 4;
@@ -28,7 +28,7 @@ export const BOARD_MODE_CONFIG = {
 export const DEFAULT_WORD_PACK_ID = "acg-core-zh";
 
 export const DEFAULT_ROOM_SETTINGS: RoomSettings = {
-  ruleSet: "classic",
+  ruleSet: "codenames",
   boardMode: "5x5",
   wordPackId: DEFAULT_WORD_PACK_ID,
   scoringMode: "classic",
@@ -37,6 +37,16 @@ export const DEFAULT_ROOM_SETTINGS: RoomSettings = {
   timerGuessSeconds: 90,
   timerFirstRoundBonus: true,
   flipMode: "word-color"
+};
+
+export const REVEAL_GUESS_GRID_SIZE = 9;
+
+export const DEFAULT_REVEAL_GUESS_SETTINGS: RevealGuessSettings = {
+  puzzleCount: 10,
+  timerEnabled: false,
+  primaryGuessSeconds: 60,
+  buzzGuessSeconds: 30,
+  revealLimitMode: "free-after-all-used"
 };
 
 export const TEAM_LABELS = {

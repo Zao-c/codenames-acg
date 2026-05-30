@@ -9,7 +9,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "dev": "tsx watch src/index.ts",
     "start": "node dist/apps/server/src/index.js",
-    "test": "node --experimental-strip-types test/e2e.ts"
+    "test": "node --experimental-strip-types test/e2e.ts && node --experimental-strip-types test/reveal-guess.e2e.ts",
+    "test:e2e": "node --experimental-strip-types test/e2e.ts && node --experimental-strip-types test/reveal-guess.e2e.ts"
   },
   "dependencies": {
     "@acg-codenames/shared": "0.1.0",
