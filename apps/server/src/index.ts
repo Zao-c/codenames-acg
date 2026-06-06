@@ -27,6 +27,7 @@ import {
 import { env } from "./env.js";
 import { GameService, buildAchievementUnlocksFromHighlight } from "./game.js";
 import * as RevealGuess from "./reveal-guess.js";
+import { RevealImageAssetStore } from "./reveal-image-assets.js";
 import { REPLAY_TTL_SECONDS, createRoomStore } from "./store.js";
 import type { ReplayStore } from "./types.js";
 import { JsonUserStore } from "./user-store.js";
@@ -298,6 +299,8 @@ function optionalBoolean(value: unknown): boolean | undefined {
 async function bootstrap(): Promise<void> {
   const store = await createRoomStore(env.redisUrl, env.useMemoryStore);
   const users = new JsonUserStore(env.userStoreFile);
+  const revealImages = new RevealImageAssetStore(env.revealImageDir);
+  await revealImages.ensureReady();
   const game = new GameService(store, users, { enableDebugTools: env.enableDebugTools }, store);
   const app = express();
   const httpServer = createServer(app);
@@ -356,6 +359,13 @@ async function bootstrap(): Promise<void> {
 
   app.use("/api/", apiLimiter);
   app.use("/rooms", apiLimiter);
+  app.use(
+    "/api/reveal-images",
+    express.static(revealImages.getStaticDir(), {
+      immutable: true,
+      maxAge: "7d"
+    })
+  );
 
   app.get("/health", (_req, res) => {
     res.json({ ok: true });
@@ -512,18 +522,17 @@ async function bootstrap(): Promise<void> {
       return;
     }
 
-    const members = [
-      ...room.players.map((player) => ({ id: player.id, type: "player" as const })),
-      ...room.spectators.map((spectator) => ({ id: spectator.id, type: "spectator" as const }))
-    ];
-
-    for (const member of members) {
-      const sockets = await io.in(`member:${member.id}`).fetchSockets();
-      const payload = game.getPublicRoomState(room, member.id, member.type);
+    const sockets = await io.in(roomId).fetchSockets();
+    for (const currentSocket of sockets) {
+      const session = socketSessions.get(currentSocket.id);
+      if (!session || session.roomId !== roomId) {
+        continue;
+      }
+      const payload = game.getPublicRoomState(room, session.participantId, session.participantType);
       if (room.revealGuessState) {
-         payload.revealGuessPublic = RevealGuess.sanitizeRevealGuessState(room, member.id, member.type) ?? undefined;
-       }
-      sockets.forEach((currentSocket) => currentSocket.emit("room_state", payload));
+        payload.revealGuessPublic = RevealGuess.sanitizeRevealGuessState(room, session.participantId, session.participantType) ?? undefined;
+      }
+      currentSocket.emit("room_state", payload);
     }
 
     await broadcastRoomSummaries();
@@ -692,6 +701,7 @@ async function bootstrap(): Promise<void> {
         const body = asObject(payload);
         const roomId = requireString(body, "roomId");
         const team = optionalTeam(body.team);
+
         const session = requireSession(socket.id, roomId);
         if (session.participantType !== "player") {
           throw new Error("旁观者不能修改队伍");
@@ -1085,9 +1095,19 @@ async function bootstrap(): Promise<void> {
         const settings = body.settings && typeof body.settings === "object"
           ? body.settings as Partial<RevealGuessSettings>
           : undefined;
+        const initialPuzzle = body.initialPuzzle && typeof body.initialPuzzle === "object"
+          ? asObject(body.initialPuzzle)
+          : null;
 
         const { room, player } = await game.createRoom(nickname, profile, sessionToken);
         RevealGuess.initRevealGuessState(room, settings);
+        if (initialPuzzle) {
+          const imageUrl = await revealImages.normalizeImageUrl(requireString(initialPuzzle, "imageUrl"));
+          const answer = requireString(initialPuzzle, "answer");
+          const aliases = optionalStringArray(initialPuzzle.aliases);
+          const hints = optionalStringArray(initialPuzzle.hints);
+          RevealGuess.addPuzzle(room, { imageUrl, answer, aliases, hints });
+        }
         await store.setRoom(room);
 
         bind(socket.id, room.id, player.id, "player");
@@ -1107,11 +1127,14 @@ async function bootstrap(): Promise<void> {
       try {
         const body = asObject(payload);
         const roomId = requireString(body, "roomId");
-        const imageUrl = requireString(body, "imageUrl");
+        const imageUrl = await revealImages.normalizeImageUrl(requireString(body, "imageUrl"));
         const answer = requireString(body, "answer");
         const aliases = optionalStringArray(body.aliases);
         const hints = optionalStringArray(body.hints);
 
+        if (imageUrl.startsWith("/api/reveal-images/")) {
+          // Stored reveal-image asset; already validated before writing.
+        } else
         // Validate image URL
         if (imageUrl.startsWith("data:image/")) {
           if (imageUrl.length > 3_200_000) {

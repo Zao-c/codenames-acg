@@ -325,7 +325,8 @@ export interface PublicRevealGuessState {
   puzzleCount: number;
   puzzleList: Array<{
     index: number;
-    imageUrl: string;
+    imageUrl?: string;
+    thumbnailUrl?: string;
     hasAnswer: boolean;
     aliasCount: number;
     hintCount: number;
@@ -874,6 +875,7 @@ export interface CreateRevealGuessRoomPayload {
   nickname: string;
   profile?: Partial<UserProfile>;
   settings?: Partial<RevealGuessSettings>;
+  initialPuzzle?: Omit<CreateRevealPuzzlePayload, "roomId">;
 }
 
 export interface StartRevealGamePayload {

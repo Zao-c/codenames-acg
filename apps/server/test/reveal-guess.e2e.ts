@@ -89,6 +89,33 @@ async function setup(players = 2) {
   };
 }
 
+async function testCreateRoomWithInitialPuzzle() {
+  const judge = mk();
+  await waitConn(judge);
+  try {
+    judge.emit("create_reveal_guess_room", {
+      nickname: "J",
+      profile: { accountType: "guest" },
+      settings: { puzzleCount: 3, timerEnabled: false },
+      initialPuzzle: {
+        imageUrl: "data:image/png;base64,iVBORw0KGgo=",
+        answer: "InitialAnswer",
+        aliases: ["IA"],
+        hints: ["FirstHint"],
+      },
+    } as any);
+    const [, room] = await Promise.all([onceSess(judge), onceRS(judge)]);
+    assert.equal(room.revealGuessPublic!.puzzleCount, 1);
+    assert.equal(room.revealGuessPublic!.puzzleList[0].hasAnswer, true);
+    assert.equal(room.revealGuessPublic!.puzzleList[0].aliasCount, 1);
+    assert.equal(room.revealGuessPublic!.puzzleList[0].hintCount, 1);
+    assert.match(room.revealGuessPublic!.puzzleList[0].imageUrl ?? "", /^\/api\/reveal-images\//);
+    console.log("ok create_room_with_initial_puzzle");
+  } finally {
+    judge.disconnect();
+  }
+}
+
 // ═══════════════════════════════════════════
 // SANITIZE: non-judge can't see answer/aliases during game
 // ═══════════════════════════════════════════
@@ -776,6 +803,7 @@ async function testOpenFreeRevealButton() {
 
 async function main() {
   const tests: [string, () => Promise<void>][] = [
+    ["Create", testCreateRoomWithInitialPuzzle],
     ["Sanitize", testSanitizeNoAnswerForPlayer],
     ["Sanitize", testSanitizePlayerCantSeeOtherAnswer],
     ["Sanitize", testSanitizeRoundEndShowsAnswer],

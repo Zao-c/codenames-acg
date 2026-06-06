@@ -281,7 +281,7 @@ export interface GameContextType {
   continueAsGuest: () => void;
   handleAvatarUpload: (file: File | null) => Promise<void>;
   createRoom: () => void;
-  createRevealGuessRoom: (settings?: Partial<RevealGuessSettings>) => void;
+  createRevealGuessRoom: (settings?: Partial<RevealGuessSettings>, initialPuzzle?: { imageUrl: string; answer: string; aliases?: string[]; hints?: string[] }) => void;
   joinByRoomCode: (asSpectator: boolean) => void;
   joinSpecificRoom: (roomId: string, asSpectator: boolean) => void;
   leaveRoom: () => void;
@@ -1008,7 +1008,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     socket.emit("create_room", { nickname: ji.nickname, profile: { accountType: ji.profile.mode, username: ji.profile.mode === "named" ? ji.profile.username : null, avatarUrl: ji.profile.avatarUrl, userSessionToken: ji.profile.mode === "named" ? ji.profile.userSessionToken : undefined } });
   }
 
-  function createRevealGuessRoom(settings?: Partial<RevealGuessSettings>) {
+  function createRevealGuessRoom(settings?: Partial<RevealGuessSettings>, initialPuzzle?: { imageUrl: string; answer: string; aliases?: string[]; hints?: string[] }) {
     const ji = buildJoinProfile(); if (!ji) return;
     clearSession(); setSession(null); setRoom(null); activeRoomIdRef.current = null;
     setConnectionState("connecting"); setError("");
@@ -1020,7 +1020,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
         avatarUrl: ji.profile.avatarUrl,
         userSessionToken: ji.profile.mode === "named" ? ji.profile.userSessionToken : undefined
       },
-      settings
+      settings,
+      initialPuzzle
     });
   }
 

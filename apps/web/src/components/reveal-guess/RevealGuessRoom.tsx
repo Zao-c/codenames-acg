@@ -6,6 +6,12 @@ import type { RevealCell as RevealCellType, RevealGuessPhase } from "@acg-codena
 
 const GRID = 9;
 const P = (pct: number) => `${(100 / GRID) * pct}%`;
+const SERVER_BASE = import.meta.env.VITE_SERVER_URL || "";
+
+function resolveRevealImageUrl(url: string): string {
+  if (url.startsWith("/api/")) return `${SERVER_BASE}${url}`;
+  return url;
+}
 
 function phaseLabel(phase: RevealGuessPhase | undefined): string {
   switch (phase) {
@@ -19,15 +25,15 @@ function phaseLabel(phase: RevealGuessPhase | undefined): string {
 }
 
 function CellButton({
-  cell, imageUrl, canClick, onReveal, playerNickname, gridPx, isRecent,
+  cell, imageUrl, canClick, onReveal, playerNickname, gridPx, isRecent, isPending,
 }: {
   cell: RevealCellType; imageUrl: string; canClick: boolean;
   onReveal: () => void; playerNickname?: string; gridPx: number;
-  isRecent?: boolean;
+  isRecent?: boolean; isPending?: boolean;
 }) {
   return (
     <button
-      className={`rg-cell${canClick ? " rg-cell-clickable" : ""}${cell.revealed ? " rg-cell-revealed" : ""}${isRecent ? " rg-cell-recent" : ""}`}
+      className={`rg-cell${canClick ? " rg-cell-clickable" : ""}${cell.revealed ? " rg-cell-revealed" : ""}${isRecent ? " rg-cell-recent" : ""}${isPending ? " rg-cell-pending" : ""}`}
       aria-label={`格子 ${cell.row + 1}-${cell.col + 1}${cell.revealed ? " 已翻开" : " 未翻开"}`}
       onClick={onReveal}
       disabled={!canClick}
@@ -45,7 +51,7 @@ function CellButton({
           ) : null}
         </>
       ) : (
-        <span className="rg-cell-qmark">{canClick ? "?" : ""}</span>
+        <span className="rg-cell-qmark">{isPending ? "..." : canClick ? "?" : ""}</span>
       )}
     </button>
   );
@@ -69,6 +75,9 @@ export function RevealGuessRoom() {
   const [transferTarget, setTransferTarget] = useState("");
   const [recentCellId, setRecentCellId] = useState<string | null>(null);
   const [showScoreAdjust, setShowScoreAdjust] = useState(false);
+  const [pendingRevealCellId, setPendingRevealCellId] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
+  const [addPuzzleStatus, setAddPuzzleStatus] = useState("");
 
   const rg = room?.revealGuessPublic;
   const isHost = room?.hostPlayerId === session?.participantId;
@@ -84,36 +93,57 @@ export function RevealGuessRoom() {
   const myPending = puzzle?.myPendingAnswer;
   const canAct = session?.participantType === "player" && !isJudge;
   const imageUrl = puzzle?.imageUrl ?? "";
+  const displayImageUrl = resolveRevealImageUrl(imageUrl);
   const myHasRevealed = puzzle?.myHasRevealed ?? false;
   const freeUnlocked = !!puzzle?.freeRevealUnlocked;
   const gridPx = Math.min(540, typeof window !== "undefined" ? window.innerWidth - 48 : 540);
+  const waitingRevealNames = isRevealPhase && puzzle
+    ? room?.players
+        .filter((p) => p.id !== judgeId && !p.isBot && p.connected)
+        .filter((p) => !puzzle.cells.some((cell) => cell.revealedBy === p.id))
+        .map((p) => p.nickname) ?? []
+    : [];
   const typeLabel = (t: string) => t === "priority" ? "🎯 优先" : t === "buzz" ? "⚡ 抢答" : " 📝";
 
   const handleSubmitAnswer = useCallback(() => {
-    if (!answerInput.trim()) return;
+    if (!answerInput.trim() || pendingAction) return;
+    setPendingAction("submit-answer");
     actions.submitAnswer(answerInput.trim(), "formal");
     setAnswerInput("");
-  }, [actions, answerInput]);
+  }, [actions, answerInput, pendingAction]);
 
   const handlePrioritySubmit = useCallback(() => {
-    if (!answerInput.trim()) return;
+    if (!answerInput.trim() || pendingAction) return;
+    setPendingAction("priority-answer");
     actions.submitAnswer(answerInput.trim(), "priority");
     setAnswerInput("");
-  }, [actions, answerInput]);
+  }, [actions, answerInput, pendingAction]);
 
   const handleBuzzSubmit = useCallback(() => {
-    if (!answerInput.trim()) return;
+    if (!answerInput.trim() || pendingAction) return;
+    setPendingAction("buzz-answer");
     actions.submitAnswer(answerInput.trim(), "buzz");
     setAnswerInput("");
-  }, [actions, answerInput]);
+  }, [actions, answerInput, pendingAction]);
 
   const handleAddPuzzle = useCallback(() => {
+    if (!addPuzzleImage.trim()) {
+      setError("请先上传图片或粘贴图片 URL");
+      return;
+    }
+    if (!addPuzzleAnswer.trim()) {
+      setError("请填写标准答案");
+      return;
+    }
+    if (pendingAction) return;
     const aliases = addPuzzleAliases.split("\n").map(s => s.trim()).filter(Boolean);
     const hints = addPuzzleHints.split("\n").map(s => s.trim()).filter(Boolean);
-    actions.addPuzzle(addPuzzleImage, addPuzzleAnswer, aliases, hints);
+    setPendingAction("add-puzzle");
+    setAddPuzzleStatus("正在保存题目...");
+    actions.addPuzzle(addPuzzleImage.trim(), addPuzzleAnswer.trim(), aliases, hints);
     setAddPuzzleImage(""); setAddPuzzleAnswer(""); setAddPuzzleAliases(""); setAddPuzzleHints("");
     setPreviewUrl(null);
-  }, [actions, addPuzzleImage, addPuzzleAnswer, addPuzzleAliases, addPuzzleHints]);
+  }, [actions, addPuzzleImage, addPuzzleAnswer, addPuzzleAliases, addPuzzleHints, pendingAction, setError]);
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
@@ -179,10 +209,36 @@ export function RevealGuessRoom() {
     return () => clearTimeout(t);
   }, [recentCellId]);
 
+  useEffect(() => {
+    if (!pendingRevealCellId) return;
+    if (puzzle?.cells.some((cell) => cell.id === pendingRevealCellId && cell.revealed)) {
+      setPendingRevealCellId(null);
+    }
+  }, [pendingRevealCellId, puzzle?.cells]);
+
+  useEffect(() => {
+    if (!pendingAction) return;
+    setPendingAction(null);
+    if (pendingAction === "add-puzzle") {
+      setAddPuzzleStatus("题目已保存");
+      const t = setTimeout(() => setAddPuzzleStatus(""), 1400);
+      return () => clearTimeout(t);
+    }
+  }, [room?.updatedAt]);
+
+  useEffect(() => {
+    if (!error) return;
+    setPendingAction(null);
+    setPendingRevealCellId(null);
+    if (pendingAction === "add-puzzle") setAddPuzzleStatus("");
+  }, [error]);
+
   const handleReveal = useCallback((cellId: string) => {
+    if (pendingRevealCellId) return;
+    setPendingRevealCellId(cellId);
     actions.revealCell(cellId);
     setRecentCellId(cellId);
-  }, [actions]);
+  }, [actions, pendingRevealCellId]);
 
   if (!room) {
     return <section className="panel"><h2>{connectionState === "connecting" ? "正在连接..." : "等待进入房间"}</h2>
@@ -245,9 +301,10 @@ export function RevealGuessRoom() {
                 <textarea aria-label="提示" value={addPuzzleHints} onChange={e => setAddPuzzleHints(e.target.value)} placeholder="经典机甲番 / 庵野秀明" rows={1} style={{ width: "100%", marginTop: 2 }} />
               </div>
             </div>
-            <button className="primary-button" onClick={handleAddPuzzle} style={{ marginTop: 10, width: "100%" }}>
+            <button className="primary-button" onClick={handleAddPuzzle} disabled={!!pendingAction} style={{ marginTop: 10, width: "100%" }}>
               保存题目
             </button>
+            {addPuzzleStatus ? <p className="hint-text" style={{ margin: "6px 0 0" }}>{addPuzzleStatus}</p> : null}
           </div>
           {/* Right: Puzzle queue */}
           <div className="rg-card">
@@ -345,6 +402,7 @@ export function RevealGuessRoom() {
                   <span style={{ fontWeight: 600 }}>第 {rg ? rg.currentPuzzleIndex + 1 : "?"} / {rg?.puzzleCount ?? "?"} 题</span>
                   <span className="rg-chip">已揭开 {puzzle.revealedCount} / 81</span>
                   <span className="rg-chip rg-chip-accent">{phaseLabel(rg?.phase)}</span>
+                  {waitingRevealNames.length > 0 && !freeUnlocked ? <span className="rg-chip">等待: {waitingRevealNames.join(", ")}</span> : null}
                   {freeUnlocked && <span className="rg-chip rg-chip-green">自由翻牌</span>}
                   {!focusMode && !isJudge && (
                     <button onClick={g.enterFocusMode} className="rg-btn-sm">专注</button>
@@ -356,14 +414,15 @@ export function RevealGuessRoom() {
                   )}
                 </div>
                 <div role="grid" aria-label="揭幕猜番棋盘" className="rg-grid-wrap"
-                  style={showFullImage || isRoundEnd ? { backgroundImage: `url(${imageUrl})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}
+                  style={showFullImage || isRoundEnd ? { backgroundImage: `url(${displayImageUrl})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}
                 >
                   {puzzle.cells.map(cell => (
-                    <CellButton key={cell.id} cell={cell} imageUrl={imageUrl} gridPx={gridPx}
-                      canClick={canAct && isRevealPhase && !cell.revealed && !showFullImage}
+                    <CellButton key={cell.id} cell={cell} imageUrl={displayImageUrl} gridPx={gridPx}
+                      canClick={canAct && isRevealPhase && !cell.revealed && !showFullImage && !pendingRevealCellId}
                       onReveal={() => handleReveal(cell.id)}
                       playerNickname={cell.revealedBy ? room.players.find(p => p.id === cell.revealedBy)?.nickname : undefined}
                       isRecent={cell.id === recentCellId}
+                      isPending={cell.id === pendingRevealCellId}
                     />
                   ))}
                 </div>
@@ -402,9 +461,9 @@ export function RevealGuessRoom() {
                           </div>
                           <div className="rg-pending-answer" style={{ fontSize: 17 }}>「{a.answer ?? "?"}」</div>
                           <div className="rg-pending-actions">
-                            <button className="primary-button" style={{ padding: "5px 14px", fontSize: 12 }} onClick={() => actions.judgeAnswer(a.id, "correct")}>判定正确</button>
-                            <button style={{ padding: "5px 14px", fontSize: 12, borderColor: "var(--danger)", color: "var(--danger)" }} onClick={() => actions.judgeAnswer(a.id, "wrong")}>判定错误</button>
-                            <button style={{ padding: "5px 14px", fontSize: 12 }} onClick={() => actions.judgeAnswer(a.id, "partial")}>要求补充</button>
+                            <button className="primary-button" disabled={!!pendingAction} style={{ padding: "5px 14px", fontSize: 12 }} onClick={() => { setPendingAction("judge-answer"); actions.judgeAnswer(a.id, "correct"); }}>判定正确</button>
+                            <button disabled={!!pendingAction} style={{ padding: "5px 14px", fontSize: 12, borderColor: "var(--danger)", color: "var(--danger)" }} onClick={() => { setPendingAction("judge-answer"); actions.judgeAnswer(a.id, "wrong"); }}>判定错误</button>
+                            <button disabled={!!pendingAction} style={{ padding: "5px 14px", fontSize: 12 }} onClick={() => { setPendingAction("judge-answer"); actions.judgeAnswer(a.id, "partial"); }}>要求补充</button>
                           </div>
                         </div>
                       ))}
@@ -416,18 +475,18 @@ export function RevealGuessRoom() {
                   <div className="rg-card-row">
                     {isRevealPhase ? (
                       <>
-                        <button className="rg-btn-sm" onClick={actions.openBuzz}>开放抢答</button>
-                        <button className="rg-btn-sm" onClick={actions.openFreeReveal}>自由翻牌</button>
-                        <button className="rg-btn-sm" onClick={actions.skipPuzzle} style={{ color: "var(--danger)", borderColor: "var(--danger)" }}>跳过</button>
+                        <button className="rg-btn-sm" disabled={!!pendingAction} onClick={() => { setPendingAction("open-buzz"); actions.openBuzz(); }}>开放抢答</button>
+                        <button className="rg-btn-sm" disabled={!!pendingAction} onClick={() => { setPendingAction("free-reveal"); actions.openFreeReveal(); }}>自由翻牌</button>
+                        <button className="rg-btn-sm" disabled={!!pendingAction} onClick={() => { setPendingAction("skip-puzzle"); actions.skipPuzzle(); }} style={{ color: "var(--danger)", borderColor: "var(--danger)" }}>跳过</button>
                       </>
                     ) : isBuzzing ? (
                       <>
-                        <button className="rg-btn-sm" onClick={actions.closeBuzz}>关闭抢答</button>
-                        <button className="rg-btn-sm" onClick={actions.skipPuzzle} style={{ color: "var(--danger)", borderColor: "var(--danger)" }}>跳过</button>
+                        <button className="rg-btn-sm" disabled={!!pendingAction} onClick={() => { setPendingAction("close-buzz"); actions.closeBuzz(); }}>关闭抢答</button>
+                        <button className="rg-btn-sm" disabled={!!pendingAction} onClick={() => { setPendingAction("skip-puzzle"); actions.skipPuzzle(); }} style={{ color: "var(--danger)", borderColor: "var(--danger)" }}>跳过</button>
                       </>
                     ) : null}
                     {isRoundEnd && (
-                      <button className="primary-button" onClick={actions.nextPuzzle} style={{ padding: "5px 16px", fontSize: 13, fontWeight: 600 }}>下一题</button>
+                      <button className="primary-button" disabled={!!pendingAction} onClick={() => { setPendingAction("next-puzzle"); actions.nextPuzzle(); }} style={{ padding: "5px 16px", fontSize: 13, fontWeight: 600 }}>下一题</button>
                     )}
                     {room.phase !== "lobby" && (
                       <button className="rg-btn-ghost" onClick={actions.returnToSetup}>回准备室</button>
@@ -520,15 +579,15 @@ export function RevealGuessRoom() {
                       onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); isBuzzing ? handleBuzzSubmit() : handleSubmitAnswer(); } }} />
                     {isRevealPhase ? (
                       <>
-                        <button className="primary-button" onClick={handleSubmitAnswer} disabled={!answerInput.trim()} style={{ fontSize: 13 }}>提交</button>
+                        <button className="primary-button" onClick={handleSubmitAnswer} disabled={!answerInput.trim() || !!pendingAction} style={{ fontSize: 13 }}>提交</button>
                         {puzzle?.priorityGuesserNickname === g.self?.nickname && (
-                          <button className="rg-btn-sm" style={{ background: "var(--rg-accent-light)", fontWeight: 600 }} onClick={handlePrioritySubmit} disabled={!answerInput.trim()}>优先</button>
+                          <button className="rg-btn-sm" style={{ background: "var(--rg-accent-light)", fontWeight: 600 }} onClick={handlePrioritySubmit} disabled={!answerInput.trim() || !!pendingAction}>优先</button>
                         )}
                       </>
                     ) : isBuzzing ? (
                       <>
-                        <button className="rg-btn-sm" onClick={actions.buzzIn}>抢答</button>
-                        <button className="primary-button" onClick={handleBuzzSubmit} disabled={!answerInput.trim()} style={{ fontSize: 13 }}>提交</button>
+                        <button className="rg-btn-sm" disabled={!!pendingAction} onClick={() => { setPendingAction("buzz-in"); actions.buzzIn(); }}>抢答</button>
+                        <button className="primary-button" onClick={handleBuzzSubmit} disabled={!answerInput.trim() || !!pendingAction} style={{ fontSize: 13 }}>提交</button>
                       </>
                     ) : null}
                   </div>

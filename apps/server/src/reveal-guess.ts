@@ -42,6 +42,10 @@ function uid(): string {
   return crypto.randomUUID();
 }
 
+function publicPuzzleListImageUrl(imageUrl: string): string | undefined {
+  return imageUrl.startsWith("data:image/") ? undefined : imageUrl;
+}
+
 function requirePlayer(room: Room, playerId: string): Player {
   const player = room.players.find((p) => p.id === playerId);
   if (!player) throw new Error("玩家不存在");
@@ -601,7 +605,8 @@ export function sanitizeRevealGuessState(
     puzzleCount: state.puzzles.length,
     puzzleList: state.puzzles.map(p => ({
       index: p.index,
-      imageUrl: p.imageUrl,
+      imageUrl: publicPuzzleListImageUrl(p.imageUrl),
+      thumbnailUrl: publicPuzzleListImageUrl(p.imageUrl),
       hasAnswer: !!p.answer,
       aliasCount: p.aliases.length,
       hintCount: p.hints.length,

@@ -8,5 +8,6 @@ export const env = {
   redisUrl: process.env.REDIS_URL ?? "",
   useMemoryStore: process.env.USE_MEMORY_STORE === "1",
   enableDebugTools: process.env.ENABLE_DEBUG_TOOLS === "1",
-  userStoreFile: process.env.USER_STORE_FILE ?? "apps/server/data/users.json"
+  userStoreFile: process.env.USER_STORE_FILE ?? "apps/server/data/users.json",
+  revealImageDir: process.env.REVEAL_IMAGE_DIR ?? "apps/server/data/reveal-images"
 };

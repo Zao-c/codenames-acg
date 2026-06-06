@@ -1684,6 +1684,16 @@ a { color: var(--accent-2); }
   100% { box-shadow: inset 0 0 0 0 rgba(99,102,241,0); }
 }
 .rg-cell-recent { animation: rg-reveal-flash 0.7s ease-out; }
+.rg-cell-pending {
+  opacity: 0.8;
+  pointer-events: none;
+  background: rgba(99,102,241,0.16) !important;
+  box-shadow: inset 0 0 0 2px rgba(99,102,241,0.35);
+}
+.rg-cell-pending .rg-cell-qmark {
+  color: var(--rg-accent);
+  animation: timerPulse 1s ease infinite;
+}
 
 /* Disabled / not-clickable */
 .rg-cell:not(.rg-cell-clickable):not(.rg-cell-revealed) { opacity: 0.65; }

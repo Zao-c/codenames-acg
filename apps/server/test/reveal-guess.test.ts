@@ -170,7 +170,7 @@ function makeRoom(hostId: string, players: Player[], spectators: Spectator[] = [
   assert.ok(typeof cell.revealedAt === "number");
 
   // Player1 cannot reveal again
-  assert.throws(() => revealCell(room, "p1", "cell-0-0"), /已经翻过/);
+  assert.throws(() => revealCell(room, "p1", "cell-0-0"), /已翻过/);
 
   // Cannot reveal already revealed cell
   assert.throws(() => revealCell(room, "p2", cellId), /已经被翻开/);

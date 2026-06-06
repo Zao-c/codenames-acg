@@ -67,14 +67,21 @@ export function CreateRoomPage() {
   const handleCreate = () => {
     if (!effectiveIdentity) return;
     if (gameMode === "reveal-guess") {
-      if (!rgImageUrl.trim() && !rgAnswer.trim()) {
-        setError("请至少填写图片 URL 或上传图片");
+      if (!rgImageUrl.trim()) {
+        setError("请先上传图片或粘贴图片 URL");
+        return;
+      }
+      if (!rgAnswer.trim()) {
+        setError("请填写标准答案");
         return;
       }
       setError("");
       const aliases = rgAliases.split("\n").map(s => s.trim()).filter(Boolean);
       const hints = rgHints.split("\n").map(s => s.trim()).filter(Boolean);
-      createRevealGuessRoom({ puzzleCount: rgPuzzleCount, timerEnabled: false });
+      createRevealGuessRoom(
+        { puzzleCount: rgPuzzleCount, timerEnabled: false },
+        { imageUrl: rgImageUrl.trim(), answer: rgAnswer.trim(), aliases, hints }
+      );
       return;
     }
     createRoom();
