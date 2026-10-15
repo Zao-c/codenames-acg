@@ -69,3 +69,13 @@
 - systemd `codenames.service` 重启后 active，Nginx /health 返回 ok，动画目录 1810 部，/rooms 无测试残留（验收测试房间在结束流程中解散）。
 - 正式网站浏览器验收：四游客客户端、两台手机触摸视口、经典→动画 6×6→经典三局连续、真实触摸长按干扰、预览不翻牌、缩放滑动、两个独立回放页，全部通过，零前端异常。
 - 回滚：停服务后从该备份恢复源码与 dist 并重启，或 `git checkout -f 2c07037` 后重新 build；账号与图库磁盘数据不受影响。
+
+## 候选卡交互修正部署结果（2026-10-16 · 219dcb3）
+
+- 北京时间 15:46（07:46 UTC）部署应用提交 `219dcb3e489c01ff64188c22abde30a20ec1d756`（分支 `codex/cipai-ui-redesign`，[PR #5](https://github.com/Zao-c/codenames-acg/pull/5) 已自动指向该提交），入口：http://182.61.136.105 。服务器 release.json 已更新（上一版 `82e3913`）。
+- 本次为 UI/UX 与拖拽交互修正：候选卡移除底部「详情/收藏」工具条，书签改为独立角标星；单击/短按打开预览、拖动拿牌（鼠标移动即拖、触摸长按 350ms 进入拖动），带跟随 ghost、投放区高亮与手机底部操作坞（领取/抢夺、撤回、干扰）；预览窗口合并为单一右上关闭并保留 Bangumi 外链（新标签页）；预览内按身份给出领取/撤回/抢夺/干扰动作，干扰必须经过显式二次确认；服务端把干扰牌在对方队长视图里伪装为普通手选（仅投放方保留角标与来源）。
+- 部署前核对：`/rooms` 为空，未中断任何对局；备份含源码、dist、release.json 与 git 状态：`/opt/codenames-backups/cipai-drag-219dcb3/before.tar.gz`，目录仅 root 可访问。
+- 后端规则与依赖无变化；shared 增加视图层掩码。`npm run build` 三包同版本构建通过，产物哈希与本地一致（`index-jBEMMHN0.js` / `index-BZWmeLYZ.css`）。
+- systemd `codenames.service` 重启后 active，/health 返回 ok，`/api/anime/catalog` 返回 1810 部作品、128 个池，/rooms 为空；Nginx 首页引用新产物且 JS/CSS 均 200。
+- 正式网站浏览器验收（四客户端：两个桌面 1440/1920 + 两个手机触摸 390/360，经典→动画 6×6→经典三局连续）：点击候选卡只开预览（无「详情」按钮、单一关闭入口、Bangumi 外链 `target=_blank rel="noopener noreferrer"`）、预览内领取、鼠标拖拽领取与拖回撤回、真实触摸长按拖到干扰槽并二次确认、受害队长视图与载荷均无干扰标记、预览不翻牌、文字/缩放/滑动、两个独立回放页——全部通过，零前端异常。
+- 回滚：停服务后从该备份恢复源码与 dist 并重启，或 `git checkout -f 82e3913` 后重新 build；账号与图库磁盘数据不受影响。
