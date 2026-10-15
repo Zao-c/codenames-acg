@@ -260,7 +260,7 @@ function requireParticipant(room: Room, participantId: string, participantType: 
 }
 
 function requireLobby(room: Room): void {
-  if (room.phase !== "lobby") {
+  if (room.phase !== "lobby" || room.countdown) {
     throw new Error("当前不在准备阶段");
   }
 }
@@ -520,6 +520,8 @@ function resetPerGameReviewState(room: Room): Room {
   return {
     ...room,
     replayId: undefined,
+    endReason: undefined,
+    exposedPlayerIds: [],
     roundHighlights: [],
     clueRecords: [],
     roundScoreHistory: [],
@@ -533,7 +535,7 @@ function resetPerGameReviewState(room: Room): Room {
 
 function finalizeAchievements(room: Room): Room {
   if (room.phase !== "finished" || room.achievements) return room;
-  return { ...room, achievements: computeAchievements(room) };
+  return { ...room, endReason: room.endReason ?? "normal", achievements: computeAchievements(room) };
 }
 
 export class GameService {
@@ -959,6 +961,20 @@ export class GameService {
 
   async startGame(roomId: string, playerId: string): Promise<Room> {
     return this.withRoomLock(roomId, async () => {
+      const room = await this.requireRoom(roomId);
+      if (room.hostPlayerId !== playerId) throw new Error("只有房主可以开局");
+      if (room.countdown) return room;
+      requireLobby(room);
+      validateStart(room);
+      if (room.settings.ruleSet !== "codenames") throw new Error("请使用揭幕猜番开局入口");
+      const nextRoom = withEvent({ ...room, countdown: { matchId: crypto.randomUUID(), startsAt: now() + 5000, hostId: playerId } }, "五秒后开始对局");
+      await this.store.setRoom(nextRoom);
+      return nextRoom;
+    });
+  }
+
+  private async beginGame(roomId: string, playerId: string): Promise<Room> {
+    return this.withRoomLock(roomId, async () => {
     const room = await this.requireRoom(roomId);
     requireLobby(room);
     if (room.hostPlayerId !== playerId) {
@@ -979,6 +995,9 @@ export class GameService {
       {
         ...resetRoom,
         phase: "playing",
+        matchId: room.countdown?.matchId ?? crypto.randomUUID(),
+        gameStartedAt: now(),
+        countdown: undefined,
         board,
         currentTeam: startingTeam,
         startingTeam,
@@ -1004,121 +1023,32 @@ export class GameService {
 
   async restartGame(roomId: string, playerId: string): Promise<Room> {
     return this.withRoomLock(roomId, async () => {
-    const room = await this.requireRoom(roomId);
-    if (room.phase !== "finished") {
-      throw new Error("只有对局结束后才能再来一把");
-    }
-    if (room.hostPlayerId !== playerId) {
-      throw new Error("只有房主可以再来一把");
-    }
-
-    const { players, spectators, joinQueue, promoted } = promoteQueuedSpectators(room);
-    const roundNumber = room.roundNumber + 1;
-
-    if (promoted.length > 0) {
-      const nextRoom = withEvent(
-        {
-          ...room,
-          phase: "lobby",
-          players: players.map((player) => ({
-            ...player,
-            isHost: player.id === room.hostPlayerId,
-            team: player.team,
-            role: player.role
-          })),
-          spectators,
-          joinQueue,
-          board: [],
-          currentTeam: "red",
-          startingTeam: "red",
-          clue: null,
-          remainingCounts: { red: 0, blue: 0 },
-          winner: null,
-          roundNumber,
-          lastReveal: null
-        },
-        `第 ${roundNumber} 局准备阶段，${promoted.length} 名旁观者补位成功`
-      );
-      await this.store.setRoom(nextRoom);
-      await Promise.all(
-        promoted
-          .filter((spectator) => spectator.sessionToken)
-          .map((spectator) =>
-            this.store.setPlayerSession(spectator.sessionToken!, createSession(room.id, spectator.id, "player"))
-          )
-      );
-      return nextRoom;
-    }
-
-    try {
-      validateStart(room);
-    } catch {
-      const nextRoom = withEvent(
-        {
-          ...room,
-          phase: "lobby",
-          players: room.players.map((player) => ({
-            ...player,
-            isHost: player.id === room.hostPlayerId,
-            team: player.team,
-            role: player.role
-          })),
-          board: [],
-          currentTeam: "red",
-          startingTeam: "red",
-          clue: null,
-          remainingCounts: { red: 0, blue: 0 },
-          winner: null,
-          roundNumber,
-          lastReveal: null
-        },
-        "人数不足，回到准备阶段等待玩家加入"
-      );
-      await this.store.setRoom(nextRoom);
-      return nextRoom;
-    }
-
-    const startingTeam: Team = Math.random() >= 0.5 ? "red" : "blue";
-    const { board, remainingCounts } = generateBoard(room.wordPack, room.settings.boardMode, startingTeam, room.settings.neutralCount, room.usedWordIds);
-    const nextUsedWordIds = [...(room.usedWordIds ?? []), ...board.map((c) => c.wordId)];
-    const timerMode: import("@acg-codenames/shared").TimerMode = room.settings.timerMode ?? "unlimited";
-    const timerEndsAt = timerMode === "timed" ? now() + getTimerDuration(room, "clue") * 1000 : undefined;
-    const resetRoom = resetPerGameReviewState(room);
-    const nextRoom = withEvent(
-      {
-        ...resetRoom,
-        phase: "playing",
-        board,
-        currentTeam: startingTeam,
-        startingTeam,
-        clue: null,
-        remainingCounts,
-        winner: null,
-        roundNumber,
-        lastReveal: null,
-        usedWordIds: nextUsedWordIds,
-        timerEndsAt,
-        timerPhase: timerMode === "timed" ? "clue" as const : undefined,
-        timerPaused: false,
-        consecutiveTimeouts: 0,
-        firstTurnBonusUsed: false
-      },
-      `第 ${roundNumber} 局开始，${TEAM_LABELS[startingTeam]}先手 ٩(ˊᗜˋ*)و`
-    );
-    await this.store.setRoom(nextRoom);
-    return nextRoom;
+      const room = await this.requireRoom(roomId);
+      if (room.hostPlayerId !== playerId) throw new Error("只有房主可以再来一把");
+      if (room.countdown) return room;
+      if (room.phase !== "finished") throw new Error("只有对局结束后才能再来一把");
+      await this.ensureReplay(roomId);
+      const lobby = await this.returnToLobby(roomId, playerId);
+      try { validateStart(lobby); } catch { return lobby; }
+      return this.startGame(roomId, playerId);
     });
   }
 
   async returnToLobby(roomId: string, playerId: string): Promise<Room> {
     return this.withRoomLock(roomId, async () => {
-    const room = await this.requireRoom(roomId);
+    let room = await this.requireRoom(roomId);
     const host = requirePlayer(room, playerId);
     if (room.hostPlayerId !== playerId) {
       throw new Error("只有房主可以回到准备阶段");
     }
+    if (room.phase === "finished") {
+      await this.ensureReplay(roomId);
+      room = await this.requireRoom(roomId);
+    }
     if (room.phase === "lobby") {
-      return room;
+      const cancelled = { ...room, countdown: undefined };
+      await this.store.setRoom(cancelled);
+      return cancelled;
     }
 
     const { players, spectators, joinQueue, promoted } = promoteQueuedSpectators(room);
@@ -1126,6 +1056,9 @@ export class GameService {
       {
         ...room,
         phase: "lobby",
+        replayId: undefined,
+        countdown: undefined,
+        endReason: room.phase === "playing" ? "abandoned" : room.endReason,
         players: players.map((player) => ({
           ...player,
           isHost: player.id === room.hostPlayerId
@@ -1207,6 +1140,7 @@ export class GameService {
     const room = await this.requireRoom(roomId);
     requirePlaying(room);
     const player = requirePlayer(room, playerId);
+    if (room.exposedPlayerIds?.includes(playerId)) throw new Error("已见本局秘密的卸任队长不能猜牌");
     if (!player.connected) {
       throw new Error("你已离线，请重新连接");
     }
@@ -1349,7 +1283,7 @@ export class GameService {
         (!room.clue?.id && clueRecord.giverPlayerId === room.clue?.giverPlayerId && clueRecord.word === room.clue?.word)
       )
     ) {
-      clueRecord.guesses.push({ playerId: player.id, nickname: player.nickname, cardWord: card.word, cardRole: card.role, isOwnHit: outcome === "own-hit" });
+      clueRecord.guesses.push({ playerId: player.id, nickname: player.nickname, cardId: card.id, cardWord: card.word, cardRole: card.role, isOwnHit: outcome === "own-hit" });
     } else {
       const newRecord: ClueRoundRecord = {
         clueId: activeClueId,
@@ -1358,7 +1292,7 @@ export class GameService {
         giverNickname: room.players.find(p => p.id === room.clue?.giverPlayerId)?.nickname ?? "?",
         word: room.clue?.word ?? "?",
         count: room.clue?.count ?? 0,
-        guesses: [{ playerId: player.id, nickname: player.nickname, cardWord: card.word, cardRole: card.role, isOwnHit: outcome === "own-hit" }]
+        guesses: [{ playerId: player.id, nickname: player.nickname, cardId: card.id, cardWord: card.word, cardRole: card.role, isOwnHit: outcome === "own-hit" }]
       };
       room.clueRecords.push(newRecord);
     }
@@ -1583,7 +1517,7 @@ export class GameService {
     }
     const winner = nextTeam(room.currentTeam);
     const nextRoom = withEvent(
-      { ...room, phase: "finished" as const, winner, clue: null, lastReveal: null, timerEndsAt: undefined, timerPhase: undefined, timerPaused: false, timeoutPauseReason: undefined },
+      { ...room, phase: "finished" as const, endReason: "forfeit" as const, winner, clue: null, lastReveal: null, timerEndsAt: undefined, timerPhase: undefined, timerPaused: false, timeoutPauseReason: undefined },
       `社长强制结束了对局`
     );
     const scoringActive = isScoringMode(room.settings.scoringMode);
@@ -1754,7 +1688,8 @@ export class GameService {
         })),
         spectators,
         joinQueue,
-        hostPlayerId: nextHostId
+        hostPlayerId: nextHostId,
+        countdown: undefined
       },
       `${participant.nickname} 离开了房间`
     );
@@ -1763,7 +1698,7 @@ export class GameService {
     });
   }
 
-  async markDisconnected(roomId: string, participantId: string, participantType: ParticipantType): Promise<Room | null> {
+  async markDisconnected(roomId: string, participantId: string, participantType: ParticipantType, stillDisconnected: () => boolean = () => true): Promise<Room | null> {
     return this.withRoomLock(roomId, async () => {
     const room = await this.store.getRoom(roomId);
     if (!room) {
@@ -1778,6 +1713,7 @@ export class GameService {
       return room;
     }
 
+    if (!stillDisconnected()) return room;
     participant.connected = false;
     const nextRoom = withEvent(room, `${participant.nickname} 暂时离线`);
 
@@ -1837,7 +1773,7 @@ export class GameService {
       const replayId = sampleReplayId();
       const replay = buildReplay(room, replayId);
       await this.replayStore.saveReplay(replay);
-      const nextRoom = { ...room, replayId, updatedAt: now() };
+      const nextRoom = { ...room, replayId, replayHistory: [...(room.replayHistory ?? []), { matchId: room.matchId ?? replayId, replayId, roundNumber: room.roundNumber }], updatedAt: now() };
       await this.store.setRoom(nextRoom);
       return replayId;
     });
@@ -1857,6 +1793,22 @@ export class GameService {
     const expired: Room[] = [];
     const now2 = now();
     for (const room of rooms) {
+      if (room.countdown && room.countdown.startsAt <= now2) {
+        await this.withRoomLock(room.id, async () => {
+          const latest = await this.requireRoom(room.id);
+          if (!latest.countdown || latest.countdown.startsAt > now()) return;
+          const matchId = latest.countdown.matchId;
+          try { validateStart(latest); } catch {
+            await this.store.setRoom({ ...latest, countdown: undefined });
+            return;
+          }
+          await this.store.setRoom({ ...latest, countdown: undefined });
+          const started = await this.beginGame(room.id, latest.hostPlayerId);
+          await this.store.setRoom({ ...started, matchId });
+        });
+        expired.push(room);
+        continue;
+      }
       if (room.phase !== "playing" || room.timerPaused || !room.timerEndsAt || room.timerEndsAt > now2) continue;
       expired.push(room);
     }
@@ -2282,7 +2234,7 @@ export function buildReplay(room: Room, replayId: string): GameReplay {
     mode: { boardMode, scoringMode, timerMode },
     players,
     winner: room.winner,
-    durationMs: createdAt - room.createdAt,
+    durationMs: createdAt - (room.gameStartedAt ?? room.createdAt),
     finalBoard,
     rounds,
     keyEvents: keyEvents.slice(0, 20),

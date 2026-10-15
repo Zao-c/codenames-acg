@@ -18,11 +18,13 @@ await game.transferHost(room.id, second.id, host.id);
 await game.leaveRoom(room.id, second.id, 'player');
 await game.debugFillRoom(room.id, host.id);
 await game.startGame(room.id, host.id);
+{ const waiting = (await game.getRoom(room.id))!; if (waiting.countdown) { waiting.countdown.startsAt = Date.now() - 1; await store.setRoom(waiting); await game.tickTimers(); } }
 await game.forceEndGame(room.id, host.id);
 const first = await game.ensureReplay(room.id);
 const firstBoard = (await store.getReplay(first!))!.finalBoard;
 await game.restartGame(room.id, host.id);
 assert.equal((await game.getRoom(room.id))!.replayId, undefined);
+{ const waiting = (await game.getRoom(room.id))!; if (waiting.countdown) { waiting.countdown.startsAt = Date.now() - 1; await store.setRoom(waiting); await game.tickTimers(); } }
 await game.forceEndGame(room.id, host.id);
 const secondReplay = await game.ensureReplay(room.id);
 assert.notEqual(first, secondReplay);

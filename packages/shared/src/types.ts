@@ -548,6 +548,12 @@ export interface Room {
   replayId?: string;
   gameMode?: GameMode;
   revealGuessState?: RevealGuessState;
+  matchId?: string;
+  gameStartedAt?: number;
+  endReason?: "normal" | "forfeit" | "abandoned";
+  replayHistory?: Array<{ matchId: string; replayId: string; roundNumber: number }>;
+  countdown?: { matchId: string; startsAt: number; hostId: string };
+  exposedPlayerIds?: string[];
 }
 
 export interface ViewerIdentity {
@@ -613,7 +619,7 @@ export interface PublicCard {
   revealedBy?: Team;
 }
 
-export interface PublicRoomState extends Omit<Room, "players" | "spectators" | "board" | "wordPack" | "revealGuessState"> {
+export interface PublicRoomState extends Omit<Room, "players" | "spectators" | "board" | "wordPack" | "revealGuessState" | "exposedPlayerIds"> {
   players: PublicPlayer[];
   spectators: PublicSpectator[];
   board: PublicCard[];

@@ -24,7 +24,7 @@ function buildViewerState(room: Room, viewer: ViewerIdentity): ViewerState | nul
   const isPlayer = viewer.participantType === "player";
   const isSpectator = viewer.participantType === "spectator";
   const isCodenamesMode = room.settings.ruleSet !== "reveal-guess";
-  const canEditRoom = viewer.isHost === true && room.phase === "lobby" && isPlayer;
+  const canEditRoom = viewer.isHost === true && room.phase === "lobby" && !room.countdown && isPlayer;
   const canStartGame = canEditRoom;
   const canRestartGame = viewer.isHost === true && room.phase === "finished" && isPlayer;
   const canReturnToLobby = viewer.isHost === true && room.phase !== "lobby" && isPlayer;
@@ -42,6 +42,7 @@ function buildViewerState(room: Room, viewer: ViewerIdentity): ViewerState | nul
     !room.clue &&
     (viewer.isDebugController === true || (viewer.team === room.currentTeam && viewer.role === "spymaster"));
   const canGuess =
+    !room.exposedPlayerIds?.includes(viewer.participantId) &&
     isCodenamesMode &&
     isPlayer &&
     room.phase === "playing" &&
@@ -182,6 +183,11 @@ export function sanitizeRoom(room: Room, viewer: ViewerIdentity = {}): PublicRoo
 
   return {
     id: room.id,
+    matchId: room.matchId,
+    gameStartedAt: room.gameStartedAt,
+    endReason: room.endReason,
+    replayHistory: room.replayHistory,
+    countdown: room.countdown,
     phase: room.phase,
     gameMode: room.settings.ruleSet,
     players,
