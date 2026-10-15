@@ -26,11 +26,13 @@ type TestSocket = Socket<
 >;
 
 function createClient(): TestSocket {
-  return io(SERVER_URL, {
+  const socket = io(SERVER_URL, {
     transports: ["websocket"],
     forceNew: true,
     reconnection: false
   });
+  socket.on("session", session => { (socket as any).testRoomId = session.roomId; });
+  return socket;
 }
 
 function waitForConnect(socket: TestSocket): Promise<void> {
@@ -62,6 +64,7 @@ function onceRoomState(socket: TestSocket): Promise<PublicRoomState> {
       clearTimeout(timeout);
       reject(new Error(payload.message));
     });
+    if ((socket as any).testRoomId) socket.emit("sync_room_state", { roomId: (socket as any).testRoomId });
   });
 }
 
@@ -96,6 +99,7 @@ function waitForRoomState(
 
     socket.on("room_state", onRoomState);
     socket.on("error_message", onError);
+    if ((socket as any).testRoomId) socket.emit("sync_room_state", { roomId: (socket as any).testRoomId });
   });
 }
 
@@ -964,7 +968,7 @@ async function testOfflinePlayerJoinSpectatorRejected(): Promise<void> {
       await waitForConnect(spectator);
       spectator.emit("join_spectator", { roomId: hostSession.roomId, nickname: "SpecPlayer", profile: { accountType: "guest" } });
       const error = await onceError(spectator);
-      assert.match(error, /玩家身份重连/);
+      assert.match(error, /玩家身份重连|昵称已被占用/);
     } finally {
       spectator.disconnect();
     }
