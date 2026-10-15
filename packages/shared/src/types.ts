@@ -1,3 +1,4 @@
+import type { AnimeWork, NextPlan, PublicNextPlan } from "./anime.js";
 export type Team = "red" | "blue";
 export type CardRole = Team | "neutral" | "assassin";
 export type PlayerRole = "spymaster" | "operative";
@@ -11,7 +12,7 @@ export type RevealGuessPhase =
   | "round-end"
   | "game-end";
 export type WordCategory = "title" | "character" | "organization" | "trope" | "production" | "fandom" | "custom";
-export type BoardMode = "5x5" | "7x7" | "9x9";
+export type BoardMode = "5x5" | "6x6" | "7x7" | "9x9";
 export type ScoringMode = "classic" | "scoring" | "gamble";
 export type TimerMode = "unlimited" | "timed";
 export type FlipMode = "word-color" | "color-only";
@@ -186,6 +187,7 @@ export interface WordPackSummary {
 export interface Card {
   id: string;
   wordId: string;
+  anime?: AnimeWork;
   word: string;
   role: CardRole;
   revealed: boolean;
@@ -231,6 +233,7 @@ export interface Clue {
 
 export interface RoomSettings {
   ruleSet: GameMode;
+  variant?: "classic" | "anime";
   boardMode: BoardMode;
   wordPackId: string;
   scoringMode: ScoringMode;
@@ -554,6 +557,11 @@ export interface Room {
   replayHistory?: Array<{ matchId: string; replayId: string; roundNumber: number }>;
   countdown?: { matchId: string; startsAt: number; hostId: string };
   exposedPlayerIds?: string[];
+  nextPlan?: NextPlan;
+  animeEnabled?: boolean;
+  seriesHistory?: Record<string, number>;
+  draftReview?: { matchId: string; participantIds: string[]; interference: Array<{ workId: number; from: Team; team: Team }> };
+
 }
 
 export interface ViewerIdentity {
@@ -613,13 +621,16 @@ export type PublicSpectator = Omit<Spectator, "sessionToken">;
 export interface PublicCard {
   id: string;
   wordId: string;
+  anime?: AnimeWork;
   word: string;
   role?: CardRole;
   revealed: boolean;
   revealedBy?: Team;
 }
 
-export interface PublicRoomState extends Omit<Room, "players" | "spectators" | "board" | "wordPack" | "revealGuessState" | "exposedPlayerIds"> {
+export interface PublicRoomState extends Omit<Room, "players" | "spectators" | "board" | "wordPack" | "revealGuessState" | "exposedPlayerIds" | "nextPlan" | "seriesHistory" | "draftReview"> {
+  nextPlan?: PublicNextPlan;
+  interferenceReview?: Array<{ workId: number; from: Team; team: Team }>;
   players: PublicPlayer[];
   spectators: PublicSpectator[];
   board: PublicCard[];

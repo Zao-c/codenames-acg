@@ -3,7 +3,7 @@ import { useGame } from "../context/GameContext";
 
 export function HomePage() {
   const {
-    effectiveIdentity,
+    effectiveIdentity, createRoom,
     roomSummaries, joinByRoomCode, joinSpecificRoom,
     roomCode, setRoomCode, error, setError
   } = useGame();
@@ -31,8 +31,9 @@ export function HomePage() {
       <div className="home-action-grid">
         <div className="lobby-card">
           <h3>创建房间</h3>
-          <p>选择词牌与棋盘，邀请朋友加入</p>
-          <button className="primary-button" onClick={() => requireAuth(() => navigate("/create"))}>创建房间</button>
+          <p>先创建大厅邀请朋友，再一起选择玩法</p>
+          <button className="primary-button" onClick={() => requireAuth(() => createRoom(true))}>创建房间</button>
+          <button onClick={() => requireAuth(() => navigate("/create"))}>揭幕猜番 / 高级建房</button>
         </div>
         <div className="lobby-card">
           <h3>加入房间</h3>

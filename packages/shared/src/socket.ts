@@ -1,3 +1,4 @@
+import type { PlanAction } from "./anime.js";
 import type {
   AchievementUnlockPayload,
   AdjustRevealScorePayload,
@@ -56,6 +57,7 @@ import type {
 } from "./types.js";
 
 export interface ClientToServerEvents {
+  plan_action: (payload: PlanAction) => void;
   create_room: (payload: CreateRoomPayload) => void;
   join_room: (payload: JoinRoomPayload) => void;
   join_spectator: (payload: JoinSpectatorPayload) => void;

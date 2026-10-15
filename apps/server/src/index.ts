@@ -1,3 +1,4 @@
+import { animeCatalog, animePools } from "./anime-catalog.js";
 import cors from "cors";
 import crypto from "node:crypto";
 import express from "express";
@@ -301,7 +302,7 @@ async function bootstrap(): Promise<void> {
   const users = new JsonUserStore(env.userStoreFile);
   const revealImages = new RevealImageAssetStore(env.revealImageDir);
   await revealImages.ensureReady();
-  const game = new GameService(store, users, { enableDebugTools: env.enableDebugTools }, store);
+  const game = new GameService(store, users, { enableDebugTools: env.enableDebugTools, enableAnimeDraft: env.enableAnimeDraft }, store);
   const app = express();
   const httpServer = createServer(app);
   const allowedOrigins = env.clientOrigin
@@ -528,6 +529,11 @@ async function bootstrap(): Promise<void> {
       if (!session || session.roomId !== roomId) {
         continue;
       }
+      if (session.participantType === 'spectator' && room.players.some(p => p.id === session.participantId)) {
+        session.participantType = 'player';
+        const promoted = room.players.find(p => p.id === session.participantId)!;
+        currentSocket.emit('session',{roomId,playerId:promoted.id,participantId:promoted.id,participantType:'player',sessionToken:promoted.sessionToken!});
+      }
       const payload = game.getPublicRoomState(room, session.participantId, session.participantType);
       if (room.revealGuessState) {
         payload.revealGuessPublic = RevealGuess.sanitizeRevealGuessState(room, session.participantId, session.participantType) ?? undefined;
@@ -598,7 +604,21 @@ async function bootstrap(): Promise<void> {
     });
   }
 
+  app.get('/api/anime/catalog', (_req,res) => res.json({ enabled: env.enableAnimeDraft, works: env.enableAnimeDraft ? animeCatalog() : [], pools: env.enableAnimeDraft ? animePools() : [] }));
+
   io.on("connection", (socket) => {
+    socket.on('plan_action', async payload => {
+      try {
+        checkSocketRate(socket.id, 'plan_action', 30, 5_000);
+        const body = asObject(payload);
+        const roomId = requireRoomId(payload);
+        const session = requireSession(socket.id,roomId);
+        if (session.participantType !== 'player') throw new Error('旁观者不能操作下局准备');
+        if (typeof body.kind !== 'string') throw new Error('操作无效');
+        await game.planAction(roomId,session.participantId,payload);
+        await sendRoomState(roomId);
+      } catch(error) { fail(socket,error); }
+    });
     socket.emit("room_summaries", []);
     broadcastRoomSummaries().catch((error) => {
       console.error("Failed to broadcast room summaries on connect", error);

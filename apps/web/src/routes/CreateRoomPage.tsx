@@ -4,6 +4,7 @@ import { wordPackSummaries, type ScoringMode, type TimerMode, type FlipMode, typ
 
 const NEUTRAL_COUNT_OPTIONS: Record<BoardMode, number[]> = {
   "5x5": [3, 5, 7, 9, 11],
+  "6x6": [10],
   "7x7": [7, 9, 11, 13, 15, 17, 19],
   "9x9": [15, 19, 21, 25]
 };

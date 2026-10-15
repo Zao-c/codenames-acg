@@ -280,7 +280,7 @@ export interface GameContextType {
   handleNamedLogin: (usernameOverride?: string) => Promise<void>;
   continueAsGuest: () => void;
   handleAvatarUpload: (file: File | null) => Promise<void>;
-  createRoom: () => void;
+  createRoom: (defaults?: boolean) => void;
   createRevealGuessRoom: (settings?: Partial<RevealGuessSettings>, initialPuzzle?: { imageUrl: string; answer: string; aliases?: string[]; hints?: string[] }) => void;
   joinByRoomCode: (asSpectator: boolean) => void;
   joinSpecificRoom: (roomId: string, asSpectator: boolean) => void;
@@ -430,6 +430,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [createBoardMode, _setCreateBoardModeRaw] = useState<BoardMode>("5x5");
   const NEUTRAL_COUNT_OPTIONS: Record<BoardMode, readonly number[]> = {
     "5x5": [3, 5, 7, 9, 11],
+    "6x6": [10],
     "7x7": [7, 9, 11, 13, 15, 17, 19],
     "9x9": [15, 19, 21, 25]
   };
@@ -979,9 +980,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
       : { nickname: effectiveIdentity.nickname, profile: effectiveIdentity };
   }
 
-  function createRoom() {
+  function createRoom(defaults = false) {
     const ji = buildJoinProfile(); if (!ji) return;
-    if (packSource === "public" && selectedPublicPack) {
+    if (!defaults && packSource === "public" && selectedPublicPack) {
       setError("正在加载题库详情...");
       fetchPublicPackDetail(selectedPublicPack.publicId).then((pack) => {
         if (!pack) return;
@@ -993,7 +994,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const pending: { boardMode: BoardMode; builtinWordPackId?: string; customWordPack?: { name: string; entries: string[] }; scoringMode?: ScoringMode; timerMode?: import("@acg-codenames/shared").TimerMode; timerClueSeconds?: number; timerGuessSeconds?: number; neutralCount?: number | null; flipMode?: import("@acg-codenames/shared").FlipMode } = { boardMode: createBoardMode, scoringMode, timerMode: createTimerMode, timerClueSeconds: createTimerClueSeconds, timerGuessSeconds: createTimerGuessSeconds, neutralCount: createNeutralCount === 0 ? null : createNeutralCount, flipMode: createFlipMode }; 
     if (packSource === "builtin") pending.builtinWordPackId = selectedBuiltinPackId;
     else if (selectedAccountPack) pending.customWordPack = { name: selectedAccountPack.name, entries: selectedAccountPack.entries };
-    pendingCreateConfigRef.current = pending;
+    pendingCreateConfigRef.current = defaults ? null : pending;
     setConnectionState("connecting"); setError("");
     socket.emit("create_room", { nickname: ji.nickname, profile: { accountType: ji.profile.mode, username: ji.profile.mode === "named" ? ji.profile.username : null, avatarUrl: ji.profile.avatarUrl, userSessionToken: ji.profile.mode === "named" ? ji.profile.userSessionToken : undefined } });
   }

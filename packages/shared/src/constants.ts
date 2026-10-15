@@ -21,6 +21,7 @@ export const MAX_AVATAR_DATA_URL_LENGTH = 220_000;
 
 export const BOARD_MODE_CONFIG = {
   "5x5": { columns: 5, size: 25, starter: 9, follower: 8, neutral: 7, assassin: 1 },
+  "6x6": { columns: 6, size: 36, starter: 13, follower: 12, neutral: 10, assassin: 1 },
   "7x7": { columns: 7, size: 49, starter: 17, follower: 16, neutral: 15, assassin: 1 },
   "9x9": { columns: 9, size: 81, starter: 28, follower: 27, neutral: 25, assassin: 1 }
 } satisfies Record<BoardMode, { columns: number; size: number; starter: number; follower: number; neutral: number; assassin: number }>;
