@@ -6,6 +6,10 @@ type AppSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
 export interface RevealGuessActions {
   addPuzzle: (imageUrl: string, answer: string, aliases: string[], hints: string[]) => void;
+  addPuzzles: (puzzles: Array<{ imageUrl: string; answer: string; aliases?: string[]; hints?: string[] }>) => void;
+  updatePuzzle: (index: number, data: { imageUrl?: string; answer?: string; aliases?: string[]; hints?: string[] }) => void;
+  removePuzzle: (index: number) => void;
+  reorderPuzzle: (fromIndex: number, toIndex: number) => void;
   startGame: () => void;
   revealCell: (cellId: string) => void;
   submitAnswer: (answer: string, type: "priority" | "buzz" | "formal") => void;
@@ -32,6 +36,26 @@ export function useRevealGuessActions(
   const addPuzzle = useCallback((imageUrl: string, answer: string, aliases: string[], hints: string[]) => {
     if (!roomId) return;
     socket.emit("reveal_guess_add_puzzle" as any, { roomId, imageUrl, answer, aliases, hints });
+  }, [roomId, socket]);
+
+  const addPuzzles = useCallback((puzzles: Array<{ imageUrl: string; answer: string; aliases?: string[]; hints?: string[] }>) => {
+    if (!roomId) return;
+    socket.emit("reveal_guess_add_puzzles" as any, { roomId, puzzles });
+  }, [roomId, socket]);
+
+  const updatePuzzle = useCallback((index: number, data: { imageUrl?: string; answer?: string; aliases?: string[]; hints?: string[] }) => {
+    if (!roomId) return;
+    socket.emit("reveal_guess_update_puzzle" as any, { roomId, index, ...data });
+  }, [roomId, socket]);
+
+  const removePuzzle = useCallback((index: number) => {
+    if (!roomId) return;
+    socket.emit("reveal_guess_remove_puzzle" as any, { roomId, index });
+  }, [roomId, socket]);
+
+  const reorderPuzzle = useCallback((fromIndex: number, toIndex: number) => {
+    if (!roomId) return;
+    socket.emit("reveal_guess_reorder_puzzle" as any, { roomId, fromIndex, toIndex });
   }, [roomId, socket]);
 
   const startGame = useCallback(() => {
@@ -104,5 +128,5 @@ export function useRevealGuessActions(
     socket.emit("reveal_guess_open_free_reveal" as any, { roomId });
   }, [roomId, socket]);
 
-  return { addPuzzle, startGame, revealCell, submitAnswer, openBuzz, closeBuzz, buzzIn, judgeAnswer, showHint, nextPuzzle, skipPuzzle, adjustScore, transferJudge, returnToSetup, openFreeReveal };
+  return { addPuzzle, addPuzzles, updatePuzzle, removePuzzle, reorderPuzzle, startGame, revealCell, submitAnswer, openBuzz, closeBuzz, buzzIn, judgeAnswer, showHint, nextPuzzle, skipPuzzle, adjustScore, transferJudge, returnToSetup, openFreeReveal };
 }

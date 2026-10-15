@@ -85,6 +85,10 @@ export interface ClientToServerEvents {
   cancel_queue_join: (payload: CancelQueueJoinPayload) => void;
   create_reveal_guess_room: (payload: CreateRevealGuessRoomPayload) => void;
   reveal_guess_add_puzzle: (payload: CreateRevealPuzzlePayload) => void;
+  reveal_guess_add_puzzles: (payload: { roomId: string; puzzles: Array<{ imageUrl: string; answer: string; aliases?: string[]; hints?: string[] }> }) => void;
+  reveal_guess_update_puzzle: (payload: { roomId: string; index: number; imageUrl?: string; answer?: string; aliases?: string[]; hints?: string[] }) => void;
+  reveal_guess_remove_puzzle: (payload: { roomId: string; index: number }) => void;
+  reveal_guess_reorder_puzzle: (payload: { roomId: string; fromIndex: number; toIndex: number }) => void;
   reveal_guess_start: (payload: StartRevealGamePayload) => void;
   end_reveal_game: (payload: EndRevealGamePayload) => void;
   reveal_guess_reveal_cell: (payload: RevealCellPayload) => void;

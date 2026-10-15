@@ -1,4 +1,6 @@
 .next-match-panel,.start-countdown {grid-column:1/-1;min-width:0}
+.room-layout-lobby:has(.draft-candidates) {max-width:1100px}
+.room-layout-focus>.anime-board-panel {width:100%;max-width:900px}
 .start-countdown {padding:16px;text-align:center;background:#203961;border:1px solid #779acb;border-radius:16px;font-size:24px;font-weight:800;display:flex;justify-content:center;align-items:center;gap:20px}
 .anime-toolbar {display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0}
 .anime-toolbar input:not([type=checkbox]) {max-width:100%;min-width:150px}
@@ -42,4 +44,5 @@
 .anime-modal-close {display:block;margin-left:auto}
 .anime-confirm {margin-top:18px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
 .anime-confirm p {width:100%}
+@media(max-width:600px){.app-nav-room{flex-wrap:wrap;gap:8px}.app-nav-room .nav-brand{font-size:18px;white-space:nowrap}.app-nav-room .nav-identity{margin-left:auto}.app-nav-room .nav-links{order:3;width:100%;flex-wrap:wrap;gap:3px}.app-nav-room .nav-links button{font-size:11px;padding:0 8px;white-space:nowrap}.next-match-panel .panel-heading h2{font-size:17px}.next-match-panel{padding:14px!important}}
 @media(max-width:600px){.draft-candidates{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;max-height:65vh}.draft-tile>button img{height:112px}.anime-board-panel{padding:10px!important}.anime-board{gap:3px}.anime-board-card{border-width:1px;border-radius:5px}.anime-board-card>span{font-size:9px;min-height:30px}.anime-board-card>b{font-size:9px;padding:1px 2px}.draft-clock{font-size:20px}.start-countdown{font-size:20px}.anime-toolbar{gap:6px}.anime-toolbar button{padding:8px}.anime-modal{padding:16px}.anime-pool-list{grid-template-columns:1fr}}

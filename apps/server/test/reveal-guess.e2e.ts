@@ -801,6 +801,119 @@ async function testOpenFreeRevealButton() {
   } finally { socks.forEach(s => s.disconnect()); }
 }
 
+async function testPuzzleEditUpdate(): Promise<void> {
+  const judge = mk(), player = mk();
+  const socks = [judge, player];
+  try {
+    await Promise.all(socks.map(waitConn));
+    judge.emit("create_reveal_guess_room", { nickname: "J", profile: { accountType: "guest" }, settings: { puzzleCount: 5, timerEnabled: false } });
+    const [jSess] = await Promise.all([onceSess(judge), onceRS(judge)]);
+    const rid = jSess.roomId;
+    player.emit("join_room", { roomId: rid, nickname: "P", profile: { accountType: "guest" } });
+    await Promise.all([onceSess(player), onceRS(player)]);
+
+    judge.emit("reveal_guess_add_puzzle", { roomId: rid, imageUrl: "https://example.com/a.png", answer: "old", aliases: [], hints: [] });
+    let s = await waitRS(judge, r => r.revealGuessPublic!.puzzleCount === 1);
+    assert.equal(s.revealGuessPublic!.puzzleCount, 1);
+
+    judge.emit("reveal_guess_update_puzzle", { roomId: rid, index: 0, answer: "new", aliases: ["alias1"], hints: ["hint1"] });
+    s = await waitRS(judge, r => r.revealGuessPublic!.puzzleList![0].hasAnswer);
+    assert.equal(s.revealGuessPublic!.puzzleList![0].hasAnswer, true);
+    console.log("ok puzzle_edit_update");
+  } finally { socks.forEach(s => s.disconnect()); }
+}
+
+async function testPuzzleEditPlayerCant(): Promise<void> {
+  const judge = mk(), player = mk();
+  const socks = [judge, player];
+  try {
+    await Promise.all(socks.map(waitConn));
+    judge.emit("create_reveal_guess_room", { nickname: "J", profile: { accountType: "guest" }, settings: { puzzleCount: 5, timerEnabled: false } });
+    const [jSess] = await Promise.all([onceSess(judge), onceRS(judge)]);
+    const rid = jSess.roomId;
+    player.emit("join_room", { roomId: rid, nickname: "P", profile: { accountType: "guest" } });
+    await Promise.all([onceSess(player), onceRS(player)]);
+
+    judge.emit("reveal_guess_add_puzzle", { roomId: rid, imageUrl: "https://a.com/x.png", answer: "x", aliases: [], hints: [] });
+    await waitRS(judge, r => r.revealGuessPublic!.puzzleCount === 1);
+
+    let err = "";
+    player.on("error_message", p => { err = p.message; });
+    player.emit("reveal_guess_update_puzzle", { roomId: rid, index: 0, answer: "hack" });
+    await new Promise(r => setTimeout(r, 300));
+    assert.ok(err.includes("裁判") || err.includes("房主"));
+    console.log("ok puzzle_edit_player_cant");
+  } finally { socks.forEach(s => s.disconnect()); }
+}
+
+async function testPuzzleRemove(): Promise<void> {
+  const judge = mk(), player = mk();
+  const socks = [judge, player];
+  try {
+    await Promise.all(socks.map(waitConn));
+    judge.emit("create_reveal_guess_room", { nickname: "J", profile: { accountType: "guest" }, settings: { puzzleCount: 5, timerEnabled: false } });
+    const [jSess] = await Promise.all([onceSess(judge), onceRS(judge)]);
+    const rid = jSess.roomId;
+    player.emit("join_room", { roomId: rid, nickname: "P", profile: { accountType: "guest" } });
+    await Promise.all([onceSess(player), onceRS(player)]);
+
+    judge.emit("reveal_guess_add_puzzle", { roomId: rid, imageUrl: "https://a.com/x.png", answer: "x", aliases: [], hints: [] });
+    judge.emit("reveal_guess_add_puzzle", { roomId: rid, imageUrl: "https://a.com/y.png", answer: "y", aliases: [], hints: [] });
+    await waitRS(judge, r => r.revealGuessPublic!.puzzleCount === 2);
+
+    judge.emit("reveal_guess_remove_puzzle", { roomId: rid, index: 0 });
+    const s = await waitRS(judge, r => r.revealGuessPublic!.puzzleCount === 1);
+    assert.equal(s.revealGuessPublic!.puzzleCount, 1);
+    console.log("ok puzzle_remove");
+  } finally { socks.forEach(s => s.disconnect()); }
+}
+
+async function testPuzzleReorder(): Promise<void> {
+  const judge = mk(), player = mk();
+  const socks = [judge, player];
+  try {
+    await Promise.all(socks.map(waitConn));
+    judge.emit("create_reveal_guess_room", { nickname: "J", profile: { accountType: "guest" }, settings: { puzzleCount: 5, timerEnabled: false } });
+    const [jSess] = await Promise.all([onceSess(judge), onceRS(judge)]);
+    const rid = jSess.roomId;
+    player.emit("join_room", { roomId: rid, nickname: "P", profile: { accountType: "guest" } });
+    await Promise.all([onceSess(player), onceRS(player)]);
+
+    judge.emit("reveal_guess_add_puzzle", { roomId: rid, imageUrl: "https://a.com/1.png", answer: "A", aliases: [], hints: [] });
+    judge.emit("reveal_guess_add_puzzle", { roomId: rid, imageUrl: "https://a.com/2.png", answer: "B", aliases: [], hints: [] });
+    await waitRS(judge, r => r.revealGuessPublic!.puzzleCount === 2);
+
+    judge.emit("reveal_guess_reorder_puzzle", { roomId: rid, fromIndex: 0, toIndex: 1 });
+    // Just verify room state updates after reorder
+    const s = await waitRS(judge, r => true);
+    assert.equal(s.revealGuessPublic!.puzzleCount, 2);
+    console.log("ok puzzle_reorder");
+  } finally { socks.forEach(s => s.disconnect()); }
+}
+
+async function testPuzzleSanitize(): Promise<void> {
+  const judge = mk(), player = mk();
+  const socks = [judge, player];
+  try {
+    await Promise.all(socks.map(waitConn));
+    judge.emit("create_reveal_guess_room", { nickname: "J", profile: { accountType: "guest" }, settings: { puzzleCount: 5, timerEnabled: false } });
+    const [jSess] = await Promise.all([onceSess(judge), onceRS(judge)]);
+    const rid = jSess.roomId;
+    player.emit("join_room", { roomId: rid, nickname: "P", profile: { accountType: "guest" } });
+    await Promise.all([onceSess(player), onceRS(player)]);
+
+    judge.emit("reveal_guess_add_puzzle", { roomId: rid, imageUrl: "https://a.com/z.png", answer: "秘密", aliases: ["別名"], hints: ["ヒント"] });
+    const js = await waitRS(judge, r => r.revealGuessPublic!.puzzleCount === 1);
+    assert.ok(js.revealGuessPublic!.puzzleList![0].hasAnswer);
+
+    const ps = await waitRS(player, r => r.revealGuessPublic!.puzzleCount === 1);
+    // Player's view: hasAnswer may be a shared flag; answer/aliases fields should be stripped
+    const playerPuzzle = ps.revealGuessPublic!.puzzleList![0] as any;
+    assert.equal(playerPuzzle.answer, undefined, "player should not see answer");
+    console.log("ok puzzle_sanitize");
+  } finally { socks.forEach(s => s.disconnect()); }
+}
+
 async function main() {
   const tests: [string, () => Promise<void>][] = [
     ["Create", testCreateRoomWithInitialPuzzle],
@@ -839,6 +952,11 @@ async function main() {
     ["Deadlock", testFreeMode],
     ["Deadlock", testOncePerPlayerMode],
     ["Deadlock", testOpenFreeRevealButton],
+    ["PuzzleMgmt", testPuzzleEditUpdate],
+    ["PuzzleMgmt", testPuzzleEditPlayerCant],
+    ["PuzzleMgmt", testPuzzleRemove],
+    ["PuzzleMgmt", testPuzzleReorder],
+    ["PuzzleMgmt", testPuzzleSanitize],
   ];
   let passed = 0;
   for (const [category, fn] of tests) {

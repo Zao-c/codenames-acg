@@ -415,7 +415,8 @@ export class JsonUserStore implements UserStore {
         ...defaultUser(account.username),
         ...account,
         avatarUrl: normalizeAvatarUrl(account.avatarUrl),
-        customWordPacks: (account.customWordPacks ?? []).map(normalizeWordPack)
+        customWordPacks: (account.customWordPacks ?? []).map(normalizeWordPack),
+        customImagePacks: (account.customImagePacks ?? []).map(normalizeImagePack)
       });
     }
   }
