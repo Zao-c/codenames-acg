@@ -7,6 +7,7 @@ export const REPLAY_TTL_SECONDS = 7 * 24 * 60 * 60;
 function computeRoomTTL(room: Room): number {
   const humanPlayers = room.players.filter((p) => !p.isBot);
   if (humanPlayers.length === 0) return ROOM_TTL_EMPTY_SECONDS;
+  if (room.nextPlan && room.nextPlan.stage !== "planning") return ROOM_TTL_SECONDS;
   if (room.phase === "lobby") return ROOM_TTL_LOBBY_IDLE_SECONDS;
   if (room.phase === "finished") return ROOM_TTL_FINISHED_SECONDS;
   return ROOM_TTL_SECONDS;

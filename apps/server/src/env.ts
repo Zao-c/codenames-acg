@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 export const env = {
+  enableAnimeDraft: process.env.ENABLE_ANIME_DRAFT === "1",
   port: Number(process.env.PORT ?? 3001),
   clientOrigin: process.env.CLIENT_ORIGIN ?? "http://localhost:5173,http://localhost:4173",
   redisUrl: process.env.REDIS_URL ?? "",
