@@ -519,6 +519,8 @@ function computeAchievements(room: Room): Achievement[] {
 function resetPerGameReviewState(room: Room): Room {
   return {
     ...room,
+    replayId: undefined,
+    roundHighlights: [],
     clueRecords: [],
     roundScoreHistory: [],
     playerStats: {},
@@ -1740,7 +1742,9 @@ export class GameService {
       return null;
     }
 
-    const nextHostId = players.find((entry) => !entry.isBot)?.id ?? players[0].id;
+    const nextHostId = room.hostPlayerId === participantId
+      ? players.find((entry) => !entry.isBot)?.id ?? players[0].id
+      : room.hostPlayerId;
     const nextRoom = withEvent(
       {
         ...room,
