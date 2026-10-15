@@ -221,3 +221,28 @@ acg_codenames/
 │   └── view.ts             # 视图裁剪+权限计算
 └── README.md
 ```
+
+## Troubleshooting
+
+### 图库上传 413 Request Entity Too Large
+
+如果部署时使用了 Nginx 反向代理，需要在 Nginx 配置中增加 `client_max_body_size`：
+
+```nginx
+server {
+    listen 80;
+    server_name your-domain.com;
+
+    client_max_body_size 50m;  # 允许图库上传大图片
+
+    location / {
+        proxy_pass http://localhost:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+    }
+}
+```
+
+服务端 `express.json` 限制已设为 `50mb`，通常无需修改。

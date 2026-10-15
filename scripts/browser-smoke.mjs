@@ -21,7 +21,7 @@ try{
  for(let i=0;i<4;i++){await button(pages[i],i<2?'红队':'蓝队').click();if(i%2===0)await button(pages[i],'队长').click();}
  await button(host,'开始游戏').click();await visible(host.locator('.start-countdown'));await host.reload();await visible(host.locator('.board-grid .card-tile').first());assert.equal(await host.locator('.card-tile').count(),25);console.log('browser classic + reload countdown passed');
  // Plan a future anime game while current board is still in play.
- const panel=host.locator('.next-match-panel');await button(host,'查看准备').click();await panel.locator('summary').filter({hasText:'配置'}).click();
+ const panel=host.locator('.next-match-panel');if(await button(host,'查看准备').isVisible())await button(host,'查看准备').click();await panel.locator('summary').filter({hasText:'配置'}).click();
  await panel.getByLabel('玩法',{exact:true}).selectOption('anime');await panel.getByLabel('棋盘',{exact:true}).selectOption('6x6');
  await panel.getByLabel('动画作品池',{exact:true}).selectOption('2026-Q3');await button(host,'保存配置并更新候选池').click();
  await visible(panel.getByText('动画组牌 · 6x6',{exact:false}));assert.equal(await host.locator('.card-tile').count(),25);
@@ -42,6 +42,7 @@ try{
  await pages[3].locator('.anime-board-card').first().click();await visible(pages[3].getByRole('dialog'));assert.equal(await pages[3].locator('.anime-board-card.is-revealed').count(),0);await button(pages[3],'关闭预览').click();await button(pages[3],'纯文字显示').click();assert.equal(await pages[3].locator('.anime-board-card img').count(),0);await button(pages[3],'放大棋盘').click();await button(pages[3],'重置视图').click();
  await host.screenshot({path:path.join(artifacts,'03-board-desktop.png'),fullPage:true});await pages[3].screenshot({path:path.join(artifacts,'04-board-mobile.png'),fullPage:true});
  // Third round changes back to classic without rebuilding the room.
+ if(await button(host,'查看准备').isVisible())await button(host,'查看准备').click();
  await panel.locator('summary').filter({hasText:'配置'}).click();await panel.getByLabel('玩法',{exact:true}).selectOption('classic');await button(host,'保存配置并更新候选池').click();await end(host);await button(host,'再来一局').click();await visible(host.locator('.card-tile').first());assert.equal(await host.locator('.card-tile').count(),25);
  const replayLinks=await host.getByRole('navigation',{name:'历局回放'}).getByRole('link').all();assert.equal(replayLinks.length,2);
  for(const link of replayLinks){const response=await host.request.get((await link.getAttribute('href')).replace('/replay/','http://127.0.0.1:3022/api/replays/'));assert.equal(response.status(),200);}

@@ -1180,12 +1180,110 @@ async function bootstrap(): Promise<void> {
         }
         const room = await game.getRoom(roomId);
         if (!room) throw new Error("房间不存在");
+        const judgeId = room.judgePlayerId || room.hostPlayerId;
+        if (session.participantId !== judgeId) {
+          throw new Error("只有裁判或房主可以添加题目");
+        }
         RevealGuess.addPuzzle(room, { imageUrl, answer, aliases, hints });
         await store.setRoom(room);
         await sendRoomState(room.id);
       } catch (error) {
         fail(socket, error);
       }
+    });
+
+    socket.on("reveal_guess_add_puzzles", async (payload) => {
+      try {
+        const body = asObject(payload);
+        const roomId = requireString(body, "roomId");
+        const puzzles = Array.isArray(body.puzzles) ? body.puzzles : [];
+        if (!puzzles.length) throw new Error("puzzles 不能为空");
+
+        const session = requireSession(socket.id, roomId);
+        if (session.participantType !== "player") throw new Error("旁观者不能添加题目");
+        const room = await game.getRoom(roomId);
+        if (!room) throw new Error("房间不存在");
+        const judgeId = room.judgePlayerId || room.hostPlayerId;
+        if (session.participantId !== judgeId) throw new Error("只有裁判或房主可以添加题目");
+
+        for (const p of puzzles) {
+          const imageUrl = requireString(p, "imageUrl");
+          const answer = requireString(p, "answer");
+          const aliases = optionalStringArray(p.aliases);
+          const hints = optionalStringArray(p.hints);
+          if (imageUrl.startsWith("data:image/")) {
+            if (imageUrl.length > 3_200_000) throw new Error("图片过大");
+          } else if (!imageUrl.startsWith("http://") && !imageUrl.startsWith("https://")) {
+            throw new Error("图片 URL 无效");
+          }
+          RevealGuess.addPuzzle(room, { imageUrl, answer, aliases, hints });
+        }
+        await store.setRoom(room);
+        await sendRoomState(room.id);
+      } catch (error) {
+        fail(socket, error);
+      }
+    });
+
+    socket.on("reveal_guess_update_puzzle", async (payload) => {
+      try {
+        const body = asObject(payload);
+        const roomId = requireString(body, "roomId");
+        const index = requireNumber(body, "index");
+        const session = requireSession(socket.id, roomId);
+        if (session.participantType !== "player") throw new Error("旁观者不能编辑题目");
+        const room = await game.getRoom(roomId);
+        if (!room) throw new Error("房间不存在");
+        const judgeId = room.judgePlayerId || room.hostPlayerId;
+        if (session.participantId !== judgeId) throw new Error("只有裁判或房主可以编辑题目");
+        const data: { imageUrl?: string; answer?: string; aliases?: string[]; hints?: string[] } = {};
+        if (body.imageUrl !== undefined) {
+          const u = requireString(body, "imageUrl");
+          if (u.startsWith("data:image/") && u.length > 3_200_000) throw new Error("图片过大");
+          data.imageUrl = u;
+        }
+        if (body.answer !== undefined) data.answer = requireString(body, "answer");
+        if (body.aliases !== undefined) data.aliases = optionalStringArray(body.aliases);
+        if (body.hints !== undefined) data.hints = optionalStringArray(body.hints);
+        RevealGuess.updatePuzzle(room, index, data);
+        await store.setRoom(room);
+        await sendRoomState(room.id);
+      } catch (error) { fail(socket, error); }
+    });
+
+    socket.on("reveal_guess_remove_puzzle", async (payload) => {
+      try {
+        const body = asObject(payload);
+        const roomId = requireString(body, "roomId");
+        const index = requireNumber(body, "index");
+        const session = requireSession(socket.id, roomId);
+        if (session.participantType !== "player") throw new Error("旁观者不能删除题目");
+        const room = await game.getRoom(roomId);
+        if (!room) throw new Error("房间不存在");
+        const judgeId = room.judgePlayerId || room.hostPlayerId;
+        if (session.participantId !== judgeId) throw new Error("只有裁判或房主可以删除题目");
+        RevealGuess.removePuzzle(room, index);
+        await store.setRoom(room);
+        await sendRoomState(room.id);
+      } catch (error) { fail(socket, error); }
+    });
+
+    socket.on("reveal_guess_reorder_puzzle", async (payload) => {
+      try {
+        const body = asObject(payload);
+        const roomId = requireString(body, "roomId");
+        const fromIndex = requireNumber(body, "fromIndex");
+        const toIndex = requireNumber(body, "toIndex");
+        const session = requireSession(socket.id, roomId);
+        if (session.participantType !== "player") throw new Error("旁观者不能调整顺序");
+        const room = await game.getRoom(roomId);
+        if (!room) throw new Error("房间不存在");
+        const judgeId = room.judgePlayerId || room.hostPlayerId;
+        if (session.participantId !== judgeId) throw new Error("只有裁判或房主可以调整顺序");
+        RevealGuess.reorderPuzzles(room, fromIndex, toIndex);
+        await store.setRoom(room);
+        await sendRoomState(room.id);
+      } catch (error) { fail(socket, error); }
     });
 
     socket.on("reveal_guess_start", async (payload) => {

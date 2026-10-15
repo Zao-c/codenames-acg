@@ -12,10 +12,6 @@ import {
   MIN_PLAYERS_TO_START,
   PLAYER_ROLE_LABELS,
   ROOM_ID_LENGTH,
-  ROOM_TTL_LOBBY_IDLE_SECONDS,
-  ROOM_TTL_FINISHED_SECONDS,
-  ROOM_TTL_EMPTY_SECONDS,
-  ROOM_TTL_PLAYING_IDLE_SECONDS,
   TEAM_LABELS,
   buildRoomSummary,
   createCustomWordPack,
@@ -55,7 +51,7 @@ import {
   type RoundHighlight,
   type RoundHighlightCard,
 } from "@acg-codenames/shared";
-import { REPLAY_TTL_SECONDS } from "./store.js";
+import { REPLAY_TTL_SECONDS, computeRoomTTL } from "./store.js";
 import type { ReplayStore, RoomSession, RoomStore, UserStore } from "./types.js";
 import { animeCatalog } from './anime-catalog.js';
 import { candidatesFor, editDraft, makePlan, sealDraft, validatePlanRoster } from './anime-draft.js';
@@ -856,6 +852,13 @@ export class GameService {
       "房主随机分配了红蓝队"
     );
     validateStart(nextRoom);
+    if (nextRoom.nextPlan?.variant === "classic") {
+      nextRoom.nextPlan.captains = {};
+      for (const player of nextPlayers) {
+        if (player.team && player.role === "spymaster") nextRoom.nextPlan.captains[player.team] = player.id;
+      }
+      nextRoom.nextPlan.ready = { red: false, blue: false };
+    }
     await this.store.setRoom(nextRoom);
     return nextRoom;
     });
@@ -1816,6 +1819,7 @@ export class GameService {
       const host = room.hostPlayerId === playerId;
       const time = now();
       let plan = room.nextPlan ?? makePlan(room, time);
+      if (!this.options.enableAnimeDraft && plan.variant === 'anime' && ['prepare','ready'].includes(action.kind)) throw new Error('已暂停新的动画组牌，现有正式组牌仍可完成');
       if (room.countdown) throw new Error('五秒倒计时中，请先取消开始');
       if (plan.stage === 'draft' && time >= (plan.endsAt ?? 0)) {
         sealDraft(plan, room.seriesHistory);
@@ -1851,7 +1855,7 @@ export class GameService {
         const candidates = action.variant === 'anime' ? candidatesFor(pool, room.seriesHistory) : [];
         if (action.variant === 'anime' && candidates.length < BOARD_MODE_CONFIG[boardMode].size) throw new Error(`所选题库至少需要 ${BOARD_MODE_CONFIG[boardMode].size} 个不同系列，当前只有 ${candidates.length} 个`);
         plan = { ...plan, wordPack, version: plan.version + 1, variant: action.variant,
-          settings: { ...plan.settings, variant: action.variant, boardMode, scoringMode: action.scoringMode ?? plan.settings.scoringMode, neutralCount: action.variant === 'anime' ? undefined : plan.settings.neutralCount },
+          settings: { ...plan.settings, variant: action.variant, boardMode, scoringMode: action.scoringMode ?? plan.settings.scoringMode, neutralCount: action.variant === 'anime' || boardMode !== plan.settings.boardMode ? undefined : plan.settings.neutralCount },
           pool, poolName: (action.poolName ?? plan.poolName).slice(0,64), candidates, ready: { red:false, blue:false }, done: { red:false, blue:false }, stage: room.phase === 'playing' ? 'planning' : plan.stage,
           bookmarks: Object.fromEntries(Object.entries(plan.bookmarks).map(([id, values]) => [id, values.filter(v => candidates.some(w => w.id === v))])) };
       } else if (action.kind === 'nominate' || action.kind === 'transfer') {
@@ -1859,7 +1863,7 @@ export class GameService {
         if (team !== 'red' && team !== 'blue') throw new Error('队伍无效');
         const target = room.players.find(p => p.id === action.targetId && p.team === team);
         if (!target) throw new Error('只能指定同队正式玩家');
-        if (!host && plan.captains[team] !== playerId && !(action.kind === 'nominate' && target.id === playerId && !plan.captains[team])) throw new Error('没有队长管理权限');
+        if (!host && (action.kind === 'transfer' && room.phase === 'playing' ? !(player.team === team && player.role === 'spymaster') : plan.captains[team] !== playerId) && !(action.kind === 'nominate' && target.id === playerId && !plan.captains[team])) throw new Error('没有队长管理权限');
         if (action.kind === 'nominate' && (plan.stage === 'draft' || plan.stage === 'sealed')) throw new Error('正式组牌请使用队长交接');
         if (action.kind === 'transfer' && room.phase === 'playing') {
           const old = room.players.find(p => p.team === team && p.role === 'spymaster');
@@ -1986,7 +1990,7 @@ export class GameService {
           const latest = await this.requireRoom(room.id);
           if (!latest.countdown || latest.countdown.startsAt > now()) return;
           const matchId = latest.countdown.matchId;
-          try { if (latest.nextPlan) validatePlanRoster(latest,latest.nextPlan); else validateStart(latest); } catch {
+          try { if (latest.hostPlayerId !== latest.countdown.hostId) throw new Error('房主已变更'); if (latest.nextPlan) validatePlanRoster(latest,latest.nextPlan); else validateStart(latest); } catch {
             await this.store.setRoom({ ...latest, countdown: undefined });
             return;
           }
@@ -2091,18 +2095,7 @@ export class GameService {
     const deleted: string[] = [];
     for (const room of rooms) {
       const idleMs = Date.now() - Math.max(room.updatedAt, room.nextPlan?.activityAt ?? 0);
-      if (room.nextPlan && room.nextPlan.stage !== "planning" && idleMs < ROOM_TTL_PLAYING_IDLE_SECONDS * 1000) continue;
-      const humanPlayers = room.players.filter((p) => !p.isBot);
-      if (humanPlayers.length === 0 && idleMs > ROOM_TTL_EMPTY_SECONDS * 1000) {
-        await this.store.deleteRoom(room.id);
-        deleted.push(room.id);
-      } else if (room.phase === "playing" && idleMs > ROOM_TTL_PLAYING_IDLE_SECONDS * 1000) {
-        await this.store.deleteRoom(room.id);
-        deleted.push(room.id);
-      } else if (room.phase === "lobby" && idleMs > ROOM_TTL_LOBBY_IDLE_SECONDS * 1000) {
-        await this.store.deleteRoom(room.id);
-        deleted.push(room.id);
-      } else if (room.phase === "finished" && idleMs > ROOM_TTL_FINISHED_SECONDS * 1000) {
+      if (idleMs > computeRoomTTL(room) * 1000) {
         await this.store.deleteRoom(room.id);
         deleted.push(room.id);
       }

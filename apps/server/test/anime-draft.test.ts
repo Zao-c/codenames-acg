@@ -6,6 +6,16 @@ import { candidatesFor, editDraft, sealDraft } from '../src/anime-draft.js';
 import type { UserStore } from '../src/types.js';
 import type { NextPlan, PlanAction, Room, Team } from '@acg-codenames/shared';
 
+const seriesOf = (title: string) => {
+  const work = animeCatalog().find(w => w.fullTitle === title);
+  assert.ok(work, `Catalog fixture missing: ${title}`);
+  return work.seriesId;
+};
+assert.equal(seriesOf('轻音少女'), seriesOf('轻音少女 第二季'));
+assert.equal(seriesOf('机动战士高达SEED'), seriesOf('机动战士高达SEED DESTINY'));
+assert.equal(seriesOf("剧场版 Fate/stay night [Heaven's Feel] I.presage flower"), seriesOf("剧场版 Fate/stay night [Heaven's Feel] III.spring song"));
+assert.notEqual(seriesOf('Fate/stay night'), seriesOf('Fate/EXTRA Last Encore'));
+
 const realNow = Date.now;
 let clock = realNow();
 Date.now = () => clock;

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { BOARD_MODE_CONFIG, TEAM_LABELS, draftQuota, wordPackSummaries, type AnimePool, type AnimeWork, type BoardMode, type PlanAction, type PublicCard, type PublicRoomState } from '@acg-codenames/shared';
+import { getPublicWordPackDetail } from '../lib/api';
 import { useGame } from '../context/GameContext';
 
 export function useServerTime(room: PublicRoomState) {
@@ -29,7 +30,7 @@ function Preview({ work, close, children }: { work: AnimeWork; close: () => void
     const key = (event: KeyboardEvent) => { if (event.key === 'Escape') close(); };
     document.addEventListener('keydown', key);
     return () => { document.removeEventListener('keydown', key); previous?.focus(); };
-  }, [close]);
+  }, []);
   return <div className="anime-modal-backdrop" onClick={close}><section className="anime-modal" role="dialog" aria-modal="true" aria-label={work.fullTitle} onClick={e => e.stopPropagation()}>
     <button ref={closeButton} className="anime-modal-close" onClick={close}>关闭预览</button>
     <Cover work={work} /><h2>{work.fullTitle}</h2><p>{work.type} · {work.airDate}</p><p>{work.aliases.join(' / ')}</p>
@@ -70,9 +71,11 @@ export function NextMatchPanel({ room }: { room: PublicRoomState }) {
   const plan = room.nextPlan;
   const time = useServerTime(room);
   const [open, setOpen] = useState(room.phase !== 'playing');
+  useEffect(() => { if (room.phase === 'playing') setOpen(false); }, [room.matchId]);
   const [catalog, setCatalog] = useState<AnimeWork[]>([]);
   const [pools, setPools] = useState<AnimePool[]>([]);
   const [variant, setVariant] = useState<'classic'|'anime'>(plan?.variant ?? 'anime');
+  const [score, setScore] = useState<import('@acg-codenames/shared').ScoringMode>(plan?.settings.scoringMode ?? room.settings.scoringMode);
   const [size, setSize] = useState<BoardMode>(plan?.settings.boardMode ?? '5x5');
   const [poolId, setPoolId] = useState('all');
   const [poolName, setPoolName] = useState('我的动画题库');
@@ -99,11 +102,13 @@ export function NextMatchPanel({ room }: { room: PublicRoomState }) {
   const quota = plan && team ? draftQuota(BOARD_MODE_CONFIG[plan.settings.boardMode].size, plan.startingTeam, team) : undefined;
   const list = plan?.candidates ?? [];
   const visible = list.filter(w => (!onlyBookmarks || plan?.myBookmarks?.includes(w.id)) && `${w.fullTitle} ${w.aliases.join(' ')}`.toLowerCase().includes(query.toLowerCase()));
-  const configure = () => {
+  const configure = async () => {
     const pool = [...pools,...savedPools].find(p => p.id === poolId);
     const selected = poolId === 'custom' ? customIds : pool?.workIds;
     const personal = accountPacks.find(p => `mine:${p.id}` === wordPackId);
-    send({ kind:'configure', variant, boardMode:size, poolIds:selected, poolName:poolId === 'custom' ? poolName : pool?.name, builtinWordPackId: wordPackId.startsWith('builtin:') ? wordPackId.slice(8) : undefined, customWordPack: personal ? { name:personal.name, entries:personal.entries } : undefined });
+    let selectedPack = personal;
+    if (wordPackId.startsWith('public:')) { try { selectedPack = await getPublicWordPackDetail(wordPackId.slice(7)); } catch { setError('公共词库加载失败'); return; } }
+    send({ kind:'configure', variant, boardMode:size, scoringMode:score, poolIds:selected, poolName:poolId === 'custom' ? poolName : pool?.name, builtinWordPackId: wordPackId.startsWith('builtin:') ? wordPackId.slice(8) : undefined, customWordPack: selectedPack ? { name:selectedPack.name, entries:selectedPack.entries } : undefined });
   };
   const take = (id: number) => send({ kind:'take', workId:id, replaceId: replacement });
   const clickWork = (w: AnimeWork) => {
@@ -117,11 +122,12 @@ export function NextMatchPanel({ room }: { room: PublicRoomState }) {
     {open && <>
       {room.viewer?.isHost && !locked && !room.countdown && <details className="anime-config" open={!plan}>
         <summary>配置{room.phase === 'playing' ? '下一局' : '本次准备'}</summary>
-        <div className="anime-toolbar"><label>玩法 <select value={variant} onChange={e => { setVariant(e.target.value as 'classic'|'anime'); setSize('5x5'); }}><option value="classic">经典词牌</option><option value="anime">动画组牌</option></select></label>
-          <label>棋盘 <select value={size} onChange={e => setSize(e.target.value as BoardMode)}>{(variant === 'anime' ? ['5x5','6x6'] : ['5x5','7x7','9x9']).map(s => <option key={s}>{s}</option>)}</select></label>
+        <div className="anime-toolbar"><label>玩法 <select aria-label="玩法" value={variant} onChange={e => { setVariant(e.target.value as 'classic'|'anime'); setSize('5x5'); }}><option value="classic">经典词牌</option><option value="anime">动画组牌</option></select></label>
+          <label>棋盘 <select aria-label="棋盘" value={size} onChange={e => setSize(e.target.value as BoardMode)}>{(variant === 'anime' ? ['5x5','6x6'] : ['5x5','7x7','9x9']).map(s => <option key={s}>{s}</option>)}</select></label>
+          <label>计分 <select aria-label="下一局计分" value={score} onChange={e => setScore(e.target.value as typeof score)}><option value="classic">经典胜场</option><option value="scoring">积分</option><option value="gamble">原有赌博计分</option></select></label>
         </div>
-        {variant === 'classic' ? <label>文字题库 <select value={wordPackId} onChange={e => setWordPackId(e.target.value)}><option value="">沿用上次</option>{wordPackSummaries.map(p => <option key={p.id} value={`builtin:${p.id}`}>{p.name}</option>)}{accountPacks.map(p => <option key={p.id} value={`mine:${p.id}`}>{p.name}</option>)}</select></label> : <>
-          <label>动画作品池 <select value={poolId} onChange={e => setPoolId(e.target.value)}>{[...pools,...savedPools].map(p => <option key={p.id} value={p.id}>{p.name}（{p.workIds.length} 部）</option>)}<option value="custom">自定义作品池</option></select></label>
+        {variant === 'classic' ? <label>文字题库 <select value={wordPackId} onChange={e => setWordPackId(e.target.value)}><option value="">沿用上次</option>{wordPackSummaries.map(p => <option key={p.id} value={`builtin:${p.id}`}>{p.name}</option>)}{accountPacks.map(p => <option key={p.id} value={`mine:${p.id}`}>{p.name}</option>)}{publicPacks.map(p => <option key={p.publicId} value={`public:${p.publicId}`}>{p.name} · {p.ownerUsername}</option>)}</select></label> : <>
+          <label>动画作品池 <select aria-label="动画作品池" value={poolId} onChange={e => setPoolId(e.target.value)}>{[...pools,...savedPools].map(p => <option key={p.id} value={p.id}>{p.name}（{p.workIds.length} 部）</option>)}<option value="custom">自定义作品池</option></select></label>
           {poolId === 'custom' && <div className="anime-pool-editor"><input aria-label="动画题库名称" value={poolName} onChange={e => setPoolName(e.target.value)} /><input aria-label="搜索目录" placeholder="搜索作品，勾选加入题库" value={query} onChange={e => setQuery(e.target.value)} />
             <p>已选 {customIds.length} 部 / {new Set(catalog.filter(w => customIds.includes(w.id)).map(w => w.seriesId)).size} 个系列</p>
             <div className="anime-pool-list">{catalog.filter(w => `${w.fullTitle} ${w.aliases.join(' ')}`.toLowerCase().includes(query.toLowerCase())).map(w => <label key={w.id}><input type="checkbox" checked={customIds.includes(w.id)} onChange={() => setCustomIds(ids => ids.includes(w.id) ? ids.filter(id => id !== w.id) : [...ids,w.id])} />{w.fullTitle}</label>)}</div>
