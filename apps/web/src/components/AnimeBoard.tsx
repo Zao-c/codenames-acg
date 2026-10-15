@@ -8,9 +8,8 @@ export function Cover({ work }: { work: AnimeWork }) {
 }
 export function Preview({ work, close, children }: { work: AnimeWork; close: () => void; children?: React.ReactNode }) {
   return <Dialog title={work.fullTitle} close={close}><section className="anime-modal">
-    <button className="anime-modal-close" onClick={close}>关闭预览</button>
     <Cover work={work}/><h2>{work.fullTitle}</h2><p>{work.type} · {work.airDate}</p><p>{work.aliases.join(' / ')}</p>
-    <a href={`https://bgm.tv/subject/${work.id}`} target="_blank" rel="noreferrer">Bangumi 作品详情</a>{children}
+    <a className="anime-bgm-link" href={`https://bgm.tv/subject/${work.id}`} target="_blank" rel="noopener noreferrer">在 Bangumi 查看</a>{children}
   </section></Dialog>;
 }
 

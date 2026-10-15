@@ -4,6 +4,7 @@ import { Cover, Preview } from './AnimeBoard';
 export { AnimeBoard } from './AnimeBoard';
 import { Dialog } from './UI';
 import { DraftWorkspace } from './DraftWorkspace';
+import type { DropAction } from './DraftTile';
 import { getPublicWordPackDetail } from '../lib/api';
 import { useGame } from '../context/GameContext';
 
@@ -42,6 +43,7 @@ export function NextMatchPanel({ room }: { room: PublicRoomState }) {
   const [typeFilter,setTypeFilter]=useState('all');
   const [claimFilter,setClaimFilter]=useState('all');
   const [preview, setPreview] = useState<AnimeWork | null>(null);
+  const [interfere, setInterfere] = useState<AnimeWork | null>(null);
   const [replacement, setReplacement] = useState<number>();
   const [error, setError] = useState('');
   const [savedPools, setSavedPools] = useState<AnimePool[]>([]);
@@ -69,11 +71,13 @@ export function NextMatchPanel({ room }: { room: PublicRoomState }) {
     if (wordPackId.startsWith('public:')) { try { selectedPack = await getPublicWordPackDetail(wordPackId.slice(7)); } catch { setError('公共词库加载失败'); return; } }
     send({ kind:'configure', variant, boardMode:size, scoringMode:score, poolIds:selected, poolName:poolId === 'custom' ? poolName : pool?.name, builtinWordPackId: wordPackId.startsWith('builtin:') ? wordPackId.slice(8) : undefined, customWordPack: selectedPack ? { name:selectedPack.name, entries:selectedPack.entries } : undefined });
   };
-  const take = (id: number) => send({ kind:'take', workId:id, replaceId: replacement });
-  const clickWork = (w: AnimeWork) => {
+  const take = (id: number) => { send({ kind:'take', workId:id, replaceId: replacement }); if (replacement !== undefined) setReplacement(undefined); };
+  const dropWork = (w: AnimeWork, action: DropAction) => {
+    if (!team || !draft) return;
     const claim = claims[w.id];
-    if (!team || !draft || (claim && claim.team !== team) || claim?.kind === 'interference') { setPreview(w); return; }
-    if (claim?.team === team) send({ kind:'release', workId:w.id }); else take(w.id);
+    if (action === 'take') { if (claim?.kind !== 'interference' && claim?.team !== team) take(w.id); }
+    else if (action === 'release') { if (claim?.team === team && claim.kind === 'manual') send({ kind:'release', workId:w.id }); }
+    else if (action === 'interfere') { if (!claim && remaining > 20) setInterfere(w); }
   };
   const controls = plan && <>
         <div className="anime-toolbar">{(['red','blue'] as const).map(t => <label key={t}>{TEAM_LABELS[t]}下局队长 <select aria-label={`${TEAM_LABELS[t]}下局队长`} value={plan.captains[t] ?? ''} disabled={!room.viewer?.isHost && team !== t} onChange={e => send({kind:locked ? 'transfer':'nominate',team:t,targetId:e.target.value})}><option value="">请选择</option>{room.players.filter(p => p.team === t).map(p => <option key={p.id} value={p.id}>{p.nickname}</option>)}</select></label>)}</div>
@@ -82,8 +86,7 @@ export function NextMatchPanel({ room }: { room: PublicRoomState }) {
         {plan.stage === 'guide' && team && <div className="anime-guide"><p>先浏览真实候选池，私人书签仅自己可见。双方确认后开始 180 秒组牌。</p><button className="primary-button" disabled={plan.captainView?.ready[team]} onClick={() => send({kind:'ready'})}>准备好了 / 跳过引导</button><p>红队 {plan.captainView?.ready.red ? '已确认':'浏览中'} · 蓝队 {plan.captainView?.ready.blue ? '已确认':'浏览中'}</p></div>}
         
         {draft && team && <><div className="anime-toolbar"><strong>{TEAM_LABELS[team]}手选 {own.length} / {quota?.manual}</strong><label>替换 <select aria-label="替换己方牌" value={replacement ?? ''} onChange={e => setReplacement(e.target.value ? Number(e.target.value):undefined)}><option value="">不替换</option>{own.map(id => <option key={id} value={id}>{list.find(w => w.id === id)?.title}</option>)}</select></label><button disabled={plan.captainView?.done[team]} onClick={() => send({kind:'done'})}>手选完成，剩余随机补齐</button></div>
-          <p className="hint-text">点空闲牌领取，点己方牌撤回；长按对方牌抢夺，长按空闲牌投放干扰。也可拖动或从详情按钮操作。</p>
-          <div className="draft-drop-zones"><div onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); take(Number(e.dataTransfer.getData('text/plain'))); }}>拖到己方领取 / 抢夺</div><div onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); send({kind:'release',workId:Number(e.dataTransfer.getData('text/plain'))}); }}>拖回空闲区撤回</div></div>
+          <p className="hint-text">单击作品可预览，并可在预览中领取 / 撤回 / 抢夺 / 投放干扰；也可以直接拖动：拖到右侧阵容区领取或抢夺，拖到干扰槽投放干扰（需再次确认），拖回候选池撤回。</p>
         </>}
         {plan.stage === 'sealed' && room.phase === 'lobby' && room.viewer?.isHost && !room.countdown && <button className="primary-button" onClick={() => socket.emit('start_game',{roomId:room.id})}>开始五秒倒计时</button>}
         {plan.stage === 'sealed' && <p className="draft-sealed">准备已封存，等待房主五秒开局。</p>}
@@ -109,7 +112,7 @@ export function NextMatchPanel({ room }: { room: PublicRoomState }) {
       </details>}
       {plan && <>
         <DraftWorkspace plan={plan} team={team} time={time} remaining={remaining} controls={controls} works={visible} query={query} setQuery={setQuery} typeFilter={typeFilter} setTypeFilter={setTypeFilter} claimFilter={claimFilter} setClaimFilter={setClaimFilter} onlyBookmarks={onlyBookmarks} setOnlyBookmarks={setOnlyBookmarks}
-          onTap={clickWork} onLong={w=>{if(!team||!draft)return;if(!claims[w.id])send({kind:'interfere',workId:w.id});else if(claims[w.id].team!==team)take(w.id);}} onPreview={setPreview} onBookmark={team ? w=>send({kind:'bookmark',workId:w.id}) : undefined}/>
+          onDrop={dropWork} onPreview={setPreview} onBookmark={team ? w=>send({kind:'bookmark',workId:w.id}) : undefined}/>
       </>}
       {error && <p className="error-text" role="alert">{error}</p>}
     {room.phase === 'playing' && room.viewer?.isHost && plan && <details><summary>当前局队长交接</summary>{(['red','blue'] as const).map(t => <label key={t}>{TEAM_LABELS[t]}<select aria-label={`${TEAM_LABELS[t]}当前队长交接`} value="" onChange={e => send({kind:'transfer',team:t,targetId:e.target.value})}><option value="">选择接任队员</option>{room.players.filter(p => p.team === t && p.role !== 'spymaster').map(p => <option key={p.id} value={p.id}>{p.nickname}</option>)}</select></label>)}</details>}
@@ -122,6 +125,16 @@ export function NextMatchPanel({ room }: { room: PublicRoomState }) {
     {!plan && !room.viewer?.isHost && <div className="plan-readonly"><strong>经典词牌 · {room.settings.boardMode}</strong><p>{room.wordPackSummary.name}</p><p className="hint-text">社长正在配置玩法。选择队伍与席位后，等待社长开局。</p></div>}
     {plan && room.phase!=='playing' && <p className="hint-text">{plan.variant==='anime'?'动画组牌':'经典词牌'} · {plan.settings.boardMode} · {plan.poolName} · {TEAM_LABELS[plan.startingTeam]}先手</p>}
     {open && (room.phase==='playing'?<Dialog title="下一局计划" close={()=>setOpen(false)} wide>{content}</Dialog>:content)}
-    {preview && <Preview work={preview} close={() => setPreview(null)}>{team && draft && <div className="anime-toolbar"><button onClick={() => { take(preview.id); setPreview(null); }}>领取 / 抢夺</button><button onClick={() => { send({kind:'interfere',workId:preview.id}); setPreview(null); }}>投放为对方干扰牌</button></div>}</Preview>}
+    {preview && <Preview work={preview} close={() => setPreview(null)}>{team && draft && (() => { const c = claims[preview.id];
+      if (c?.kind === 'interference') return <p className="hint-text">这是本方投放的干扰牌，不能撤回或抢夺。</p>;
+      if (c?.team === team) return <div className="anime-toolbar"><button onClick={() => { send({kind:'release',workId:preview.id}); setPreview(null); }}>撤回这张</button></div>;
+      if (c) return <div className="anime-toolbar"><button className="primary-button" onClick={() => { take(preview.id); setPreview(null); }}>抢夺这张</button></div>;
+      return <div className="anime-toolbar"><button className="primary-button" onClick={() => { take(preview.id); setPreview(null); }}>领取这张</button>{remaining > 20 && <button onClick={() => { setInterfere(preview); setPreview(null); }}>投放为干扰牌</button>}</div>;
+    })()}</Preview>}
+    {interfere && team && <Dialog title="投放干扰牌" close={() => setInterfere(null)}>
+      <div className="anime-confirm"><p>将《{interfere.title}》伪装为{TEAM_LABELS[team === 'red' ? 'blue' : 'red']}的手选牌？对方队长会在候选池中看到它属于{TEAM_LABELS[team === 'red' ? 'blue' : 'red']}；每队每局限一张，再次投放会替换原牌，投放后不可撤回，最后 20 秒禁止更改。</p>
+        <button className="primary-button" onClick={() => { send({kind:'interfere',workId:interfere.id}); setInterfere(null); }}>确认投放</button>
+        <button onClick={() => setInterfere(null)}>取消</button></div>
+    </Dialog>}
   </section>;
 }

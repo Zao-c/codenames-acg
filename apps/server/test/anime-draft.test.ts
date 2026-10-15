@@ -78,6 +78,16 @@ try {
   await assert.rejects(act(1,{kind:'take',workId:contested,replaceId:w}));
   assert.equal(JSON.stringify((await current()).nextPlan!.claims),saved);
   await act(1,{kind:'interfere',workId:next.candidates[2].id});
+  {
+    const interfered = next.candidates[2].id;
+    const victim = game.getPublicRoomState(await current(),players[2].id,'player').nextPlan!.captainView!;
+    const source = game.getPublicRoomState(await current(),players[1].id,'player').nextPlan!.captainView!;
+    assert.equal(victim.claims[interfered].kind,'manual');
+    assert.equal(victim.claims[interfered].team,'blue');
+    assert.equal('from' in victim.claims[interfered],false);
+    assert.equal(source.claims[interfered].kind,'interference');
+    assert.equal(source.claims[interfered].from,'red');
+  }
   await assert.rejects(act(2,{kind:'release',workId:next.candidates[2].id}));
   await act(1,{kind:'done'});
   await act(2,{kind:'take',workId:next.candidates[3].id});

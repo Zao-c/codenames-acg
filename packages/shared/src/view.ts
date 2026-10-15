@@ -11,6 +11,7 @@ import type {
   ViewerIdentity,
   ViewerState
 } from "./types.js";
+import type { DraftClaim } from "./anime.js";
 
 export function isSpymaster(viewer: ViewerIdentity): boolean {
   return viewer.role === "spymaster" || viewer.revealAll === true;
@@ -185,12 +186,21 @@ export function sanitizeRoom(room: Room, viewer: ViewerIdentity = {}): PublicRoo
   const plan = room.nextPlan;
   const myTeam = viewer.participantType === 'player' && room.players.some(p => p.id === viewer.participantId)
     ? (['red','blue'] as const).find(team => plan?.captains[team] === viewer.participantId) : undefined;
+  // Interference picks stay disguised for the opposing captain: only the placing team keeps kind/from.
+  const captainClaims = myTeam && plan && plan.stage !== 'sealed'
+    ? Object.fromEntries(Object.entries(plan.claims).map(([id, claim]): [string, DraftClaim] => {
+        if (claim.kind !== 'interference' || claim.from === myTeam) return [id, claim];
+        const masked = { ...claim, kind: 'manual' as const, protectedUntil: plan.activityAt || claim.protectedUntil };
+        delete masked.from;
+        return [id, masked];
+      }))
+    : undefined;
   const nextPlan = plan ? {
     id: plan.id, version: plan.version, variant: plan.variant, settings: plan.settings,
     poolName: plan.poolName, poolIds: plan.pool.map(w => w.id), candidates: plan.candidates,
     startingTeam: plan.startingTeam, stage: plan.stage, captains: plan.captains, endsAt: plan.endsAt,
     myTeam, myBookmarks: myTeam ? plan.bookmarks[viewer.participantId!] ?? [] : undefined,
-    captainView: myTeam && plan.stage !== 'sealed' ? { claims: plan.claims, ready: plan.ready, done: plan.done } : undefined,
+    captainView: captainClaims ? { claims: captainClaims, ready: plan.ready, done: plan.done } : undefined,
   } : undefined;
 
   return {
