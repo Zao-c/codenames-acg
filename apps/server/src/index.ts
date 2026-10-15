@@ -553,6 +553,12 @@ async function bootstrap(): Promise<void> {
   }
 
   function bind(socketId: string, roomId: string, participantId: string, participantType: ParticipantType): void {
+    for (const [oldId, old] of socketSessions) {
+      if (oldId !== socketId && old.roomId === roomId && old.participantId === participantId) {
+        socketSessions.delete(oldId);
+        io.sockets.sockets.get(oldId)?.leave(roomId);
+      }
+    }
     socketSessions.set(socketId, { roomId, participantId, participantType });
   }
 
@@ -1432,7 +1438,7 @@ async function bootstrap(): Promise<void> {
       if (!session) {
         return;
       }
-      const room = await game.markDisconnected(session.roomId, session.participantId, session.participantType);
+      const room = await game.markDisconnected(session.roomId, session.participantId, session.participantType, () => ![...socketSessions.values()].some(s => s.roomId === session.roomId && s.participantId === session.participantId));
       if (room) {
         await sendRoomState(room.id);
       } else {
