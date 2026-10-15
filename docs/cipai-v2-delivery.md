@@ -50,3 +50,12 @@
 ## 后续边界
 
 本批不包含团队关联图、思路图、观众预测和动画社区治理。无需为这些第二批功能阻塞第一批联机。
+
+## 正式部署结果
+
+- 2026-10-15 19:45（北京时间）已部署应用提交 `2c07037ed18840cbc5d339caf49f025fccc62868`，入口：http://182.61.136.105 。服务器 release.json 记录应用提交与备份位置。
+- 完整备份：`/opt/codenames-backups/cipai-v2-2c07037/before.tar.gz`，目录仅 root 可访问；另存 systemd 单元、原 Git HEAD 和工作区状态。
+- 部署前对已下载的线上修改文件逐个比较 SHA-256，确认没有并发改动；备份前后均确认无在线房间。
+- systemd active，Nginx /health 返回 ok，动画目录返回 1810 部。
+- 正式网站也通过四游客客户端、两手机视口、三局连续完整浏览器验收；回放接口均成功，零前端异常。结束后测试房间已解散，/rooms 返回空数组。
+- 分阶段 PR：[#1 G0](https://github.com/Zao-c/codenames-acg/pull/1) → [#2 G1](https://github.com/Zao-c/codenames-acg/pull/2) → [#3 G2–G4](https://github.com/Zao-c/codenames-acg/pull/3) → [#4 G5](https://github.com/Zao-c/codenames-acg/pull/4)。均保留开放审阅状态，线上运行完整功能分支构建。
