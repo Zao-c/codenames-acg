@@ -1,3 +1,4 @@
+import { AnimeBoard, NextMatchPanel, StartCountdown } from "../components/AnimePlay";
 import { useCallback, useEffect, useState, useMemo, useRef, type KeyboardEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { copyText } from "../lib/clipboard";
@@ -155,11 +156,14 @@ export function RoomPage() {
         </header>
       )}
 
+      <StartCountdown room={room} />
+      {(room.animeEnabled || room.nextPlan) && <NextMatchPanel room={room} />}
+
       {isLobby && !focusMode ? (
         <>
           <SeatPanel self={self} room={room} viewer={viewer} g={g} reactionEffects={reactionEffects} />
           <MembersPanel room={room} selfId={session?.participantId} collapsedSections={collapsedSections} toggleSection={toggleSection} reactionEffects={reactionEffects} sendReaction={sendReaction} />
-          {viewer?.participantType === "player" ? (
+          {viewer?.participantType === "player" && room.nextPlan?.variant !== "anime" ? (
             <LobbySettings room={room} viewer={viewer} self={self} g={g} accountPacks={accountPacks} publicPacks={publicPacks} makePublicPackKey={makePublicPackKey} />
           ) : null}
           {viewer?.canDisbandRoom ? (
@@ -484,11 +488,11 @@ function SeatPanel({ self, room, viewer, g, reactionEffects }: {
       </div>
       {viewer?.participantType === "player" && isSelfPlayer ? (
         <div className="selection-grid">
-          <button className={self.team === "red" ? "selected" : ""} disabled={!isLobby} onClick={() => chooseTeam("red")}>红队</button>
-          <button className={self.team === "blue" ? "selected" : ""} disabled={!isLobby} onClick={() => chooseTeam("blue")}>蓝队</button>
-          <button className={self.team === null ? "selected" : ""} disabled={!isLobby} onClick={() => chooseTeam(null)}>待定</button>
-          <button className={self.role === "spymaster" ? "selected" : ""} disabled={!isLobby || !self.team} onClick={() => chooseRole("spymaster")}>队长</button>
-          <button className={self.role === "operative" ? "selected" : ""} disabled={!isLobby || !self.team} onClick={() => chooseRole("operative")}>队员</button>
+          <button className={self.team === "red" ? "selected" : ""} disabled={!isLobby || !!room?.countdown || (room?.nextPlan?.stage === "draft" || room?.nextPlan?.stage === "sealed")} onClick={() => chooseTeam("red")}>红队</button>
+          <button className={self.team === "blue" ? "selected" : ""} disabled={!isLobby || !!room?.countdown || (room?.nextPlan?.stage === "draft" || room?.nextPlan?.stage === "sealed")} onClick={() => chooseTeam("blue")}>蓝队</button>
+          <button className={self.team === null ? "selected" : ""} disabled={!isLobby || !!room?.countdown || (room?.nextPlan?.stage === "draft" || room?.nextPlan?.stage === "sealed")} onClick={() => chooseTeam(null)}>待定</button>
+          <button className={self.role === "spymaster" ? "selected" : ""} disabled={!isLobby || !self.team || !!room?.countdown || (room?.nextPlan?.stage === "draft" || room?.nextPlan?.stage === "sealed")} onClick={() => chooseRole("spymaster")}>队长</button>
+          <button className={self.role === "operative" ? "selected" : ""} disabled={!isLobby || !self.team || !!room?.countdown || (room?.nextPlan?.stage === "draft" || room?.nextPlan?.stage === "sealed")} onClick={() => chooseRole("operative")}>队员</button>
         </div>
       ) : (
         <div className="toolbar-inline" style={{ gap: 8 }}>
@@ -710,6 +714,8 @@ function BoardPanel({ room, viewer, g, cardMarks, markCard }: {
   const { boardColumns, canSeeHiddenRoles, showSpymasterHints, maskSpymasterHints, setMaskSpymasterHints, revealingCardIds, pendingGuess, guessCard: doGuess, renderHint } = g;
   const boardSizeClass = `board-${boardColumns}`;
   const [showPrivacyTip, setShowPrivacyTip] = useState(false);
+
+  if (room.settings.variant === "anime") return <AnimeBoard room={room} />;
 
   const turnBanner = room.phase === "playing" && room.clue
     ? `${TEAM_LABELS[room.currentTeam]}队员 · 请选择词牌`
