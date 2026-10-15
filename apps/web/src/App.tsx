@@ -74,11 +74,19 @@ export default function App() {
     }
   }, []);
 
+  const sectionInfo: Record<string,[string,string]> = {
+    '/create':['创建你的房间','选择词牌对局或揭幕猜番，邀请同好一起开局。'],
+    '/packs':['文字题库','收藏熟悉的词，也留一点意料之外。'],
+    '/gallery':['动画图库','管理图片与答案，为下一场揭幕准备素材。'],
+    '/profile':['我的结社档案','记录共同经历的对局、默契与高光。']
+  };
+  const info=sectionInfo[location.pathname];
   return (
     <div className="app-shell">
       <main className={`page ${location.pathname.startsWith("/room/") ? "page-room" : "page-main"}`}>
         <AppNav />
-        <Routes>
+        {info && <header className="page-intro"><p className="eyebrow">词牌结社 / {info[0]}</p><h1>{info[0]}</h1><p>{info[1]}</p></header>}
+        <div className={`route-content ${location.pathname.startsWith('/replay/')?'route-replay':''}`}><Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/create" element={<CreateRoomPage />} />
@@ -87,7 +95,7 @@ export default function App() {
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/replay/:replayId" element={<ReplayPage />} />
           <Route path="/room/:roomId" element={<RoomGuard />} />
-        </Routes>
+        </Routes></div>
       </main>
       <MobileNav />
     </div>

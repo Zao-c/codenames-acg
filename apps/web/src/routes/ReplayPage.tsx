@@ -6,7 +6,7 @@ import { TEAM_LABELS, type GameReplay, type Team } from "@acg-codenames/shared";
 
 function ReplayBoard({ finalBoard }: { finalBoard: GameReplay["finalBoard"] }) {
   return (
-    <div className="replay-board">
+    <div className="replay-board" style={{gridTemplateColumns:`repeat(${Math.sqrt(finalBoard.length)}, minmax(0,1fr))`}}>
       {finalBoard.map((card) => (
         <div
           key={card.id}
