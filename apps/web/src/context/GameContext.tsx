@@ -1199,7 +1199,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (!session || !text.trim() || chatSendLockRef.current) return;
     if(!socket.connected){setChatError('连接已断开，恢复后可重试。');return;}
     chatSendLockRef.current=true;setChatPending(true);setChatError('');
-    const attempt=chatRetryRef.current?.text===text?chatRetryRef.current:{text,requestId:crypto.randomUUID()};
+    const attempt=chatRetryRef.current?.text===text?chatRetryRef.current:{text,requestId:genId()};
     chatRetryRef.current=attempt;
     const timer=setTimeout(()=>{chatSendLockRef.current=false;setChatPending(false);setChatError('发送未确认，请重试；同一条消息不会重复发送。');},8000);
     socket.emit('send_chat_message',{roomId:session.roomId,text,requestId:attempt.requestId},result=>{
