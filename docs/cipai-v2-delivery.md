@@ -90,3 +90,25 @@
 - 正式网站浏览器验收（`artifacts/prod-acceptance-e21aacb/`，四客户端：两个桌面 1440/1920 + 两个手机触摸 390/360，经典→动画 6×6→经典三局连续）10/10 通过、零前端异常；含新规则断言：真实触摸长按干扰＋二次确认后双方队长均可见干扰且不占手选配额；两个独立回放页正常。
 - 提交前本地回归：`npm run typecheck`、`npm run test:rules`（含新增 match-analysis.test.ts）、`npm run test:e2e:local`（41/41）、`npm run build` 通过。`test:browser:local` 前 8 项检查通过，回放页步骤触发本机 123 请求/分钟限流边界 429；用基线 `219dcb3` 同机复现相同计数与同点 429，确认非本批代码回归（正式网站验收未触发）。
 - 回滚：停服务后从该备份恢复源码与 dist 并重启，或 `git checkout -f 219dcb3` 后重新 build；账号与图库磁盘数据不受影响。新 schema（`privateMatch` 等）只在开关启用时写入，线上开关默认关闭，回滚窗口内无进行中依赖。
+
+## 第二批社区部署结果（2026-10-16 · 34c85ef）
+
+- 北京时间 13:13 部署应用提交 `34c85ef47f15b6859b971f12913926abe7713e75`（分支 `codex/cipai-phase2-community`，[PR #7](https://github.com/Zao-c/codenames-acg/pull/7) 指向该提交），入口：http://182.61.136.105 。服务器 release.json 已更新（上一版 `e21aacb`），deployedAt `2026-10-16T05:13:54Z`。
+- 范围（P2-6/P2-7 与 P2-8 验收）：动画题库社区（公开搜索、复制、收藏、举报、管理员隐藏/恢复与处理记录）、私有身份凭证备份/恢复、房间按社区池 ID+revision 选题快照、私密复盘入口等；三个开关 `ENABLE_ANIME_COMMUNITY` / `ENABLE_MATCH_ANALYSIS` / `ENABLE_PREDICTIONS` 首次开启；社区池文件 `ANIME_POOL_STORE_FILE=/opt/codenames-acg/apps/server/data/anime-pools.json`。社区验收所用测试池已隐藏。
+- 部署前核对与备份：`/opt/codenames-backups/cipai-phase2-community-34c85ef/`（before.tar.gz 1,170,094 B，含源码、dist、原 release.json、server.env、systemd 单元与原 HEAD；目录仅 root 可访问）。
+- 构建与重启：shared/server 13:09、web 13:10 三包同版本构建；web 产物 `index-BPj5KJiv.js`（498,464 B）/ `index-SJEPYXVX.css`（95,555 B）；13:13:09 重启 `codenames.service`。
+- 核验与验收：systemd active；Nginx 首页引用新产物且 JS/CSS 均 200。正式网站浏览器验收：`artifacts/prod-acceptance-34c85ef/report.json` 10 项全过（四客户端桌面 1440/1920 + 手机触摸 390/360，经典→动画三局连续，含双方队长可见干扰且不占手选配额），零前端异常；第二批联机验收 `artifacts/prod-acceptance-34c85ef/phase2/report.json` 4 项全过（社区创建/私有身份/复制/收藏/移动主题/举报与管理员隐藏恢复、按池版本封存 36 卡对局、团队图与私密意图/预测/快照/受权私密复盘无公共泄漏、线索快照与跨设备身份恢复）。
+- 回滚：停服务后从该备份恢复源码、dist、server.env 并重启，或 `git checkout -f e21aacb` 后重新 build；账号、图库与社区池文件为磁盘数据，不受影响。
+
+## 客户端身份热修部署结果（2026-10-16 · bca57d6）
+
+- 事故：上述部署（13:13）后约一分钟（13:14 起），用户本机在登录页/个人资料处持续报「username 参数无效」（`POST /api/users/login` 返回 400，响应体 `{"message":"username 参数无效"}`）。nginx 日志显示全部 400 均来自该用户本机浏览器；服务端账号数据与配置正常。
+- 根因（客户端）：13:14:11 一次登录 `HTTP 200`（响应体 284,404 B）在浏览器端读取失败；`api.ts` 的 `request()` 把 2xx 响应体解析失败静默当作成功（`response.json().catch(() => ({}))`）→ 自动重登链路把空身份 `{"mode":"named"}`（无 username）写入 localStorage → 此后每次页面加载自动重登都发送 `{}`，服务端按 username 缺失拒绝，形成 400 死循环。Chrome Storage 写入时间线与 nginx 日志互证；本地用坏身份基线复现了死循环。
+- 修复 `bca57d6`（web-only，4 文件 +210/−6）：`api.ts` 2xx 解析失败改为抛错（“服务器响应异常，请重试”）；`GameContext` 自动重登前置校验 username，缺失则清理本地身份并提示重新登录，三处身份写入前校验；`storage.ts` 拒绝写入无 username 的 named 身份、过滤最近用户空项；新增回归脚本 `scripts/repro-identity-recovery.mjs`。
+- 本地验证：修复前基线复现（空体登录 + 400 死循环）；修复后专项 9/9（坏身份不再触发登录请求、自动清理并提示重登；正常登录、历史清理与健康路径无回归）；`npm run typecheck`、`npm run build -w @acg-codenames/web`、`test-browser-local.mjs` 10/10、`--phase2` 4/4 全过。
+- 部署（web-only 静态更新，未重启服务）：git bundle 同步（`34c85ef..bca57d6`）→ `git checkout -f bca57d6` → 仅 `npm run build -w @acg-codenames/web`（nice 降优先级 + 限内存），产物哈希与本地一致（JS `a6637a64…` / CSS `d437cc77…`）。Node 进程 PID 226174 保持未重启，房间/会话不受影响。
+- 备份与元数据：`/opt/codenames-backups/cipai-hotfix-bca57d6/`（before-web-dist.tar.gz 170,758 B、部署前 release.json、原 HEAD）；release.json deployedAt `2026-10-16T07:07:00Z`。
+- 线上验收（`artifacts/prod-acceptance-bca57d6/`）：对生产站点注入坏身份载入后——新产物 `index-CQtGKyj-.js` 200（旧产物 404）、零登录请求、本地身份自动清空、提示「本地登录信息已失效，请重新登录」、最近用户仅显示 `Sparrow`；截图 `corrupted-identity-recovery.png`。
+- 用户恢复：受影响的浏览器在热修后首次加载会自动清理坏身份并提示重新登录，重登一次即恢复；无需清缓存或手动操作。
+- 回滚：`git checkout -f 34c85ef` 后仅重建 web 并替换 dist（无需重启服务），或直接还原备份中的 `before-web-dist.tar.gz`；服务端与磁盘数据不受影响。
+- 说明：本记录为纯文档提交（不含代码）；线上应用仍为 `bca57d6` 及其构建产物。

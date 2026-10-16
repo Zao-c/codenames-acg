@@ -1,6 +1,6 @@
 # 《词牌结社 2.0》实施状态报告
 
-> 更新：2026-10-16（本地社区交付）。前任记录生产应用 `e21aacb`；本轮只做本地开发/测试/commit/push，未访问服务器。第二批 P2-0～P2-5 基础已存在，本地分支 `codex/cipai-phase2-community` 已补齐社区与集成验收。部署交给用户指定的其他 AI。续接见 [Agent 入口](AGENT_HANDOFF.md) 和 [本地交付说明](PHASE2_LOCAL_DELIVERY.md)。
+> 更新：2026-10-16（第二批社区与身份热修上线）。生产应用 `bca57d6`（分支 `codex/cipai-phase2-community`，[PR #7](https://github.com/Zao-c/codenames-acg/pull/7)；前一版 `34c85ef` 同日上线）；第二批 P2-0～P2-8 已上线，三开关开启。续接见 [Agent 入口](AGENT_HANDOFF.md) 和 [本地交付说明](PHASE2_LOCAL_DELIVERY.md)。
 > 权威范围提醒：功能语义与规则以《词牌结社_2.0_最终开发规格与AI执行指南.md》为准；纯视觉与交互以 UI 改版文档及衔接说明为准；本文只描述“现在实际是什么样”。第二批须先做需求差异核对与计划，Batch 3 范围未确认，不得提前实现。
 
 ## 1. 线上现状
@@ -8,13 +8,13 @@
 | 项 | 值 |
 | --- | --- |
 | 生产入口 | http://182.61.136.105 （Nginx 80 → 前端静态产物；`/api`、`/socket.io` 代理到 Node 3001） |
-| 部署提交 | `e21aacb285cf3c5a9f3fcdb713c827da90be89d1`（分支 `codex/cipai-phase2`，堆叠 PR [#6](https://github.com/Zao-c/codenames-acg/pull/6)；前版 `219dcb3`，分支 `codex/cipai-ui-redesign`，PR [#5](https://github.com/Zao-c/codenames-acg/pull/5)，均保持开放） |
-| 上一版本 | `219dcb3e489c01ff64188c22abde30a20ec1d756`（候选卡交互修正）；再前 `82e3913`（界面重做）、`2c07037`（第一批交付） |
-| 部署方式 | `/opt/codenames-acg` git checkout + `npm run build`（shared→server→web 同版本）+ `systemctl restart codenames.service` |
-| 备份 | `/opt/codenames-backups/cipai-phase2-e21aacb/`（before.tar.gz 含源码、dist、release.json、git 状态，另存 systemd 单元与部署前 release.json）；服务器 `release.json` 记录当前/上一提交与备份路径 |
-| 运行数据 | 房间与回放为单进程内存（无 Redis，重启清空）；账号、图库为磁盘数据；动画目录 1810 部、128 个池（`/api/anime/catalog` 实测） |
+| 部署提交 | `bca57d6deda5c438d95899a591c0d24f8bcf9199`（分支 `codex/cipai-phase2-community`，[PR #7](https://github.com/Zao-c/codenames-acg/pull/7)；客户端身份热修，web-only 未重启） |
+| 上一版本 | `34c85ef47f15b6859b971f12913926abe7713e75`（第二批社区，同日 13:13 上线）；再前 `e21aacb`（PR #6）、`219dcb3`（PR #5）、`82e3913`、`2c07037` |
+| 部署方式 | `/opt/codenames-acg` git checkout + `npm run build`（shared→server→web 同版本）+ `systemctl restart codenames.service`；热修 `bca57d6` 仅重建 web 并静态替换 dist（不重启） |
+| 备份 | `/opt/codenames-backups/cipai-phase2-community-34c85ef/`（全量，含 server.env 与 systemd 单元）；`/opt/codenames-backups/cipai-hotfix-bca57d6/`（热修前 web dist + release.json）；服务器 `release.json` 记录当前/上一提交与备份路径 |
+| 运行数据 | 房间与回放为单进程内存（无 Redis，重启清空）；账号、图库、社区池（`/opt/codenames-acg/apps/server/data/anime-pools.json`）为磁盘数据；动画目录 1810 部、128 个池（`/api/anime/catalog` 实测） |
 
-## 2. 已交付能力（累计至 219dcb3）
+## 2. 已交付能力（累计至 bca57d6）
 
 ### 2.1 第一批 G0–G5（2026-10-15 部署 `2c07037`）
 
@@ -46,6 +46,12 @@
 - **P2-2～P2-5**：团队关联板（队员可写、队长只读）、队长私人意图与锁定、翻牌前快照（翻牌事务内深拷贝）、观众红蓝预测（冻结、正常结束评价、主动分享）、受鉴权私密复盘与独立入口；对应前端入口在开关关闭或无权时渲染为空（普通用户无可见变化）。
 - 服务器出站仍经 `sanitizeRoom` 的 viewer 视图裁剪；公共回放与 REST 不携带私有数据。规则差异与解决记录见 [需求复核](PHASE2_REQUIREMENTS_REVIEW.md)，分阶段范围见 [实施计划](PHASE2_IMPLEMENTATION_PLAN.md)。
 
+### 2.5 第二批社区上线与身份热修（2026-10-16 `34c85ef`、`bca57d6`）
+
+- `34c85ef`（第二批社区）：动画题库社区、凭证备份/恢复、房间按池版本选题、私密复盘入口等上线；`matchAnalysis`/`predictions`/`animeCommunity` 三开关开启；线上验收 10 项 + 第二批 4 项全过（`artifacts/prod-acceptance-34c85ef/`）。
+- `bca57d6`（客户端身份热修）：修复「登录响应读取失败 → 空身份写入 localStorage → 自动重登 400 死循环」；2xx 解析失败改为报错，身份写入与自动重登前置校验，坏身份自动清理并提示重新登录；web-only 部署未重启服务；线上注入坏身份验证零空体请求且自动恢复（`artifacts/prod-acceptance-bca57d6/`）。
+- 详细记录、构建哈希与回滚方式见 [交付记录](cipai-v2-delivery.md)。
+
 ## 3. 验证基线（前任部署记录）
 
 - 本地全部通过：`npm run typecheck`；`npm run test:rules`（lifecycle + anime-draft，含新增掩码断言）；`npm run test:e2e:local`（揭幕猜番 41/41）；`npm run build`；`npm run test:browser:local`（10 项验收全过）。
@@ -75,7 +81,7 @@
 4. **自定义动画作品池**仅保存在本浏览器（按昵称），跨设备不同步；公开题库社区属第二批。
 5. **回放存在于内存**，服务重启即丢失；持久化回放不在本批。
 6. 大量封面为外部图片懒加载，弱网首屏较慢（已有失败回退为文字封面）。
-7. **社区所有权已在本地独立实现**：随机设备凭证校验所有者，提供备份/恢复；管理员使用独立服务端凭证。旧 username-only 登录不认领社区资产。凭证绑定的房间身份，即使分析开关关闭，也不允许仅凭同名重新登录继承。新设备恢复凭证的浏览器验收和前队长禁入规则测试见本地交付说明。生产是否开启功能由部署 Agent 核实。
+7. **社区所有权已在本地独立实现**：随机设备凭证校验所有者，提供备份/恢复；管理员使用独立服务端凭证。旧 username-only 登录不认领社区资产。凭证绑定的房间身份，即使分析开关关闭，也不允许仅凭同名重新登录继承。新设备恢复凭证的浏览器验收和前队长禁入规则测试见本地交付说明。生产已开启（2026-10-16 `34c85ef` 部署核实：三开关开启）。
 
 ## 5. 第二批接口与本地实现
 
