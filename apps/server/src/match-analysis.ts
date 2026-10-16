@@ -1,9 +1,17 @@
 import crypto from 'node:crypto';
+import { ensureAnalysisBudget } from './analysis-budget.js';
 import { analysisPermissions, type AnalysisAction, type AssociationGraph, type GraphNode, type GraphEdge, type Room, type ParticipantType } from '@acg-codenames/shared';
 
 export function registerPrincipal(room: Room, participantId: string, principalId?: string): void {
   room.participantPrincipals ??= {};
   room.participantPrincipals[participantId] = principalId ?? crypto.randomUUID();
+}
+
+/** A legacy display-name login must never recover a credential-bound room identity. */
+export function canRestoreNamedParticipant(room: Room, participantId: string, principalId: string | undefined, privateEnabled: boolean): boolean {
+  const expected = room.participantPrincipals?.[participantId];
+  const credentialBound = !!expected && /^[a-f0-9]{64}$/.test(expected);
+  return !(privateEnabled || room.privateMatch || credentialBound) || !!principalId && expected === principalId;
 }
 
 export function initializeAnalysis(room: Room, enabled: boolean, draftExposed: string[] = [], debugHost = false, predictionsEnabled = false): void {
@@ -93,7 +101,7 @@ export function editAnalysis(room: Room, participantId: string, participantType:
   } else throw new Error('图谱操作无效');
   graph.revision += 1;
   state.requests[principal] = [...(state.requests[principal] ?? []), requestId].slice(-256);
-  if (JSON.stringify(state).length > 2_000_000) throw new Error('本局私有数据已达容量上限');
+  ensureAnalysisBudget(room);
 }
 
 export function markSecretExposure(room: Room, participantId: string): void {

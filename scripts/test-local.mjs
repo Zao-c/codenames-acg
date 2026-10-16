@@ -7,7 +7,7 @@ const root = process.cwd();
 const data = await mkdtemp(path.join(tmpdir(), 'cipai-test-'));
 const port = process.env.TEST_PORT ?? '3011';
 const url = `http://127.0.0.1:${port}`;
-const env = { ...process.env, PORT: port, E2E_SERVER_URL: url, USE_MEMORY_STORE: '1', ENABLE_DEBUG_TOOLS: '0', ENABLE_ANIME_DRAFT: '1', USER_STORE_FILE: path.join(data, 'users.json'), REVEAL_IMAGE_DIR: path.join(data, 'images') };
+const env = { ...process.env, PORT: port, E2E_SERVER_URL: url, USE_MEMORY_STORE: '1', ENABLE_DEBUG_TOOLS: '0', ENABLE_ANIME_DRAFT: '1', ENABLE_MATCH_ANALYSIS: '0', ENABLE_PREDICTIONS: '0', ENABLE_ANIME_COMMUNITY: '0', ANIME_POOL_STORE_FILE: path.join(data, 'anime-pools.json'), USER_STORE_FILE: path.join(data, 'users.json'), REVEAL_IMAGE_DIR: path.join(data, 'images') };
 const run = (args) => spawn(process.execPath, args, { cwd: root, env, stdio: 'inherit', windowsHide: true });
 const server = run(['node_modules/tsx/dist/cli.mjs', 'apps/server/src/index.ts']);
 try {

@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { editAnalysis, initializeAnalysis, markSecretExposure, registerPrincipal, snapshotBeforeReveal } from './match-analysis.js';
+import { canRestoreNamedParticipant, editAnalysis, initializeAnalysis, markSecretExposure, registerPrincipal, snapshotBeforeReveal } from './match-analysis.js';
 import { editPrediction } from './predictions.js';
 import { PrivateReplayStore } from './private-replay.js';
 import { AsyncLocalStorage } from "node:async_hooks";
@@ -551,7 +551,7 @@ export class GameService {
   constructor(
     private readonly store: RoomStore,
     private readonly users: UserStore,
-    private readonly options: { enableDebugTools: boolean; disconnectKickDelayMs?: number; enableAnimeDraft?: boolean; enableMatchAnalysis?: boolean; enablePredictions?: boolean } = { enableDebugTools: false },
+    private readonly options: { enableDebugTools: boolean; disconnectKickDelayMs?: number; enableAnimeDraft?: boolean; enableMatchAnalysis?: boolean; enablePredictions?: boolean; resolveCommunityPool?: (id: string, principalId: string) => Promise<import('@acg-codenames/shared').CommunityPool> } = { enableDebugTools: false },
     private readonly replayStore?: ReplayStore
   ) {}
 
@@ -659,7 +659,7 @@ export class GameService {
     );
     if (existing) {
       if ("connected" in existing && !existing.connected && sameStableProfileIdentity(existing.profile, resolvedProfile)
-        && (!(this.options.enableMatchAnalysis || room.privateMatch) || !!principalId && room.participantPrincipals?.[existing.id] === principalId)) {
+        && canRestoreNamedParticipant(room, existing.id, principalId, this.options.enableMatchAnalysis === true)) {
         if ("team" in existing) {
           existing.connected = true;
           existing.sessionToken = crypto.randomUUID();
@@ -716,7 +716,7 @@ export class GameService {
     );
     if (existing) {
       if ("connected" in existing && !existing.connected && sameStableProfileIdentity(existing.profile, resolvedProfile)
-        && (!(this.options.enableMatchAnalysis || room.privateMatch) || !!principalId && room.participantPrincipals?.[existing.id] === principalId)) {
+        && canRestoreNamedParticipant(room, existing.id, principalId, this.options.enableMatchAnalysis === true)) {
         if ("team" in existing) {
           throw new Error("你是本局玩家，请以玩家身份重连");
         }
@@ -1070,6 +1070,7 @@ export class GameService {
       const next = makePlan(nextRoom, now());
       if (plan) {
         next.variant = plan.variant; next.settings = { ...plan.settings }; next.pool = plan.pool; next.poolName = plan.poolName;
+        next.sourcePool = plan.sourcePool;
         next.candidates = candidatesFor(plan.pool, nextRoom.seriesHistory);
         next.captains = { ...plan.captains };
       }
@@ -1845,7 +1846,18 @@ export class GameService {
         if (!host) throw new Error('只有房主可以配置下一局');
         if (plan.stage === 'draft' || plan.stage === 'sealed') throw new Error('正式组牌已锁定，请先取消准备');
         if (action.variant !== 'anime' && action.variant !== 'classic') throw new Error('玩法无效');
+        const configuredVariant = action.variant;
         if (action.variant === 'anime' && !this.options.enableAnimeDraft) throw new Error('动画组牌暂未开放');
+        let sourcePool: import('@acg-codenames/shared').NextPlan['sourcePool'];
+        if (action.communityPoolId !== undefined) {
+          const principal = room.participantPrincipals?.[playerId];
+          if (action.variant !== 'anime' || typeof action.communityPoolId !== 'string' || !Number.isSafeInteger(action.communityPoolRevision) || !principal || !this.options.resolveCommunityPool) throw new Error('社区作品池引用无效');
+          const source = await this.options.resolveCommunityPool(action.communityPoolId, principal);
+          if (source.hidden) throw new Error('该作品池已隐藏，不能用于新的配置');
+          if (source.revision !== action.communityPoolRevision) throw new Error('社区作品池已更新，请刷新后重新选择');
+          action = { ...action, poolIds: source.workIds, poolName: source.name };
+          sourcePool = { id: source.id, revision: source.revision };
+        }
         const boardMode = action.boardMode ?? (action.variant === 'anime' ? '5x5' : room.settings.boardMode);
         if (!(action.variant === 'anime' ? ['5x5','6x6'] : ['5x5','7x7','9x9']).includes(boardMode)) throw new Error('该玩法不支持此棋盘尺寸');
         if (action.scoringMode !== undefined && !['classic','scoring','gamble'].includes(action.scoringMode)) throw new Error('计分选项无效');
@@ -1867,9 +1879,9 @@ export class GameService {
         if (pool.length !== ids.size) throw new Error('作品池包含目录外作品');
         const candidates = action.variant === 'anime' ? candidatesFor(pool, room.seriesHistory) : [];
         if (action.variant === 'anime' && candidates.length < BOARD_MODE_CONFIG[boardMode].size) throw new Error(`所选题库至少需要 ${BOARD_MODE_CONFIG[boardMode].size} 个不同系列，当前只有 ${candidates.length} 个`);
-        plan = { ...plan, wordPack, version: plan.version + 1, variant: action.variant,
+        plan = { ...plan, wordPack, version: plan.version + 1, variant: configuredVariant,
           settings: { ...plan.settings, variant: action.variant, boardMode, scoringMode: action.scoringMode ?? plan.settings.scoringMode, neutralCount: action.variant === 'anime' || boardMode !== plan.settings.boardMode ? undefined : plan.settings.neutralCount },
-          pool, poolName: (action.poolName ?? plan.poolName).slice(0,64), candidates, ready: { red:false, blue:false }, done: { red:false, blue:false }, stage: room.phase === 'playing' ? 'planning' : plan.stage,
+          pool, poolName: (action.poolName ?? plan.poolName).slice(0,64), sourcePool, candidates, ready: { red:false, blue:false }, done: { red:false, blue:false }, stage: room.phase === 'playing' ? 'planning' : plan.stage,
           bookmarks: Object.fromEntries(Object.entries(plan.bookmarks).map(([id, values]) => [id, values.filter(v => candidates.some(w => w.id === v))])) };
       } else if (action.kind === 'nominate' || action.kind === 'transfer') {
         const team = action.team;
@@ -1896,7 +1908,7 @@ export class GameService {
         }
       } else if (action.kind === 'cancel') {
         if (!host) throw new Error('只有房主可以取消准备');
-        plan = { ...makePlan(room,time), variant: plan.variant, settings: plan.settings, pool: plan.pool, poolName: plan.poolName, candidates: plan.candidates, captains: plan.captains, bookmarks: plan.bookmarks, version: plan.version + 1 };
+        plan = { ...makePlan(room,time), variant: plan.variant, settings: plan.settings, pool: plan.pool, poolName: plan.poolName, sourcePool: plan.sourcePool, candidates: plan.candidates, captains: plan.captains, bookmarks: plan.bookmarks, version: plan.version + 1 };
       } else if (action.kind === 'prepare') {
         if (!host || room.phase === 'playing') throw new Error('本局结束后由房主开始下局准备');
         if (plan.stage === 'draft' || plan.stage === 'sealed') throw new Error('已进入正式组牌');
@@ -1937,7 +1949,8 @@ export class GameService {
 
   async analysisAction(roomId: string, participantId: string, participantType: ParticipantType, action: unknown): Promise<Room> {
     return this.withRoomLock(roomId, async () => {
-      const room = structuredClone(await this.requireRoom(roomId));
+      const current = await this.requireRoom(roomId);
+      const room = { ...current, privateMatch: current.privateMatch ? structuredClone(current.privateMatch) : undefined };
       editAnalysis(room, participantId, participantType, action, now());
       room.updatedAt = now();
       await this.store.setRoom(room);
@@ -1947,7 +1960,8 @@ export class GameService {
 
   async predictionAction(roomId: string, participantId: string, participantType: ParticipantType, action: unknown): Promise<Room> {
     return this.withRoomLock(roomId, async () => {
-      const room = structuredClone(await this.requireRoom(roomId));
+      const current = await this.requireRoom(roomId);
+      const room = { ...current, privateMatch: current.privateMatch ? structuredClone(current.privateMatch) : undefined };
       editPrediction(room, participantId, participantType, action, now());
       if ((action as { kind: string }).kind === 'share' && room.replayId) this.privateReplays.share(room.matchId!, room.participantPrincipals![participantId], room.privateMatch!.predictionShares[room.participantPrincipals![participantId]]);
       room.updatedAt = now();

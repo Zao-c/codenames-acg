@@ -36,8 +36,8 @@ function GraphEditor({ graph, cards, editable, send }: { graph: AssociationGraph
         <button disabled={!cardId && !note.trim()}>添加节点</button>
       </form>
       <form onSubmit={e => { e.preventDefault(); send({ kind: 'edge', edge: { id: freshId(), from, to, text: edgeText } }); setEdgeText(''); }}>
-        <label>起点<select value={from} onChange={e => setFrom(e.target.value)}><option value="">选择节点</option>{graph.nodes.map(n => <option key={n.id} value={n.id}>{names(n.id)}</option>)}</select></label>
-        <label>终点<select value={to} onChange={e => setTo(e.target.value)}><option value="">选择节点</option>{graph.nodes.map(n => <option key={n.id} value={n.id}>{names(n.id)}</option>)}</select></label>
+        <label>起点<select aria-label="起点" value={from} onChange={e => setFrom(e.target.value)}><option value="">选择节点</option>{graph.nodes.map(n => <option key={n.id} value={n.id}>{names(n.id)}</option>)}</select></label>
+        <label>终点<select aria-label="终点" value={to} onChange={e => setTo(e.target.value)}><option value="">选择节点</option>{graph.nodes.map(n => <option key={n.id} value={n.id}>{names(n.id)}</option>)}</select></label>
         <label>关系<input maxLength={200} value={edgeText} onChange={e => setEdgeText(e.target.value)} placeholder="例如：共同主题"/></label><button disabled={!from || !to || from === to}>建立关联</button>
       </form>
     </div>}

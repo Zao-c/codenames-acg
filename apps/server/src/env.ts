@@ -3,6 +3,9 @@ import dotenv from "dotenv";
 dotenv.config();
 
 export const env = {
+  enableAnimeCommunity: process.env.ENABLE_ANIME_COMMUNITY === '1',
+  animePoolStoreFile: process.env.ANIME_POOL_STORE_FILE ?? 'apps/server/data/anime-pools.json',
+  animePoolAdminKey: process.env.ANIME_POOL_ADMIN_KEY ?? '',
   enableMatchAnalysis: process.env.ENABLE_MATCH_ANALYSIS === "1",
   enablePredictions: process.env.ENABLE_PREDICTIONS === "1",
   enableAnimeDraft: process.env.ENABLE_ANIME_DRAFT === "1",

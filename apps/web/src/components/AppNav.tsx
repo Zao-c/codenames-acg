@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
 import { Dialog, Icon } from './UI';
+import { useCommunityEnabled } from '../lib/use-community';
 
 function useTheme() {
  const [light,setLight]=useState(()=>localStorage.getItem('theme')==='light');
@@ -9,10 +10,11 @@ function useTheme() {
  return [light,useCallback(()=>setLight(v=>!v),[])] as const;
 }
 export function AppNav() {
+ const community=useCommunityEnabled();
  const g=useGame();const navigate=useNavigate();const location=useLocation();const [light,toggleTheme]=useTheme();const [settings,setSettings]=useState(false);const [rules,setRules]=useState(false);
  const inRoom=!!g.room&&location.pathname.startsWith('/room/');
  const leave=()=>{if(window.confirm('确定要离开房间吗？')){g.leaveRoom();navigate('/');setSettings(false);}};
- const links=[{path:'/',label:'大厅'},{path:'/create',label:'创建房间'},{path:'/packs',label:'文字题库'},{path:'/gallery',label:'动画图库'},{path:g.effectiveIdentity?'/profile':'/login',label:g.effectiveIdentity?'个人资料':'登录'}];
+ const links=[{path:'/',label:'大厅'},{path:'/create',label:'创建房间'},{path:'/packs',label:'文字题库'},...(community?[{path:'/anime-pools',label:'动画题库'}]:[]),{path:'/gallery',label:'图片图库'},{path:g.effectiveIdentity?'/profile':'/login',label:g.effectiveIdentity?'个人资料':'登录'}];
  return <>
   <nav className={`app-nav ${inRoom?'app-nav-room':''}`} aria-label="主导航">
    <button className="nav-brand" onClick={()=>inRoom?leave():navigate('/')}><span className="brand-mark"><Icon name="cards" size={22}/></span><span>词牌结社<small>一词相连，同好成局</small></span></button>
@@ -24,8 +26,9 @@ export function AppNav() {
  </>;
 }
 export function MobileNav() {
+ const community=useCommunityEnabled();
  const g=useGame();const navigate=useNavigate();const location=useLocation();const inRoom=!!g.room&&location.pathname.startsWith('/room/');
  const roomTabs=[{id:'board' as const,label:g.room?.phase==='lobby'?'准备':'棋盘',icon:'cards' as const},{id:'players' as const,label:'玩家',icon:'users' as const},{id:'chat' as const,label:'聊天',icon:'chat' as const}];
- const links=[{path:'/',label:'大厅',icon:'home' as const},{path:'/packs',label:'题库',icon:'book' as const},{path:'/gallery',label:'图库',icon:'cards' as const},{path:g.effectiveIdentity?'/profile':'/login',label:'我的',icon:'users' as const}];
+ const links=[{path:'/',label:'大厅',icon:'home' as const},{path:community?'/anime-pools':'/packs',label:community?'动画题库':'题库',icon:'book' as const},{path:'/gallery',label:'图库',icon:'cards' as const},{path:g.effectiveIdentity?'/profile':'/login',label:'我的',icon:'users' as const}];
  return <nav className="mobile-nav" aria-label={inRoom?'房间导航':'手机导航'}>{inRoom?roomTabs.map(t=><button key={t.id} className={`mobile-nav-tab ${g.mobileRoomTab===t.id?'selected':''}`} aria-pressed={g.mobileRoomTab===t.id} onClick={()=>{g.setMobileRoomTab(t.id);g.exitFocusMode();if(t.id==='chat')g.setSideTab('chat');}}><Icon name={t.icon}/><span>{t.label}</span></button>):links.map(l=><button key={l.path} className={`mobile-nav-tab ${location.pathname===l.path?'selected':''}`} onClick={()=>navigate(l.path)}><Icon name={l.icon}/><span>{l.label}</span></button>)}</nav>;
 }

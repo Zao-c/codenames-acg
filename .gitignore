@@ -10,6 +10,7 @@ coverage/
 *.log
 *.tsbuildinfo
 artifacts/
+output/playwright/
 apps/server/data/*.json
 apps/server/data/*.json.bak
 apps/server/apps/server/data/*.json

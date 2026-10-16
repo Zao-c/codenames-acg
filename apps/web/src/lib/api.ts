@@ -2,6 +2,21 @@ import type { GameReplay, NamedUserAccount, NamedUserLoginResponse, PublicImageP
 
 const API_BASE = import.meta.env.VITE_SERVER_URL || "";
 import { privateIdentityKey } from './private-identity';
+import type { CommunityPool, CommunityPoolInput, CommunityPoolPage, PoolModerationItem, AnimeWork } from '@acg-codenames/shared';
+
+export function getFeatures(): Promise<{ animeCommunity: boolean }> { return request('/api/features'); }
+export function getAnimeCatalog(): Promise<{ works: AnimeWork[] }> { return request('/api/anime/catalog'); }
+const communityHeaders = () => ({ 'content-type': 'application/json', 'x-private-key': privateIdentityKey() });
+export function listCommunityPools(scope = 'public', q = '', page = 1): Promise<CommunityPoolPage> {
+  return request(`/api/anime-pools?${new URLSearchParams({ scope, q, page: String(page) })}`, { headers: communityHeaders() });
+}
+export function getCommunityPool(id: string): Promise<CommunityPool> { return request(`/api/anime-pools/${encodeURIComponent(id)}`, { headers: communityHeaders() }); }
+export function saveCommunityPool(input: CommunityPoolInput, id?: string): Promise<CommunityPool> { return request(`/api/anime-pools${id ? `/${encodeURIComponent(id)}` : ''}`, { method: id ? 'PUT' : 'POST', headers: communityHeaders(), body: JSON.stringify(input) }); }
+export function copyCommunityPool(id: string): Promise<CommunityPool> { return request(`/api/anime-pools/${encodeURIComponent(id)}/copy`, { method: 'POST', headers: communityHeaders(), body: '{}' }); }
+export function favoriteCommunityPool(id: string, value: boolean): Promise<{ ok: boolean }> { return request(`/api/anime-pools/${encodeURIComponent(id)}/favorite`, { method: 'PUT', headers: communityHeaders(), body: JSON.stringify({ value }) }); }
+export function reportCommunityPool(id: string, reason: string): Promise<{ ok: boolean }> { return request(`/api/anime-pools/${encodeURIComponent(id)}/report`, { method: 'POST', headers: communityHeaders(), body: JSON.stringify({ reason }) }); }
+export function getPoolModeration(key: string): Promise<{ items: PoolModerationItem[] }> { return request('/api/anime-pools/moderation', { headers: { 'x-anime-admin-key': key } }); }
+export function moderateCommunityPool(id: string, key: string, hidden: boolean, reason: string): Promise<{ ok: boolean }> { return request(`/api/anime-pools/${encodeURIComponent(id)}/moderation`, { method: 'PUT', headers: { 'content-type': 'application/json', 'x-anime-admin-key': key }, body: JSON.stringify({ hidden, reason }) }); }
 
 export function getPrivateReplay(matchId: string): Promise<import('@acg-codenames/shared').PrivateReplayView> {
   return request(`/api/private-replays/${encodeURIComponent(matchId)}`, { headers: { 'x-private-key': privateIdentityKey() } });
@@ -22,9 +37,23 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       ...init
     });
 
-    const payload = (await response.json().catch(() => ({}))) as { message?: string };
+    let parsed = true;
+    let payload: unknown = null;
+    try {
+      payload = await response.json();
+    } catch {
+      parsed = false;
+    }
     if (!response.ok) {
-      throw new Error(payload.message ?? `${response.status} ${response.statusText}`);
+      const message = payload && typeof payload === "object" && typeof (payload as { message?: unknown }).message === "string"
+        ? (payload as { message: string }).message
+        : `${response.status} ${response.statusText}`;
+      throw new Error(message);
+    }
+    if (!parsed || payload === null || typeof payload !== "object") {
+      // A 2xx response with an unreadable body must never be treated as an empty success:
+      // callers persist identity/accounts from it, which corrupted local state in production.
+      throw new Error("服务器响应异常，请重试");
     }
     return payload as T;
   } finally {

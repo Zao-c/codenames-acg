@@ -21,6 +21,7 @@ export interface NextPlan {
   wordPack: WordPack;
   pool: AnimeWork[];
   poolName: string;
+  sourcePool?: { id: string; revision: number };
   candidates: AnimeWork[];
   startingTeam: Team;
   stage: 'planning' | 'guide' | 'draft' | 'sealed';
@@ -42,6 +43,7 @@ export interface PublicNextPlan {
   variant: NextPlan['variant'];
   settings: RoomSettings;
   poolName: string;
+  sourcePool?: { id: string; revision: number };
   poolIds: number[];
   candidates: AnimeWork[];
   startingTeam: Team;
@@ -61,6 +63,8 @@ export interface PlanAction {
   scoringMode?: RoomSettings['scoringMode'];
   poolIds?: number[];
   poolName?: string;
+  communityPoolId?: string;
+  communityPoolRevision?: number;
   builtinWordPackId?: string;
   customWordPack?: { name: string; entries: string[] };
   team?: Team;

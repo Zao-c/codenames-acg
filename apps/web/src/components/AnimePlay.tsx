@@ -5,7 +5,11 @@ export { AnimeBoard } from './AnimeBoard';
 import { Dialog } from './UI';
 import { DraftWorkspace } from './DraftWorkspace';
 import type { DropAction } from './DraftTile';
-import { getPublicWordPackDetail } from '../lib/api';
+import { getPublicWordPackDetail, getCommunityPool, listCommunityPools } from '../lib/api';
+import { useNavigate } from 'react-router-dom';
+import { PrivateReview } from './PrivateReview';
+import type { CommunityPoolSummary } from '@acg-codenames/shared';
+import { useCommunityEnabled } from '../lib/use-community';
 import { useGame } from '../context/GameContext';
 
 export function useServerTime(room: PublicRoomState) {
@@ -24,6 +28,8 @@ export function StartCountdown({ room }: { room: PublicRoomState }) {
   </div>;
 }
 export function NextMatchPanel({ room }: { room: PublicRoomState }) {
+  const navigate = useNavigate();
+  const communityEnabled = useCommunityEnabled();
   const { socket, effectiveIdentity, accountPacks, publicPacks } = useGame();
   const plan = room.nextPlan;
   const time = useServerTime(room);
@@ -47,12 +53,25 @@ export function NextMatchPanel({ room }: { room: PublicRoomState }) {
   const [replacement, setReplacement] = useState<number>();
   const [error, setError] = useState('');
   const [savedPools, setSavedPools] = useState<AnimePool[]>([]);
+  const [communityPools, setCommunityPools] = useState<CommunityPoolSummary[]>([]);
   const [wordPackId, setWordPackId] = useState('');
   const storageKey = `anime-pools:${effectiveIdentity?.nickname ?? 'guest'}`;
   useEffect(() => { try { setSavedPools(JSON.parse(localStorage.getItem(storageKey) ?? '[]')); } catch {} }, [storageKey]);
   useEffect(() => {
     fetch(`${import.meta.env.VITE_SERVER_URL || ''}/api/anime/catalog`).then(r => r.json()).then(data => { setCatalog(data.works ?? []); setPools(data.pools ?? []); }).catch(() => setError('目录读取失败，请稍后重试。已准备的候选池仍可使用。'));
   }, []);
+  const refreshCommunity = async () => {
+    try {
+      const pages = await Promise.all([listCommunityPools('public'), listCommunityPools('mine'), listCommunityPools('favorites')]);
+      const items = new Map(pages.flatMap(p => p.items).filter(p => !p.hidden).map(p => [p.id, p]));
+      const remembered = localStorage.getItem('cipai-selected-community-pool');
+      if (remembered) {
+        try { const selected = await getCommunityPool(remembered); if (!selected.hidden) { items.set(selected.id, selected); setPoolId(`community:${selected.id}`); } } catch { localStorage.removeItem('cipai-selected-community-pool'); }
+      }
+      setCommunityPools([...items.values()]);
+    } catch { /* Older servers can keep the existing local/quarterly pool workflow. */ }
+  };
+  useEffect(() => { if (room.viewer?.isHost) void refreshCommunity(); }, [room.viewer?.isHost]);
   const send = (action: Omit<PlanAction,'roomId'|'version'>) => socket.emit('plan_action', { roomId: room.id, version: plan?.version, ...action });
   const team = plan?.myTeam;
   const claims = plan?.captainView?.claims ?? {};
@@ -64,12 +83,17 @@ export function NextMatchPanel({ room }: { room: PublicRoomState }) {
   const list = plan?.candidates ?? [];
   const visible = list.filter(w => (!onlyBookmarks || plan?.myBookmarks?.includes(w.id)) && (typeFilter==='all'||w.type===typeFilter) && (claimFilter==='all'||(claimFilter==='own'?claims[w.id]?.team===team:claims[w.id]&&claims[w.id].team!==team)) && `${w.fullTitle} ${w.aliases.join(' ')}`.toLowerCase().includes(query.toLowerCase()));
   const configure = async () => {
+    let community: import('@acg-codenames/shared').CommunityPool | undefined;
+    if (poolId.startsWith('community:')) {
+      try { community = await getCommunityPool(poolId.slice(10)); if (community.hidden) throw new Error('作品池已被隐藏，请重新选择'); }
+      catch (e) { setError((e as Error).message); return; }
+    }
     const pool = [...pools,...savedPools].find(p => p.id === poolId);
     const selected = poolId === 'custom' ? customIds : pool?.workIds;
     const personal = accountPacks.find(p => `mine:${p.id}` === wordPackId);
     let selectedPack = personal;
     if (wordPackId.startsWith('public:')) { try { selectedPack = await getPublicWordPackDetail(wordPackId.slice(7)); } catch { setError('公共词库加载失败'); return; } }
-    send({ kind:'configure', variant, boardMode:size, scoringMode:score, poolIds:selected, poolName:poolId === 'custom' ? poolName : pool?.name, builtinWordPackId: wordPackId.startsWith('builtin:') ? wordPackId.slice(8) : undefined, customWordPack: selectedPack ? { name:selectedPack.name, entries:selectedPack.entries } : undefined });
+    send({ kind:'configure', variant, boardMode:size, scoringMode:score, poolIds:selected, poolName:poolId === 'custom' ? poolName : pool?.name, communityPoolId: community?.id, communityPoolRevision: community?.revision, builtinWordPackId: wordPackId.startsWith('builtin:') ? wordPackId.slice(8) : undefined, customWordPack: selectedPack ? { name:selectedPack.name, entries:selectedPack.entries } : undefined });
   };
   const take = (id: number) => { send({ kind:'take', workId:id, replaceId: replacement }); if (replacement !== undefined) setReplacement(undefined); };
   const dropWork = (w: AnimeWork, action: DropAction) => {
@@ -100,7 +124,8 @@ export function NextMatchPanel({ room }: { room: PublicRoomState }) {
           <label>计分 <select aria-label="下一局计分" value={score} onChange={e => setScore(e.target.value as typeof score)}><option value="classic">经典胜场</option><option value="scoring">积分</option><option value="gamble">原有赌博计分</option></select></label>
         </div>
         {variant === 'classic' ? <label>文字题库 <select value={wordPackId} onChange={e => setWordPackId(e.target.value)}><option value="">沿用上次</option>{wordPackSummaries.map(p => <option key={p.id} value={`builtin:${p.id}`}>{p.name}</option>)}{accountPacks.map(p => <option key={p.id} value={`mine:${p.id}`}>{p.name}</option>)}{publicPacks.map(p => <option key={p.publicId} value={`public:${p.publicId}`}>{p.name} · {p.ownerUsername}</option>)}</select></label> : <>
-          <label>动画作品池 <select aria-label="动画作品池" value={poolId} onChange={e => setPoolId(e.target.value)}>{[...pools,...savedPools].map(p => <option key={p.id} value={p.id}>{p.name}（{p.workIds.length} 部）</option>)}<option value="custom">自定义作品池</option></select></label>
+          <label>动画作品池 <select aria-label="动画作品池" value={poolId} onChange={e => setPoolId(e.target.value)}>{[...pools,...savedPools].map(p => <option key={p.id} value={p.id}>{p.name}（{p.workIds.length} 部）</option>)}{communityPools.map(p => <option key={`community:${p.id}`} value={`community:${p.id}`}>社区 · {p.name}（{p.workCount} 部）</option>)}<option value="custom">自定义作品池</option></select></label>
+          {(communityEnabled || !!communityPools.length) && <div className="anime-toolbar"><button onClick={() => navigate('/anime-pools')}>浏览动画题库广场</button><button onClick={() => void refreshCommunity()}>刷新社区作品池</button></div>}
           {poolId === 'custom' && <div className="anime-pool-editor"><input aria-label="动画题库名称" value={poolName} onChange={e => setPoolName(e.target.value)} /><input aria-label="搜索目录" placeholder="搜索作品，勾选加入题库" value={query} onChange={e => setQuery(e.target.value)} />
             <p>已选 {customIds.length} 部 / {new Set(catalog.filter(w => customIds.includes(w.id)).map(w => w.seriesId)).size} 个系列</p>
             <div className="anime-pool-list">{catalog.filter(w => `${w.fullTitle} ${w.aliases.join(' ')}`.toLowerCase().includes(query.toLowerCase())).map(w => <label key={w.id}><input type="checkbox" checked={customIds.includes(w.id)} onChange={() => setCustomIds(ids => ids.includes(w.id) ? ids.filter(id => id !== w.id) : [...ids,w.id])} />{w.fullTitle}</label>)}</div>
@@ -121,6 +146,7 @@ export function NextMatchPanel({ room }: { room: PublicRoomState }) {
 
     </div>;
   return <section className={`panel next-match-panel ${room.phase==='playing'?'next-plan-during-game':''} ${plan?.variant==='anime'?'has-anime-plan':''}`}>
+    {room.phase === 'lobby' && <PrivateReview room={room}/>}
     <div className="panel-heading"><div><p className="eyebrow">{room.phase==='playing'?'下一局 · 独立准备':'准备工作区'}</p><h2>{room.phase==='playing'?'下一局计划':'玩法与组牌'}</h2></div><button onClick={()=>setOpen(!open)}>{open?'收起准备':'查看准备'}</button></div>
     {!plan && !room.viewer?.isHost && <div className="plan-readonly"><strong>经典词牌 · {room.settings.boardMode}</strong><p>{room.wordPackSummary.name}</p><p className="hint-text">社长正在配置玩法。选择队伍与席位后，等待社长开局。</p></div>}
     {plan && room.phase!=='playing' && <p className="hint-text">{plan.variant==='anime'?'动画组牌':'经典词牌'} · {plan.settings.boardMode} · {plan.poolName} · {TEAM_LABELS[plan.startingTeam]}先手</p>}

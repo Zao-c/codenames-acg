@@ -33,6 +33,8 @@ import { REPLAY_TTL_SECONDS, createRoomStore } from "./store.js";
 import type { ReplayStore } from "./types.js";
 import { JsonUserStore } from "./user-store.js";
 import { principalFromKey } from './private-identity.js';
+import { AnimePoolStore } from './anime-pool-store.js';
+import { animePoolRouter } from './anime-pools.js';
 
 type PayloadRecord = Record<string, unknown>;
 
@@ -301,9 +303,10 @@ function optionalBoolean(value: unknown): boolean | undefined {
 async function bootstrap(): Promise<void> {
   const store = await createRoomStore(env.redisUrl, env.useMemoryStore);
   const users = new JsonUserStore(env.userStoreFile);
+  const communityPools = new AnimePoolStore(env.animePoolStoreFile, animeCatalog());
   const revealImages = new RevealImageAssetStore(env.revealImageDir);
   await revealImages.ensureReady();
-  const game = new GameService(store, users, { enableDebugTools: env.enableDebugTools, enableAnimeDraft: env.enableAnimeDraft, enableMatchAnalysis: env.enableMatchAnalysis, enablePredictions: env.enablePredictions }, store);
+  const game = new GameService(store, users, { enableDebugTools: env.enableDebugTools, enableAnimeDraft: env.enableAnimeDraft, enableMatchAnalysis: env.enableMatchAnalysis, enablePredictions: env.enablePredictions, resolveCommunityPool: (id, principal) => communityPools.get(id, principal) }, store);
   const privatePrincipal = (body: PayloadRecord) => body.identityKey !== undefined || env.enableMatchAnalysis ? principalFromKey(body.identityKey) : undefined;
   const app = express();
   const httpServer = createServer(app);
@@ -360,6 +363,14 @@ async function bootstrap(): Promise<void> {
     }
   }
 
+  app.use('/api/anime-pools', animePoolRouter(communityPools, { enabled: env.enableAnimeCommunity, adminKey: env.animePoolAdminKey }));
+  const metadataLimiter = rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: true, legacyHeaders: false, message: { message: '目录读取太频繁，请稍后重试' } });
+  app.get('/api/features', metadataLimiter, (_req, res) => { res.setHeader('Cache-Control', 'no-store'); res.json({ animeCommunity: env.enableAnimeCommunity }); });
+  app.get('/api/anime/catalog', metadataLimiter, (_req, res) => {
+    res.setHeader('Cache-Control', 'public, max-age=60');
+    const available = env.enableAnimeDraft || env.enableAnimeCommunity;
+    res.json({ enabled: env.enableAnimeDraft, works: available ? animeCatalog() : [], pools: available ? animePools() : [] });
+  });
   app.use("/api/", apiLimiter);
   app.use("/rooms", apiLimiter);
   app.use(
@@ -622,11 +633,11 @@ async function bootstrap(): Promise<void> {
     });
   }
 
-  app.get('/api/anime/catalog', (_req,res) => res.json({ enabled: env.enableAnimeDraft, works: env.enableAnimeDraft ? animeCatalog() : [], pools: env.enableAnimeDraft ? animePools() : [] }));
 
   io.on("connection", (socket) => {
     socket.on('prediction_action', async payload => {
       try {
+        checkSocketRate(socket.id, 'prediction_action', 10, 1000);
         const roomId = requireRoomId(payload);
         const session = requireSession(socket.id, roomId);
         const room = await game.predictionAction(roomId, session.participantId, session.participantType, payload);
@@ -637,6 +648,7 @@ async function bootstrap(): Promise<void> {
 
     socket.on('analysis_action', async payload => {
       try {
+        checkSocketRate(socket.id, 'analysis_action', 10, 1000);
         const roomId = requireRoomId(payload);
         const session = requireSession(socket.id, roomId);
         const room = await game.analysisAction(roomId, session.participantId, session.participantType, payload);
