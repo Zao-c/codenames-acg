@@ -2,19 +2,19 @@
 
 ## 最新续接：首页与准备大厅 UI v2（2026-10-16）
 
-当前分支 `codex/cipai-lobby-ui-v2`：已按用户附件重构首页公开大厅与词牌准备大厅（提交 `3b18369`，基于完整第二批 `34c85ef`），并合并 `codex/cipai-phase2-community` 取得客户端身份热修 `bca57d6` 与部署记录。组牌台、正式对局、结算页不属于本轮重构范围。详情与测试证据见 [两页 UI 本地交付](LOBBY_UI_V2_DELIVERY.md)。
+当前分支 `codex/cipai-lobby-ui-v2`：已按用户附件重构首页公开大厅与词牌准备大厅（提交 `3b18369`，基于完整第二批 `34c85ef`），并合并 `codex/cipai-phase2-community` 取得客户端身份热修 `bca57d6` 与部署记录；该版本已于 2026-10-16 15:26 全量构建部署上线（应用 `793ea12`，[PR #8](https://github.com/Zao-c/codenames-acg/pull/8)）。组牌台、正式对局、结算页不属于本轮重构范围。详情与测试证据见 [两页 UI 交付](LOBBY_UI_V2_DELIVERY.md)，部署与线上验收记录见 [交付记录](cipai-v2-delivery.md)。
 
-更新：2026-10-16（第二批社区与身份热修均已上线）。先读本页，再读关联文档。部署按用户当轮指示执行（第二批 `34c85ef` 与热修 `bca57d6` 已上线，记录见交付文档）。不从旧 main/G0 重新开发，不把前任记录当成本轮执行结果。
+更新：2026-10-16（首页与准备大厅 UI v2 已上线，应用 `793ea12`）。先读本页，再读关联文档。部署按用户当轮指示执行（第二批 `34c85ef`、热修 `bca57d6` 同日均已上线，记录见交付文档）。不从旧 main/G0 重新开发，不把前任记录当成本轮执行结果。
 
 ## 当前进度
 
-- G0–G5、UI/拖拽、第二批社区（P2-6/P2-7 等）均已交付并上线：生产应用 `bca57d6`（分支 `codex/cipai-phase2-community`，[PR #7](https://github.com/Zao-c/codenames-acg/pull/7)；前一版 `34c85ef` 同日上线）；部署记录见 [交付记录](cipai-v2-delivery.md)。
+- G0–G5、UI/拖拽、第二批社区（P2-6/P2-7 等）、首页与准备大厅 UI v2 均已交付并上线：生产应用 `793ea12`（分支 `codex/cipai-lobby-ui-v2`，[PR #8](https://github.com/Zao-c/codenames-acg/pull/8)；同日此前为 `bca57d6` 身份热修（[PR #7](https://github.com/Zao-c/codenames-acg/pull/7)）与第二批 `34c85ef`）；部署记录见 [交付记录](cipai-v2-delivery.md)。
 - 第二批 P2-0～P2-5：干扰可见性、设备键控主体、关联板/意图/快照/预测/私密复盘；线上三开关（`matchAnalysis`、`predictions`、`animeCommunity`）均已开启。
 - P2-6/P2-7（社区池持久化、搜索/复制/收藏/举报/管理员治理、凭证备份/恢复、房间按池版本选题）与 P2-8 验收已完成并随 `34c85ef` 上线；配置与数据说明见 [部署交接](PHASE2_LOCAL_DELIVERY.md)。
 - 提交前 `npm run typecheck`、`npm run test:rules`（含 match-analysis.test.ts）、`npm run test:e2e:local`（41/41）、`npm run build` 通过；正式网站浏览器验收 10 项全过（`artifacts/prod-acceptance-e21aacb/`）。
 - 本地验收（第二批）：typecheck、rules（新增 private-replay/anime-pools）、E2E（揭幕 41/41）、build 通过；原浏览器 10/10、第二批 4/4 组，零前端异常，另测开启第二批的 390×844 完整棋盘与跨设备身份恢复。详细证据见本地交付说明；该版本（`34c85ef`）已于 2026-10-16 上线。
 - 2026-10-16 13:14 起的「username 参数无效」故障为客户端本地身份被写坏（登录响应读取失败 → 空身份写入 → 自动重登 400 死循环）；已由 `bca57d6` 修复并上线：坏身份自动清理、提示重新登录。根因、验证与回滚见交付文档。
-- 线上单进程内存房间/回放；服务真实工作目录 `/opt/codenames-acg/apps/server`（`USE_MEMORY_STORE=1`，社区池文件 `/opt/codenames-acg/apps/server/data/anime-pools.json`）。最近一次重启为 2026-10-16 13:13（`34c85ef`）；`bca57d6` 热修为 web-only 静态更新，未重启服务。
+- 线上单进程内存房间/回放；服务真实工作目录 `/opt/codenames-acg/apps/server`（`USE_MEMORY_STORE=1`，社区池文件 `/opt/codenames-acg/apps/server/data/anime-pools.json`）。最近一次重启为 2026-10-16 15:26（`793ea12`，全量构建）；`bca57d6` 热修为 web-only 静态更新，未重启服务。
 
 ## 阅读顺序
 
