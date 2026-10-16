@@ -32,10 +32,14 @@ export function clearSession(): void {
 }
 
 export function saveIdentity(identity: LocalIdentity): void {
+  if (identity.mode === "named" && (typeof identity.username !== "string" || !identity.username.trim())) {
+    // Never persist a named identity without a usable username: it would break auto re-login on every load.
+    return;
+  }
   localStorage.setItem(IDENTITY_KEY, JSON.stringify(identity));
   if (identity.mode === "named") {
     const usernames = loadRecentUsernames();
-    const next = [identity.username, ...usernames.filter((entry) => entry !== identity.username)].slice(0, 8);
+    const next = [identity.username, ...usernames.filter((entry) => typeof entry === "string" && entry !== identity.username)].slice(0, 8);
     localStorage.setItem(RECENT_USERS_KEY, JSON.stringify(next));
   }
 }
@@ -62,8 +66,8 @@ export function loadRecentUsernames(): string[] {
     return [];
   }
   try {
-    const parsed = JSON.parse(raw) as string[];
-    return Array.isArray(parsed) ? parsed : [];
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed) ? parsed.filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0) : [];
   } catch {
     return [];
   }

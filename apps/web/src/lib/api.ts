@@ -37,9 +37,23 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       ...init
     });
 
-    const payload = (await response.json().catch(() => ({}))) as { message?: string };
+    let parsed = true;
+    let payload: unknown = null;
+    try {
+      payload = await response.json();
+    } catch {
+      parsed = false;
+    }
     if (!response.ok) {
-      throw new Error(payload.message ?? `${response.status} ${response.statusText}`);
+      const message = payload && typeof payload === "object" && typeof (payload as { message?: unknown }).message === "string"
+        ? (payload as { message: string }).message
+        : `${response.status} ${response.statusText}`;
+      throw new Error(message);
+    }
+    if (!parsed || payload === null || typeof payload !== "object") {
+      // A 2xx response with an unreadable body must never be treated as an empty success:
+      // callers persist identity/accounts from it, which corrupted local state in production.
+      throw new Error("服务器响应异常，请重试");
     }
     return payload as T;
   } finally {
