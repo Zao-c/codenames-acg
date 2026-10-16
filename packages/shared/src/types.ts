@@ -646,6 +646,8 @@ export interface PublicRoomState extends Omit<Room, "players" | "spectators" | "
 }
 
 export interface RoomSummary {
+  variant?: 'classic' | 'anime';
+  poolName?: string;
   id: string;
   phase: RoomPhase;
   boardMode: BoardMode;
@@ -716,6 +718,7 @@ export interface SetRolePayload {
 
 export interface RandomizeTeamsPayload {
   roomId: string;
+  mode?: 'keep-captains' | 'all';
 }
 
 export interface StartGamePayload {

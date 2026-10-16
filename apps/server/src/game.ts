@@ -268,6 +268,14 @@ function requireLobby(room: Room): void {
   }
 }
 
+function syncLobbyCaptains(room: Room): void {
+  if (!room.nextPlan) return;
+  room.nextPlan.captains = {};
+  for (const p of room.players) if (p.team && p.role === 'spymaster') room.nextPlan.captains[p.team] = p.id;
+  room.nextPlan.ready = { red:false, blue:false };
+  room.nextPlan.done = { red:false, blue:false };
+}
+
 function requirePlaying(room: Room): void {
   if (room.phase !== "playing") {
     throw new Error("当前不在对局中");
@@ -787,6 +795,7 @@ export class GameService {
       player.role = "operative";
     }
 
+    syncLobbyCaptains(room);
     const nextRoom = withEvent(room, `${player.nickname} 调整了队伍`);
     await this.store.setRoom(nextRoom);
     return nextRoom;
@@ -811,17 +820,14 @@ export class GameService {
 
     if (room.nextPlan) room.nextPlan.ready = { red:false, blue:false };
     player.role = role;
-    if (room.nextPlan?.variant === 'classic' && player.team) {
-      if (role === 'spymaster') room.nextPlan.captains[player.team] = player.id;
-      else if (room.nextPlan.captains[player.team] === player.id) delete room.nextPlan.captains[player.team];
-    }
+    syncLobbyCaptains(room);
     const nextRoom = withEvent(room, `${player.nickname} 切换为${PLAYER_ROLE_LABELS[role]}`);
     await this.store.setRoom(nextRoom);
     return nextRoom;
     });
   }
 
-  async randomizeTeams(roomId: string, playerId: string): Promise<Room> {
+  async randomizeTeams(roomId: string, playerId: string, mode: 'all' | 'keep-captains' = 'all'): Promise<Room> {
     return this.withRoomLock(roomId, async () => {
     const room = await this.requireRoom(roomId);
     requireLobby(room);
@@ -832,44 +838,30 @@ export class GameService {
       throw new Error("至少需要 4 名玩家才能随机分队");
     }
 
-    const shuffledPlayers = shuffle(room.players);
-    const firstTeam: Team = Math.random() >= 0.5 ? "red" : "blue";
-    const secondTeam = nextTeam(firstTeam);
-    const firstTeamSize = Math.ceil(shuffledPlayers.length / 2);
-    const firstTeamPlayers = shuffledPlayers.slice(0, firstTeamSize);
-    const secondTeamPlayers = shuffledPlayers.slice(firstTeamSize);
-
-    if (firstTeamPlayers.length < 2 || secondTeamPlayers.length < 2) {
-      throw new Error("至少需要 4 名玩家才能随机分队");
-    }
-
-    const assignment = new Map<string, { team: Team; role: PlayerRole }>();
-    firstTeamPlayers.forEach((player, index) => {
-      assignment.set(player.id, { team: firstTeam, role: index === 0 ? "spymaster" : "operative" });
-    });
-    secondTeamPlayers.forEach((player, index) => {
-      assignment.set(player.id, { team: secondTeam, role: index === 0 ? "spymaster" : "operative" });
-    });
-
-    const nextPlayers = room.players.map((player) => {
-      const next = assignment.get(player.id);
-      return next ? { ...player, team: next.team, role: next.role } : player;
-    });
-    const nextRoom = withEvent(
-      {
-        ...room,
-        players: nextPlayers
-      },
-      "房主随机分配了红蓝队"
-    );
-    validateStart(nextRoom);
-    if (nextRoom.nextPlan?.variant === "classic") {
-      nextRoom.nextPlan.captains = {};
-      for (const player of nextPlayers) {
-        if (player.team && player.role === "spymaster") nextRoom.nextPlan.captains[player.team] = player.id;
+    if (mode !== 'all' && mode !== 'keep-captains') throw new Error('分队方式无效');
+    const captains: Partial<Record<Team,string>> = {};
+    if (mode === 'keep-captains') {
+      for (const team of ['red','blue'] as const) {
+        const id = room.nextPlan?.captains[team] ?? room.players.find(p => p.team === team && p.role === 'spymaster')?.id;
+        if (!id || !room.players.some(p => p.id === id && p.team === team)) throw new Error('请先指定红蓝两队队长');
+        captains[team] = id;
       }
-      nextRoom.nextPlan.ready = { red: false, blue: false };
     }
+    const remaining = shuffle(room.players.filter(p => !Object.values(captains).includes(p.id)));
+    const firstTeam: Team = Math.random() >= 0.5 ? 'red' : 'blue';
+    const other = nextTeam(firstTeam);
+    const firstSize = Math.ceil(room.players.length / 2) - (captains[firstTeam] ? 1 : 0);
+    const assignments = new Map<string, {team:Team;role:PlayerRole}>();
+    for (const team of [firstTeam,other]) {
+      const entries = team === firstTeam ? remaining.slice(0,firstSize) : remaining.slice(firstSize);
+      const captain = captains[team] ?? entries[0].id;
+      assignments.set(captain,{team,role:'spymaster'});
+      for (const p of entries) assignments.set(p.id,{team,role:p.id === captain ? 'spymaster' : 'operative'});
+    }
+    const nextRoom = withEvent({ ...room, players: room.players.map(p => ({...p,...assignments.get(p.id)!})) },
+      mode === 'keep-captains' ? '房主保留队长，重新随机分配了队员' : '房主重新随机分配了全员与队长');
+    validateStart(nextRoom);
+    syncLobbyCaptains(nextRoom);
     await this.store.setRoom(nextRoom);
     return nextRoom;
     });
@@ -1122,7 +1114,8 @@ export class GameService {
         endReason: room.phase === "playing" ? "abandoned" : room.endReason,
         players: players.map((player) => ({
           ...player,
-          isHost: player.id === room.hostPlayerId
+          isHost: player.id === room.hostPlayerId,
+          role: room.nextPlan ? player.team && room.nextPlan.captains[player.team] === player.id ? 'spymaster' : 'operative' : player.role
         })),
         spectators,
         joinQueue,
@@ -1829,7 +1822,7 @@ export class GameService {
       let room = structuredClone(await this.requireRoom(roomId));
       const player = requirePlayer(room, playerId);
       if (room.settings.ruleSet !== 'codenames') throw new Error('此入口仅用于词牌');
-      if (!this.options.enableAnimeDraft && !room.nextPlan) throw new Error('动画组牌暂未开放');
+      if (!this.options.enableAnimeDraft && !room.nextPlan && action.kind !== 'nominate') throw new Error('动画组牌暂未开放');
       const host = room.hostPlayerId === playerId;
       const time = now();
       let plan = room.nextPlan ?? makePlan(room, time);
@@ -1841,7 +1834,7 @@ export class GameService {
         await this.store.setRoom(room);
         return room;
       }
-      if (action.kind !== 'configure' && action.kind !== 'cancel' && action.version !== plan.version) throw new Error('候选池已更新，请使用最新快照');
+      if (room.nextPlan && action.kind !== 'configure' && action.kind !== 'cancel' && action.version !== plan.version) throw new Error('候选池已更新，请使用最新快照');
       if (action.kind === 'configure') {
         if (!host) throw new Error('只有房主可以配置下一局');
         if (plan.stage === 'draft' || plan.stage === 'sealed') throw new Error('正式组牌已锁定，请先取消准备');
@@ -1861,6 +1854,11 @@ export class GameService {
         const boardMode = action.boardMode ?? (action.variant === 'anime' ? '5x5' : room.settings.boardMode);
         if (!(action.variant === 'anime' ? ['5x5','6x6'] : ['5x5','7x7','9x9']).includes(boardMode)) throw new Error('该玩法不支持此棋盘尺寸');
         if (action.scoringMode !== undefined && !['classic','scoring','gamble'].includes(action.scoringMode)) throw new Error('计分选项无效');
+        if (action.timerMode !== undefined && !['timed','unlimited'].includes(action.timerMode)) throw new Error('计时选项无效');
+        if (action.flipMode !== undefined && !['word-color','color-only'].includes(action.flipMode)) throw new Error('翻牌显示无效');
+        for (const seconds of [action.timerClueSeconds,action.timerGuessSeconds]) {
+          if (seconds !== undefined && (!Number.isSafeInteger(seconds) || seconds < 1)) throw new Error('计时时长无效');
+        }
         let wordPack = plan.wordPack;
         if (action.builtinWordPackId) {
           const builtin = getBuiltinWordPackById(action.builtinWordPackId);
@@ -1880,8 +1878,8 @@ export class GameService {
         const candidates = action.variant === 'anime' ? candidatesFor(pool, room.seriesHistory) : [];
         if (action.variant === 'anime' && candidates.length < BOARD_MODE_CONFIG[boardMode].size) throw new Error(`所选题库至少需要 ${BOARD_MODE_CONFIG[boardMode].size} 个不同系列，当前只有 ${candidates.length} 个`);
         plan = { ...plan, wordPack, version: plan.version + 1, variant: configuredVariant,
-          settings: { ...plan.settings, variant: action.variant, boardMode, scoringMode: action.scoringMode ?? plan.settings.scoringMode, neutralCount: action.variant === 'anime' || boardMode !== plan.settings.boardMode ? undefined : plan.settings.neutralCount },
-          pool, poolName: (action.poolName ?? plan.poolName).slice(0,64), sourcePool, candidates, ready: { red:false, blue:false }, done: { red:false, blue:false }, stage: room.phase === 'playing' ? 'planning' : plan.stage,
+          settings: { ...plan.settings, variant: action.variant, boardMode, scoringMode: action.scoringMode ?? plan.settings.scoringMode, timerMode: action.timerMode ?? plan.settings.timerMode, timerClueSeconds: action.timerClueSeconds ?? plan.settings.timerClueSeconds, timerGuessSeconds: action.timerGuessSeconds ?? plan.settings.timerGuessSeconds, flipMode: action.flipMode ?? plan.settings.flipMode, neutralCount: action.variant === 'anime' || boardMode !== plan.settings.boardMode ? undefined : plan.settings.neutralCount },
+          pool, poolName: (action.poolName ?? plan.poolName).slice(0,64), sourcePool, candidates, ready: { red:false, blue:false }, done: { red:false, blue:false }, stage: 'planning',
           bookmarks: Object.fromEntries(Object.entries(plan.bookmarks).map(([id, values]) => [id, values.filter(v => candidates.some(w => w.id === v))])) };
       } else if (action.kind === 'nominate' || action.kind === 'transfer') {
         const team = action.team;
@@ -1903,6 +1901,7 @@ export class GameService {
           const old = plan.captains[team];
           if (plan.stage === 'draft' || plan.stage === 'sealed') plan.exposedPlayerIds = [...new Set([...plan.exposedPlayerIds, ...(old ? [old] : []), target.id])];
           plan.captains[team] = target.id;
+          if (room.phase === 'lobby') room.players = room.players.map(p => p.team === team ? { ...p, role: p.id === target.id ? 'spymaster' : 'operative' } : p);
           plan.ready = { red:false, blue:false };
           plan.done = { red:false, blue:false };
         }
@@ -1916,6 +1915,7 @@ export class GameService {
           room = structuredClone(await this.returnToLobby(roomId, playerId));
         }
         validatePlanRoster(room, plan);
+        room.players = room.players.map(p => ({...p,role: p.team && plan.captains[p.team] === p.id ? 'spymaster' : 'operative'}));
         plan.stage = plan.variant === 'anime' ? 'guide' : 'sealed';
         plan.ready = { red:false, blue:false };
       } else {

@@ -142,7 +142,9 @@ export function buildRoomSummary(room: Room): RoomSummary {
   return {
     id: room.id,
     phase: room.phase,
-    boardMode: room.settings.boardMode,
+    boardMode: room.phase === 'lobby' ? room.nextPlan?.settings.boardMode ?? room.settings.boardMode : room.settings.boardMode,
+    variant: room.phase === 'lobby' ? room.nextPlan?.variant ?? room.settings.variant : room.settings.variant,
+    poolName: room.phase === 'lobby' && room.nextPlan ? (room.nextPlan.variant === 'anime' ? room.nextPlan.poolName : room.nextPlan.wordPack.name) : room.settings.variant === 'anime' ? room.wordPack.name : undefined,
     gameMode: room.settings.ruleSet,
     roundNumber: room.roundNumber,
     wordPackSummary: toWordPackSummary(room.wordPack),
@@ -192,7 +194,7 @@ export function sanitizeRoom(room: Room, viewer: ViewerIdentity = {}): PublicRoo
     : undefined;
   const nextPlan = plan ? {
     id: plan.id, version: plan.version, variant: plan.variant, settings: plan.settings,
-    poolName: plan.poolName, sourcePool: plan.sourcePool, poolIds: plan.pool.map(w => w.id), candidates: plan.candidates,
+    wordPackName: plan.wordPack.name, poolName: plan.poolName, sourcePool: plan.sourcePool, poolIds: plan.pool.map(w => w.id), candidates: plan.candidates,
     startingTeam: plan.startingTeam, stage: plan.stage, captains: plan.captains, endsAt: plan.endsAt,
     myTeam, myBookmarks: myTeam ? plan.bookmarks[viewer.participantId!] ?? [] : undefined,
     captainView: captainClaims ? { claims: captainClaims, ready: plan.ready, done: plan.done } : undefined,

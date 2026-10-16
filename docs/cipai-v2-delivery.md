@@ -112,3 +112,23 @@
 - 用户恢复：受影响的浏览器在热修后首次加载会自动清理坏身份并提示重新登录，重登一次即恢复；无需清缓存或手动操作。
 - 回滚：`git checkout -f 34c85ef` 后仅重建 web 并替换 dist（无需重启服务），或直接还原备份中的 `before-web-dist.tar.gz`；服务端与磁盘数据不受影响。
 - 说明：本记录为纯文档提交（不含代码）；线上应用仍为 `bca57d6` 及其构建产物。
+
+## 首页与准备大厅 UI v2 部署结果（2026-10-16 · 793ea12）
+
+- 15:26（北京时间）部署应用提交 `793ea12d0f575eb64560391b339fcbf31f475720`（分支 `codex/cipai-lobby-ui-v2`，[PR #8](https://github.com/Zao-c/codenames-acg/pull/8)），入口：http://182.61.136.105 。服务器 release.json 已更新（上一版 `bca57d6`），deployedAt `2026-10-16T07:27:21Z`。
+- 合并说明：大厅提交 `3b18369`（基于 `34c85ef`）不含当日 13:14 事故的客户端身份热修，直接部署会带回该故障；故先合并 `codex/cipai-phase2-community`（含 `bca57d6` 与部署记录）再上线。冲突仅两份状态文档（已人工合并），`GameContext.tsx` 自动合并且热修守卫完整（身份回归脚本 9/9）。
+- 范围：首页公开大厅（三列房间卡、可加入优先与状态筛选、三种玩法统一建房入口）；词牌准备大厅（成员与自身席位合并、统一设置弹窗、按真实阶段显示下一步与权限、动画队长选择、两种重复分队且通过真实 Socket.IO 全端同步、精简聊天与快捷设置）。组牌台、正式对局与结算布局不属于本次重构。
+- 部署前本地回归（合并提交 `793ea12`）：`npm run typecheck`、`npm run build`、`npm run test:rules`（含 4/5/8 人 240 次重抽）、身份回归脚本 9/9、浏览器旧版 10 项 + 第二批 4 组 + 新大厅 4 组，全部通过、零前端异常。
+- 部署过程：部署时 `/rooms` 为空、未影响任何对局；git bundle 增量同步（`bca57d6..793ea12`）→ `git checkout -f 793ea12` → 全量构建（shared→server→web），产物哈希与本地一致（JS `index-Bzoie_7_.js` 516,112 B sha256 `d5a04c09…`；CSS `index-M-ApVc_-.css` 112,882 B sha256 `8a88e848…`）；空房守卫通过后重启 `codenames.service`（新 PID 430542，15:26:53 起）。
+- 备份：`/opt/codenames-backups/cipai-lobby-v2-793ea12/`（before.tar.gz 1,225,919 B / 216 条目全量源码快照、server.env.before、systemd 单元、部署前 release.json、原 HEAD `bca57d6`；目录仅 root 可读）。
+- 核验：systemd active、`/health` ok、Nginx 首页引用新产物且 JS/CSS 均 200、`/api/anime/catalog` 1810 部、三个功能开关保持开启、`/rooms` 为空；重启后服务日志零错误。
+- 线上验收（全部通过）：
+  - 旧版 10 项：`artifacts/prod-acceptance-3b18369/smoke/report.json`（四客户端桌面/触摸、经典→动画三局连续、双方队长可见干扰、预览/缩放/长按、暗亮桌面 1440/1920 与移动 390/360）。
+  - 第二批 4 组：`artifacts/prod-acceptance-3b18369/phase2/report.json`（社区创建/私有身份/复制/收藏/移动主题/举报与管理员隐藏恢复；按池版本封存 36 卡对局；团队图与私密意图/预测/快照/受权私密复盘无公共泄漏；线索快照与跨设备身份恢复拒绝越权）。
+  - 新大厅 4 组：`artifacts/prod-acceptance-3b18369/lobby/report.json`（真实 Socket.IO 全员重抽 5×与保留队长 10×、奇数人均衡与计划队长同步；统一设置弹窗、奖励分选项、成员与自身席位合并、聊天与偏好、桌面/移动暗亮无溢出；首页三列等宽、可加入优先排序、进行中/可加入筛选、经典 5/7/9 与上传题库、揭幕专用准备；planning→guide→draft→sealed→countdown→playing 全阶段、预览不可领取、单人未就绪无计时、取消/重置、封存锁定与倒计时取消）。
+  - 身份热修专项：`artifacts/prod-acceptance-bca57d6/`（注入坏身份加载：新产物 `index-Bzoie_7_.js` 200、零登录请求、本地身份自动清空、提示「本地登录信息已失效，请重新登录」、最近用户仅显示 Sparrow、旧产物 404；控制台输出存档 `identity-check-793ea12-output.json`）。
+  - 旁证：验收期间有一名真实用户（Sparrow）以手机端在线组局并对局中，全程未受影响。
+- 验收脚本适配（不改产品代码，修正提交 `0dc484b`，见 [git 提交](https://github.com/Zao-c/codenames-acg/commit/0dc484b)）：① 大厅脚本 3 个裸 Socket.IO 观众补齐 64 位 `identityKey`——线上 `matchAnalysis` 开启时服务端强制校验私密凭证，本地默认关闭故此前未暴露；② 观众/成员加入等待改为 UI 判定（`.preparation-lobby`），消除 polling→websocket 升级竞态导致的误报；③ 首页断言改为与真实房间共存的容错版，房间存在性以本套件房间 id 为准；④ 第二批验收池改用唯一名（避免与历史同名池歧义）并在通过后自动隐藏；⑤ 身份脚本产物名参数化。
+- 验收房间清理：本套件按设计在对局中途结束且不主动解散；大厅相位测试房在全体断线约 2 分钟后自动踢出、空房 5 分钟清理；进行中/已完赛测试房保留席位，随 6 小时空闲 TTL 于当晚自动删除（`1AAA75`≈21:38、`1CFE6B`≈21:52、`17C112`≈21:56；`D17408` 为真实用户对局，全程未触碰）。
+- 回滚：`git checkout -f bca57d6` 后全量重新 build 并重启（或从该备份恢复源码与 dist 后重启）；账号、图库与社区池磁盘数据不受影响。
+- 说明：本记录含一个仅改 `scripts/` 的验收脚本修正提交（`0dc484b`），不影响已部署应用；线上应用为 `793ea12` 及其构建产物。

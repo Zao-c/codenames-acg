@@ -133,7 +133,7 @@ async function imageFileToAvatarDataUrl(file: File): Promise<string> {
   return canvas.toDataURL("image/webp", 0.9);
 }
 
-function parseCustomWordFile(file: File): Promise<ImportedWordPackFile> {
+export function parseCustomWordFile(file: File): Promise<ImportedWordPackFile> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
@@ -185,7 +185,7 @@ function applyCandidateAutoReview(pack: CandidatePack): CandidatePack {
   };
 }
 
-function autoExportCandidatePack(pack: CandidatePack): SavedWordPack {
+export function autoExportCandidatePack(pack: CandidatePack): SavedWordPack {
   return exportPlayablePack(applyCandidateAutoReview(pack), defaultExportFilters);
 }
 
@@ -281,7 +281,7 @@ export interface GameContextType {
   handleNamedLogin: (usernameOverride?: string) => Promise<void>;
   continueAsGuest: () => void;
   handleAvatarUpload: (file: File | null) => Promise<void>;
-  createRoom: (defaults?: boolean) => void;
+  createRoom: (defaults?: boolean, variant?: 'classic'|'anime') => void;
   createRevealGuessRoom: (settings?: Partial<RevealGuessSettings>, initialPuzzle?: { imageUrl: string; answer: string; aliases?: string[]; hints?: string[] }) => void;
   joinByRoomCode: (asSpectator: boolean) => void;
   joinSpecificRoom: (roomId: string, asSpectator: boolean) => void;
@@ -331,7 +331,7 @@ export interface GameContextType {
 
   chooseTeam: (team: Team | null) => void;
   chooseRole: (role: "spymaster" | "operative") => void;
-  randomizeTeams: () => void;
+  randomizeTeams: (mode?: 'all'|'keep-captains') => void;
   updateBoardMode: (boardMode: BoardMode) => void;
   updateScoringMode: (mode: ScoringMode) => void;
   updateBuiltinPack: (wordPackId: string) => void;
@@ -528,6 +528,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const prevCanSubmitClueRef = useRef(false);
   const pendingCreateConfigRef = useRef<{
     boardMode: BoardMode;
+    variant?: 'classic'|'anime';
     builtinWordPackId?: string;
     customWordPack?: { name: string; entries: string[] };
     scoringMode?: ScoringMode;
@@ -733,6 +734,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (!hostPlayer?.isHost || room.phase !== "lobby") return;
     const pending = pendingCreateConfigRef.current;
     pendingCreateConfigRef.current = null;
+    if (pending.variant === 'anime') { socket.emit('plan_action',{roomId:session.roomId,kind:'configure',variant:'anime',boardMode:pending.boardMode}); return; }
     socket.emit("update_room_settings", { roomId: session.roomId, boardMode: pending.boardMode, builtinWordPackId: pending.builtinWordPackId, customWordPack: pending.customWordPack, scoringMode: pending.scoringMode, timerMode: pending.timerMode, timerClueSeconds: pending.timerClueSeconds, timerGuessSeconds: pending.timerGuessSeconds, neutralCount: pending.neutralCount, flipMode: pending.flipMode });
   }, [room, session, socket]);
   useEffect(() => { setTransferHostTargetId((cur) => { if (cur && hostTransferCandidates.some((p) => p.id === cur)) return cur; return hostTransferCandidates[0]?.id ?? ""; }); }, [hostTransferCandidates]);
@@ -1001,7 +1003,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       : { nickname: effectiveIdentity.nickname, profile: effectiveIdentity };
   }
 
-  function createRoom(defaults = false) {
+  function createRoom(defaults = false, variant: 'classic'|'anime' = 'classic') {
     const ji = buildJoinProfile(); if (!ji) return;
     if (!defaults && packSource === "public" && selectedPublicPack) {
       setError("正在加载题库详情...");
@@ -1015,7 +1017,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const pending: { boardMode: BoardMode; builtinWordPackId?: string; customWordPack?: { name: string; entries: string[] }; scoringMode?: ScoringMode; timerMode?: import("@acg-codenames/shared").TimerMode; timerClueSeconds?: number; timerGuessSeconds?: number; neutralCount?: number | null; flipMode?: import("@acg-codenames/shared").FlipMode } = { boardMode: createBoardMode, scoringMode, timerMode: createTimerMode, timerClueSeconds: createTimerClueSeconds, timerGuessSeconds: createTimerGuessSeconds, neutralCount: createNeutralCount === 0 ? null : createNeutralCount, flipMode: createFlipMode }; 
     if (packSource === "builtin") pending.builtinWordPackId = selectedBuiltinPackId;
     else if (selectedAccountPack) pending.customWordPack = { name: selectedAccountPack.name, entries: selectedAccountPack.entries };
-    pendingCreateConfigRef.current = defaults ? null : pending;
+    pendingCreateConfigRef.current = variant === 'anime' ? {boardMode:'5x5',variant} : defaults ? null : pending;
     setConnectionState("connecting"); setError("");
     socket.emit("create_room", { identityKey: privateIdentityKey(), nickname: ji.nickname, profile: { accountType: ji.profile.mode, username: ji.profile.mode === "named" ? ji.profile.username : null, avatarUrl: ji.profile.avatarUrl, userSessionToken: ji.profile.mode === "named" ? ji.profile.userSessionToken : undefined } });
   }
@@ -1078,7 +1080,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   // ─── room actions ──────────────────────────────────
   function chooseTeam(team: Team | null) { if (session) socket.emit("set_team", { roomId: session.roomId, team }); }
   function chooseRole(role: "spymaster" | "operative") { if (session) socket.emit("set_role", { roomId: session.roomId, role }); }
-  function randomizeTeams() { if (session) socket.emit("randomize_teams", { roomId: session.roomId }); }
+  function randomizeTeams(mode: 'all'|'keep-captains' = 'all') { if (session) socket.emit('randomize_teams', { roomId: session.roomId, mode }); }
   function updateBoardMode(boardMode: BoardMode) { if (session) socket.emit("update_room_settings", { roomId: session.roomId, boardMode }); }
   function updateScoringMode(mode: ScoringMode) { if (session) socket.emit("update_room_settings", { roomId: session.roomId, scoringMode: mode }); }
   function updateBuiltinPack(wordPackId: string) { if (session) socket.emit("update_room_settings", { roomId: session.roomId, builtinWordPackId: wordPackId }); }

@@ -68,16 +68,16 @@ try {
   checks.push('community UI create, private identity, copy, favorite, mobile theme, report and administrator hide/restore');
   await host.reload(); await button(host, '公开广场').click(); await visible(host.getByRole('heading', { name: '二批社区联机池' })); await button(card, '查看作品').click();
   await button(host.getByRole('dialog'), '用于下一局配置').click();
-  await host.goto(base); await host.locator('.home-action-grid').getByRole('button', { name: '创建房间', exact: true }).click(); await visible(host.locator('.room-code').first());
+  await host.goto(base); await button(host,'＋ 创建房间').click(); await button(host.getByRole('dialog'),'创建房间 →').click(); await visible(host.locator('.room-code').first());
   const roomId = await host.locator('.room-code').first().innerText();
-  for (let i = 1; i < 5; i++) { await pages[i].goto(`${base}/room/${roomId}`); await button(pages[i], i === 4 ? '旁观' : '加入房间').click(); await visible(pages[i].locator('.room-layout')); }
-  for (let i = 0; i < 4; i++) { await mobileTab(pages[i], '玩家'); await button(pages[i], i < 2 ? '红队' : '蓝队').click(); if (i % 2 === 0) await button(pages[i], '队长').click(); await mobileTab(pages[i], '准备'); }
-  const config = host.locator('.anime-config'); if (!(await config.getAttribute('open') !== null)) await config.locator('summary').click();
+  for (let i = 1; i < 5; i++) { await pages[i].goto(`${base}/room/${roomId}`); await button(pages[i], i === 4 ? '旁观' : '加入房间').click(); await visible(pages[i].locator('.preparation-lobby')); }
+  for (let i = 0; i < 4; i++) { await mobileTab(pages[i], '玩家'); await pages[i].getByLabel('我的队伍',{exact:true}).selectOption(i<2?'red':'blue'); if(i%2===0) await pages[i].getByLabel('我的身份',{exact:true}).selectOption('spymaster'); await mobileTab(pages[i], '准备'); }
+  await button(host,'修改设置').click(); const config = host.locator('.anime-config'); if (!(await config.getAttribute('open') !== null)) await config.locator('summary').click();
   await config.getByLabel('玩法', { exact: true }).selectOption('anime'); await config.getByLabel('棋盘', { exact: true }).selectOption('6x6');
-  await config.getByLabel('动画作品池', { exact: true }).selectOption(`community:${poolId}`); await button(host, '保存配置并更新候选池').click();
+  await config.getByLabel('动画作品池', { exact: true }).selectOption(`community:${poolId}`); await button(host, '保存设置').click();
   await until(() => states[0]?.nextPlan?.sourcePool?.id === poolId, 'versioned community snapshot');
-  await button(host, '进入无时限准备').click(); await button(host, '准备好了 / 跳过引导').click();
-  const blue = pages[2]; const operations = button(blue, '选牌与操作'); if (await operations.isVisible()) await operations.click(); await button(blue, '准备好了 / 跳过引导').click();
+  await button(host, '进入队长预览 →').click(); await button(host, '确认就绪，开始组牌').click();
+  const blue = pages[2]; await mobileTab(blue,'准备'); await button(blue, '确认就绪，开始组牌').click(); await button(blue,'选牌与操作').click();
   await visible(button(host, '手选完成，剩余随机补齐')); await button(host, '手选完成，剩余随机补齐').click(); await button(blue, '手选完成，剩余随机补齐').click(); await visible(button(host, '开始五秒倒计时')); await button(host, '开始五秒倒计时').click();
   await until(() => states[0]?.phase === 'playing' && !!states[1]?.analysis, 'analysis-enabled match');
   checks.push('community pool selected by ID/revision and sealed as a valid 36-card match');

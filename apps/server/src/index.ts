@@ -820,7 +820,7 @@ async function bootstrap(): Promise<void> {
         if (session.participantType !== "player") {
           throw new Error("旁观者不能随机分队");
         }
-        const room = await game.randomizeTeams(roomId, session.participantId);
+        const room = await game.randomizeTeams(roomId, session.participantId, payload.mode);
         await sendRoomState(room.id);
       } catch (error) {
         fail(socket, error);
