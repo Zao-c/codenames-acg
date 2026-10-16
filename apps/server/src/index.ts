@@ -587,12 +587,14 @@ async function bootstrap(): Promise<void> {
     }
   }
 
-  function bind(socketId: string, roomId: string, participantId: string, participantType: ParticipantType): void {
-    for (const [oldId, old] of socketSessions) {
-      if (oldId !== socketId && old.roomId === roomId && old.participantId === participantId) {
-        socketSessions.delete(oldId);
-        io.sockets.sockets.get(oldId)?.leave(roomId);
-      }
+  async function bind(socketId: string, roomId: string, participantId: string, participantType: ParticipantType): Promise<void> {
+    const previous = socketSessions.get(socketId);
+    if (previous && (previous.roomId !== roomId || previous.participantId !== participantId)) {
+      const client = io.sockets.sockets.get(socketId);
+      client?.leave(previous.roomId); client?.leave(`member:${previous.participantId}`);
+      socketSessions.delete(socketId);
+      await game.markDisconnected(previous.roomId,previous.participantId,previous.participantType,()=>![...socketSessions.values()].some(s=>s.roomId===previous.roomId&&s.participantId===previous.participantId));
+      await sendRoomState(previous.roomId);
     }
     socketSessions.set(socketId, { roomId, participantId, participantType });
   }
@@ -662,7 +664,7 @@ async function bootstrap(): Promise<void> {
           const analysis = game.getPublicRoomState(room, bound.participantId, bound.participantType).analysis;
           if (analysis && (sameParticipant || analysis.canReadTeamGraph)) client.emit('analysis_state', { roomId, analysis });
         }
-      } catch (error) { fail(socket, error); }
+      } catch (error) { const bound=socketSessions.get(socket.id);if(bound)await sendRoomState(bound.roomId);fail(socket,error); }
     });
 
     socket.on('plan_action', async payload => {
@@ -689,7 +691,7 @@ async function bootstrap(): Promise<void> {
         const profile = optionalProfile(body.profile);
         const sessionToken = body.profile && typeof body.profile === "object" ? optionalUserSessionToken((body.profile as PayloadRecord).userSessionToken) : undefined;
         const { room, player } = await game.createRoom(nickname, profile, sessionToken, privatePrincipal(body));
-        bind(socket.id, room.id, player.id, "player");
+        await bind(socket.id, room.id, player.id, "player");
         socket.join(room.id);
         socket.join(`member:${player.id}`);
         emitSession(socket, room.id, player.id, "player", player.sessionToken!);
@@ -711,8 +713,8 @@ async function bootstrap(): Promise<void> {
 
         if (roomSessionToken) {
           try {
-            const restored = await game.reconnectRoom(roomId, roomSessionToken);
-            bind(socket.id, restored.room.id, restored.participantId, restored.participantType);
+            const restored = await game.reconnectRoom(roomId, roomSessionToken, privatePrincipal(body));
+            await bind(socket.id, restored.room.id, restored.participantId, restored.participantType);
             socket.join(restored.room.id);
             socket.join(`member:${restored.participantId}`);
             emitSession(socket, restored.room.id, restored.participantId, restored.participantType, roomSessionToken);
@@ -722,7 +724,7 @@ async function bootstrap(): Promise<void> {
         }
 
         const { room, player } = await game.joinRoom(roomId, nickname, profile, userSessionToken, privatePrincipal(body));
-        bind(socket.id, room.id, player.id, "player");
+        await bind(socket.id, room.id, player.id, "player");
         socket.join(room.id);
         socket.join(`member:${player.id}`);
         emitSession(socket, room.id, player.id, "player", player.sessionToken!);
@@ -741,20 +743,8 @@ async function bootstrap(): Promise<void> {
         const userSessionToken = body.profile && typeof body.profile === "object" ? optionalUserSessionToken((body.profile as PayloadRecord).userSessionToken) : undefined;
         const roomSessionToken = typeof body.sessionToken === "string" ? body.sessionToken : undefined;
 
-        if (roomSessionToken) {
-          try {
-            const restored = await game.reconnectRoom(roomId, roomSessionToken);
-            bind(socket.id, restored.room.id, restored.participantId, restored.participantType);
-            socket.join(restored.room.id);
-            socket.join(`member:${restored.participantId}`);
-            emitSession(socket, restored.room.id, restored.participantId, restored.participantType, roomSessionToken);
-            await sendRoomState(restored.room.id);
-            return;
-          } catch { /* fallback to normal join */ }
-        }
-
         const { room, spectator } = await game.joinSpectator(roomId, nickname, profile, userSessionToken, privatePrincipal(body));
-        bind(socket.id, room.id, spectator.id, "spectator");
+        await bind(socket.id, room.id, spectator.id, "spectator");
         socket.join(room.id);
         socket.join(`member:${spectator.id}`);
         emitSession(socket, room.id, spectator.id, "spectator", spectator.sessionToken!);
@@ -769,14 +759,14 @@ async function bootstrap(): Promise<void> {
         const body = asObject(payload);
         const roomId = requireString(body, "roomId");
         const sessionToken = requireString(body, "sessionToken");
-        const { room, participantId, participantType } = await game.reconnectRoom(roomId, sessionToken);
-        bind(socket.id, room.id, participantId, participantType);
+        const { room, participantId, participantType } = await game.reconnectRoom(roomId, sessionToken, privatePrincipal(body));
+        await bind(socket.id, room.id, participantId, participantType);
         socket.join(room.id);
         socket.join(`member:${participantId}`);
         emitSession(socket, room.id, participantId, participantType, sessionToken);
         await sendRoomState(room.id);
       } catch (error) {
-        fail(socket, error);
+        socket.emit('error_message',{message:error instanceof Error?error.message:'Recovery failed',code:'ROOM_RECOVERY_FAILED',roomId:payload?.roomId});
       }
     });
 
@@ -1108,6 +1098,7 @@ async function bootstrap(): Promise<void> {
           if (!storedSession || storedSession.roomId !== roomId) {
             throw new Error("会话不存在");
           }
+          await game.reconnectRoom(roomId,sessionToken,privatePrincipal(body));
           participantId = storedSession.participantId;
           participantType = storedSession.participantType;
         } else {
@@ -1119,11 +1110,12 @@ async function bootstrap(): Promise<void> {
 
         const room = isLobby
           ? await game.leaveRoom(roomId, participantId, participantType)
-          : await game.markDisconnected(roomId, participantId, participantType);
+          : await game.markDisconnected(roomId, participantId, participantType,()=>![...socketSessions.entries()].some(([id,s])=>id!==socket.id&&s.roomId===roomId&&s.participantId===participantId));
 
-        if (boundSession) socketSessions.delete(socket.id);
+        if (boundSession && socketSessions.get(socket.id) === boundSession) socketSessions.delete(socket.id);
         socket.leave(roomId);
         socket.leave(`member:${participantId}`);
+        if(isLobby)for(const [id,bound] of socketSessions){if(bound.roomId===roomId&&bound.participantId===participantId){socketSessions.delete(id);const client=io.sockets.sockets.get(id);client?.leave(roomId);client?.leave(`member:${participantId}`);client?.emit('room_closed',{roomId,reason:'已退出房间'});}}
         if (room) {
           await sendRoomState(room.id);
         } else {
@@ -1183,7 +1175,7 @@ async function bootstrap(): Promise<void> {
           ? asObject(body.initialPuzzle)
           : null;
 
-        const { room, player } = await game.createRoom(nickname, profile, sessionToken);
+        const { room, player } = await game.createRoom(nickname, profile, sessionToken,body.identityKey===undefined?undefined:privatePrincipal(body));
         RevealGuess.initRevealGuessState(room, settings);
         if (initialPuzzle) {
           const imageUrl = await revealImages.normalizeImageUrl(requireString(initialPuzzle, "imageUrl"));
@@ -1194,7 +1186,7 @@ async function bootstrap(): Promise<void> {
         }
         await store.setRoom(room);
 
-        bind(socket.id, room.id, player.id, "player");
+        await bind(socket.id, room.id, player.id, "player");
         socket.join(room.id);
         socket.join(`member:${player.id}`);
         emitSession(socket, room.id, player.id, "player", player.sessionToken!);
