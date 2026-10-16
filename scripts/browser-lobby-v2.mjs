@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
 import { io } from 'socket.io-client';
@@ -70,7 +71,7 @@ try{
   await classicSettings.getByLabel('上传文字题库').setInputFiles({name:'大厅上传题库.txt',mimeType:'text/plain',buffer:Buffer.from(Array.from({length:110},(_,i)=>`联想词条${i}`).join('\n'))});
   await button(classicSettings,'保存设置').click();await until(()=>states[5].nextPlan?.wordPackName==='大厅上传题库','uploaded classic pack');
   assert.equal(states[5].nextPlan.settings.timerMode,'timed');assert.equal(states[5].nextPlan.settings.flipMode,'color-only');
-  for(let i=0;i<3;i++){const c=io(api,{transports:['websocket']});clients.push(c);await new Promise(r=>c.on('connect',r));await new Promise((resolve,reject)=>{c.once('session',resolve);c.once('error_message',d=>reject(new Error(d.message)));c.emit('join_room',{roomId:classicId,nickname:`公开大厅成员${i}`});});}
+  for(let i=0;i<3;i++){const c=io(api,{transports:['websocket']});clients.push(c);await new Promise(r=>c.on('connect',r));await new Promise((resolve,reject)=>{c.once('session',resolve);c.once('error_message',d=>reject(new Error(d.message)));c.emit('join_room',{roomId:classicId,nickname:`公开大厅成员${i}`,identityKey:crypto.randomBytes(32).toString('hex')});});}
   await until(()=>states[5].players.length===4,'classic 4 players');await button(pages[5],'全员重新随机').click();await button(pages[5],'开始游戏').click();await until(()=>states[5].phase==='playing','classic playing');
   await create(pages[6],'揭幕猜番');await until(()=>states[6]?.gameMode==='reveal-guess','dedicated reveal flow');assert.equal(await pages[6].locator('.preparation-lobby').count(),0);
   const home=pages[7];await home.locator('.home-room').nth(2).waitFor();assert.equal(await home.locator('.home-room').count(),3);
