@@ -391,7 +391,7 @@ export interface GameContextType {
   revealingCardIds: Set<string>;
   maskSpymasterHints: boolean;
   setMaskSpymasterHints: (v: boolean) => void;
-  showSakura: boolean;
+
   globalReaction: import("@acg-codenames/shared").ReactionEffectPayload | null;
   reactionQueue: import("@acg-codenames/shared").ReactionEffectPayload[];
   collapsedSections: Set<string>;
@@ -515,7 +515,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const endTurnLockRef = useRef(false);
   const [revealingCardIds, setRevealingCardIds] = useState<Set<string>>(new Set());
   const [maskSpymasterHints, setMaskSpymasterHints] = useState(false);
-  const [showSakura, setShowSakura] = useState(false);
   const [globalReaction, setGlobalReaction] = useState<import("@acg-codenames/shared").ReactionEffectPayload | null>(null);
   const [reactionQueue, setReactionQueue] = useState<import("@acg-codenames/shared").ReactionEffectPayload[]>([]);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set(["待分队"]));
@@ -747,8 +746,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (guessed?.revealed || room.phase !== "playing" || !viewer?.canGuess) { setPendingGuess(null); guessLockRef.current = false; }
   }, [pendingGuess, room, viewer?.canGuess]);
   useEffect(() => {
-    if (room?.phase === "finished" && room.winner) { if (soundEnabledRef.current) playVictory(); setShowSakura(true); const t = window.setTimeout(() => setShowSakura(false), 8000); return () => window.clearTimeout(t); }
-    setShowSakura(false);
+    if (room?.phase === "finished" && room.winner && soundEnabledRef.current) playVictory();
   }, [room?.phase, room?.winner]);
   useEffect(() => { if (room?.phase === "playing" && room.roundNumber && soundEnabledRef.current) playGameStart(); }, [room?.phase, room?.roundNumber]);
   useEffect(() => {
@@ -1236,7 +1234,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     chatListRef, battleListRef, handleChatScroll, handleBattleScroll, scrollChatToBottom,
     revealBanner, reactionEffects, pendingGuess, revealingCardIds,
     maskSpymasterHints, setMaskSpymasterHints,
-    showSakura, globalReaction, reactionQueue,
+    globalReaction, reactionQueue,
     collapsedSections, setCollapsedSections, toggleSection,
     canSeeHiddenRoles, showSpymasterHints, stickToChatBottomRef, stickToBattleBottomRef, isDebugController,
     renderHint, boardModes, ROOM_ID_LENGTH, makePublicPackKey,

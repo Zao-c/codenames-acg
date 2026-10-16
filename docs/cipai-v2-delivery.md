@@ -59,3 +59,23 @@
 - systemd active，Nginx /health 返回 ok，动画目录返回 1810 部。
 - 正式网站也通过四游客客户端、两手机视口、三局连续完整浏览器验收；回放接口均成功，零前端异常。结束后测试房间已解散，/rooms 返回空数组。
 - 分阶段 PR：[#1 G0](https://github.com/Zao-c/codenames-acg/pull/1) → [#2 G1](https://github.com/Zao-c/codenames-acg/pull/2) → [#3 G2–G4](https://github.com/Zao-c/codenames-acg/pull/3) → [#4 G5](https://github.com/Zao-c/codenames-acg/pull/4)。均保留开放审阅状态，线上运行完整功能分支构建。
+
+## 界面重做部署结果（2026-10-16）
+
+- 02:08（北京时间）部署应用提交 `82e391328668c78620fe74e2029c1858377430f5`（分支 `codex/cipai-ui-redesign`，[PR #5](https://github.com/Zao-c/codenames-acg/pull/5)），入口：http://182.61.136.105 。服务器 release.json 记录应用提交与备份位置。
+- 本次为纯前端布局重做：深海军蓝与石墨灰基底、克制面板，动画封面为主视觉；新增 layout.css 应用外壳与响应式工作区，房间按大厅/对局/结算栅格重排，手机端棋盘/玩家/聊天页签切换；组牌台增加筛选、书签与移动端分栏；动画棋盘紧凑封面、预览不翻牌、纯文字与缩放；移除樱花粒子与霓虹装饰。
+- 部署前核对：服务器工作区与上一版 `2c07037` 逐文件 SHA-256 一致（61 个差异文件 CR 归一化后全部相同，仅 release.json 为部署元数据），确认无未合入的线上修改；重启前 /rooms 为空，未中断任何对局。
+- 依赖与后端无变化，未执行 npm ci；`npm run build` 三个包同版本构建通过，前端产物哈希与本地一致。备份：`/opt/codenames-backups/cipai-ui-82e3913/before.tar.gz`（含源码、dist、.env、账号数据与 git 状态），目录仅 root 可访问。
+- systemd `codenames.service` 重启后 active，Nginx /health 返回 ok，动画目录 1810 部，/rooms 无测试残留（验收测试房间在结束流程中解散）。
+- 正式网站浏览器验收：四游客客户端、两台手机触摸视口、经典→动画 6×6→经典三局连续、真实触摸长按干扰、预览不翻牌、缩放滑动、两个独立回放页，全部通过，零前端异常。
+- 回滚：停服务后从该备份恢复源码与 dist 并重启，或 `git checkout -f 2c07037` 后重新 build；账号与图库磁盘数据不受影响。
+
+## 候选卡交互修正部署结果（2026-10-16 · 219dcb3）
+
+- 北京时间 15:46（07:46 UTC）部署应用提交 `219dcb3e489c01ff64188c22abde30a20ec1d756`（分支 `codex/cipai-ui-redesign`，[PR #5](https://github.com/Zao-c/codenames-acg/pull/5) 已自动指向该提交），入口：http://182.61.136.105 。服务器 release.json 已更新（上一版 `82e3913`）。
+- 本次为 UI/UX 与拖拽交互修正：候选卡移除底部「详情/收藏」工具条，书签改为独立角标星；单击/短按打开预览、拖动拿牌（鼠标移动即拖、触摸长按 350ms 进入拖动），带跟随 ghost、投放区高亮与手机底部操作坞（领取/抢夺、撤回、干扰）；预览窗口合并为单一右上关闭并保留 Bangumi 外链（新标签页）；预览内按身份给出领取/撤回/抢夺/干扰动作，干扰必须经过显式二次确认；服务端把干扰牌在对方队长视图里伪装为普通手选（仅投放方保留角标与来源）。
+- 部署前核对：`/rooms` 为空，未中断任何对局；备份含源码、dist、release.json 与 git 状态：`/opt/codenames-backups/cipai-drag-219dcb3/before.tar.gz`，目录仅 root 可访问。
+- 后端规则与依赖无变化；shared 增加视图层掩码。`npm run build` 三包同版本构建通过，产物哈希与本地一致（`index-jBEMMHN0.js` / `index-BZWmeLYZ.css`）。
+- systemd `codenames.service` 重启后 active，/health 返回 ok，`/api/anime/catalog` 返回 1810 部作品、128 个池，/rooms 为空；Nginx 首页引用新产物且 JS/CSS 均 200。
+- 正式网站浏览器验收（四客户端：两个桌面 1440/1920 + 两个手机触摸 390/360，经典→动画 6×6→经典三局连续）：点击候选卡只开预览（无「详情」按钮、单一关闭入口、Bangumi 外链 `target=_blank rel="noopener noreferrer"`）、预览内领取、鼠标拖拽领取与拖回撤回、真实触摸长按拖到干扰槽并二次确认、受害队长视图与载荷均无干扰标记、预览不翻牌、文字/缩放/滑动、两个独立回放页——全部通过，零前端异常。
+- 回滚：停服务后从该备份恢复源码与 dist 并重启，或 `git checkout -f 82e3913` 后重新 build；账号与图库磁盘数据不受影响。
