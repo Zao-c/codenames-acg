@@ -787,7 +787,18 @@ export function GameProvider({ children }: { children: ReactNode }) {
   // ─── named user loading ───────────────────────────
   useEffect(() => {
     if (!identity || identity.mode !== "named") { setNamedAccount(null); return; }
-    void loginNamedUser({ username: identity.username }).then((account) => {
+    const username = typeof identity.username === "string" ? identity.username.trim() : "";
+    if (!username) {
+      // Corrupted local identity (e.g. written before response validation was added):
+      // clear it instead of retrying username-less logins (server replies "username 参数无效").
+      clearIdentity(); _setIdentity(null); setNamedAccount(null);
+      setError("本地登录信息已失效，请重新登录");
+      return;
+    }
+    void loginNamedUser({ username }).then((account) => {
+      if (!account || typeof account.username !== "string" || !account.username.trim()) {
+        throw new Error("登录响应无效，请重试");
+      }
       setNamedAccount(account);
       const ni: LocalIdentity = { mode: "named", username: account.username, nickname: account.username, avatarUrl: account.avatarUrl, userSessionToken: account.sessionToken };
       _setIdentity(ni); saveIdentity(ni); setRecentUsers(loadRecentUsernames());
@@ -801,6 +812,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (!username) { setError("请输入用户名"); return; }
     try {
       const account = await loginNamedUser({ username });
+      if (!account || typeof account.username !== "string" || !account.username.trim()) {
+        throw new Error("登录响应无效，请重试");
+      }
       setNamedAccount(account);
       persistIdentity({ mode: "named", username: account.username, nickname: account.username, avatarUrl: account.avatarUrl, userSessionToken: account.sessionToken });
       setNamedUsernameInput(account.username); setError("");
@@ -819,6 +833,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
     try {
       const avatarUrl = await imageFileToAvatarDataUrl(file);
       const updated = await updateNamedUser(namedAccount.username, requireNamedUserSessionToken(identity), { avatarUrl });
+      if (!updated || typeof updated.username !== "string" || !updated.username.trim()) {
+        throw new Error("更新响应无效，请重试");
+      }
       setNamedAccount(updated);
       persistIdentity({ mode: "named", username: updated.username, nickname: updated.username, avatarUrl: updated.avatarUrl, userSessionToken: requireNamedUserSessionToken(identity) });
       setError("");
