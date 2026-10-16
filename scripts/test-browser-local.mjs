@@ -2,15 +2,20 @@ import { spawn } from 'node:child_process';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import crypto from 'node:crypto';
+const phase2 = process.argv.includes('--phase2');
+const serverPort = phase2 ? '3032' : '3022';
+const webPort = phase2 ? '5187' : '5177';
 const dir=await mkdtemp(path.join(tmpdir(),'cipai-browser-'));
 const children=[];
 function run(args,env={}) { const child=spawn(process.execPath,args,{env:{...process.env,...env},stdio:'inherit',windowsHide:true});children.push(child);return child; }
 async function ready(url) { for(let i=0;i<100;i++){try{if((await fetch(url)).ok)return;}catch{} await new Promise(r=>setTimeout(r,250));}throw new Error(`Not ready: ${url}`); }
 try {
-  run(['node_modules/tsx/dist/cli.mjs','apps/server/src/index.ts'],{PORT:'3022',CLIENT_ORIGIN:'http://127.0.0.1:5177',USE_MEMORY_STORE:'1',ENABLE_DEBUG_TOOLS:'0',ENABLE_ANIME_DRAFT:'1',USER_STORE_FILE:path.join(dir,'users.json'),REVEAL_IMAGE_DIR:path.join(dir,'images')});
-  run(['node_modules/vite/bin/vite.js','--host','127.0.0.1','--port','5177','--strictPort','apps/web'],{VITE_SERVER_URL:'http://127.0.0.1:3022'});
-  await Promise.all([ready('http://127.0.0.1:3022/health'),ready('http://127.0.0.1:5177')]);
-  const test=run(['scripts/browser-smoke.mjs'],{PLAYTEST_BASE_URL:'http://127.0.0.1:5177'});
+  const adminKey = crypto.randomBytes(32).toString('hex');
+  run(['node_modules/tsx/dist/cli.mjs','apps/server/src/index.ts'],{PORT:serverPort,CLIENT_ORIGIN:`http://127.0.0.1:${webPort}`,USE_MEMORY_STORE:'1',ENABLE_DEBUG_TOOLS:'0',ENABLE_ANIME_DRAFT:'1',ENABLE_MATCH_ANALYSIS:phase2?'1':'0',ENABLE_PREDICTIONS:phase2?'1':'0',ENABLE_ANIME_COMMUNITY:phase2?'1':'0',ANIME_POOL_STORE_FILE:path.join(dir,'anime-pools.json'),ANIME_POOL_ADMIN_KEY:adminKey,USER_STORE_FILE:path.join(dir,'users.json'),REVEAL_IMAGE_DIR:path.join(dir,'images')});
+  run(['node_modules/vite/bin/vite.js','--host','127.0.0.1','--port',webPort,'--strictPort','apps/web'],{VITE_SERVER_URL:`http://127.0.0.1:${serverPort}`});
+  await Promise.all([ready(`http://127.0.0.1:${serverPort}/health`),ready(`http://127.0.0.1:${webPort}`)]);
+  const test=run([phase2?'scripts/browser-phase2.mjs':'scripts/browser-smoke.mjs'],{PLAYTEST_BASE_URL:`http://127.0.0.1:${webPort}`,PLAYTEST_API_URL:`http://127.0.0.1:${serverPort}`,PLAYTEST_ADMIN_KEY:adminKey});
   const code=await new Promise(r=>test.on('exit',r));
   if(code!==0)throw new Error(`Browser checks failed: ${code}`);
 } finally {

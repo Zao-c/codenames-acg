@@ -1,4 +1,5 @@
 import { analysisPermissions, type ParticipantType, type Room } from '@acg-codenames/shared';
+import { ensureAnalysisBudget } from './analysis-budget.js';
 
 export function editPrediction(room: Room, participantId: string, participantType: ParticipantType, input: unknown, time: number): void {
   if (!input || typeof input !== 'object' || Array.isArray(input) || JSON.stringify(input).length > 2048) throw new Error('预测参数无效');
@@ -30,4 +31,5 @@ export function editPrediction(room: Room, participantId: string, participantTyp
   if (rate && time - rate.at < 1000 && rate.count >= 5) throw new Error('操作过快，请稍后重试');
   state.rates[principal] = rate && time - rate.at < 1000 ? { ...rate, count: rate.count + 1 } : { at: time, count: 1 };
   state.requests[principal] = [...(state.requests[principal] ?? []), action.requestId].slice(-256);
+  ensureAnalysisBudget(room);
 }

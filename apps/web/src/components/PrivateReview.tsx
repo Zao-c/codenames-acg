@@ -4,7 +4,7 @@ import { getPrivateReplay, sharePrivatePrediction } from '../lib/api';
 import { Dialog } from './UI';
 import { GraphPicture } from './AssociationBoard';
 
-function ReviewDialog({ matchId, close }: { matchId: string; close: () => void }) {
+export function ReviewDialog({ matchId, close }: { matchId: string; close: () => void }) {
   const [data, setData] = useState<PrivateReplayView | null>(null);
   const [error, setError] = useState('');
   const [step, setStep] = useState(-1);
@@ -29,5 +29,5 @@ export function PrivateReview({ room }: { room: PublicRoomState }) {
   const [matchId, setMatchId] = useState<string | null>(null);
   const history = (room.replayHistory ?? []).filter(h => h.privateAvailable);
   if (!history.length) return null;
-  return <div className="private-review-entry"><details><summary>历局私密复盘</summary><p className="hint-text">仅正常完赛且拥有本局身份凭证时可查看；公开基础回放不受影响。</p>{history.map(h => <button key={h.matchId} onClick={() => setMatchId(h.matchId)}>第 {h.roundNumber} 局 · 私密复盘</button>)}</details>{matchId && <ReviewDialog key={matchId} matchId={matchId} close={() => setMatchId(null)}/>}</div>;
+  return <div className="private-review-entry"><details><summary>历局私密复盘</summary><p className="hint-text">仅正常完赛且拥有本局身份凭证时可查看；公开基础回放不受影响。</p>{history.map(h => <span key={h.matchId}><button onClick={() => setMatchId(h.matchId)}>第 {h.roundNumber} 局 · 私密复盘</button><a href={`/private-replay/${h.matchId}`} target="_blank" rel="noopener noreferrer">新窗口</a></span>)}</details>{matchId && <ReviewDialog key={matchId} matchId={matchId} close={() => setMatchId(null)}/>}</div>;
 }

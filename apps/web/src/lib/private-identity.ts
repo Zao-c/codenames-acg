@@ -9,3 +9,8 @@ export function privateIdentityKey(): string {
   localStorage.setItem(KEY, value);
   return value;
 }
+
+export function restorePrivateIdentity(value: string): void {
+  if (!/^[a-f0-9]{64}$/.test(value.trim())) throw new Error('请输入完整的 64 位身份凭证');
+  localStorage.setItem(KEY, value.trim());
+}

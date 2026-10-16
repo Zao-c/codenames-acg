@@ -1,12 +1,14 @@
 # Agent 续接入口
 
-更新：2026-10-16。先读本页，再读关联文档。不要从旧 main/G0 重新开发，也不要把前任的测试记录当成本轮执行结果。
+更新：2026-10-16（本地社区交付）。先读本页，再读关联文档。用户已明确分工：本 Agent 仅本地开发/测试/commit/push，服务器部署和 pull 由其他 AI 负责。不从旧 main/G0 重新开发，不把前任记录当成本轮执行结果。
 
 ## 当前进度
 
 - G0–G5 和 UI/拖拽已交付。应用线上 `e21aacb`（分支 `codex/cipai-phase2`，堆叠于 `codex/cipai-ui-redesign`，[PR #6](https://github.com/Zao-c/codenames-acg/pull/6)）；部署记录见 [交付记录](cipai-v2-delivery.md)。
-- 第二批 P2-0～P2-5 已实现并部署：干扰可见性按主规格恢复（双方队长可见且不占手选配额）；设备键控主体、按局私有状态与 viewer 范围权限；团队关联板、队长意图、翻牌前快照、观众预测、受鉴权私密复盘。除干扰纠偏外均由 `ENABLE_MATCH_ANALYSIS` / `ENABLE_PREDICTIONS` 控制，线上默认关闭。P2-6～P2-8（社区身份与题库广场、集成发布）未开始。
+- 第二批 P2-0～P2-5 已有基础提交：干扰可见性、设备键控主体、关联板/意图/快照/预测/私密复盘。前任记录其已部署，新功能开关默认关闭；本轮不登录服务器复核。
+- 本地分支 `codex/cipai-phase2-community` 继续完成 P2-6/P2-7：社区池持久化、搜索/复制/收藏/举报/管理员治理、凭证备份/恢复、房间按池版本选题；补齐 P2-8 的本地验收和 [部署 Agent 交接](PHASE2_LOCAL_DELIVERY.md)。本轮未部署。
 - 提交前 `npm run typecheck`、`npm run test:rules`（含 match-analysis.test.ts）、`npm run test:e2e:local`（41/41）、`npm run build` 通过；正式网站浏览器验收 10 项全过（`artifacts/prod-acceptance-e21aacb/`）。
+- 本轮本地验收：typecheck、rules（新增 private-replay/anime-pools）、E2E（揭幕 41/41）、build 通过；原浏览器 10/10、第二批 4/4 组，零前端异常，另测开启第二批的 390×844 完整棋盘与跨设备身份恢复。详细证据见本地交付说明；以上不等于新版本已上线。
 - 线上是单进程内存房间/回放；服务真实工作目录 `/opt/codenames-acg/apps/server`。部署核验后 `/rooms` 已出现真实玩家房间（重启会清空）。
 
 ## 阅读顺序
@@ -26,4 +28,4 @@
 - 主规格没有第三批定稿，等待用户补充，不能自行建立第三批范围。
 - 用户未跟踪的原始文档和 `scripts/build_eihei_pet.py` 均不是本轮产物，保留原样。
 
-下一步：P2-6（社区身份与所有权认证）需先与用户确认方案；启用 `ENABLE_MATCH_ANALYSIS` / `ENABLE_PREDICTIONS` 或开放社区写入均属新的部署决定，需用户明确批准。不要反复问已批准的事项。
+下一步：本 Agent 完成本地提交并推送；部署 Agent 读取 [本地交付说明](PHASE2_LOCAL_DELIVERY.md) 的配置、数据与验收清单，按用户安排执行服务器 pull/部署。本轮用户已授权继续第二批开发及 commit/push，不要再次索取相同授权。第三批需求仍未定稿。

@@ -2,6 +2,21 @@ import type { GameReplay, NamedUserAccount, NamedUserLoginResponse, PublicImageP
 
 const API_BASE = import.meta.env.VITE_SERVER_URL || "";
 import { privateIdentityKey } from './private-identity';
+import type { CommunityPool, CommunityPoolInput, CommunityPoolPage, PoolModerationItem, AnimeWork } from '@acg-codenames/shared';
+
+export function getFeatures(): Promise<{ animeCommunity: boolean }> { return request('/api/features'); }
+export function getAnimeCatalog(): Promise<{ works: AnimeWork[] }> { return request('/api/anime/catalog'); }
+const communityHeaders = () => ({ 'content-type': 'application/json', 'x-private-key': privateIdentityKey() });
+export function listCommunityPools(scope = 'public', q = '', page = 1): Promise<CommunityPoolPage> {
+  return request(`/api/anime-pools?${new URLSearchParams({ scope, q, page: String(page) })}`, { headers: communityHeaders() });
+}
+export function getCommunityPool(id: string): Promise<CommunityPool> { return request(`/api/anime-pools/${encodeURIComponent(id)}`, { headers: communityHeaders() }); }
+export function saveCommunityPool(input: CommunityPoolInput, id?: string): Promise<CommunityPool> { return request(`/api/anime-pools${id ? `/${encodeURIComponent(id)}` : ''}`, { method: id ? 'PUT' : 'POST', headers: communityHeaders(), body: JSON.stringify(input) }); }
+export function copyCommunityPool(id: string): Promise<CommunityPool> { return request(`/api/anime-pools/${encodeURIComponent(id)}/copy`, { method: 'POST', headers: communityHeaders(), body: '{}' }); }
+export function favoriteCommunityPool(id: string, value: boolean): Promise<{ ok: boolean }> { return request(`/api/anime-pools/${encodeURIComponent(id)}/favorite`, { method: 'PUT', headers: communityHeaders(), body: JSON.stringify({ value }) }); }
+export function reportCommunityPool(id: string, reason: string): Promise<{ ok: boolean }> { return request(`/api/anime-pools/${encodeURIComponent(id)}/report`, { method: 'POST', headers: communityHeaders(), body: JSON.stringify({ reason }) }); }
+export function getPoolModeration(key: string): Promise<{ items: PoolModerationItem[] }> { return request('/api/anime-pools/moderation', { headers: { 'x-anime-admin-key': key } }); }
+export function moderateCommunityPool(id: string, key: string, hidden: boolean, reason: string): Promise<{ ok: boolean }> { return request(`/api/anime-pools/${encodeURIComponent(id)}/moderation`, { method: 'PUT', headers: { 'content-type': 'application/json', 'x-anime-admin-key': key }, body: JSON.stringify({ hidden, reason }) }); }
 
 export function getPrivateReplay(matchId: string): Promise<import('@acg-codenames/shared').PrivateReplayView> {
   return request(`/api/private-replays/${encodeURIComponent(matchId)}`, { headers: { 'x-private-key': privateIdentityKey() } });

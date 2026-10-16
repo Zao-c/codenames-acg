@@ -10,6 +10,8 @@ import { ImagePacksPage } from "./routes/ImagePacksPage";
 import { ProfilePage } from "./routes/ProfilePage";
 import { ReplayPage } from "./routes/ReplayPage";
 import { RoomPage } from "./routes/RoomPage";
+import { AnimePoolsPage } from './routes/AnimePoolsPage';
+import { PrivateReplayPage } from './routes/PrivateReplayPage';
 
 function JoinRoomFromLink() {
   const { roomId } = useParams<{ roomId: string }>();
@@ -92,6 +94,8 @@ export default function App() {
           <Route path="/create" element={<CreateRoomPage />} />
           <Route path="/packs" element={<PacksPage />} />
           <Route path="/gallery" element={<ImagePacksPage />} />
+          <Route path="/anime-pools" element={<AnimePoolsPage />} />
+          <Route path="/private-replay/:matchId" element={<PrivateReplayPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/replay/:replayId" element={<ReplayPage />} />
           <Route path="/room/:roomId" element={<RoomGuard />} />
