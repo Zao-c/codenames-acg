@@ -75,9 +75,9 @@ try{
  await shot(pages[2],'26-drag-mobile');await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
  const confirmDlg=pages[2].getByRole('dialog');await visible(confirmDlg);await button(pages[2],'确认投放').click();
  await until(()=>!!states[2].nextPlan?.captainView?.claims?.[secondId],'touch interference');await visible(second.getByText(/干扰/));
- assert.equal(states[2].nextPlan.captainView.claims[secondId].kind,'interference');assert.equal(states[0].nextPlan.captainView.claims[secondId].kind,'manual');assert.equal('from' in states[0].nextPlan.captainView.claims[secondId],false);
- assert.equal(await host.locator('.draft-tile').nth(1).getByText(/干扰/).count(),0);
- checks.push('real touch long-press drag to interference slot with explicit confirm; victim captain view masked');
+ assert.equal(states[2].nextPlan.captainView.claims[secondId].kind,'interference');assert.equal(states[0].nextPlan.captainView.claims[secondId].kind,'interference');assert.equal(states[0].nextPlan.captainView.claims[secondId].from,states[2].nextPlan.myTeam);
+ await visible(host.locator('.draft-tile').nth(1).getByText(/干扰/));
+ checks.push('real touch long-press interference with confirmation; both captains see interference without consuming manual quota');
  await host.evaluate(()=>scrollTo(0,0));await pages[2].evaluate(()=>scrollTo(0,0));await shot(host,'11-draft-desktop');await theme(host,true);await host.setViewportSize({width:1920,height:1080});await shot(host,'12-draft-light-1920');await theme(host,false);await host.setViewportSize({width:1440,height:900});await shot(pages[2],'13-draft-mobile');await pages[2].setViewportSize({width:360,height:740});await shot(pages[2],'14-draft-small');await pages[2].setViewportSize({width:390,height:844});
  await button(host,'手选完成，剩余随机补齐').click();await controls(pages[2]);await button(pages[2],'手选完成，剩余随机补齐').click();await visible(button(host,'开始五秒倒计时'));assert.equal(await host.locator('.anime-board-card').count(),0);await shot(host,'15-sealed');
  await button(host,'开始五秒倒计时').click();await visible(host.locator('.anime-board-card').first());await until(()=>states[3]?.board?.length===36,'operative board');assert.equal(await host.locator('.anime-board-card').count(),36);await mobileTab(pages[3],'棋盘');

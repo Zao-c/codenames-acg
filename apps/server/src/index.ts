@@ -32,6 +32,7 @@ import { RevealImageAssetStore } from "./reveal-image-assets.js";
 import { REPLAY_TTL_SECONDS, createRoomStore } from "./store.js";
 import type { ReplayStore } from "./types.js";
 import { JsonUserStore } from "./user-store.js";
+import { principalFromKey } from './private-identity.js';
 
 type PayloadRecord = Record<string, unknown>;
 
@@ -302,7 +303,8 @@ async function bootstrap(): Promise<void> {
   const users = new JsonUserStore(env.userStoreFile);
   const revealImages = new RevealImageAssetStore(env.revealImageDir);
   await revealImages.ensureReady();
-  const game = new GameService(store, users, { enableDebugTools: env.enableDebugTools, enableAnimeDraft: env.enableAnimeDraft }, store);
+  const game = new GameService(store, users, { enableDebugTools: env.enableDebugTools, enableAnimeDraft: env.enableAnimeDraft, enableMatchAnalysis: env.enableMatchAnalysis, enablePredictions: env.enablePredictions }, store);
+  const privatePrincipal = (body: PayloadRecord) => body.identityKey !== undefined || env.enableMatchAnalysis ? principalFromKey(body.identityKey) : undefined;
   const app = express();
   const httpServer = createServer(app);
   const allowedOrigins = env.clientOrigin
@@ -417,6 +419,22 @@ async function bootstrap(): Promise<void> {
     } catch (error) {
       res.status(400).json({ message: error instanceof Error ? error.message : "Fetch failed" });
     }
+  });
+
+  app.get('/api/private-replays/:matchId', (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    try { res.json(game.getPrivateReplay(req.params.matchId, principalFromKey(req.header('x-private-key')))); }
+    catch { res.status(404).json({ message: '私密复盘不存在、未开放或无权访问' }); }
+  });
+  app.post('/api/private-replays/:matchId/share', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    try {
+      const body = asObject(req.body);
+      if (typeof body.shared !== 'boolean') throw new Error('分享状态无效');
+      const principal = principalFromKey(req.header('x-private-key'));
+      await game.sharePrivatePrediction(req.params.matchId, principal, body.shared);
+      res.json(game.getPrivateReplay(req.params.matchId, principal));
+    } catch { res.status(404).json({ message: '预测不存在、未开放或无权修改' }); }
   });
 
   app.get("/api/replays/:replayId", async (req, res) => {
@@ -607,6 +625,34 @@ async function bootstrap(): Promise<void> {
   app.get('/api/anime/catalog', (_req,res) => res.json({ enabled: env.enableAnimeDraft, works: env.enableAnimeDraft ? animeCatalog() : [], pools: env.enableAnimeDraft ? animePools() : [] }));
 
   io.on("connection", (socket) => {
+    socket.on('prediction_action', async payload => {
+      try {
+        const roomId = requireRoomId(payload);
+        const session = requireSession(socket.id, roomId);
+        const room = await game.predictionAction(roomId, session.participantId, session.participantType, payload);
+        const analysis = game.getPublicRoomState(room, session.participantId, session.participantType).analysis;
+        if (analysis) socket.emit('analysis_state', { roomId, analysis });
+      } catch (error) { fail(socket, error); }
+    });
+
+    socket.on('analysis_action', async payload => {
+      try {
+        const roomId = requireRoomId(payload);
+        const session = requireSession(socket.id, roomId);
+        const room = await game.analysisAction(roomId, session.participantId, session.participantType, payload);
+        const team = room.players.find(p => p.id === session.participantId)?.team;
+        for (const client of await io.in(roomId).fetchSockets()) {
+          const bound = socketSessions.get(client.id);
+          if (!bound || bound.roomId !== roomId) continue;
+          const sameParticipant = bound.participantId === session.participantId;
+          const sameTeam = room.players.some(p => p.id === bound.participantId && p.team === team);
+          if (!sameParticipant && !(payload.target === 'team' && sameTeam)) continue;
+          const analysis = game.getPublicRoomState(room, bound.participantId, bound.participantType).analysis;
+          if (analysis && (sameParticipant || analysis.canReadTeamGraph)) client.emit('analysis_state', { roomId, analysis });
+        }
+      } catch (error) { fail(socket, error); }
+    });
+
     socket.on('plan_action', async payload => {
       try {
         checkSocketRate(socket.id, 'plan_action', 30, 5_000);
@@ -630,7 +676,7 @@ async function bootstrap(): Promise<void> {
         const nickname = requireString(body, "nickname");
         const profile = optionalProfile(body.profile);
         const sessionToken = body.profile && typeof body.profile === "object" ? optionalUserSessionToken((body.profile as PayloadRecord).userSessionToken) : undefined;
-        const { room, player } = await game.createRoom(nickname, profile, sessionToken);
+        const { room, player } = await game.createRoom(nickname, profile, sessionToken, privatePrincipal(body));
         bind(socket.id, room.id, player.id, "player");
         socket.join(room.id);
         socket.join(`member:${player.id}`);
@@ -663,7 +709,7 @@ async function bootstrap(): Promise<void> {
           } catch { /* fallback to normal join */ }
         }
 
-        const { room, player } = await game.joinRoom(roomId, nickname, profile, userSessionToken);
+        const { room, player } = await game.joinRoom(roomId, nickname, profile, userSessionToken, privatePrincipal(body));
         bind(socket.id, room.id, player.id, "player");
         socket.join(room.id);
         socket.join(`member:${player.id}`);
@@ -695,7 +741,7 @@ async function bootstrap(): Promise<void> {
           } catch { /* fallback to normal join */ }
         }
 
-        const { room, spectator } = await game.joinSpectator(roomId, nickname, profile, userSessionToken);
+        const { room, spectator } = await game.joinSpectator(roomId, nickname, profile, userSessionToken, privatePrincipal(body));
         bind(socket.id, room.id, spectator.id, "spectator");
         socket.join(room.id);
         socket.join(`member:${spectator.id}`);

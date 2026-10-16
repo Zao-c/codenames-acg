@@ -2,6 +2,8 @@ import { useRef, useState } from 'react';
 import { BOARD_MODE_CONFIG, type AnimeWork, type PublicCard, type PublicRoomState } from '@acg-codenames/shared';
 import { useGame } from '../context/GameContext';
 import { Dialog } from './UI';
+import { AssociationBoard } from './AssociationBoard';
+import { SpectatorPredictions } from './SpectatorPredictions';
 export function Cover({ work }: { work: AnimeWork }) {
   const [failed, setFailed] = useState(false);
   return !failed && work.cover ? <img src={work.cover} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setFailed(true)} /> : <span className="anime-cover-fallback">{work.title}</span>;
@@ -28,6 +30,8 @@ export function AnimeBoard({ room }: { room: PublicRoomState }) {
       <button aria-label="缩小棋盘" disabled={zoom <= 1} onClick={() => setZoom(z => Math.max(1,z-.25))}>−</button>
       <button aria-label="放大棋盘" disabled={zoom >= 2} onClick={() => setZoom(z => Math.min(2,z+.25))}>＋</button>
       <button onClick={() => { setZoom(1); scroll.current?.scrollTo(0,0); }}>重置视图</button>
+      <AssociationBoard key={room.matchId} room={room}/>
+      <SpectatorPredictions key={`predictions-${room.matchId}`} room={room}/>
     </div><p className="hint-text">点卡片查看作品；猜牌需要再次确认。放大后可滑动浏览。</p>
     <div className="anime-board-scroll" ref={scroll}><div className={`anime-board ${text ? "anime-board-text" : ""}`} style={{ gridTemplateColumns: `repeat(${cols}, minmax(0,1fr))`, width: `${zoom*100}%` }}>
       {room.board.map(card => <button key={card.id} className={`anime-board-card role-${card.role ?? 'hidden'} ${card.revealed ? 'is-revealed':''}`} aria-label={`${card.word}${card.revealed ? ' 已翻开':''}`} onClick={() => { setPreview(card); setConfirm(false); }}>

@@ -1,4 +1,5 @@
 import type { AnimeWork, NextPlan, PublicNextPlan } from "./anime.js";
+import type { AnalysisPermissions, MatchPrivateState } from "./analysis.js";
 export type Team = "red" | "blue";
 export type CardRole = Team | "neutral" | "assassin";
 export type PlayerRole = "spymaster" | "operative";
@@ -554,9 +555,12 @@ export interface Room {
   matchId?: string;
   gameStartedAt?: number;
   endReason?: "normal" | "forfeit" | "abandoned";
-  replayHistory?: Array<{ matchId: string; replayId: string; roundNumber: number }>;
+  replayHistory?: Array<{ matchId: string; replayId: string; roundNumber: number; privateAvailable?: boolean }>;
   countdown?: { matchId: string; startsAt: number; hostId: string };
   exposedPlayerIds?: string[];
+  /** Server-derived identities; includes departed participants for this room's history. */
+  participantPrincipals?: Record<string, string>;
+  privateMatch?: MatchPrivateState;
   nextPlan?: NextPlan;
   animeEnabled?: boolean;
   seriesHistory?: Record<string, number>;
@@ -628,7 +632,8 @@ export interface PublicCard {
   revealedBy?: Team;
 }
 
-export interface PublicRoomState extends Omit<Room, "players" | "spectators" | "board" | "wordPack" | "revealGuessState" | "exposedPlayerIds" | "nextPlan" | "seriesHistory" | "draftReview"> {
+export interface PublicRoomState extends Omit<Room, "players" | "spectators" | "board" | "wordPack" | "revealGuessState" | "exposedPlayerIds" | "nextPlan" | "seriesHistory" | "draftReview" | "participantPrincipals" | "privateMatch"> {
+  analysis?: AnalysisPermissions;
   nextPlan?: PublicNextPlan;
   interferenceReview?: Array<{ workId: number; from: Team; team: Team }>;
   players: PublicPlayer[];
@@ -675,17 +680,20 @@ export interface ErrorMessagePayload {
 }
 
 export interface CreateRoomPayload {
+  identityKey?: string;
   nickname: string;
   profile?: Partial<UserProfile>;
 }
 
 export interface JoinRoomPayload {
+  identityKey?: string;
   roomId: string;
   nickname: string;
   profile?: Partial<UserProfile>;
 }
 
 export interface JoinSpectatorPayload {
+  identityKey?: string;
   roomId: string;
   nickname: string;
   profile?: Partial<UserProfile>;

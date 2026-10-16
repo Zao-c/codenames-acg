@@ -1,4 +1,5 @@
 import type { PlanAction } from "./anime.js";
+import type { AnalysisAction, AnalysisPermissions, PredictionAction } from './analysis.js';
 import type {
   AchievementUnlockPayload,
   AdjustRevealScorePayload,
@@ -57,6 +58,8 @@ import type {
 } from "./types.js";
 
 export interface ClientToServerEvents {
+  analysis_action: (payload: AnalysisAction) => void;
+  prediction_action: (payload: PredictionAction) => void;
   plan_action: (payload: PlanAction) => void;
   create_room: (payload: CreateRoomPayload) => void;
   join_room: (payload: JoinRoomPayload) => void;
@@ -121,6 +124,7 @@ export interface ReactionEffectPayload {
 }
 
 export interface ServerToClientEvents {
+  analysis_state: (payload: { roomId: string; analysis: AnalysisPermissions }) => void;
   room_state: (payload: PublicRoomState) => void;
   session: (payload: ClientSession) => void;
   room_summaries: (payload: RoomSummary[]) => void;

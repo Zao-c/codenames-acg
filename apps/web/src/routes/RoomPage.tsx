@@ -10,6 +10,7 @@ import {
 } from "@acg-codenames/shared";
 import { useGame, isPlayer, getRoomStageLabel, getSelfSummary, queuedForSpectator, roleLabelShort } from "../context/GameContext";
 import { AvatarBadge } from "../components/AvatarBadge";
+import { PrivateReview } from '../components/PrivateReview';
 
 import { RevealGuessRoom } from "../components/reveal-guess/RevealGuessRoom";
 
@@ -295,6 +296,7 @@ export function RoomPage() {
               </>
             ) : null}
 
+            <PrivateReview room={room}/>
             {isFinished ? <details className="panel result-board"><summary>查看终局棋盘</summary><BoardPanel room={room} viewer={viewer} g={g} cardMarks={cardMarks} markCard={markCard}/></details> : <BoardPanel room={room} viewer={viewer} g={g} cardMarks={cardMarks} markCard={markCard} />}
 
             {viewer?.participantType === "player" && !isFinished ? (

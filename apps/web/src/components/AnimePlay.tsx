@@ -126,13 +126,13 @@ export function NextMatchPanel({ room }: { room: PublicRoomState }) {
     {plan && room.phase!=='playing' && <p className="hint-text">{plan.variant==='anime'?'动画组牌':'经典词牌'} · {plan.settings.boardMode} · {plan.poolName} · {TEAM_LABELS[plan.startingTeam]}先手</p>}
     {open && (room.phase==='playing'?<Dialog title="下一局计划" close={()=>setOpen(false)} wide>{content}</Dialog>:content)}
     {preview && <Preview work={preview} close={() => setPreview(null)}>{team && draft && (() => { const c = claims[preview.id];
-      if (c?.kind === 'interference') return <p className="hint-text">这是本方投放的干扰牌，不能撤回或抢夺。</p>;
+      if (c?.kind === 'interference') return <p className="hint-text">这是{c.from === team ? '本方投放给对方' : '对方投放给本方'}的干扰牌，占用接收方的随机补位，不占手选额度，不能撤回或抢夺。</p>;
       if (c?.team === team) return <div className="anime-toolbar"><button onClick={() => { send({kind:'release',workId:preview.id}); setPreview(null); }}>撤回这张</button></div>;
       if (c) return <div className="anime-toolbar"><button className="primary-button" onClick={() => { take(preview.id); setPreview(null); }}>抢夺这张</button></div>;
       return <div className="anime-toolbar"><button className="primary-button" onClick={() => { take(preview.id); setPreview(null); }}>领取这张</button>{remaining > 20 && <button onClick={() => { setInterfere(preview); setPreview(null); }}>投放为干扰牌</button>}</div>;
     })()}</Preview>}
     {interfere && team && <Dialog title="投放干扰牌" close={() => setInterfere(null)}>
-      <div className="anime-confirm"><p>将《{interfere.title}》伪装为{TEAM_LABELS[team === 'red' ? 'blue' : 'red']}的手选牌？对方队长会在候选池中看到它属于{TEAM_LABELS[team === 'red' ? 'blue' : 'red']}；每队每局限一张，再次投放会替换原牌，投放后不可撤回，最后 20 秒禁止更改。</p>
+      <div className="anime-confirm"><p>将《{interfere.title}》作为干扰牌投放给{TEAM_LABELS[team === 'red' ? 'blue' : 'red']}？双方队长可见，普通队员和观众不可见。它占用对方的随机补位，不占手选额度；每队每局限一张，再次投放会替换原牌，投放后不可撤回，最后 20 秒禁止更改。</p>
         <button className="primary-button" onClick={() => { send({kind:'interfere',workId:interfere.id}); setInterfere(null); }}>确认投放</button>
         <button onClick={() => setInterfere(null)}>取消</button></div>
     </Dialog>}
