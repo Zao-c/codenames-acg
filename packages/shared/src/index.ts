@@ -5,3 +5,5 @@ export * from "./view.js";
 export * from "./words.js";
 
 export * from "./anime.js";
+export * from "./analysis.js";
+export * from "./analysis-view.js";

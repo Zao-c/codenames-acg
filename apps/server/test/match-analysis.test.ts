@@ -1,0 +1,106 @@
+import assert from 'node:assert/strict';
+import { GameService, buildReplay } from '../src/game.js';
+import { createRoomStore } from '../src/store.js';
+import { principalFromKey } from '../src/private-identity.js';
+import type { UserStore } from '../src/types.js';
+import type { AnalysisAction, PlanAction } from '@acg-codenames/shared';
+
+const users = {
+  resolveProfile: async (profile: unknown) => profile ?? ({ accountType: 'guest', username: null, avatarUrl: null }),
+  recordRoundResult: async () => {}, noteRoomHosted: async () => {},
+} as unknown as UserStore;
+const realNow = Date.now;
+let clock = realNow(); Date.now = () => clock;
+try {
+  assert.throws(() => principalFromKey('nickname'));
+  const principal = principalFromKey('a'.repeat(64));
+  assert.equal(principal, principalFromKey('a'.repeat(64)));
+  assert.notEqual(principal, principalFromKey('b'.repeat(64)));
+  const store = await createRoomStore('', true);
+  const game = new GameService(store, users, { enableDebugTools: false, enableAnimeDraft: true, enableMatchAnalysis: true, enablePredictions: true }, store);
+  const named = { accountType: 'named' as const, username: 'same-name', avatarUrl: null };
+  const { room, player: host } = await game.createRoom('A', named, undefined, principal);
+  room.players[0].connected = false;
+  await store.setRoom(room);
+  await assert.rejects(game.joinRoom(room.id, 'A', named, undefined, 'different-principal'), /昵称/);
+  assert.equal((await game.joinRoom(room.id, 'A', named, undefined, principal)).player.id, host.id);
+  const players = [host];
+  for (let i = 1; i < 4; i++) players.push((await game.joinRoom(room.id, `P${i}`, undefined, undefined, `principal-${i}`)).player);
+  for (let i = 0; i < 4; i++) { await game.setTeam(room.id, players[i].id, i < 2 ? 'red' : 'blue'); if (i % 2 === 0) await game.setRole(room.id, players[i].id, 'spymaster'); }
+  const current = async () => (await game.getRoom(room.id))!;
+  const plan = async (i: number, action: Omit<PlanAction, 'roomId' | 'version'>) => game.planAction(room.id, players[i].id, { roomId: room.id, version: (await current()).nextPlan?.version, ...action });
+  await plan(0, { kind: 'configure', variant: 'anime', boardMode: '6x6' });
+  await plan(0, { kind: 'prepare' }); await plan(0, { kind: 'ready' }); await plan(2, { kind: 'ready' });
+  await plan(0, { kind: 'done' }); await plan(2, { kind: 'done' });
+  await game.startGame(room.id, host.id); clock += 5000; await game.tickTimers();
+  const spectator = (await game.joinSpectator(room.id, 'watch', undefined, undefined, 'watch-principal')).spectator;
+  const view = async (id: string, type: 'player' | 'spectator' = 'player') => game.getPublicRoomState(await current(), id, type);
+  assert.equal((await view(players[1].id)).analysis?.canEditTeamGraph, true);
+  assert.equal((await view(host.id)).analysis?.canEditTeamGraph, false);
+  assert.equal((await view(host.id)).analysis?.canEditIntent, true);
+  assert.equal((await view(spectator.id, 'spectator')).analysis?.canPredict, true);
+  let serial = 0;
+  const edit = async (i: number, target: 'team' | 'intent', revision: number, operation: AnalysisAction['operation'], scope = 'match') => {
+    clock += 1100;
+    return game.analysisAction(room.id, players[i].id, 'player', { roomId: room.id, matchId: (await current()).matchId!, requestId: `request-${serial++}`, target, expectedRevision: revision, operation, scope });
+  };
+  const cardId = (await current()).board[0].id;
+  const node = { id: 'node-1', cardId, text: 'PRIVATE_TEAM_SENTINEL', x: .2, y: .3 };
+  await edit(1, 'team', 0, { kind: 'node', node });
+  assert.equal((await view(host.id)).analysis?.teamGraphs?.match.nodes[0].text, node.text);
+  assert.equal(JSON.stringify(await view(players[3].id)).includes(node.text), false);
+  assert.equal(JSON.stringify(await view(spectator.id, 'spectator')).includes(node.text), false);
+  assert.equal(JSON.stringify(await view(players[1].id)).includes(principal), false);
+  await assert.rejects(edit(0, 'team', 1, { kind: 'node', node }), /权限/);
+  await assert.rejects(edit(1, 'team', 0, { kind: 'node', node }), /已更新/);
+  await assert.rejects(edit(1, 'team', 1, { kind: 'node', node: { ...node, cardId: 'other-match-card' } }), /棋盘/);
+  await assert.rejects(edit(1, 'team', 1, { kind: 'node', node }, '__proto__'), /标识/);
+  assert.equal((await view(host.id)).analysis?.teamGraphs?.match.revision, 1);
+  await edit(0, 'intent', 0, { kind: 'node', node: { ...node, text: 'PRIVATE_INTENT_SENTINEL' } });
+  await edit(0, 'intent', 1, { kind: 'lock' });
+  await edit(0, 'intent', 2, { kind: 'remove-node', id: node.id });
+  assert.equal((await view(host.id)).analysis?.myIntents?.match.locked?.graph.nodes.length, 1);
+  assert.equal((await view(host.id)).analysis?.myIntents?.match.graph.nodes.length, 0);
+  assert.equal(JSON.stringify(await view(players[1].id)).includes('PRIVATE_INTENT_SENTINEL'), false);
+  assert.equal(JSON.stringify(buildReplay(await current(), 'PUBLIC')).includes('PRIVATE_'), false);
+  const live = await current();
+  const captainIndex = live.currentTeam === 'red' ? 0 : 2;
+  const operativeIndex = captainIndex + 1;
+  const guessId = live.board.find(c => c.role === live.currentTeam)!.id;
+  await game.predictionAction(room.id, spectator.id, 'spectator', { matchId: live.matchId, requestId: 'prediction-1', kind: 'set', cardId: guessId, choice: live.currentTeam, expectedRevision: 0 });
+  assert.equal((await view(spectator.id, 'spectator')).analysis?.predictionResult, undefined);
+  assert.equal((await view(host.id)).analysis?.myPredictions, undefined);
+  await game.submitClue(room.id, players[captainIndex].id, '关联', 3);
+  await Promise.all([game.guessCard(room.id, players[operativeIndex].id, guessId), game.guessCard(room.id, players[operativeIndex].id, guessId)]);
+  assert.equal((await current()).privateMatch!.snapshots.length, 1);
+  assert.equal((await current()).privateMatch!.snapshots[0].teamGraphs.red.match.nodes[0].text, node.text);
+  assert.equal((await view(spectator.id, 'spectator')).analysis?.myPredictions?.[guessId].frozenAt, clock);
+  await assert.rejects(game.predictionAction(room.id, spectator.id, 'spectator', { matchId: live.matchId, requestId: 'prediction-2', kind: 'set', cardId: guessId, choice: 'blue', expectedRevision: 1 }), /未翻开/);
+  await edit(1, 'team', 1, { kind: 'remove-node', id: node.id });
+  assert.equal((await current()).privateMatch!.snapshots[0].teamGraphs.red.match.nodes[0].text, node.text);
+  // Inject a store failure: a failed guess must not mutate shared in-memory references.
+  const anotherId = (await current()).board.find(c => c.role === live.currentTeam && !c.revealed)!.id;
+  const originalSet = store.setRoom.bind(store);
+  store.setRoom = async () => { throw new Error('injected commit failure'); };
+  await assert.rejects(game.guessCard(room.id, players[operativeIndex].id, anotherId), /injected/);
+  store.setRoom = originalSet;
+  assert.equal((await current()).board.find(c => c.id === anotherId)!.revealed, false);
+  assert.equal((await current()).privateMatch!.snapshots.length, 1);
+  await plan(0, { kind: 'transfer', team: 'red', targetId: players[1].id });
+  assert.equal((await view(host.id)).analysis?.canEditTeamGraph, false);
+  assert.equal((await view(host.id)).analysis?.canEditIntent, false);
+  assert.equal((await view(players[1].id)).analysis?.myIntents, undefined);
+  await game.leaveRoom(room.id, host.id, 'player');
+  const returning = (await game.joinSpectator(room.id, 'new-name', undefined, undefined, principal)).spectator;
+  assert.equal((await view(returning.id, 'spectator')).analysis?.canPredict, false);
+  await game.forceEndGame(room.id, players[1].id);
+  assert.equal((await view(returning.id, 'spectator')).analysis?.canReview, false);
+  await game.ensureReplay(room.id);
+  assert.throws(() => game.getPrivateReplay(live.matchId!, 'principal-1'), /未开放/);
+  assert.equal((await view(spectator.id, 'spectator')).analysis?.predictionResult, undefined);
+  const disabledGame = new GameService(store, users, { enableDebugTools: false });
+  const legacy = await disabledGame.createRoom('legacy');
+  assert.equal(disabledGame.getPublicRoomState(legacy.room, legacy.player.id, 'player').analysis, undefined);
+  assert.equal('participantPrincipals' in disabledGame.getPublicRoomState(legacy.room), false);
+  console.log('analysis: identity ownership, role matrix, graph revisions, immutable intent, private payloads, transfer/rejoin and forfeit passed');
+} finally { Date.now = realNow; }

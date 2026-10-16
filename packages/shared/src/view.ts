@@ -1,4 +1,5 @@
 import { MAX_PLAYERS, MIN_PLAYERS_TO_START, TEAM_LABELS } from "./constants.js";
+import { analysisPermissions } from "./analysis-view.js";
 import { toWordPackSummary } from "./words.js";
 import type {
   PublicCard,
@@ -11,7 +12,6 @@ import type {
   ViewerIdentity,
   ViewerState
 } from "./types.js";
-import type { DraftClaim } from "./anime.js";
 
 export function isSpymaster(viewer: ViewerIdentity): boolean {
   return viewer.role === "spymaster" || viewer.revealAll === true;
@@ -186,14 +186,9 @@ export function sanitizeRoom(room: Room, viewer: ViewerIdentity = {}): PublicRoo
   const plan = room.nextPlan;
   const myTeam = viewer.participantType === 'player' && room.players.some(p => p.id === viewer.participantId)
     ? (['red','blue'] as const).find(team => plan?.captains[team] === viewer.participantId) : undefined;
-  // Interference picks stay disguised for the opposing captain: only the placing team keeps kind/from.
+  // Both authorized captains see official draft claims; operatives/spectators see only the static pool.
   const captainClaims = myTeam && plan && plan.stage !== 'sealed'
-    ? Object.fromEntries(Object.entries(plan.claims).map(([id, claim]): [string, DraftClaim] => {
-        if (claim.kind !== 'interference' || claim.from === myTeam) return [id, claim];
-        const masked = { ...claim, kind: 'manual' as const, protectedUntil: plan.activityAt || claim.protectedUntil };
-        delete masked.from;
-        return [id, masked];
-      }))
+    ? plan.claims
     : undefined;
   const nextPlan = plan ? {
     id: plan.id, version: plan.version, variant: plan.variant, settings: plan.settings,
@@ -206,6 +201,7 @@ export function sanitizeRoom(room: Room, viewer: ViewerIdentity = {}): PublicRoo
   return {
     id: room.id,
     animeEnabled: room.animeEnabled,
+    analysis: analysisPermissions(room, viewer),
     nextPlan,
     interferenceReview: room.endReason === "normal" && room.phase === "finished" && room.draftReview && room.draftReview.matchId === room.matchId && room.draftReview.participantIds.includes(viewer.participantId ?? "") ? room.draftReview.interference : undefined,
     matchId: room.matchId,

@@ -1,0 +1,15 @@
+.association-picture { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px; margin: 12px 0; }
+.association-picture svg { width: 100%; display: block; max-height: 420px; }
+.association-picture line { stroke: var(--muted); stroke-width: 1.5; }
+.association-picture rect { fill: var(--surface); stroke: var(--accent); stroke-width: 1; }
+.association-picture text { fill: var(--text); font-size: 13px; text-anchor: middle; }
+.association-controls { display: grid; gap: 16px; }
+.association-controls form { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; }
+.association-controls label { flex: 1 1 150px; min-width: 0; }
+.association-controls label input, .association-controls label select { width: 100%; }
+.association-list { display: grid; gap: 8px; margin-top: 16px; }
+.association-list details, .association-list > div { padding: 8px; border-bottom: 1px solid var(--line); }
+.association-list label { display: block; }
+.association-list input { max-width: 100%; }
+.association-list button { margin: 4px; }
+@media (max-width: 600px) { .association-controls form { display: grid; grid-template-columns: 1fr; } .association-picture text { font-size: 15px; } }

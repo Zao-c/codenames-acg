@@ -44,6 +44,7 @@ import {
 } from "@acg-codenames/shared";
 import { listPublicWordPacks, getPublicWordPackDetail, listPublicImagePacks, getPublicImagePackDetail, loginNamedUser, logoutNamedUser as apiLogoutNamedUser, updateNamedUser } from "../lib/api";
 import { getSocket } from "../lib/socket";
+import { privateIdentityKey } from '../lib/private-identity';
 import { clearIdentity, clearSession, loadIdentity, loadRecentUsernames, loadSession, saveIdentity, saveSession, loadRecoverableSessions, saveRecoverableSessions, removeRecoverableSession, type LocalIdentity } from "../lib/storage";
 import { copyText } from "../lib/clipboard";
 import {
@@ -579,6 +580,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
     function onRoomState(p: PublicRoomState) { if (!loadSession() || p.id !== activeRoomIdRef.current) return; setRoom(p); setConnectionState("ready"); setError(""); setPendingGuess(null); guessLockRef.current = false; endTurnLockRef.current = false; }
     function onRoomSummaries(p: RoomSummary[]) { setRoomSummaries(p); }
+    function onAnalysisState(p: { roomId: string; analysis: import('@acg-codenames/shared').AnalysisPermissions }) {
+      if (p.roomId === activeRoomIdRef.current) setError('');
+      setRoom(current => current?.id === p.roomId && current.matchId === p.analysis.matchId ? { ...current, analysis: p.analysis } : current);
+    }
     function onError(p: { message: string }) {
       if (p.message.includes("重连凭证") || p.message.includes("房间不存在")) {
         const currentRoomId = session?.roomId ?? activeRoomIdRef.current;
@@ -601,12 +606,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
     socket.on("session", onSession);
     socket.on("room_state", onRoomState);
+    socket.on('analysis_state', onAnalysisState);
     socket.on("room_summaries", onRoomSummaries);
     socket.on("error_message", onError);
     socket.on("room_closed", onRoomClosed);
     socket.io.on("reconnect", () => { if (session) { setConnectionState("connecting"); socket.emit("reconnect_room", { roomId: session.roomId, sessionToken: session.sessionToken }); } });
     socket.on("disconnect", () => setConnectionState("connecting"));
-    return () => { socket.off("session", onSession); socket.off("room_state", onRoomState); socket.off("room_summaries", onRoomSummaries); socket.off("error_message", onError); socket.off("room_closed", onRoomClosed); socket.io.off("reconnect"); socket.off("disconnect"); };
+    return () => { socket.off('analysis_state', onAnalysisState); socket.off("session", onSession); socket.off("room_state", onRoomState); socket.off("room_summaries", onRoomSummaries); socket.off("error_message", onError); socket.off("room_closed", onRoomClosed); socket.io.off("reconnect"); socket.off("disconnect"); };
   }, [session?.roomId, socket]);
 
   useEffect(() => {
@@ -994,7 +1000,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     else if (selectedAccountPack) pending.customWordPack = { name: selectedAccountPack.name, entries: selectedAccountPack.entries };
     pendingCreateConfigRef.current = defaults ? null : pending;
     setConnectionState("connecting"); setError("");
-    socket.emit("create_room", { nickname: ji.nickname, profile: { accountType: ji.profile.mode, username: ji.profile.mode === "named" ? ji.profile.username : null, avatarUrl: ji.profile.avatarUrl, userSessionToken: ji.profile.mode === "named" ? ji.profile.userSessionToken : undefined } });
+    socket.emit("create_room", { identityKey: privateIdentityKey(), nickname: ji.nickname, profile: { accountType: ji.profile.mode, username: ji.profile.mode === "named" ? ji.profile.username : null, avatarUrl: ji.profile.avatarUrl, userSessionToken: ji.profile.mode === "named" ? ji.profile.userSessionToken : undefined } });
   }
 
   function createRoomWithEntries(packName: string, packEntries: string[]) {
@@ -1004,7 +1010,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     pending.customWordPack = { name: packName, entries: packEntries };
     pendingCreateConfigRef.current = pending;
     setConnectionState("connecting"); setError("");
-    socket.emit("create_room", { nickname: ji.nickname, profile: { accountType: ji.profile.mode, username: ji.profile.mode === "named" ? ji.profile.username : null, avatarUrl: ji.profile.avatarUrl, userSessionToken: ji.profile.mode === "named" ? ji.profile.userSessionToken : undefined } });
+    socket.emit("create_room", { identityKey: privateIdentityKey(), nickname: ji.nickname, profile: { accountType: ji.profile.mode, username: ji.profile.mode === "named" ? ji.profile.username : null, avatarUrl: ji.profile.avatarUrl, userSessionToken: ji.profile.mode === "named" ? ji.profile.userSessionToken : undefined } });
   }
 
   function createRevealGuessRoom(settings?: Partial<RevealGuessSettings>, initialPuzzle?: { imageUrl: string; answer: string; aliases?: string[]; hints?: string[] }) {
@@ -1041,7 +1047,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const payload = { roomId, nickname: ji.nickname, profile: { accountType: ji.profile.mode, username: ji.profile.mode === "named" ? ji.profile.username : null, avatarUrl: ji.profile.avatarUrl, userSessionToken: ji.profile.mode === "named" ? ji.profile.userSessionToken : undefined }, sessionToken: saved?.sessionToken ?? undefined };
+    const payload = { identityKey: privateIdentityKey(), roomId, nickname: ji.nickname, profile: { accountType: ji.profile.mode, username: ji.profile.mode === "named" ? ji.profile.username : null, avatarUrl: ji.profile.avatarUrl, userSessionToken: ji.profile.mode === "named" ? ji.profile.userSessionToken : undefined }, sessionToken: saved?.sessionToken ?? undefined };
     if (asSpectator) socket.emit("join_spectator", payload);
     else socket.emit("join_room", payload);
   }

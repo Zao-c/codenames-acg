@@ -3,6 +3,8 @@ import dotenv from "dotenv";
 dotenv.config();
 
 export const env = {
+  enableMatchAnalysis: process.env.ENABLE_MATCH_ANALYSIS === "1",
+  enablePredictions: process.env.ENABLE_PREDICTIONS === "1",
   enableAnimeDraft: process.env.ENABLE_ANIME_DRAFT === "1",
   port: Number(process.env.PORT ?? 3001),
   clientOrigin: process.env.CLIENT_ORIGIN ?? "http://localhost:5173,http://localhost:4173",

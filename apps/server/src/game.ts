@@ -1,4 +1,7 @@
 import crypto from "node:crypto";
+import { editAnalysis, initializeAnalysis, markSecretExposure, registerPrincipal, snapshotBeforeReveal } from './match-analysis.js';
+import { editPrediction } from './predictions.js';
+import { PrivateReplayStore } from './private-replay.js';
 import { AsyncLocalStorage } from "node:async_hooks";
 import {
   BOARD_MODE_CONFIG,
@@ -522,6 +525,7 @@ function resetPerGameReviewState(room: Room): Room {
     replayId: undefined,
     endReason: undefined,
     exposedPlayerIds: [],
+    privateMatch: undefined,
     roundHighlights: [],
     clueRecords: [],
     roundScoreHistory: [],
@@ -539,6 +543,7 @@ function finalizeAchievements(room: Room): Room {
 }
 
 export class GameService {
+  private readonly privateReplays = new PrivateReplayStore();
   private readonly roomLocks = new Map<string, Promise<void>>();
   private readonly heldRoomLocks = new AsyncLocalStorage<Set<string>>();
   private readonly disconnectKickTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -546,7 +551,7 @@ export class GameService {
   constructor(
     private readonly store: RoomStore,
     private readonly users: UserStore,
-    private readonly options: { enableDebugTools: boolean; disconnectKickDelayMs?: number; enableAnimeDraft?: boolean } = { enableDebugTools: false },
+    private readonly options: { enableDebugTools: boolean; disconnectKickDelayMs?: number; enableAnimeDraft?: boolean; enableMatchAnalysis?: boolean; enablePredictions?: boolean } = { enableDebugTools: false },
     private readonly replayStore?: ReplayStore
   ) {}
 
@@ -594,7 +599,7 @@ export class GameService {
     }
   }
 
-  async createRoom(nickname: string, profile?: Partial<UserProfile>, sessionToken?: string): Promise<{ room: Room; player: Player }> {
+  async createRoom(nickname: string, profile?: Partial<UserProfile>, sessionToken?: string, principalId?: string): Promise<{ room: Room; player: Player }> {
     const resolvedProfile = await this.users.resolveProfile(profile, sessionToken);
     const player = await buildPlayer(nickname, true, resolvedProfile);
     const roomId = await generateUniqueRoomId(this.store);
@@ -622,6 +627,7 @@ export class GameService {
       lastReveal: null
     };
     room.animeEnabled = this.options.enableAnimeDraft === true;
+    registerPrincipal(room, player.id, principalId);
     const nextRoom = withEvent(room, room.lastEvent);
     await this.store.setRoom(nextRoom);
     await this.store.setPlayerSession(player.sessionToken!, createSession(nextRoom.id, player.id, "player"));
@@ -640,7 +646,7 @@ export class GameService {
     return this.store.getRoom(roomId);
   }
 
-  async joinRoom(roomId: string, nickname: string, profile?: Partial<UserProfile>, sessionToken?: string): Promise<{ room: Room; player: Player }> {
+  async joinRoom(roomId: string, nickname: string, profile?: Partial<UserProfile>, sessionToken?: string, principalId?: string): Promise<{ room: Room; player: Player }> {
     return this.withRoomLock(roomId, async () => {
     const room = await this.requireRoom(roomId);
     if (room.phase === 'playing' || room.countdown || room.nextPlan?.lockedPlayerIds) throw new Error('本局名单已锁定，请旁观并排队下一局');
@@ -652,7 +658,8 @@ export class GameService {
       (entry) => entry.nickname === cleanNickname
     );
     if (existing) {
-      if ("connected" in existing && !existing.connected && sameStableProfileIdentity(existing.profile, resolvedProfile)) {
+      if ("connected" in existing && !existing.connected && sameStableProfileIdentity(existing.profile, resolvedProfile)
+        && (!(this.options.enableMatchAnalysis || room.privateMatch) || !!principalId && room.participantPrincipals?.[existing.id] === principalId)) {
         if ("team" in existing) {
           existing.connected = true;
           existing.sessionToken = crypto.randomUUID();
@@ -685,6 +692,7 @@ export class GameService {
 
     const player = await buildPlayer(cleanNickname, false, resolvedProfile);
     const nextRoom = withEvent({ ...room, players: [...room.players, player] }, `${player.nickname} 加入了结社 (｡･∀･)ﾉﾞ`);
+    registerPrincipal(nextRoom, player.id, principalId);
     await this.store.setRoom(nextRoom);
     await this.store.setPlayerSession(player.sessionToken!, createSession(nextRoom.id, player.id, "player"));
     return { room: nextRoom, player };
@@ -695,7 +703,8 @@ export class GameService {
     roomId: string,
     nickname: string,
     profile?: Partial<UserProfile>,
-    sessionToken?: string
+    sessionToken?: string,
+    principalId?: string
   ): Promise<{ room: Room; spectator: Spectator }> {
     return this.withRoomLock(roomId, async () => {
     const room = await this.requireRoom(roomId);
@@ -706,7 +715,8 @@ export class GameService {
       (entry) => entry.nickname === cleanNickname
     );
     if (existing) {
-      if ("connected" in existing && !existing.connected && sameStableProfileIdentity(existing.profile, resolvedProfile)) {
+      if ("connected" in existing && !existing.connected && sameStableProfileIdentity(existing.profile, resolvedProfile)
+        && (!(this.options.enableMatchAnalysis || room.privateMatch) || !!principalId && room.participantPrincipals?.[existing.id] === principalId)) {
         if ("team" in existing) {
           throw new Error("你是本局玩家，请以玩家身份重连");
         }
@@ -728,6 +738,7 @@ export class GameService {
       },
       `${spectator.nickname} 进入旁观 👀`
     );
+    registerPrincipal(nextRoom, spectator.id, principalId);
     await this.store.setRoom(nextRoom);
     await this.store.setPlayerSession(spectator.sessionToken!, createSession(nextRoom.id, spectator.id, "spectator"));
     return { room: nextRoom, spectator };
@@ -1047,6 +1058,7 @@ export class GameService {
       `第 ${room.roundNumber} 局开始，${TEAM_LABELS[startingTeam]}先手 ٩(ˊᗜˋ*)و`
     );
     nextRoom.matchId = plan?.matchId ?? nextRoom.matchId;
+    initializeAnalysis(nextRoom, this.options.enableMatchAnalysis === true, plan?.exposedPlayerIds, isSoloDebugController(nextRoom, nextRoom.hostPlayerId, this.options.enableDebugTools), this.options.enablePredictions === true);
     nextRoom.exposedPlayerIds = plan?.exposedPlayerIds.filter(id => !Object.values(plan.captains).includes(id)) ?? [];
     nextRoom.draftReview = plan?.variant === 'anime' ? {
       matchId: nextRoom.matchId!, participantIds: plan.lockedPlayerIds ?? [],
@@ -1238,7 +1250,7 @@ export class GameService {
 
   async guessCard(roomId: string, playerId: string, cardId: string): Promise<Room> {
     return this.withRoomLock(roomId, async () => {
-    const room = await this.requireRoom(roomId);
+    const room = structuredClone(await this.requireRoom(roomId));
     requirePlaying(room);
     const player = requirePlayer(room, playerId);
     if (room.exposedPlayerIds?.includes(playerId)) throw new Error("已见本局秘密的卸任队长不能猜牌");
@@ -1264,6 +1276,7 @@ export class GameService {
     }
 
     const actingTeam = room.currentTeam;
+    snapshotBeforeReveal(room, cardId, now());
     card.revealed = true;
     card.revealedBy = actingTeam;
     room.clue.usedGuesses += 1;
@@ -1870,6 +1883,8 @@ export class GameService {
           if (!host && old?.id !== playerId) throw new Error('只有房主或当前队长可交接');
           if (room.exposedPlayerIds?.includes(target.id)) throw new Error('本局卸任队长不可重新接任');
           room.exposedPlayerIds = [...new Set([...(room.exposedPlayerIds ?? []), ...(old ? [old.id] : [])])];
+          if (old) markSecretExposure(room, old.id);
+          markSecretExposure(room, target.id);
           room.players = room.players.map(p => p.team === team ? { ...p, role: p.id === target.id ? 'spymaster' : 'operative' } : p);
         } else {
           if (plan.lockedPlayerIds && !plan.lockedPlayerIds.includes(target.id)) throw new Error('只能由本局锁定名单接任');
@@ -1920,6 +1935,27 @@ export class GameService {
     });
   }
 
+  async analysisAction(roomId: string, participantId: string, participantType: ParticipantType, action: unknown): Promise<Room> {
+    return this.withRoomLock(roomId, async () => {
+      const room = structuredClone(await this.requireRoom(roomId));
+      editAnalysis(room, participantId, participantType, action, now());
+      room.updatedAt = now();
+      await this.store.setRoom(room);
+      return room;
+    });
+  }
+
+  async predictionAction(roomId: string, participantId: string, participantType: ParticipantType, action: unknown): Promise<Room> {
+    return this.withRoomLock(roomId, async () => {
+      const room = structuredClone(await this.requireRoom(roomId));
+      editPrediction(room, participantId, participantType, action, now());
+      if ((action as { kind: string }).kind === 'share' && room.replayId) this.privateReplays.share(room.matchId!, room.participantPrincipals![participantId], room.privateMatch!.predictionShares[room.participantPrincipals![participantId]]);
+      room.updatedAt = now();
+      await this.store.setRoom(room);
+      return room;
+    });
+  }
+
   getPublicRoomState(room: Room, participantId?: string, participantType?: ParticipantType): PublicRoomState {
     const player = participantType === "player" ? room.players.find((entry) => entry.id === participantId) : undefined;
     const isDebugController =
@@ -1950,12 +1986,13 @@ export class GameService {
       if (room.replayId) return room.replayId;
       if (room.phase !== "finished") return undefined;
 
-      const replayId = sampleReplayId();
+      const replayId = this.privateReplays.replayId(room.matchId) ?? sampleReplayId();
       const replay = buildReplay(room, replayId);
+      this.privateReplays.save(room, replayId);
       await this.replayStore.saveReplay(replay);
       const promotion = promoteQueuedSpectators(room);
       const nextRoom = { ...room, players: promotion.players, spectators: promotion.spectators, joinQueue: promotion.joinQueue,
-        replayId, replayHistory: [...(room.replayHistory ?? []), { matchId: room.matchId ?? replayId, replayId, roundNumber: room.roundNumber }], updatedAt: now() };
+        replayId, replayHistory: [...(room.replayHistory ?? []), { matchId: room.matchId ?? replayId, replayId, roundNumber: room.roundNumber, privateAvailable: !!room.privateMatch && room.endReason === 'normal' }], updatedAt: now() };
       await this.store.setRoom(nextRoom);
       await Promise.all(promotion.promoted.filter(p => p.sessionToken).map(p => this.store.setPlayerSession(p.sessionToken!, createSession(room.id,p.id,'player'))));
       return replayId;
@@ -1969,6 +2006,19 @@ export class GameService {
   async getReplay(replayId: string): Promise<GameReplay | null> {
     if (!this.replayStore) return null;
     return this.replayStore.getReplay(replayId);
+  }
+
+  getPrivateReplay(matchId: string, principalId: string) { return this.privateReplays.get(matchId, principalId); }
+  async sharePrivatePrediction(matchId: string, principalId: string, shared: boolean) {
+    this.privateReplays.share(matchId, principalId, shared);
+    const active = (await this.store.listRooms()).find(r => r.matchId === matchId);
+    if (active) await this.withRoomLock(active.id, async () => {
+      const room = structuredClone(await this.requireRoom(active.id));
+      if (room.matchId === matchId && room.privateMatch) {
+        room.privateMatch.predictionShares[principalId] = shared;
+        await this.store.setRoom(room);
+      }
+    });
   }
 
   async tickTimers(): Promise<Room[]> {

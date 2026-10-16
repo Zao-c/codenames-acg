@@ -15,7 +15,7 @@
     "test:e2e:local": "node scripts/test-local.mjs",
     "test:browser": "node scripts/browser-smoke.mjs",
     "test:browser:local": "node scripts/test-browser-local.mjs",
-    "test:rules": "node node_modules/tsx/dist/cli.mjs apps/server/test/lifecycle.test.ts && node node_modules/tsx/dist/cli.mjs apps/server/test/anime-draft.test.ts",
+    "test:rules": "node node_modules/tsx/dist/cli.mjs apps/server/test/lifecycle.test.ts && node node_modules/tsx/dist/cli.mjs apps/server/test/anime-draft.test.ts && node node_modules/tsx/dist/cli.mjs apps/server/test/match-analysis.test.ts",
     "verify": "npm run typecheck && npm run test:e2e:local && npm run build",
     "check": "npm run check --workspaces",
     "typecheck": "npm run typecheck --workspaces"

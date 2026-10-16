@@ -82,9 +82,13 @@ try {
     const interfered = next.candidates[2].id;
     const victim = game.getPublicRoomState(await current(),players[2].id,'player').nextPlan!.captainView!;
     const source = game.getPublicRoomState(await current(),players[1].id,'player').nextPlan!.captainView!;
-    assert.equal(victim.claims[interfered].kind,'manual');
+    assert.equal(victim.claims[interfered].kind,'interference');
     assert.equal(victim.claims[interfered].team,'blue');
-    assert.equal('from' in victim.claims[interfered],false);
+    assert.equal(victim.claims[interfered].from,'red');
+    assert.equal(Object.values(victim.claims).filter(c => c.team === 'blue' && c.kind === 'manual').length,
+      Object.values((await current()).nextPlan!.claims).filter(c => c.team === 'blue' && c.kind === 'manual').length);
+    assert.equal(game.getPublicRoomState(await current(), players[3].id, 'player').nextPlan!.captainView, undefined);
+    assert.deepEqual(game.getPublicRoomState(await current(), spectator.id, 'spectator').nextPlan, beforePublic);
     assert.equal(source.claims[interfered].kind,'interference');
     assert.equal(source.claims[interfered].from,'red');
   }

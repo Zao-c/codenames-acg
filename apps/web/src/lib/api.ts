@@ -1,6 +1,14 @@
 import type { GameReplay, NamedUserAccount, NamedUserLoginResponse, PublicImagePack, PublicImagePackSummary, PublicWordPack, PublicWordPackSummary, UpdateNamedUserPayload, UsernameLoginPayload } from "@acg-codenames/shared";
 
 const API_BASE = import.meta.env.VITE_SERVER_URL || "";
+import { privateIdentityKey } from './private-identity';
+
+export function getPrivateReplay(matchId: string): Promise<import('@acg-codenames/shared').PrivateReplayView> {
+  return request(`/api/private-replays/${encodeURIComponent(matchId)}`, { headers: { 'x-private-key': privateIdentityKey() } });
+}
+export function sharePrivatePrediction(matchId: string, shared: boolean): Promise<import('@acg-codenames/shared').PrivateReplayView> {
+  return request(`/api/private-replays/${encodeURIComponent(matchId)}/share`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-private-key': privateIdentityKey() }, body: JSON.stringify({ shared }) });
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const controller = new AbortController();
