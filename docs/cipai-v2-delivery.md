@@ -79,3 +79,14 @@
 - systemd `codenames.service` 重启后 active，/health 返回 ok，`/api/anime/catalog` 返回 1810 部作品、128 个池，/rooms 为空；Nginx 首页引用新产物且 JS/CSS 均 200。
 - 正式网站浏览器验收（四客户端：两个桌面 1440/1920 + 两个手机触摸 390/360，经典→动画 6×6→经典三局连续）：点击候选卡只开预览（无「详情」按钮、单一关闭入口、Bangumi 外链 `target=_blank rel="noopener noreferrer"`）、预览内领取、鼠标拖拽领取与拖回撤回、真实触摸长按拖到干扰槽并二次确认、受害队长视图与载荷均无干扰标记、预览不翻牌、文字/缩放/滑动、两个独立回放页——全部通过，零前端异常。
 - 回滚：停服务后从该备份恢复源码与 dist 并重启，或 `git checkout -f 82e3913` 后重新 build；账号与图库磁盘数据不受影响。
+
+## 第二批内部基础部署结果（2026-10-16 · e21aacb）
+
+- 北京时间 11:05（03:05 UTC）部署应用提交 `e21aacb285cf3c5a9f3fcdb713c827da90be89d1`（分支 `codex/cipai-phase2`，[PR #6](https://github.com/Zao-c/codenames-acg/pull/6) 指向该提交），入口：http://182.61.136.105 。服务器 release.json 已更新（上一版 `219dcb3`）。
+- 范围（P2-0～P2-5，均为已提交的既有改动，本次仅部署）：按主规格恢复干扰双方队长可见（普通队员/观众仍只见静态候选集，手选配额只计真实手选）；设备键控主体、按局私有状态与 viewer 范围权限；团队关联板、队长意图、翻牌前快照、观众预测、受鉴权私密复盘。除干扰纠偏外由 `ENABLE_MATCH_ANALYSIS` / `ENABLE_PREDICTIONS` 控制，线上保持默认关闭，对玩家无新私有输出。P2-6～P2-8 与第三批未实现。
+- 部署前核对：`/rooms` 无活跃对局（原大厅房间在部署窗口内因主机重启清空，房间可放弃已获用户确认）；备份：`/opt/codenames-backups/cipai-phase2-e21aacb/`（before.tar.gz 1,135,610 B、systemd 单元、原 HEAD、工作区状态、部署前 release.json），目录仅 root 可访问。
+- 构建与重启：shared/server/web 三包同版本构建通过，前端产物哈希与本地一致（`index-DhM55g6T.js` / `index-CJIiiBhg.css`）。构建期间服务器出现持续内存压力（journal 10:37–10:52），随后主机发生一次重启（10:54 恢复）；systemd 自动拉起服务并运行新构建，账号数据（80 个账号）解析正常。shared/server 构建在重启前已完成，web 构建在恢复后按单包、限内存方式补完。
+- 核验：systemd active，/health 返回 ok，`/api/anime/catalog` 1810 部 / 128 池，`/rooms` 为空；Nginx 首页引用新产物且 JS/CSS 均 200。
+- 正式网站浏览器验收（`artifacts/prod-acceptance-e21aacb/`，四客户端：两个桌面 1440/1920 + 两个手机触摸 390/360，经典→动画 6×6→经典三局连续）10/10 通过、零前端异常；含新规则断言：真实触摸长按干扰＋二次确认后双方队长均可见干扰且不占手选配额；两个独立回放页正常。
+- 提交前本地回归：`npm run typecheck`、`npm run test:rules`（含新增 match-analysis.test.ts）、`npm run test:e2e:local`（41/41）、`npm run build` 通过。`test:browser:local` 前 8 项检查通过，回放页步骤触发本机 123 请求/分钟限流边界 429；用基线 `219dcb3` 同机复现相同计数与同点 429，确认非本批代码回归（正式网站验收未触发）。
+- 回滚：停服务后从该备份恢复源码与 dist 并重启，或 `git checkout -f 219dcb3` 后重新 build；账号与图库磁盘数据不受影响。新 schema（`privateMatch` 等）只在开关启用时写入，线上开关默认关闭，回滚窗口内无进行中依赖。
