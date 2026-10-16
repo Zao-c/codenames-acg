@@ -28,8 +28,10 @@ const text = (value: unknown, max: number, required = false): string => {
 export class AnimePoolStore {
   private data: PoolData | undefined;
   private tail: Promise<unknown> = Promise.resolve();
-  private readonly catalog: Map<number, AnimeWork>;
-  constructor(private readonly filename: string, works: AnimeWork[]) { this.catalog = new Map(works.map(w => [w.id, w])); }
+  private lastWorks?: AnimeWork[];
+  private lastCatalog=new Map<number,AnimeWork>();
+  constructor(private readonly filename: string, private readonly works: AnimeWork[]|(()=>AnimeWork[])) {}
+  private get catalog():Map<number,AnimeWork>{const values=typeof this.works==='function'?this.works():this.works;if(values!==this.lastWorks){this.lastWorks=values;this.lastCatalog=new Map(values.map(w=>[w.id,w]));}return this.lastCatalog;}
   private async load(): Promise<PoolData> {
     if (this.data) return this.data;
     try {

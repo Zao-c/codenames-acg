@@ -24,6 +24,7 @@ export function PreparationLobby({room}:{room:PublicRoomState}) {
   const missing = (['red','blue'] as const).filter(t=>!captain(t));
   const balanced = room.players.length>=4 && (['red','blue'] as const).every(t=>room.players.filter(p=>p.team===t).length>=2);
   const rosterReady = balanced && !missing.length;
+  const offlineCaptains=(['red','blue'] as const).filter(t=>!room.players.some(p=>p.id===captain(t)&&(p.connected||p.isBot)));
   const myTeam = plan?.myTeam;
   const ready = myTeam ? plan?.captainView?.ready[myTeam] : false;
   const send = (action:Omit<PlanAction,'roomId'|'version'>) => g.socket.emit('plan_action',{roomId:room.id,version:plan?.version,...action});
@@ -41,7 +42,7 @@ export function PreparationLobby({room}:{room:PublicRoomState}) {
     label=myTeam?(ready?'已确认，等待另一队':'确认就绪，开始组牌'):'等待队长确认';
     action=()=>send({kind:'ready'});disabled=!myTeam||!!ready||!rosterReady;
   } else if(stage==='sealed') {
-    title='下一步：开始对局';description='组牌已封存，等待房主发起五秒开局。';label=host?'开始五秒倒计时':'等待房主开局';action=g.startGame;disabled=!host;
+    title='下一步：开始对局';description=offlineCaptains.length?`${offlineCaptains.map(t=>TEAM_LABELS[t]).join('、')}队长离线，已保留封存棋盘；等待原队长恢复后开局。`:'组牌已封存，等待房主发起五秒开局。';label=host?'开始五秒倒计时':'等待房主开局';action=g.startGame;disabled=!host||!!offlineCaptains.length;
   }
   if(room.countdown){title='即将开始对局';description='服务器倒计时结束后自动进入棋盘。';label='倒计时中';disabled=true;}
   const member = (p:PublicPlayer) => {

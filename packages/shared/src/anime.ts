@@ -6,9 +6,29 @@ export interface AnimeWork {
   fullTitle: string;
   aliases: string[];
   cover: string;
-  type: 'TV' | 'OVA' | 'ONA' | '电影';
+  type: 'TV' | 'OVA' | 'ONA' | '电影' | '未知';
   seriesId: string;
   airDate: string;
+  tags?: string[];
+  rating?: number | null;
+  ratingCount?: number | null;
+  popularity?: number | null;
+  source?: 'bangumi' | 'legacy';
+  updatedAt?: number;
+  detailFetchedAt?: number;
+  seriesSource?: 'manual-override' | 'official-relation' | 'subject-id' | 'legacy';
+  seriesLinks?: number[];
+}
+
+export interface AnimeDiscoveryQuery {
+  q?: string; yearFrom?: number; yearTo?: number; quarter?: number;
+  type?: AnimeWork['type']; tags?: string[]; tagMode?: 'all'|'any';
+  minRating?: number; minVotes?: number; sort?: 'match'|'score'|'heat'|'recent';
+  offset?: number; source?: 'bangumi'|'cache';
+}
+export interface AnimeDiscoveryResult {
+  works: AnimeWork[]; nextOffset: number | null; total: number; source: 'bangumi'|'cache';
+  notice: string; updatedAt: number; missingMetadata: number;
 }
 export interface AnimePool { id: string; name: string; workIds: number[] }
 export interface DraftClaim { team: Team; kind: 'manual' | 'interference'; protectedUntil: number; from?: Team }

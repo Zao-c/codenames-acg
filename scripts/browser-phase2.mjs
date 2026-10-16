@@ -43,11 +43,11 @@ try {
     await page.goto(base);
   }
   const host = pages[0];
-  await host.goto(`${base}/anime-pools`); await visible(button(host, '创建作品池')); await button(host, '创建作品池').click();
-  let dialog = host.getByRole('dialog', { name: '创建动画作品池' }); await visible(dialog);
+  await host.goto(`${base}/anime-pools`); await visible(host.locator('.anime-discovery'));
+  let dialog = host.locator('.anime-discovery'); await visible(dialog);
   await dialog.getByLabel('作品池名称', { exact: true }).fill('浏览器私人草稿');
-  await dialog.locator('.community-work-grid input[type=checkbox]').first().check();
-  await button(dialog, '保存作品池').click(); await dialog.waitFor({ state: 'hidden' });
+  await dialog.locator('.discovery-poster-actions button').first().click();
+  await button(dialog, '保存作品池').click();await visible(host.getByText('作品池已保存。',{exact:true}));
   await button(host, '我的作品池').click(); await visible(host.getByRole('heading', { name: '浏览器私人草稿' }));
   const catalog = (await request('/api/anime/catalog')).data.works;
   const selectedWorks = [...new Map(catalog.map(w => [w.seriesId, w])).values()].slice(0, 65);
@@ -58,7 +58,7 @@ try {
   await button(card, '收藏').click(); await visible(button(card, '取消收藏')); await button(card, '复制到我的作品池').click();
   await button(host, '我的收藏').click(); await visible(host.getByRole('heading', { name: '二批社区联机池' }));
   await shot(host, '01-community-desktop');
-  await pages[3].goto(`${base}/anime-pools`); await visible(pages[3].getByRole('heading', { name: '二批社区联机池' })); await pages[3].setViewportSize({ width: 360, height: 780 });
+  await pages[3].goto(`${base}/anime-pools`);await button(pages[3], '公开广场').click(); await visible(pages[3].getByRole('heading', { name: '二批社区联机池' })); await pages[3].setViewportSize({ width: 360, height: 780 });
   await button(pages[3], '切换亮色主题').click(); await shot(pages[3], '02-community-mobile-light');
   await button(card, '举报').click(); dialog = host.getByRole('dialog', { name: '举报作品池' }); await dialog.getByLabel('举报原因').fill('验收举报与管理员隐藏'); await button(dialog, '提交举报').click();
   await button(host, '社区管理').click(); dialog = host.getByRole('dialog', { name: '作品池社区管理' });

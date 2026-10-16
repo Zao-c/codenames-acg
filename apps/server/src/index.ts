@@ -1,4 +1,5 @@
-import { animeCatalog, animePools } from "./anime-catalog.js";
+import { animeCatalog, animePools, initializeAnimeCatalog } from "./anime-catalog.js";
+import { BangumiAdapter } from './bangumi.js';
 import cors from "cors";
 import crypto from "node:crypto";
 import express from "express";
@@ -33,7 +34,7 @@ import { REPLAY_TTL_SECONDS, createRoomStore } from "./store.js";
 import type { ReplayStore } from "./types.js";
 import { JsonUserStore } from "./user-store.js";
 import { principalFromKey } from './private-identity.js';
-import { AnimePoolStore } from './anime-pool-store.js';
+import { AnimePoolStore, CommunityError } from './anime-pool-store.js';
 import { animePoolRouter } from './anime-pools.js';
 
 type PayloadRecord = Record<string, unknown>;
@@ -301,9 +302,16 @@ function optionalBoolean(value: unknown): boolean | undefined {
 }
 
 async function bootstrap(): Promise<void> {
+  // dotenv can load an operator-provided proxy after Node initialized its default agent.
+  if(process.env.NODE_USE_ENV_PROXY==='1'){
+    const http=await import('node:http') as typeof import('node:http') & {setGlobalProxyFromEnv?:()=>void};
+    http.setGlobalProxyFromEnv?.();
+  }
+  await initializeAnimeCatalog(env.animeImportFile);
   const store = await createRoomStore(env.redisUrl, env.useMemoryStore);
   const users = new JsonUserStore(env.userStoreFile);
-  const communityPools = new AnimePoolStore(env.animePoolStoreFile, animeCatalog());
+  const communityPools = new AnimePoolStore(env.animePoolStoreFile, animeCatalog);
+  const bangumi=new BangumiAdapter();
   const revealImages = new RevealImageAssetStore(env.revealImageDir);
   await revealImages.ensureReady();
   const game = new GameService(store, users, { enableDebugTools: env.enableDebugTools, enableAnimeDraft: env.enableAnimeDraft, enableMatchAnalysis: env.enableMatchAnalysis, enablePredictions: env.enablePredictions, resolveCommunityPool: (id, principal) => communityPools.get(id, principal) }, store);
@@ -364,10 +372,16 @@ async function bootstrap(): Promise<void> {
   }
 
   app.use('/api/anime-pools', animePoolRouter(communityPools, { enabled: env.enableAnimeCommunity, adminKey: env.animePoolAdminKey }));
+  const discoveryLimiter=rateLimit({windowMs:60000,limit:30,standardHeaders:true,legacyHeaders:false,message:{message:'搜索或导入过于频繁，请稍后重试'}});
+  for(const action of ['search','import'] as const)app.post(`/api/anime/discovery/${action}`,discoveryLimiter,async(req,res)=>{
+    res.setHeader('Cache-Control','no-store');
+    try{if(!env.enableAnimeCommunity)throw new CommunityError('动画发现暂未开放',503);principalFromKey(req.header('x-private-key'));res.json(action==='search'?await bangumi.discover(req.body):await bangumi.import(req.body?.input));}
+    catch(error){res.status(error instanceof CommunityError?error.status:400).json({message:error instanceof Error?error.message:'动画发现未完成，请重试'});}
+  });
   const metadataLimiter = rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: true, legacyHeaders: false, message: { message: '目录读取太频繁，请稍后重试' } });
   app.get('/api/features', metadataLimiter, (_req, res) => { res.setHeader('Cache-Control', 'no-store'); res.json({ animeCommunity: env.enableAnimeCommunity }); });
   app.get('/api/anime/catalog', metadataLimiter, (_req, res) => {
-    res.setHeader('Cache-Control', 'public, max-age=60');
+    res.setHeader('Cache-Control', 'no-store');
     const available = env.enableAnimeDraft || env.enableAnimeCommunity;
     res.json({ enabled: env.enableAnimeDraft, works: available ? animeCatalog() : [], pools: available ? animePools() : [] });
   });
@@ -916,7 +930,7 @@ async function bootstrap(): Promise<void> {
         if (session.participantType !== "player") {
           throw new Error("旁观者不能结束对局");
         }
-        const room = await game.forceEndGame(roomId, session.participantId);
+        const room = await game.forceEndGame(roomId, session.participantId,payload.mode??'abort');
         if (room.phase === "finished") {
           await game.ensureReplay(room.id);
         }

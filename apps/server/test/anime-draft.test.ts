@@ -54,6 +54,8 @@ try {
   await assert.rejects(act(1,{kind:'ready'}));
   await game.forceEndGame(room.id,host.id); await game.ensureReplay(room.id);
   const firstReplay = (await current()).replayId!;
+  await game.returnToLobby(room.id,host.id);
+  const spare=(await game.joinRoom(room.id,'未接触密钥的队员')).player;await game.setTeam(room.id,spare.id,'red');
   await act(0,{kind:'prepare'});
   await act(1,{kind:'ready'}); await act(2,{kind:'ready'});
   next = (await current()).nextPlan!;

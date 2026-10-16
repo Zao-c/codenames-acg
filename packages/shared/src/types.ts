@@ -554,7 +554,8 @@ export interface Room {
   revealGuessState?: RevealGuessState;
   matchId?: string;
   gameStartedAt?: number;
-  endReason?: "normal" | "forfeit" | "abandoned";
+  endReason?: "normal" | "forfeit" | "abandoned" | "aborted";
+  scoresAtMatchStart?: RoomScore;
   replayHistory?: Array<{ matchId: string; replayId: string; roundNumber: number; privateAvailable?: boolean }>;
   countdown?: { matchId: string; startsAt: number; hostId: string };
   exposedPlayerIds?: string[];
@@ -868,6 +869,7 @@ export interface ReplayKeyEvent {
 }
 
 export interface GameReplay {
+  endReason?: Room['endReason'];
   id: string;
   roomId: string;
   createdAt: number;

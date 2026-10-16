@@ -11,11 +11,11 @@ export function HomePage() {
   const navigate = useNavigate();
   const [params,setParams] = useSearchParams();
   const [creating,setCreating] = useState(params.has('create'));
-  const [mode,setMode] = useState<'classic'|'anime'|'reveal'>('classic');
+  const [mode,setMode] = useState<'classic'|'anime'|'reveal'>(params.get('variant')==='anime'?'anime':'classic');
   const [filter,setFilter] = useState<'all'|'waiting'|'playing'>('all');
   const codeInput = useRef<HTMLInputElement>(null);
   const [covers,setCovers] = useState<AnimeWork[]>([]);
-  useEffect(()=>{if(params.has('create'))setCreating(true);},[params]);
+  useEffect(()=>{if(params.has('create')){setCreating(true);if(params.get('variant')==='anime')setMode('anime');}},[params]);
   useEffect(()=>{let live=true;fetch(`${import.meta.env.VITE_SERVER_URL||''}/api/anime/catalog`).then(r=>r.json()).then(data=>{if(live)setCovers((data.works??[]).filter((w:AnimeWork)=>w.cover).slice(-4));}).catch(()=>{});return()=>{live=false;};},[]);
   const requireAuth = (fn:()=>void) => {if(!g.effectiveIdentity){g.setError('请先登录');navigate(`/login?next=${encodeURIComponent(g.roomCode.length===6?`/room/${g.roomCode}?join=1`:'/?create=1')}`);return;}fn();};
   const closeCreate = () => {setCreating(false);if(params.has('create'))setParams({}, {replace:true});};

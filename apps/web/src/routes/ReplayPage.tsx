@@ -128,7 +128,7 @@ export function ReplayPage() {
           </div>
           <div className="replay-meta-item">
             <span className="micro-label">胜方</span>
-            <strong>{teamName(replay.winner)}</strong>
+            <strong>{replay.endReason==='aborted'?'房主中止 · 不计胜负':`${teamName(replay.winner)}${replay.endReason==='forfeit'?' · 对方认输':''}`}</strong>
           </div>
           <div className="replay-meta-item">
             <span className="micro-label">总时长</span>

@@ -6,6 +6,8 @@ import type { CommunityPool, CommunityPoolInput, CommunityPoolPage, PoolModerati
 
 export function getFeatures(): Promise<{ animeCommunity: boolean }> { return request('/api/features'); }
 export function getAnimeCatalog(): Promise<{ works: AnimeWork[] }> { return request('/api/anime/catalog'); }
+export function discoverAnime(query:import('@acg-codenames/shared').AnimeDiscoveryQuery):Promise<import('@acg-codenames/shared').AnimeDiscoveryResult>{return request('/api/anime/discovery/search',{method:'POST',headers:communityHeaders(),body:JSON.stringify(query)},30000);}
+export function importAnime(input:string):Promise<AnimeWork>{return request('/api/anime/discovery/import',{method:'POST',headers:communityHeaders(),body:JSON.stringify({input})},30000);}
 const communityHeaders = () => ({ 'content-type': 'application/json', 'x-private-key': privateIdentityKey() });
 export function listCommunityPools(scope = 'public', q = '', page = 1): Promise<CommunityPoolPage> {
   return request(`/api/anime-pools?${new URLSearchParams({ scope, q, page: String(page) })}`, { headers: communityHeaders() });
@@ -25,9 +27,9 @@ export function sharePrivatePrediction(matchId: string, shared: boolean): Promis
   return request(`/api/private-replays/${encodeURIComponent(matchId)}/share`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-private-key': privateIdentityKey() }, body: JSON.stringify({ shared }) });
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function request<T>(path: string, init?: RequestInit, timeoutMs=10000): Promise<T> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10000);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(`${API_BASE}${path}`, {
       headers: {

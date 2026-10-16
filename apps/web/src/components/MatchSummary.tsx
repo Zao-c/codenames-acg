@@ -9,12 +9,14 @@ import { AnimeBoard } from './AnimeBoard';
 import { PrivateReview } from './PrivateReview';
 
 export function CompactMembers({room}:{room:PublicRoomState}) {
-  return <section className="compact-members panel" aria-label="队伍与成员"><h2>队伍与成员</h2>{(['red','blue'] as const).map(team=><div className={`compact-team team-${team}`} key={team}><h3>{TEAM_LABELS[team]} <small>{room.players.filter(p=>p.team===team).length} 人</small></h3>{room.players.filter(p=>p.team===team).map(p=><div className="compact-member" key={p.id}><AvatarBadge avatarUrl={p.profile.avatarUrl} fallback={p.nickname} size="small"/><span><strong>{p.nickname}{p.id===room.viewer?.participantId?' · 你':''}</strong><small>{p.role==='spymaster'?'队长':'队员'}{p.isHost?' · 房主':''}</small></span><i className={p.connected?'online':'offline'} title={p.connected?'在线':'离线'} aria-label={p.connected?'在线':'离线'}/></div>)}</div>)}{!!room.spectators.length&&<details><summary>旁观 · {room.spectators.length} 人</summary>{room.spectators.map(p=><p key={p.id}>{p.nickname}</p>)}</details>}</section>;
+  return <section className="compact-members panel" aria-label="队伍与成员"><h2>队伍与成员</h2>{(['red','blue'] as const).map(team=><div className={`compact-team team-${team}`} key={team}><h3>{TEAM_LABELS[team]} <small>{room.players.filter(p=>p.team===team).length} 人</small></h3>{room.players.filter(p=>p.team===team).map(p=><div className="compact-member" key={p.id}><AvatarBadge avatarUrl={p.profile.avatarUrl} fallback={p.nickname} size="small"/><span><strong>{p.nickname}{p.id===room.viewer?.participantId?' · 你':''}</strong><small>{p.role==='spymaster'?'队长':'队员'}{p.isHost?' · 房主':''}</small></span><i className={p.connected?'online':'offline'} title={p.connected?'在线':'离线'} aria-label={p.connected?'在线':'离线'}/></div>)}</div>)}{!!room.spectators.length&&<details><summary>旁观 · {room.spectators.length} 人</summary>{room.spectators.map(p=><p key={p.id}>{p.nickname}</p>)}</details>}{room.phase==='playing'&&room.viewer?.participantType==='player'&&!room.viewer.isHost&&<MatchManagement/>}</section>;
 }
 
 export function MatchManagement(){
   const g=useGame();const [open,setOpen]=useState(false);
-  return <><button onClick={()=>setOpen(true)}>房间管理</button>{open&&<Dialog title="房间管理" close={()=>setOpen(false)}><div className="quick-settings"><button onClick={()=>{if(window.confirm('确定结束本局吗？当前队伍视为认输。')){g.forceEndGame();setOpen(false);}}}>结束对局</button><button className="danger-button" onClick={g.disbandRoom}>解散房间</button></div></Dialog>}</>;
+  const room=g.room;if(!room)return null;
+  const surrender=room.viewer?.team&&(room.viewer.isHost||room.viewer.role==='spymaster'||!room.players.some(p=>p.team===room.viewer?.team&&p.role==='spymaster'&&p.connected));
+  return <><button onClick={()=>setOpen(true)}>{room.viewer?.isHost?'房间管理':'对局操作'}</button>{open&&<Dialog title="房间管理" close={()=>setOpen(false)}><div className="quick-settings">{room.phase==='playing'&&<><p className="hint-text">队长暂时掉线可等待恢复，房主可在下一局面板中交接当前队长。中止不计胜负和本局积分，认输仅代表自己的队伍。</p>{room.viewer?.isHost&&<button onClick={()=>{if(window.confirm('中止本局？无胜者，不计本局积分、成就和账号战绩。')){g.socket.emit('force_end_game',{roomId:room.id,mode:'abort'});setOpen(false);}}}>中止本局（不计胜负）</button>}{surrender&&<button onClick={()=>{if(window.confirm(`确定代表${room.viewer?.team==='red'?'红队':'蓝队'}认输？对方获胜，不授予账号战绩和成就。`)){g.socket.emit('force_end_game',{roomId:room.id,mode:'surrender'});setOpen(false);}}}>本队认输</button>}</>}{room.viewer?.isHost&&<button className="danger-button" onClick={g.disbandRoom}>解散房间</button>}</div></Dialog>}</>;
 }
 
 export function MatchResult({room}:{room:PublicRoomState}) {
@@ -24,7 +26,7 @@ export function MatchResult({room}:{room:PublicRoomState}) {
     <header className="result-room-strip"><strong className="room-code">{room.id}</strong><span className="soft-chip">第 {room.roundNumber} 局 · {room.settings.variant==='anime'?'动画组牌':'经典词牌'} · {room.settings.boardMode}</span></header>
     <section className={`result-hero-card winner-${room.winner??'none'}`}>
       <p className="eyebrow">MATCH COMPLETE · 第 {room.roundNumber} 局</p>
-      <h1>{room.winner?`${TEAM_LABELS[room.winner]}胜利`:'对局结束'}</h1><p className="hint-text">{room.lastEvent}</p>
+      <h1>{room.endReason==='aborted'?'本局已中止':room.winner?`${TEAM_LABELS[room.winner]}${room.endReason==='forfeit'?'获胜 · 对方认输':'胜利'}`:'对局结束'}</h1><p className="hint-text">{room.lastEvent}</p>
       <div className="result-team-scores"><div className="red"><span>红队</span><strong>{room.scores.red}</strong></div><span>—</span><div className="blue"><span>蓝队</span><strong>{room.scores.blue}</strong></div></div>
       <div className="result-main-actions">{anime?<button className="primary-button" onClick={()=>setNext(true)}>准备下一局</button>:room.viewer?.canRestartGame&&<button className="primary-button" onClick={g.restartGame}>再来一局</button>}{room.replayId?<button onClick={()=>navigate(`/replay/${room.replayId}`)}>查看本局复盘</button>:<span className="hint-text">复盘生成中…</span>}</div>
     </section>

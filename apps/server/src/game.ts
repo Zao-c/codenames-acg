@@ -64,6 +64,15 @@ function sampleId(length: number): string {
   return crypto.randomBytes(length).toString("hex").slice(0, length).toUpperCase();
 }
 
+function validateOnlineStart(room: Room): void {
+  for(const team of ['red','blue'] as const){
+    const captain=room.players.find(p=>p.team===team&&(room.nextPlan?p.id===room.nextPlan.captains[team]:p.role==='spymaster'));
+    if(!captain?.connected&&!captain?.isBot)throw new Error(`${TEAM_LABELS[team]}队长离线，请等待恢复或由房主交接后开局`);
+    const exposed=room.nextPlan?.exposedPlayerIds??[];
+    if(!room.players.some(p=>p.team===team&&p.id!==captain?.id&&(p.connected||p.isBot)&&!exposed.includes(p.id)))throw new Error(`${TEAM_LABELS[team]}缺少在线且未接触密钥的队员，暂不能开局`);
+  }
+}
+
 async function generateUniqueRoomId(store: RoomStore): Promise<string> {
   for (let i = 0; i < 8; i += 1) {
     const id = sampleId(ROOM_ID_LENGTH);
@@ -996,6 +1005,7 @@ export class GameService {
         validatePlanRoster(room, room.nextPlan);
       } else validateStart(room);
       if (room.settings.ruleSet !== "codenames") throw new Error("请使用揭幕猜番开局入口");
+      validateOnlineStart(room);
       const nextRoom = withEvent({ ...room, countdown: { matchId: room.nextPlan?.matchId ?? crypto.randomUUID(), startsAt: now() + 5000, hostId: playerId } }, "五秒后开始对局");
       await this.store.setRoom(nextRoom);
       return nextRoom;
@@ -1018,6 +1028,7 @@ export class GameService {
     }
 
     validateStart(room);
+    validateOnlineStart(room);
     const startingTeam: Team = plan?.startingTeam ?? (Math.random() >= 0.5 ? "red" : "blue");
     const { board, remainingCounts } = plan?.variant === 'anime'
       ? { board: plan.sealedBoard!, remainingCounts: { red: plan.sealedBoard!.filter(c => c.role === 'red').length, blue: plan.sealedBoard!.filter(c => c.role === 'blue').length } }
@@ -1035,6 +1046,7 @@ export class GameService {
         phase: "playing",
         matchId: room.countdown?.matchId ?? crypto.randomUUID(),
         gameStartedAt: now(),
+        scoresAtMatchStart: {...room.scores},
         countdown: undefined,
         board,
         currentTeam: startingTeam,
@@ -1099,6 +1111,7 @@ export class GameService {
     if (room.hostPlayerId !== playerId) {
       throw new Error("只有房主可以回到准备阶段");
     }
+    if(room.phase==='playing'){await this.forceEndGame(roomId,playerId,'abort');room=await this.requireRoom(roomId);}
     if (room.phase === "finished") {
       await this.ensureReplay(roomId);
       room = await this.requireRoom(roomId);
@@ -1568,27 +1581,26 @@ export class GameService {
     });
   }
 
-  async forceEndGame(roomId: string, playerId: string): Promise<Room> {
+  async forceEndGame(roomId: string, playerId: string, mode: 'abort'|'surrender' = 'abort'): Promise<Room> {
     return this.withRoomLock(roomId, async () => {
     const room = await this.requireRoom(roomId);
-    if (room.hostPlayerId !== playerId) {
-      throw new Error("只有社长可以强制结束对局");
-    }
+    const player=requirePlayer(room,playerId);
+    if(mode!=='abort'&&mode!=='surrender')throw new Error('结束方式无效');
+    if(mode==='abort'&&room.hostPlayerId!==playerId)throw new Error('只有房主可以中止本局');
+    if(mode==='surrender'&&(!player.team||!(player.isHost||player.role==='spymaster'||!room.players.some(p=>p.team===player.team&&p.role==='spymaster'&&p.connected))))throw new Error('由本队队长或房主认输；本队队长离线时队员可安全弃赛');
     if (room.phase !== "playing") {
       throw new Error("当前不在对局中");
     }
-    const winner = nextTeam(room.currentTeam);
+    const winner = mode==='surrender'?nextTeam(player.team!):null;
     const nextRoom = withEvent(
-      { ...room, phase: "finished" as const, endReason: "forfeit" as const, winner, clue: null, lastReveal: null, timerEndsAt: undefined, timerPhase: undefined, timerPaused: false, timeoutPauseReason: undefined },
-      `社长强制结束了对局`
+      { ...room, phase: "finished" as const, endReason: mode==='surrender'?"forfeit" as const:"aborted" as const, winner, scores:{...(room.scoresAtMatchStart??room.scores)},clue: null, lastReveal: null, timerEndsAt: undefined, timerPhase: undefined, timerPaused: false, timeoutPauseReason: undefined,achievements:[],roundHighlights:[] },
+      mode==='surrender'?`${player.nickname} 代表${TEAM_LABELS[player.team!]}认输，对方获胜；非正常完赛，不授予成就或账号战绩`:`${player.nickname} 中止本局：无胜者，本局积分不计入，不记录胜场`
     );
     const scoringActive = isScoringMode(room.settings.scoringMode);
-    if (!scoringActive) {
-      nextRoom.scores = updateScores(room.scores, winner);
+    if (!scoringActive && winner) {
+      nextRoom.scores = updateScores(nextRoom.scores, winner);
     }
-    nextRoom.achievements = computeAchievements(room);
     await this.store.setRoom(nextRoom);
-    await this.users.recordRoundResult(nextRoom.players, winner);
     return nextRoom;
     });
   }
@@ -1895,6 +1907,7 @@ export class GameService {
         if (team !== 'red' && team !== 'blue') throw new Error('队伍无效');
         const target = room.players.find(p => p.id === action.targetId && p.team === team);
         if (!target) throw new Error('只能指定同队正式玩家');
+        if(action.kind==='transfer'&&!target.connected&&!target.isBot)throw new Error('接任队长必须在线');
         if (!host && (action.kind === 'transfer' && room.phase === 'playing' ? !(player.team === team && player.role === 'spymaster') : plan.captains[team] !== playerId) && !(action.kind === 'nominate' && target.id === playerId && !plan.captains[team])) throw new Error('没有队长管理权限');
         if (action.kind === 'nominate' && (plan.stage === 'draft' || plan.stage === 'sealed')) throw new Error('正式组牌请使用队长交接');
         if (action.kind === 'transfer' && room.phase === 'playing') {
@@ -2063,8 +2076,8 @@ export class GameService {
           const latest = await this.requireRoom(room.id);
           if (!latest.countdown || latest.countdown.startsAt > now()) return;
           const matchId = latest.countdown.matchId;
-          try { if (latest.hostPlayerId !== latest.countdown.hostId) throw new Error('房主已变更'); if (latest.nextPlan) validatePlanRoster(latest,latest.nextPlan); else validateStart(latest); } catch {
-            await this.store.setRoom({ ...latest, countdown: undefined });
+            try { if (latest.hostPlayerId !== latest.countdown.hostId) throw new Error('房主已变更'); if (latest.nextPlan) validatePlanRoster(latest,latest.nextPlan); else validateStart(latest);validateOnlineStart(latest); } catch(error) {
+              await this.store.setRoom(withEvent({ ...latest, countdown: undefined },error instanceof Error?`开局已取消：${error.message}`:'开局条件发生变化，请重新准备'));
             return;
           }
           await this.store.setRoom({ ...latest, countdown: undefined });
@@ -2489,6 +2502,7 @@ export function buildReplay(room: Room, replayId: string): GameReplay {
     mode: { boardMode, scoringMode, timerMode },
     players,
     winner: room.winner,
+    endReason: room.endReason,
     durationMs: createdAt - (room.gameStartedAt ?? room.createdAt),
     finalBoard,
     rounds,
