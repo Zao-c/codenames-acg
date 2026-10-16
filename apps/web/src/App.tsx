@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Routes, Route, useNavigate, useLocation, useParams } from "react-router-dom";
 import { useGame } from "./context/GameContext";
 import { AppNav, MobileNav } from "./components/AppNav";
@@ -15,13 +15,15 @@ import { PrivateReplayPage } from './routes/PrivateReplayPage';
 
 function JoinRoomFromLink() {
   const { roomId } = useParams<{ roomId: string }>();
-  const { effectiveIdentity, room, connectionState, setRoomCode, joinSpecificRoom } = useGame();
+  const { effectiveIdentity, room, connectionState, setRoomCode, joinSpecificRoom, error } = useGame();
   const navigate = useNavigate();
   const code = roomId ?? "";
+  const location=useLocation();const attempted=useRef(false);
+  useEffect(()=>{if(effectiveIdentity&&new URLSearchParams(location.search).has('join')&&!attempted.current){attempted.current=true;joinSpecificRoom(code,false);}},[effectiveIdentity?.nickname,code,location.search]);
 
   useEffect(() => { if (code) setRoomCode(code); }, [code]);
 
-  if (room) return <RoomPage />;
+  if (room?.id === code) return <RoomPage />;
 
   return (
     <div className="invite-panel">
@@ -32,6 +34,8 @@ function JoinRoomFromLink() {
           ? `以 ${effectiveIdentity.nickname} 的身份加入`
           : "请先登录"}
       </p>
+      {!effectiveIdentity&&<div className="invite-login"><button className="primary-button" onClick={()=>navigate(`/login?next=${encodeURIComponent(`/room/${code}?join=1`)}`)}>登录并加入</button><button onClick={()=>navigate(`/login?guest=1&next=${encodeURIComponent(`/room/${code}?join=1`)}`)}>游客进入</button></div>}
+      {error&&<p role="alert" className="error-text">{error}</p>}
       <button className="primary-button" disabled={!effectiveIdentity} onClick={() => joinSpecificRoom(code, false)}>
         {connectionState === "connecting" ? "连接中..." : "加入房间"}
       </button>
@@ -46,7 +50,8 @@ function JoinRoomFromLink() {
 
 function RoomGuard() {
   const { room } = useGame();
-  if (room) return <RoomPage />;
+  const {roomId}=useParams();
+  if (room?.id===roomId) return <RoomPage />;
   return <JoinRoomFromLink />;
 }
 
@@ -54,12 +59,6 @@ export default function App() {
   const { room, effectiveIdentity, setRoomCode } = useGame();
   const navigate = useNavigate();
   const location = useLocation();
-
-  useEffect(() => {
-    if (room?.id && location.pathname !== `/room/${room.id}`) {
-      navigate(`/room/${room.id}`, { replace: true });
-    }
-  }, [room?.id]);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);

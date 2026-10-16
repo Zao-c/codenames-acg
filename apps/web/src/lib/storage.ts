@@ -1,8 +1,13 @@
 import type { AccountType, ClientSession } from "@acg-codenames/shared";
+import { privateIdentityKey } from './private-identity';
 
 const SESSION_KEY = "acg-codenames-session";
 const IDENTITY_KEY = "acg-codenames-identity";
 const RECENT_USERS_KEY = "acg-codenames-recent-users";
+function scoped(key:string):string {
+  const identity=loadIdentity();
+  return `${key}:${JSON.stringify([identity?.mode,identity?.username||identity?.nickname,privateIdentityKey()])}`;
+}
 
 export interface LocalIdentity {
   mode: AccountType;
@@ -13,22 +18,23 @@ export interface LocalIdentity {
 }
 
 export function saveSession(session: ClientSession): void {
-  sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  localStorage.setItem(scoped(SESSION_KEY), JSON.stringify(session));
 }
 
 export function loadSession(): ClientSession | null {
-  const raw = sessionStorage.getItem(SESSION_KEY);
+  const raw = localStorage.getItem(scoped(SESSION_KEY));
   if (!raw) return null;
   try {
-    return JSON.parse(raw) as ClientSession;
+    const value=JSON.parse(raw) as ClientSession;
+    return value&&typeof value.roomId==='string'&&typeof value.sessionToken==='string'&&typeof value.participantId==='string'?value:null;
   } catch {
-    sessionStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem(scoped(SESSION_KEY));
     return null;
   }
 }
 
 export function clearSession(): void {
-  sessionStorage.removeItem(SESSION_KEY);
+  localStorage.removeItem(scoped(SESSION_KEY));
 }
 
 export function saveIdentity(identity: LocalIdentity): void {
@@ -82,17 +88,19 @@ export interface RecoverableEntry {
 }
 
 export function loadRecoverableSessions(): Record<string, RecoverableEntry> {
-  const raw = sessionStorage.getItem(RECOVERABLE_KEY);
+  const raw = localStorage.getItem(scoped(RECOVERABLE_KEY));
   if (!raw) return {};
   try {
-    return JSON.parse(raw) as Record<string, RecoverableEntry>;
+    const parsed=JSON.parse(raw);
+    if(!parsed||typeof parsed!=='object'||Array.isArray(parsed))return {};
+    return Object.fromEntries(Object.entries(parsed).filter((entry):entry is [string,RecoverableEntry]=>!!entry[1]&&typeof entry[1]==='object'&&typeof (entry[1] as RecoverableEntry).sessionToken==='string'&&typeof (entry[1] as RecoverableEntry).savedAt==='number'));
   } catch {
     return {};
   }
 }
 
 export function saveRecoverableSessions(records: Record<string, RecoverableEntry>): void {
-  sessionStorage.setItem(RECOVERABLE_KEY, JSON.stringify(records));
+  localStorage.setItem(scoped(RECOVERABLE_KEY), JSON.stringify(records));
 }
 
 export function removeRecoverableSession(roomId: string): void {

@@ -3,16 +3,22 @@ import { createPortal } from 'react-dom';
 import { TEAM_LABELS, type AnimeWork, type DraftClaim } from '@acg-codenames/shared';
 import { Cover } from './AnimeBoard';
 
-export type DropAction = 'take' | 'release' | 'interfere';
+export type DropAction = 'take' | 'release' | 'interfere' | 'replace';
 export type DropAllow = Record<DropAction, boolean>;
 
 // Only one tile gesture may run at a time so ghost, highlight and drop stay consistent.
 let gestureActive = false;
 
-export function DraftTile({ work, claim, time, bookmark, canEdit, allow, onPreview, onBookmark, onDrop }: {
+export function DraftTile({ work, claim, time, bookmark, canEdit, allow, onPreview, onBookmark, onDrop, compact=false }: {
   work: AnimeWork; claim?: DraftClaim; time: number; bookmark?: boolean; canEdit: boolean; allow: DropAllow;
-  onPreview: () => void; onBookmark?: () => void; onDrop: (work: AnimeWork, action: DropAction) => void;
+  onPreview: () => void; onBookmark?: () => void; onDrop: (work: AnimeWork, action: DropAction, replaceId?:number) => void; compact?:boolean;
 }) {
+  const [star,setStar]=useState(!!bookmark);
+  const [bookmarkStatus,setBookmarkStatus]=useState('');
+  const actualBookmark=useRef(!!bookmark);actualBookmark.current=!!bookmark;
+  const bookmarkTimer=useRef<ReturnType<typeof setTimeout>|undefined>(undefined);
+  useEffect(()=>{setStar(!!bookmark);setBookmarkStatus('');clearTimeout(bookmarkTimer.current);},[bookmark]);
+  useEffect(()=>()=>clearTimeout(bookmarkTimer.current),[]);
   const [ghost, setGhost] = useState<{ x: number; y: number } | null>(null);
   const suppress = useRef(false);
   const cleanup = useRef<() => void>(() => {});
@@ -60,7 +66,7 @@ export function DraftTile({ work, claim, time, bookmark, canEdit, allow, onPrevi
       const moved = Math.hypot(ev.clientX - startX, ev.clientY - startY) > 12;
       const wasDragging = dragging;
       stop();
-      if (wasDragging && moved && action && allow[action]) onDrop(work, action);
+      if (wasDragging && moved && action && allow[action]) onDrop(work, action, Number(el?.getAttribute('data-replace-id'))||undefined);
     };
     const cancel = (ev: PointerEvent) => { if (ev.pointerId === e.pointerId) stop(); };
     function stop() {
@@ -84,15 +90,16 @@ export function DraftTile({ work, claim, time, bookmark, canEdit, allow, onPrevi
     window.addEventListener('pointercancel', cancel);
   };
 
-  return <article className={`draft-tile role-${claim?.team ?? 'hidden'} ${ghost ? 'is-dragging' : ''}`}>
+  return <article className={`draft-tile ${compact?'draft-tile-compact':''} role-${claim?.team ?? 'hidden'} ${ghost ? 'is-dragging' : ''}`} data-drop={compact&&canEdit&&claim?.kind==='manual'?'replace':undefined} data-replace-id={work.id}>
     <button type="button" className="draft-tile-main" aria-haspopup="dialog"
       onPointerDown={handlePointerDown} onContextMenu={e => e.preventDefault()} onDragStart={e => e.preventDefault()}
       onClick={() => { if (suppress.current) { suppress.current = false; return; } onPreview(); }} aria-label={work.title}>
       <Cover work={work}/><span>{work.title}</span>
       {claim && <small>{TEAM_LABELS[claim.team]}{claim.kind === 'interference' ? ' · 干扰' : ''}{claim.protectedUntil > time ? ` · 保护 ${Math.ceil((claim.protectedUntil-time)/1000)}s` : ''}</small>}
     </button>
-    {onBookmark && <button type="button" className={`draft-star ${bookmark ? 'is-on' : ''}`} aria-pressed={!!bookmark}
-      aria-label={`${bookmark ? '取消' : '添加'}书签 ${work.title}`} onClick={() => onBookmark()}>{bookmark ? '★' : '☆'}</button>}
+    {onBookmark && <button type="button" className={`draft-star ${star ? 'is-on' : ''}`} aria-pressed={star}
+      aria-label={`${star ? '取消' : '添加'}书签 ${work.title}`} onClick={() => {const next=!star;setStar(next);setBookmarkStatus(next?'已收藏 · 私人书签':'已取消收藏');onBookmark();clearTimeout(bookmarkTimer.current);bookmarkTimer.current=setTimeout(()=>{if(actualBookmark.current!==next){setStar(actualBookmark.current);setBookmarkStatus('收藏未同步，请重试');}},3000);}}>{star ? '★' : '☆'}</button>}
+    {bookmarkStatus&&<span className="draft-bookmark-status" role="status">{bookmarkStatus}</span>}
     {ghost && createPortal(<div className="draft-drag-ghost" style={{ left: ghost.x, top: ghost.y }} aria-hidden="true"><Cover work={work}/><span>{work.title}</span></div>, document.body)}
   </article>;
 }

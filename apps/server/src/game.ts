@@ -657,7 +657,6 @@ export class GameService {
   async joinRoom(roomId: string, nickname: string, profile?: Partial<UserProfile>, sessionToken?: string, principalId?: string): Promise<{ room: Room; player: Player }> {
     return this.withRoomLock(roomId, async () => {
     const room = await this.requireRoom(roomId);
-    if (room.phase === 'playing' || room.countdown || room.nextPlan?.lockedPlayerIds) throw new Error('本局名单已锁定，请旁观并排队下一局');
 
     const cleanNickname = normalizeNickname(nickname);
     const resolvedProfile = await this.users.resolveProfile(profile, sessionToken);
@@ -666,17 +665,18 @@ export class GameService {
       (entry) => entry.nickname === cleanNickname
     );
     if (existing) {
-      if ("connected" in existing && !existing.connected && sameStableProfileIdentity(existing.profile, resolvedProfile)
+      if ("connected" in existing && (!existing.connected || !!principalId && room.participantPrincipals?.[existing.id] === principalId) && (sameStableProfileIdentity(existing.profile, resolvedProfile) || existing.profile.accountType==='guest'&&resolvedProfile.accountType==='guest'&&!!principalId&&room.participantPrincipals?.[existing.id]===principalId)
         && canRestoreNamedParticipant(room, existing.id, principalId, this.options.enableMatchAnalysis === true)) {
         if ("team" in existing) {
           existing.connected = true;
-          existing.sessionToken = crypto.randomUUID();
+          existing.sessionToken ??= crypto.randomUUID();
           const nextRoom = withEvent(room, `${existing.nickname} 已重连`);
           await this.store.setRoom(nextRoom);
           await this.store.setPlayerSession(existing.sessionToken!, createSession(nextRoom.id, existing.id, "player"));
           return { room: nextRoom, player: existing };
         }
 
+        if (room.phase === 'playing' || room.countdown || room.nextPlan?.lockedPlayerIds) throw new Error('本局名单已锁定，请旁观并排队下一局');
         room.spectators = room.spectators.filter((s) => s.id !== existing.id);
         if (room.players.length >= MAX_PLAYERS) {
           room.spectators.push(existing);
@@ -694,6 +694,7 @@ export class GameService {
       throw new Error("昵称已被占用");
     }
 
+    if (room.phase === 'playing' || room.countdown || room.nextPlan?.lockedPlayerIds) throw new Error('本局名单已锁定，请旁观并排队下一局');
     if (room.players.length >= MAX_PLAYERS) {
       throw new Error("房间已满");
     }
@@ -723,13 +724,13 @@ export class GameService {
       (entry) => entry.nickname === cleanNickname
     );
     if (existing) {
-      if ("connected" in existing && !existing.connected && sameStableProfileIdentity(existing.profile, resolvedProfile)
+      if ("connected" in existing && (!existing.connected || !!principalId&&room.participantPrincipals?.[existing.id]===principalId) && (sameStableProfileIdentity(existing.profile, resolvedProfile)||existing.profile.accountType==='guest'&&resolvedProfile.accountType==='guest'&&!!principalId&&room.participantPrincipals?.[existing.id]===principalId)
         && canRestoreNamedParticipant(room, existing.id, principalId, this.options.enableMatchAnalysis === true)) {
         if ("team" in existing) {
           throw new Error("你是本局玩家，请以玩家身份重连");
         }
         existing.connected = true;
-        existing.sessionToken = crypto.randomUUID();
+        existing.sessionToken ??= crypto.randomUUID();
         const nextRoom = withEvent(room, `${existing.nickname} 已重连`);
         await this.store.setRoom(nextRoom);
         await this.store.setPlayerSession(existing.sessionToken!, createSession(nextRoom.id, existing.id, "spectator"));
@@ -755,7 +756,8 @@ export class GameService {
 
   async reconnectRoom(
     roomId: string,
-    sessionToken: string
+    sessionToken: string,
+    principalId?: string
   ): Promise<{ room: Room; participantId: string; participantType: ParticipantType }> {
     return this.withRoomLock(roomId, async () => {
     const session = await this.store.getPlayerSession(sessionToken);
@@ -765,7 +767,10 @@ export class GameService {
 
     const room = await this.requireRoom(roomId);
     const participant = requireParticipant(room, session.participantId, session.participantType);
+    if (!canRestoreNamedParticipant(room, participant.id, principalId, false)) throw new Error('重连凭证与当前身份不匹配');
+    if (participant.sessionToken !== sessionToken) throw new Error('重连凭证已失效');
     participant.connected = true;
+    await this.store.setPlayerSession(sessionToken,session);
 
     const nextRoom = withEvent(room, `${participant.nickname} 已重连`);
     await this.store.setRoom(nextRoom);
@@ -1756,8 +1761,12 @@ export class GameService {
       const team = (['red','blue'] as const).find(t => plan.captains[t] === participantId);
       if (team) {
         delete plan.captains[team];
+      }
+      if (participantType === 'player') {
         if (plan.stage === 'draft' || plan.stage === 'sealed') {
-          plan.stage = 'guide'; plan.endsAt = undefined; plan.lockedPlayerIds = undefined;
+          // Explicit withdrawal aborts this preparation, never leaves a three-player locked roster.
+          plan.stage = 'planning'; plan.matchId = crypto.randomUUID();
+          plan.endsAt = undefined; plan.lockedPlayerIds = undefined;
           plan.claims = {}; plan.protection = {}; plan.sealedBoard = undefined;
           plan.done = { red:false, blue:false }; plan.version += 1;
         }
@@ -1799,7 +1808,7 @@ export class GameService {
       setTimeout(async () => {
         try {
           const current = await this.store.getRoom(roomId);
-          if (!current || current.phase !== "lobby") return;
+          if (!current || current.phase !== "lobby" || current.countdown || current.nextPlan?.lockedPlayerIds || current.nextPlan?.stage === 'sealed') return;
           const entry =
             current.players.find((p) => p.id === participantId) ??
             current.spectators.find((s) => s.id === participantId);

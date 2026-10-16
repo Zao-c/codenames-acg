@@ -1,3 +1,4 @@
+import { CompactMembers, MatchManagement, MatchResult } from '../components/MatchSummary';
 import { PreparationLobby } from '../components/PreparationLobby';
 import { AnimeBoard, NextMatchPanel, StartCountdown } from "../components/AnimePlay";
 import { useCallback, useEffect, useState, useMemo, useRef, type KeyboardEvent } from "react";
@@ -104,6 +105,9 @@ export function RoomPage() {
   }
 
   if (isLobby && room.nextPlan?.stage !== 'draft') return <PreparationLobby room={room}/>;
+  if(isLobby&&room.nextPlan?.stage==='draft')return <section className={`room-layout room-layout-lobby room-preparing-anime draft-room-shell mobile-view-${g.mobileRoomTab}`}><header className="room-bar"><div><strong className="room-code">{room.id}</strong><p className="hint-text">动画组牌 · {room.nextPlan.settings.boardMode}</p></div><div className="bar-actions"><button onClick={()=>void copyLink()}>{copied?'已复制':'邀请好友'}</button>{viewer?.isHost&&<MatchManagement/>}</div></header><NextMatchPanel room={room}/><aside className="lobby-people"><CompactMembers room={room}/></aside><aside className="room-right-col lobby-chat"><SideTabPanel g={g} room={room} session={session}/></aside>{error&&<p className="error-text" role="alert">{error}</p>}</section>;
+
+  if(isFinished)return <MatchResult room={room}/>;
 
   const phaseClass =
     focusMode ? "room-layout-focus"
@@ -153,7 +157,7 @@ export function RoomPage() {
               <>
                 <button onClick={enterFocusMode}>专注模式</button>
                 {viewer?.isHost ? (
-                  <button onClick={() => { if (window.confirm("确定要强制结束当前对局吗？当前队伍视为认输。")) { g.forceEndGame(); } }}>结束对局</button>
+                  <MatchManagement/>
                 ) : null}
               </>
             ) : null}
@@ -179,125 +183,13 @@ export function RoomPage() {
           {isFinished ? null : (
             <aside className="room-left-col">
               <MatchStatus room={room}/>
-              <details className="match-members" open={g.mobileRoomTab === "players" || undefined}><summary>成员与席位 · {room.players.length} 人</summary>
-              <SeatPanel self={self} room={room} viewer={viewer} g={g} reactionEffects={reactionEffects} />
-              <MembersPanel room={room} selfId={session?.participantId} collapsedSections={collapsedSections} toggleSection={toggleSection} reactionEffects={reactionEffects} sendReaction={sendReaction} />
-              {viewer?.canDisbandRoom ? (
-                <div className="panel" style={{ marginTop: 12, padding: 16 }}>
-                  <button className="danger-button" onClick={disbandRoom} style={{ width: "100%" }}>解散房间</button>
-                </div>
-              ) : null}
-              </details>
+              <CompactMembers room={room}/>
             </aside>
           )}
 
           <div className={`room-center-col ${isFinished ? "result-workspace" : ""}`}>
             {!isFinished && <div className="mobile-match-status"><MatchStatus room={room}/></div>}
             {!isFinished && revealBanner && room.lastReveal?.id === revealBanner.id ? <RevealBanner reveal={revealBanner} /> : null}
-
-            {isFinished ? (
-              <>
-                <section className={`result-banner ${room.winner ? `winner-${room.winner}` : ""}`}>
-                  <h2>{room.winner ? `${TEAM_LABELS[room.winner]}胜利` : "对局结束"}</h2>
-                  <p className="hint-text">{room.lastEvent}</p>
-                  <div className="result-score" style={{ marginTop: 12 }}>
-                    <span className="score-chip red-chip">红队 {room.scores.red}</span>
-                    <span className="score-chip blue-chip">蓝队 {room.scores.blue}</span>
-                  </div>
-                  <div className="result-actions" style={{ marginTop: 12, display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
-                    {viewer?.canRestartGame ? <button className="primary-button" onClick={restartGame}>再来一局</button> : null}
-                    {viewer?.canReturnToLobby ? <button onClick={returnToLobby}>回到准备房间</button> : null}
-                  </div>
-                </section>
-
-                {room.replayId ? (
-                  <section className="replay-entry-bar" style={{ marginTop: 16, display: "flex", gap: 10, alignItems: "center", justifyContent: "center", flexWrap: "wrap" }}>
-                    <span className="hint-text" style={{ margin: 0 }}>本局复盘已生成</span>
-                    <button className="primary-button" onClick={() => navigate(`/replay/${room.replayId}`)}>查看复盘</button>
-                    <CopyReplayLink replayId={room.replayId} />
-                  </section>
-                ) : (
-                  <section className="replay-entry-bar" style={{ marginTop: 16, display: "flex", gap: 10, alignItems: "center", justifyContent: "center", flexWrap: "wrap", opacity: 0.6 }}>
-                    <span className="hint-text" style={{ margin: 0 }}>复盘生成中...</span>
-                  </section>
-                )}
-
-                {room.achievements && room.achievements.length > 0 ? (
-                  <section className="panel achievements-panel" style={{ marginTop: 16 }}>
-                    <div className="panel-heading"><h2>本局称号</h2></div>
-                    <div className="achievements-list">
-                      {room.achievements.map((a) => (
-                        <div key={a.id} className={`achievement-card achievement-${a.tier}`}>
-                          <div className="achievement-header">
-                            <span className="achievement-tier">{a.tier === "positive" ? "🏆" : a.tier === "funny" ? "💀" : "🌟"}</span>
-                            <strong>{a.title}</strong>
-                          </div>
-                          <span className="achievement-name">{a.nickname}</span>
-                          <p className="achievement-desc">{a.description}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </section>
-                ) : null}
-
-                {room.clueRecords && room.clueRecords.length > 0 ? (
-                  <details className="panel result-details" style={{ marginTop: 16 }}><summary>回合历史 · {room.clueRecords.length} 条线索</summary>
-                    <div className="round-history">
-                      {room.clueRecords.map((cr, i) => (
-                        <div key={i} className={`round-block ${cr.team === "red" ? "round-block-red" : "round-block-blue"}`}>
-                          <div className="round-clue">
-                            <span className="round-num">#{i + 1}</span>
-                            <strong>{cr.giverNickname}</strong>
-                            <span>提示：{cr.word} {cr.count}</span>
-                          </div>
-                          {cr.guesses.length === 0 ? (
-                            <p className="hint-text" style={{ margin: "2px 0 0 32px" }}>未选择词牌</p>
-                          ) : null}
-                          <div className="round-guesses">
-                            {cr.guesses.map((g, j) => (
-                              <div key={j} className={`round-guess round-guess-${g.cardRole}`}>
-                                <strong>{g.nickname}</strong>
-                                <span>「{g.cardWord}」{g.isOwnHit ? "命中" : "错误"} · {g.cardRole === "red" ? "红方" : g.cardRole === "blue" ? "蓝方" : g.cardRole === "neutral" ? "中立" : "刺客"}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </details>
-                ) : null}
-
-                {room.roundHighlights && room.roundHighlights.length > 0 ? (
-                  <section className="panel round-highlight-section" style={{ marginTop: 16 }}>
-                    <div className="panel-heading"><h2>高光复盘</h2></div>
-                    {(room.roundHighlights ?? []).map((hl) => (
-                      <RoundHighlightCard key={hl.id} highlight={hl} />
-                    ))}
-                  </section>
-                ) : null}
-
-                {room.roundScoreHistory && room.roundScoreHistory.length > 0 ? (
-                  <section className="panel" style={{ marginTop: 16 }}>
-                    <div className="panel-heading"><h2>积分明细</h2></div>
-                    <div className="score-history-list">
-                      {room.roundScoreHistory.map((rs, i) => (
-                        <div key={i} className="score-history-row">
-                          <span className="soft-chip">回合 {i + 1}</span>
-                          <span className="score-chip">{TEAM_LABELS[rs.team]}</span>
-                          {rs.ownPoints > 0 ? <span className="score-chip">+{rs.ownPoints}</span> : null}
-                          {rs.neutralPenalty > 0 ? <span className="score-chip" style={{ color: "var(--muted)" }}>-{rs.neutralPenalty}</span> : null}
-                          {rs.opponentPointsLost > 0 ? <span className="score-chip" style={{ color: "var(--danger)" }}>-{rs.opponentPointsLost}</span> : null}
-                          {rs.assassinPenalty > 0 ? <span className="score-chip" style={{ color: "var(--danger)" }}>-{rs.assassinPenalty}</span> : null}
-                          {rs.precisionBonus > 0 ? <span className="score-chip">精准+{rs.precisionBonus}</span> : null}
-                          {rs.victoryBonus > 0 ? <span className="score-chip">胜利+{rs.victoryBonus}</span> : null}
-                          <span className="score-chip" style={{ fontWeight: 700 }}>合计 {rs.totalRound}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </section>
-                ) : null}
-              </>
-            ) : null}
 
             <PrivateReview room={room}/>
             {isFinished ? <details className="panel result-board"><summary>查看终局棋盘</summary><BoardPanel room={room} viewer={viewer} g={g} cardMarks={cardMarks} markCard={markCard}/></details> : <BoardPanel room={room} viewer={viewer} g={g} cardMarks={cardMarks} markCard={markCard} />}

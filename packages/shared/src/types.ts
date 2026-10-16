@@ -678,6 +678,8 @@ export interface ClientSession {
 }
 
 export interface ErrorMessagePayload {
+  code?: string;
+  roomId?: string;
   message: string;
 }
 
@@ -704,6 +706,7 @@ export interface JoinSpectatorPayload {
 export interface ReconnectRoomPayload {
   roomId: string;
   sessionToken: string;
+  identityKey?: string;
 }
 
 export interface SetTeamPayload {
@@ -758,6 +761,7 @@ export interface EndTurnPayload {
 }
 
 export interface LeaveRoomPayload {
+  identityKey?: string;
   roomId: string;
   sessionToken?: string;
 }
@@ -900,6 +904,7 @@ export interface CreateRevealPuzzlePayload {
 }
 
 export interface CreateRevealGuessRoomPayload {
+  identityKey?: string;
   nickname: string;
   profile?: Partial<UserProfile>;
   settings?: Partial<RevealGuessSettings>;

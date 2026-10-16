@@ -19,3 +19,4 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
 import "./anime.css";
 
 import "./lobby-v2.css";
+import "./stability.css";
