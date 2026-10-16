@@ -1,3 +1,4 @@
+import { PreparationLobby } from '../components/PreparationLobby';
 import { AnimeBoard, NextMatchPanel, StartCountdown } from "../components/AnimePlay";
 import { useCallback, useEffect, useState, useMemo, useRef, type KeyboardEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -71,7 +72,7 @@ export function RoomPage() {
     uploadRoomPack, useAccountPackForRoom, usePublicPackForRoom,
     startGame, restartGame, returnToLobby, transferHost, disbandRoom, forceEndGame,
     queueForNextRound, cancelQueueJoin, debugFillRoom,
-    submitClue, guessCard, endTurn, sendChatMessage, sendQuickPhrase, sendReaction, copyLink, leaveRoom,
+    submitClue, guessCard, endTurn, sendChatMessage, sendReaction, copyLink, leaveRoom,
     transferHostTargetId, setTransferHostTargetId, hostTransferCandidates,
     accountPacks, publicPacks, makePublicPackKey,
   } = g;
@@ -101,6 +102,8 @@ export function RoomPage() {
   if (room.gameMode === "reveal-guess" || room.revealGuessPublic) {
     return <RevealGuessRoom />;
   }
+
+  if (isLobby && room.nextPlan?.stage !== 'draft') return <PreparationLobby room={room}/>;
 
   const phaseClass =
     focusMode ? "room-layout-focus"
@@ -705,7 +708,7 @@ function LobbySettings({ room, viewer, self, g, accountPacks, publicPacks, makeP
       </details>
       {self && isPlayer(self) && self.isHost ? (
         <div className="toolbar-inline" style={{ marginTop: 8, gap: 8 }}>
-          <button onClick={g.randomizeTeams} disabled={!viewer.canEditRoom}>随机分队</button>
+          <button onClick={() => g.randomizeTeams()} disabled={!viewer.canEditRoom}>随机分队</button>
           <button className="primary-button" onClick={g.startGame} disabled={!viewer.canStartGame}>开始游戏</button>
           {viewer.canUseDebugFill ? <button onClick={g.debugFillRoom}>补 3 个测试位</button> : null}
         </div>
@@ -820,7 +823,7 @@ function SideTabPanel({ g, room, session }: {
   g: ReturnType<typeof useGame>; room: NonNullable<ReturnType<typeof useGame>["room"]>;
   session: ReturnType<typeof useGame>["session"];
 }) {
-  const { sideTab, setSideTab, chatText, setChatText, chatListRef, battleListRef, handleChatScroll, handleBattleScroll, jumpToLatest, scrollChatToBottom, sendChatMessage, sendQuickPhrase, showDanmaku, setShowDanmaku } = g;
+  const { sideTab, setSideTab, chatText, setChatText, chatListRef, battleListRef, handleChatScroll, handleBattleScroll, jumpToLatest, scrollChatToBottom, sendChatMessage } = g;
   const [collapsed, setCollapsed] = useState(false);
   const chatMessages = useMemo(() => room.messages.filter((m) => m.type === "chat" || m.type === "reaction"), [room.messages]);
   const battleMessages = useMemo(() => room.messages.filter((m) => m.type === "system"), [room.messages]);
@@ -880,17 +883,7 @@ function SideTabPanel({ g, room, session }: {
                 <input value={chatText} onChange={(e) => setChatText(e.target.value)} maxLength={120} placeholder="发一句话..." style={{ flex: 1 }} />
                 <button onClick={sendChatMessage} disabled={!chatText.trim()}>发送</button>
               </div>
-              <div className="chip-wrap" style={{ marginTop: 6 }}>
-                <label className="danmaku-toggle">
-                  <input type="checkbox" checked={showDanmaku} onChange={(e) => setShowDanmaku(e.target.checked)} />
-                  <span>弹幕</span>
-                </label>
-                <button className="chip-button" onClick={() => sendQuickPhrase("GG")}>GG</button>
-                <button className="chip-button" onClick={() => sendQuickPhrase("大佬带带我")}>大佬带带我</button>
-                <button className="chip-button" onClick={() => sendQuickPhrase("好猜！")}>好猜！</button>
-                <button className="chip-button" onClick={() => sendQuickPhrase("这个太难了")}>这个太难了</button>
-                <button className="chip-button" onClick={() => sendQuickPhrase("666")}>666</button>
-              </div>
+
             </>
           ) : null}
 

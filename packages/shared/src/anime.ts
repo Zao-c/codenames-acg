@@ -38,6 +38,7 @@ export interface NextPlan {
   activityAt: number;
 }
 export interface PublicNextPlan {
+  wordPackName?: string;
   id: string;
   version: number;
   variant: NextPlan['variant'];
@@ -61,6 +62,10 @@ export interface PlanAction {
   variant?: 'classic' | 'anime';
   boardMode?: RoomSettings['boardMode'];
   scoringMode?: RoomSettings['scoringMode'];
+  timerMode?: RoomSettings['timerMode'];
+  timerClueSeconds?: number;
+  timerGuessSeconds?: number;
+  flipMode?: RoomSettings['flipMode'];
   poolIds?: number[];
   poolName?: string;
   communityPoolId?: string;
