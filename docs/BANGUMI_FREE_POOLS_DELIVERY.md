@@ -42,6 +42,10 @@
 
 ## 验证与发布状态
 
-正在最终验收；结果和发布证据完成后补齐。确定性上游仅通过测试 runner 的 Node preload 注入，生产代码没有 fixture 开关。真实 API 冒烟和真实数据截图单独执行，不将 mock 测试记作线上验证。
+确定性上游仅通过测试 runner 的 Node preload 注入，生产代码没有 fixture 开关。真实 API 冒烟和真实数据截图单独执行，不将 mock 测试记作线上验证。
+
+已部署：2026-10-16 21:01（北京时间；备份 20:58 起）部署应用提交 `5b8af4c`（分支 `codex/cipai-bangumi-free-pools`，[PR #11](https://github.com/Zao-c/codenames-acg/pull/11)），上一版 `3b8263a`。完整备份 `/opt/codenames-backups/bangumi-free-pools-5b8af4c/`（源码、构建日志、systemd 与 env 前后快照、重启守卫检查、持久数据哈希 `anime-pools.json` a5a109e1…、`users.json` 4aa7af58…），目录与产物仅 root 可访问；构建产物 `index-DBdD6ePJ.js` 545.92 kB / `index-BlotwwB5.css` 132.65 kB。重启前 `/rooms` 为空，未中断对局。
+
+线上真实上游验收（无 fixture，证据在 `artifacts/prod-acceptance-5b8af4c/bangumi-live-prod/`）：真实筛选查询与评分/人数元数据、官方未缓存条目 302 导入后服务端保存与第二设备凭证编辑、1440×900 与 390×844 暗亮、筛选/已选/预览可达、无横向溢出与页面错误，`passed:true`。后续集中修复轮基于该提交继续，见 [集中修复轮交付](CONCENTRATED_STABILITY_UX_DELIVERY.md)。
 
 回滚必须保留新增导入目录和社区池。`scripts/export-anime-rollback.mjs` 可把当前静态目录与导入覆盖层合成兼容旧应用的静态 catalog；回退到 PR #10 前先导出、checkout 旧提交后替换该静态 catalog，再恢复旧构建产物。禁止删除旧应用不认识的作品池或覆盖部署后产生的磁盘数据。该兼容导出和旧版池校验在服务测试中验证。

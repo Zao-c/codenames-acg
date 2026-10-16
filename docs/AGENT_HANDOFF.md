@@ -1,5 +1,9 @@
 # Agent 续接入口
 
+## 最新续接：Bangumi 自由组池与集中修复轮（2026-10-17）
+
+当前分支 `codex/cipai-bangumi-free-pools`（[PR #11](https://github.com/Zao-c/codenames-acg/pull/11)）。生产应用 `edd3072`（2026-10-16T17:21:20Z 部署）：同日先部署 `5b8af4c` Bangumi 真实上游发现/导入与自由组池轮，再部署 `077c4a1` 集中稳定性与交互修复轮，随后 `edd3072` 修复明文 HTTP 下聊天 `requestId` 使用 `crypto.randomUUID`（仅安全上下文的 API）导致的「发送中…」冻结，并新增 `web-client-safety` 规则测试。本地全量与线上真实浏览器验收通过；记录见 [Bangumi 轮交付](BANGUMI_FREE_POOLS_DELIVERY.md) 与 [集中修复轮交付](CONCENTRATED_STABILITY_UX_DELIVERY.md)；备份在 `/opt/codenames-backups/`（`bangumi-free-pools-5b8af4c`、`concentrated-077c4a1`、`concentrated-077c4a1-web-fix`）。以下历史记录保留，不应当作当前交付状态。
+
 ## Issue #9 最新续接（2026-10-16）
 
 在完整大厅 UI 基线 `95e9f66` 上使用已有 `codex/cipai-stability-ux-fix` 分支完成 P0/P1/P2：身份隔离与重连、跨页保席、组牌实际拖回/更换、私人预判、正式侧栏、独立结算与下一局工作区、可操作关联画布。应用 `3b8263a` 已于 18:29 部署，[PR #10](https://github.com/Zao-c/codenames-acg/pull/10)；本地全套和生产浏览器 10/10 通过，备份 `/opt/codenames-backups/issue9-3b8263a/`。详见 [Issue #9 交付](ISSUE9_DELIVERY.md)。本轮用户最新授权包括全部测试通过后的安全部署一次；此前仅本地开发的分工不再适用于本轮。以下历史记录保留，不应当作当前交付状态。
