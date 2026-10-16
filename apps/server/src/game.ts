@@ -408,7 +408,7 @@ function emptyRoundScore(team: Team): RoundScoreDetail {
 }
 
 function computeScoreDelta(round: RoundScoreDetail): number {
-  return round.ownPoints + round.comboBonus - round.neutralPenalty - round.opponentPointsLost - round.assassinPenalty + round.precisionBonus + round.victoryBonus;
+  return round.ownPoints + round.comboBonus - round.neutralPenalty - round.opponentPointsLost - round.assassinPenalty - (round.timeoutPenalty ?? 0) + round.precisionBonus + round.victoryBonus;
 }
 
 function applyScore(room: Room, team: Team, delta: number): { scores: RoomScore } {
@@ -677,6 +677,7 @@ export class GameService {
       if ("connected" in existing && (!existing.connected || !!principalId && room.participantPrincipals?.[existing.id] === principalId) && (sameStableProfileIdentity(existing.profile, resolvedProfile) || existing.profile.accountType==='guest'&&resolvedProfile.accountType==='guest'&&!!principalId&&room.participantPrincipals?.[existing.id]===principalId)
         && canRestoreNamedParticipant(room, existing.id, principalId, this.options.enableMatchAnalysis === true)) {
         if ("team" in existing) {
+          this.clearDisconnectKickTimer(roomId, existing.id, "player");
           existing.connected = true;
           existing.sessionToken ??= crypto.randomUUID();
           const nextRoom = withEvent(room, `${existing.nickname} 已重连`);
@@ -691,6 +692,7 @@ export class GameService {
           room.spectators.push(existing);
           throw new Error("房间已满");
         }
+        this.clearDisconnectKickTimer(roomId, existing.id, "spectator");
         const convertedPlayer = createPlayerFromSpectator(existing);
         if (room.hostPlayerId === existing.id) {
           convertedPlayer.isHost = true;
@@ -738,6 +740,7 @@ export class GameService {
         if ("team" in existing) {
           throw new Error("你是本局玩家，请以玩家身份重连");
         }
+        this.clearDisconnectKickTimer(roomId, existing.id, "spectator");
         existing.connected = true;
         existing.sessionToken ??= crypto.randomUUID();
         const nextRoom = withEvent(room, `${existing.nickname} 已重连`);
@@ -778,6 +781,7 @@ export class GameService {
     const participant = requireParticipant(room, session.participantId, session.participantType);
     if (!canRestoreNamedParticipant(room, participant.id, principalId, false)) throw new Error('重连凭证与当前身份不匹配');
     if (participant.sessionToken !== sessionToken) throw new Error('重连凭证已失效');
+    this.clearDisconnectKickTimer(roomId, participant.id, session.participantType);
     participant.connected = true;
     await this.store.setPlayerSession(sessionToken,session);
 
@@ -1202,6 +1206,7 @@ export class GameService {
     if (room.hostPlayerId !== playerId) {
       throw new Error("只有房主可以解散房间");
     }
+    this.clearRoomDisconnectKickTimers(room.id);
     await this.store.deleteRoom(room.id);
     return room;
     });
@@ -1254,6 +1259,10 @@ export class GameService {
       } as any,
       `${player.nickname} 给出提示：${cleanWord} ${count}`
     );
+    nextRoom.messages.at(-1)!.event = {kind:'clue',team:room.currentTeam,clueId};
+    nextRoom.clueRecords = [...(room.clueRecords ?? []), { clueId, team: room.currentTeam, giverPlayerId: player.id, giverNickname: player.nickname, word: cleanWord, count, guesses: [] }];
+    nextRoom.currentRoundScore = isScoringMode(room.settings.scoringMode) ? emptyRoundScore(room.currentTeam) : undefined;
+    nextRoom.comboStreaks = {};
     ensurePlayerStats(nextRoom, player).cluesGiven += 1;
     await this.store.setRoom(nextRoom);
     return nextRoom;
@@ -1379,6 +1388,7 @@ export class GameService {
     let nextScores: RoomScore = room.scores;
     if (scoringActive) {
       const prev = room.currentRoundScore ?? emptyRoundScore(actingTeam);
+      const previouslyApplied = computeScoreDelta(prev);
       const streaks = { ...(room.comboStreaks ?? {}) };
 
       if (outcome === "own-hit") {
@@ -1394,22 +1404,12 @@ export class GameService {
         if (outcome === "opponent-hit") {
           prev.opponentHits += 1;
           prev.opponentPointsLost += 5;
-          const opponentTeam = card.role as Team;
-          const opponentRound = room.currentRoundScore?.team === opponentTeam
-            ? room.currentRoundScore
-            : emptyRoundScore(opponentTeam);
-          opponentRound.opponentPointsLost += 5;
         } else if (outcome === "neutral-hit") {
           prev.neutralHits += 1;
           prev.neutralPenalty += 3;
         } else if (outcome === "assassin-hit") {
           prev.assassinHit = true;
           prev.assassinPenalty += 25;
-          const opponentTeam = nextTeam(actingTeam);
-          const opponentRound = room.currentRoundScore?.team === opponentTeam
-            ? room.currentRoundScore
-            : emptyRoundScore(opponentTeam);
-          opponentRound.assassinPenalty += 25;
         }
       }
 
@@ -1417,30 +1417,14 @@ export class GameService {
         prev.victoryBonus = 20;
       }
 
-      const delta = computeScoreDelta(prev);
-      const applied = applyScore(room, actingTeam, delta);
-      nextScores = applied.scores;
-      prev.totalRound = (room.scores[actingTeam] ?? 0) + delta;
-
-      room.comboStreaks = streaks;
-      room.currentRoundScore = prev;
-
-      if (winner) {
-        const clueCount = room.clue?.count ?? 0;
-        if (
-          prev.ownHits === clueCount &&
-          prev.neutralHits === 0 &&
-          !prev.assassinHit &&
-          prev.opponentHits === 0
-        ) {
-          prev.precisionBonus = 10;
-          prev.totalRound += 10;
-          nextScores[actingTeam] = Math.max(0, nextScores[actingTeam] + 10);
-        }
-        room.roundScoreHistory = [...(room.roundScoreHistory ?? []), prev];
-        room.currentRoundScore = undefined;
-        room.comboStreaks = {};
-      }
+      if (!clue && prev.ownHits === room.clue!.count && prev.neutralHits === 0 && prev.opponentHits === 0 && !prev.assassinHit) prev.precisionBonus = 10;
+      prev.totalRound = computeScoreDelta(prev);
+      nextScores = applyScore(room, actingTeam, prev.totalRound - previouslyApplied).scores;
+      const opponentBonus = (outcome === 'opponent-hit' ? 5 : outcome === 'assassin-hit' ? 25 : 0) + (winner && winner !== actingTeam ? 20 : 0);
+      if (opponentBonus) nextScores = applyScoreToScores(nextScores, nextTeam(actingTeam), opponentBonus);
+      room.comboStreaks = clue ? streaks : {};
+      room.currentRoundScore = clue ? prev : undefined;
+      if (!clue) room.roundScoreHistory = [...(room.roundScoreHistory ?? []), prev];
     }
 
     const nextRoom = withEvent(
@@ -1455,10 +1439,12 @@ export class GameService {
         scores: winner && !scoringActive ? updateScores(room.scores, winner) : nextScores,
         lastReveal,
         achievements: winner ? computeAchievements(room) : undefined,
+        ...(!clue && !winner ? {timerPhase: room.settings.timerMode === 'timed' ? 'clue' as const : undefined, timerEndsAt: room.settings.timerMode === 'timed' ? now() + getTimerDuration(room, 'clue') * 1000 : undefined, timerPaused: false, consecutiveTimeouts: 0} : {}),
         ...(winner ? { timerEndsAt: undefined as undefined, timerPhase: undefined as undefined, timerPaused: false, timeoutPauseReason: undefined as undefined } : {})
       },
       event
     );
+    nextRoom.messages.at(-1)!.event = {kind:'guess',team:actingTeam,clueId:room.clue?.id};
     if (!clue) {
       const lastRecord = findRecordForClue(nextRoom.clueRecords, room.clue);
       if (lastRecord) {
@@ -1506,7 +1492,7 @@ export class GameService {
         prev.opponentHits === 0
       ) {
         prev.precisionBonus = 10;
-        prev.totalRound += 10;
+        prev.totalRound = computeScoreDelta(prev);
         const team = room.currentTeam;
         nextScores = { ...room.scores, [team]: Math.max(0, room.scores[team] + 10) };
       }
@@ -1535,6 +1521,7 @@ export class GameService {
       },
       `${player.nickname} 结束了回合 (ง •_•)ง`
     );
+    nextRoom.messages.at(-1)!.event = {kind:'turn-end',team:room.currentTeam,clueId:room.clue?.id};
     const giverId = room.clue!.giverPlayerId;
     if (giverId && room.clue!.usedGuesses >= room.clue!.count) {
       const spy = room.players.find(p => p.id === giverId);
@@ -1605,13 +1592,16 @@ export class GameService {
     });
   }
 
-  async sendChatMessage(roomId: string, participantId: string, participantType: ParticipantType, text: string): Promise<Room> {
+  async sendChatMessage(roomId: string, participantId: string, participantType: ParticipantType, text: string, requestId?: string): Promise<Room> {
     return this.withRoomLock(roomId, async () => {
     const room = await this.requireRoom(roomId);
     const participant = requireParticipant(room, participantId, participantType);
     const cleanText = normalizeChatText(text);
+    if (requestId !== undefined && !/^[a-zA-Z0-9_-]{1,80}$/.test(requestId)) throw new Error('消息标识无效');
+    if (requestId && room.messages.some(m => m.playerId === participantId && m.requestId === requestId)) return room;
     const message = createMessage("chat", cleanText, {
       playerId: participant.id,
+      requestId,
       nickname: participant.nickname
     });
 
@@ -1739,6 +1729,7 @@ export class GameService {
     return this.withRoomLock(roomId, async () => {
     const room = await this.requireRoom(roomId);
     const participant = requireParticipant(room, participantId, participantType);
+    this.clearDisconnectKickTimer(roomId, participantId, participantType);
 
     const players = participantType === "player" ? room.players.filter((entry) => entry.id !== participantId) : room.players;
     const spectators =
@@ -1746,6 +1737,7 @@ export class GameService {
     const joinQueue = room.joinQueue.filter((entry) => entry.spectatorId !== participantId);
 
     if (players.length === 0 || players.every((entry) => entry.isBot)) {
+      this.clearRoomDisconnectKickTimers(room.id);
       await this.store.deleteRoom(room.id);
       return null;
     }
@@ -1815,22 +1807,21 @@ export class GameService {
     participant.connected = false;
     const nextRoom = withEvent(room, `${participant.nickname} 暂时离线`);
 
+    this.clearDisconnectKickTimer(roomId, participantId, participantType);
     if (room.phase === "lobby" && !room.countdown && !room.nextPlan?.lockedPlayerIds && !(participant as Player).isBot) {
-      const DISCONNECT_KICK_DELAY = 2 * 60 * 1000;
-      setTimeout(async () => {
-        try {
+      const key = this.disconnectTimerKey(roomId, participantId, participantType);
+      const timer = setTimeout(async () => {
+        await this.withRoomLock(roomId, async () => {
+          if (this.disconnectKickTimers.get(key) !== timer) return;
+          this.disconnectKickTimers.delete(key);
           const current = await this.store.getRoom(roomId);
           if (!current || current.phase !== "lobby" || current.countdown || current.nextPlan?.lockedPlayerIds || current.nextPlan?.stage === 'sealed') return;
-          const entry =
-            current.players.find((p) => p.id === participantId) ??
-            current.spectators.find((s) => s.id === participantId);
-          if (!entry?.connected) {
-            await this.leaveRoom(roomId, participantId, participantType);
-          }
-        } catch {
-          // 静默处理
-        }
-      }, DISCONNECT_KICK_DELAY);
+          const entry = participantType === 'player' ? current.players.find(p => p.id === participantId) : current.spectators.find(p => p.id === participantId);
+          if (entry && !entry.connected && stillDisconnected()) await this.leaveRoom(roomId, participantId, participantType);
+        }).catch(() => { /* Room may expire while a cleanup is queued. */ });
+      }, this.options.disconnectKickDelayMs ?? 120_000);
+      timer.unref?.();
+      this.disconnectKickTimers.set(key, timer);
     }
 
     await this.store.setRoom(nextRoom);
@@ -2106,10 +2097,11 @@ export class GameService {
       const currentTeam = nextTeam(latest.currentTeam);
       const scoringActive = isScoringMode(latest.settings.scoringMode);
       let nextScores = latest.scores;
-      if (scoringActive && latest.currentRoundScore) {
-        const prev = latest.currentRoundScore;
+      if (scoringActive) {
+        const prev = emptyRoundScore(latest.currentTeam);
         const penalty = 10;
-        prev.totalRound = -penalty;
+        prev.timeoutPenalty = penalty;
+        prev.totalRound = computeScoreDelta(prev);
         nextScores = { ...latest.scores, [latest.currentTeam]: Math.max(0, latest.scores[latest.currentTeam] - penalty) };
         latest.roundScoreHistory = [...(latest.roundScoreHistory ?? []), prev];
       }
@@ -2139,13 +2131,14 @@ export class GameService {
       const currentTeam = nextTeam(latest.currentTeam);
       const scoringActive = isScoringMode(latest.settings.scoringMode);
       let nextScores = latest.scores;
-      if (scoringActive && latest.currentRoundScore) {
-        const prev = latest.currentRoundScore;
-        const clueCount = latest.clue?.count ?? 0;
-        if (prev.ownHits !== clueCount || prev.neutralHits > 0 || prev.opponentHits > 0) {
-          prev.totalRound = 0;
-          latest.roundScoreHistory = [...(latest.roundScoreHistory ?? []), prev];
+      if (scoringActive) {
+        const prev = latest.currentRoundScore ?? emptyRoundScore(latest.currentTeam);
+        if (prev.ownHits === latest.clue.count && !prev.neutralHits && !prev.opponentHits && !prev.assassinHit && !prev.precisionBonus) {
+          prev.precisionBonus = 10;
+          nextScores = applyScore(latest, latest.currentTeam, 10).scores;
         }
+        prev.totalRound = computeScoreDelta(prev);
+        latest.roundScoreHistory = [...(latest.roundScoreHistory ?? []), prev];
       }
       const nextRoom = withEvent(
         {
@@ -2182,6 +2175,7 @@ export class GameService {
     for (const room of rooms) {
       const idleMs = Date.now() - Math.max(room.updatedAt, room.nextPlan?.activityAt ?? 0);
       if (idleMs > computeRoomTTL(room) * 1000) {
+        this.clearRoomDisconnectKickTimers(room.id);
         await this.store.deleteRoom(room.id);
         deleted.push(room.id);
       }
@@ -2408,7 +2402,7 @@ export function buildReplay(room: Room, replayId: string): GameReplay {
 
   for (const cr of room.clueRecords ?? []) {
     for (const g of cr.guesses) {
-      const card = finalBoard.find((c) => c.word === g.cardWord && c.role === g.cardRole);
+      const card = g.cardId ? finalBoard.find(c => c.id === g.cardId) : finalBoard.find((c) => c.word === g.cardWord && c.role === g.cardRole);
       if (card) {
         card.guessedByNickname = g.nickname;
       }
@@ -2420,7 +2414,7 @@ export function buildReplay(room: Room, replayId: string): GameReplay {
 
   for (let i = 0; i < (room.clueRecords?.length ?? 0); i += 1) {
     const cr = room.clueRecords![i];
-    const hl = room.roundHighlights?.find((highlight) => highlight.clueId === cr.clueId) ?? room.roundHighlights?.[i];
+    const hl = room.roundHighlights?.find((highlight) => highlight.clueId === cr.clueId) ?? room.roundHighlights?.filter(h => !h.clueId)[i];
     const round: ReplayRound = {
       index: i + 1,
       team: cr.team,
@@ -2428,6 +2422,7 @@ export function buildReplay(room: Room, replayId: string): GameReplay {
       clueCount: cr.count,
       giverNickname: cr.giverNickname,
       guesses: cr.guesses.map((g) => ({
+        cardId: g.cardId,
         word: g.cardWord,
         role: g.cardRole,
         guessedByNickname: g.nickname,

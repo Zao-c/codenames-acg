@@ -382,6 +382,11 @@ export interface GameContextType {
   mobileRoomTab: "board" | "players" | "chat";
   setMobileRoomTab: (v: "board" | "players" | "chat") => void;
   jumpToLatest: boolean;
+  chatUnread: number;
+  battleUnread: number;
+  chatPending: boolean;
+  chatError: string;
+  scrollBattleToBottom: () => void;
   chatListRef: React.RefObject<HTMLDivElement | null>;
   battleListRef: React.RefObject<HTMLDivElement | null>;
   handleChatScroll: () => void;
@@ -512,7 +517,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
   };
   const [mobileRoomTab, setMobileRoomTab] = useState<"board" | "players" | "chat">("board");
   const [sideTab, setSideTab] = useState<SideTab>("chat");
-  const [jumpToLatest, setJumpToLatest] = useState(false);
+  const [chatUnread,setChatUnread]=useState(0),[battleUnread,setBattleUnread]=useState(0);
+  const jumpToLatest=chatUnread>0;
+  const [chatPending,setChatPending]=useState(false),[chatError,setChatError]=useState('');
+  const joinLockRef=useRef(false),joinTimerRef=useRef<ReturnType<typeof setTimeout>|undefined>(undefined);
+  const releaseJoin=()=>{joinLockRef.current=false;clearTimeout(joinTimerRef.current);};
+  const scrollPositions=useRef({chat:0,battle:0});
+  const seenMessageIds=useRef<{roomId?:string;ids:Set<string>}>({ids:new Set()});
   const [revealBanner, setRevealBanner] = useState<RevealEvent | null>(null);
   const [reactionEffects, setReactionEffects] = useState<Record<string, ChatReaction>>({});
   const [pendingGuess, setPendingGuess] = useState<string | null>(null);
@@ -592,6 +603,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   // ─── socket event listeners ───────────────────────────
   useEffect(() => {
     function onSession(p: ClientSession) {
+      releaseJoin();
       recoveryAttempt.current=null;
       setSession(p); saveSession(p); setConnectionState("ready"); setError(""); activeRoomIdRef.current = p.roomId; freshSessionRef.current = true;
       const recoverable = loadRecoverableSessions();
@@ -606,6 +618,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setRoom(current => current?.id === p.roomId && current.matchId === p.analysis.matchId ? { ...current, analysis: p.analysis } : current);
     }
     function onError(p: { message: string; code?:string; roomId?:string }) {
+      releaseJoin();
       if(p.code==='ROOM_RECOVERY_FAILED') {
         const id=p.roomId??recoveryAttempt.current?.roomId;
         if(id)removeRecoverableSession(id);
@@ -636,6 +649,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       if (p.roomId !== session?.roomId) return;
       clearSession(); setSession(null); setRoom(null); setConnectionState("idle"); setDidReconnect(false); setRevealBanner(null); setError(p.reason); activeRoomIdRef.current = null;
     }
+    const onConnect=()=>{if(!loadSession()&&!joinLockRef.current)setConnectionState('idle');};
+    socket.on('connect',onConnect);
     socket.on("session", onSession);
     socket.on("room_state", onRoomState);
     socket.on('analysis_state', onAnalysisState);
@@ -644,7 +659,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     socket.on("room_closed", onRoomClosed);
     socket.io.on("reconnect", () => { if (session) { setConnectionState("connecting"); recoveryAttempt.current={roomId:session.roomId,retry:true};socket.emit("reconnect_room", { roomId: session.roomId, sessionToken: session.sessionToken,identityKey:privateIdentityKey() }); } });
     socket.on("disconnect", () => setConnectionState("connecting"));
-    return () => { socket.off('analysis_state', onAnalysisState); socket.off("session", onSession); socket.off("room_state", onRoomState); socket.off("room_summaries", onRoomSummaries); socket.off("error_message", onError); socket.off("room_closed", onRoomClosed); socket.io.off("reconnect"); socket.off("disconnect"); };
+    return () => { socket.off('connect',onConnect);socket.off('analysis_state', onAnalysisState); socket.off("session", onSession); socket.off("room_state", onRoomState); socket.off("room_summaries", onRoomSummaries); socket.off("error_message", onError); socket.off("room_closed", onRoomClosed); socket.io.off("reconnect"); socket.off("disconnect"); };
   }, [session?.roomId, socket]);
 
   useEffect(() => {
@@ -790,15 +805,23 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }, [room?.phase, room?.winner]);
   useEffect(() => { if (room?.phase === "playing" && room.roundNumber && soundEnabledRef.current) playGameStart(); }, [room?.phase, room?.roundNumber]);
   useEffect(() => {
-    if (sideTab !== "chat") return;
-    const list = chatListRef.current; if (!list || !stickToChatBottomRef.current) return;
-    list.scrollTop = list.scrollHeight; setJumpToLatest(false);
-  }, [room?.messages, sideTab]);
-  useEffect(() => {
-    if (sideTab !== "battle") return;
-    const list = battleListRef.current; if (!list || !stickToBattleBottomRef.current) return;
-    list.scrollTop = list.scrollHeight; setJumpToLatest(false);
-  }, [room?.messages, sideTab]);
+    if(!room)return;
+    const previous=seenMessageIds.current;
+    const sameRoom=previous.roomId===room.id;
+    const incoming=sameRoom?room.messages.filter(m=>!previous.ids.has(m.id)):[];
+    seenMessageIds.current={roomId:room.id,ids:new Set(room.messages.map(m=>m.id))};
+    if(!sameRoom){scrollPositions.current={chat:0,battle:0};stickToChatBottomRef.current=true;stickToBattleBottomRef.current=true;setChatUnread(0);setBattleUnread(0);}
+    for(const kind of ['chat','battle'] as const){
+      const list=kind==='chat'?chatListRef.current:battleListRef.current;
+      const stick=kind==='chat'?stickToChatBottomRef:stickToBattleBottomRef;
+      const setUnread=kind==='chat'?setChatUnread:setBattleUnread;
+      const count=incoming.filter(m=>kind==='battle'?m.type==='system':m.type==='chat'||m.type==='reaction').length;
+      if(sideTab===kind&&list&&list.getClientRects().length){
+        list.scrollTop=stick.current?list.scrollHeight:scrollPositions.current[kind];
+        if(stick.current)setUnread(0);else if(count)setUnread(n=>n+count);
+      }else if(count)setUnread(n=>n+count);
+    }
+  }, [room?.messages,room?.id,sideTab,mobileRoomTab]);
   useEffect(() => {
     const handler = () => { if (document.visibilityState === "visible" && session) socket.emit("sync_room_state", { roomId: session.roomId }); };
     document.addEventListener("visibilitychange", handler); return () => document.removeEventListener("visibilitychange", handler);
@@ -1093,10 +1116,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }
 
   function joinSpecificRoom(roomId: string, asSpectator: boolean) {
+    if(joinLockRef.current)return;
     const ji = buildJoinProfile(); if (!ji) return;
     if(session && session.roomId !== roomId && !window.confirm('加入其他房间需要退出当前房间，继续？'))return;
     setConnectionState("connecting"); setError("");
     if(session && session.roomId !== roomId)leaveRoom();
+    joinLockRef.current=true;
+    clearTimeout(joinTimerRef.current);
+    joinTimerRef.current=setTimeout(()=>{releaseJoin();navigateAfterSession.current=false;setConnectionState('idle');setError('入房请求超时，请检查网络后重试。');},12000);
     navigateAfterSession.current=true;
     const storedSession=loadSession();
     const saved=loadRecoverableSessions()[roomId];
@@ -1167,23 +1194,22 @@ export function GameProvider({ children }: { children: ReactNode }) {
   function endTurn() { if (session && !endTurnLockRef.current) { endTurnLockRef.current = true; socket.emit("end_turn", { roomId: session.roomId }); if (soundEnabled) playEndTurn(); } }
   function resumeTimerFunc() { if (session) { socket.emit("resume_timer", { roomId: session.roomId }); } }
   const chatSendLockRef = useRef(false);
-  const lastQuickPhraseRef = useRef({ text: "", time: 0 });
-  function sendChatMessage() {
-    if (!session || !chatText.trim() || chatSendLockRef.current) return;
-    chatSendLockRef.current = true;
-    socket.emit("send_chat_message", { roomId: session.roomId, text: chatText.trim() });
-    setChatText("");
-    window.setTimeout(() => { chatSendLockRef.current = false; }, 500);
+  const chatRetryRef = useRef<{text:string;requestId:string}|null>(null);
+  function sendText(text:string) {
+    if (!session || !text.trim() || chatSendLockRef.current) return;
+    if(!socket.connected){setChatError('连接已断开，恢复后可重试。');return;}
+    chatSendLockRef.current=true;setChatPending(true);setChatError('');
+    const attempt=chatRetryRef.current?.text===text?chatRetryRef.current:{text,requestId:crypto.randomUUID()};
+    chatRetryRef.current=attempt;
+    const timer=setTimeout(()=>{chatSendLockRef.current=false;setChatPending(false);setChatError('发送未确认，请重试；同一条消息不会重复发送。');},8000);
+    socket.emit('send_chat_message',{roomId:session.roomId,text,requestId:attempt.requestId},result=>{
+      clearTimeout(timer);chatSendLockRef.current=false;setChatPending(false);
+      if(!result.ok){setChatError(result.message??'发送失败，请重试。');return;}
+      chatRetryRef.current=null;setChatError('');setChatText(current=>current.trim()===text?'':current);
+    });
   }
-  function sendQuickPhrase(text: string) {
-    if (!session || chatSendLockRef.current) return;
-    const now = Date.now();
-    if (text === lastQuickPhraseRef.current.text && now - lastQuickPhraseRef.current.time < 500) return;
-    lastQuickPhraseRef.current = { text, time: now };
-    chatSendLockRef.current = true;
-    socket.emit("send_chat_message", { roomId: session.roomId, text });
-    window.setTimeout(() => { chatSendLockRef.current = false; }, 500);
-  }
+  function sendChatMessage(){sendText(chatText.trim());}
+  function sendQuickPhrase(text:string){sendText(text);}
   function sendReaction(reaction: ChatReaction, targetParticipantId: string, targetParticipantType: ParticipantType) {
     if (!session) return;
     socket.emit("send_reaction", { roomId: session.roomId, reaction, targetParticipantId, targetParticipantType });
@@ -1244,9 +1270,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setError("复制失败，请手动复制: " + inviteText);
     }
   }
-  function handleChatScroll() { const list = chatListRef.current; if (!list) return; const nearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 24; stickToChatBottomRef.current = nearBottom; setJumpToLatest(!nearBottom); }
-  function handleBattleScroll() { const list = battleListRef.current; if (!list) return; const nearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 24; stickToBattleBottomRef.current = nearBottom; setJumpToLatest(!nearBottom); }
-  function scrollChatToBottom() { const list = chatListRef.current; if (!list) return; list.scrollTop = list.scrollHeight; stickToChatBottomRef.current = true; setJumpToLatest(false); }
+  function handleChatScroll() { const list=chatListRef.current;if(!list)return;const near=list.scrollHeight-list.scrollTop-list.clientHeight<24;stickToChatBottomRef.current=near;scrollPositions.current.chat=list.scrollTop;if(near)setChatUnread(0); }
+  function handleBattleScroll() { const list=battleListRef.current;if(!list)return;const near=list.scrollHeight-list.scrollTop-list.clientHeight<24;stickToBattleBottomRef.current=near;scrollPositions.current.battle=list.scrollTop;if(near)setBattleUnread(0); }
+  function scrollChatToBottom() {const list=chatListRef.current;if(!list)return;list.scrollTop=list.scrollHeight;stickToChatBottomRef.current=true;scrollPositions.current.chat=list.scrollTop;setChatUnread(0);}
+  function scrollBattleToBottom() {const list=battleListRef.current;if(!list)return;list.scrollTop=list.scrollHeight;stickToBattleBottomRef.current=true;scrollPositions.current.battle=list.scrollTop;setBattleUnread(0);}
   function toggleSection(title: string) { setCollapsedSections((prev) => { const next = new Set(prev); next.has(title) ? next.delete(title) : next.add(title); return next; }); }
   function renderHint(): string {
     if (!room) return effectiveIdentity ? "先建密令房，或从大厅加入。" : "先用用户名登录，或直接以游客身份进入。";
@@ -1292,7 +1319,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     copied, focusMode, setFocusMode,
     enterFocusMode, exitFocusMode,
     soundEnabled, setSoundEnabled: handleSetSoundEnabled,
-    sideTab, setSideTab, jumpToLatest,
+    sideTab, setSideTab, jumpToLatest, chatUnread, battleUnread, chatPending, chatError, scrollBattleToBottom,
     mobileRoomTab, setMobileRoomTab,
     chatListRef, battleListRef, handleChatScroll, handleBattleScroll, scrollChatToBottom,
     revealBanner, reactionEffects, pendingGuess, revealingCardIds,

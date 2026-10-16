@@ -1,3 +1,4 @@
+import { RoundHistory } from './RoundHistory';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TEAM_LABELS, type PublicRoomState } from '@acg-codenames/shared';
@@ -33,9 +34,9 @@ export function MatchResult({room}:{room:PublicRoomState}) {
     <div className="result-two-columns"><section className="panel"><h2>本局称号</h2><div className="result-honors">{room.achievements?.map(a=><article key={a.id}><strong>{a.title}</strong><small>{a.nickname} · {a.description}</small></article>)}</div>{!room.achievements?.length&&<p className="hint-text">本局暂无称号，默契留待下一局。</p>}</section><section className="panel"><h2>精彩回顾</h2>{room.roundHighlights?.slice(-4).map(h=><div key={h.id} className="result-highlight"><strong>{TEAM_LABELS[h.team]} · {h.clueWord} {h.clueCount}</strong><p>{h.teamTitle} · 命中 {h.hitCards.length} 张</p></div>)}{!room.roundHighlights?.length&&<p className="hint-text">完整过程可在本局复盘中查看。</p>}</section></div>
     <section className="result-next-entry"><div><h2>下一局计划</h2><p>选择玩法、队长与作品池，进入完整工作区继续准备。</p></div><button onClick={()=>setNext(true)}>{anime?'打开下一局设置':'准备下一局'}</button></section>
     <PrivateReview room={room}/>
-    <details className="panel result-fold"><summary>回合历史 · {room.clueRecords?.length??0} 条线索</summary>{room.clueRecords?.map(c=><article key={c.clueId}><strong>{TEAM_LABELS[c.team]} · {c.word} {c.count}</strong><p>{c.giverNickname}</p>{c.guesses.map((v,i)=><p key={i}>{v.nickname} · {v.cardWord} · {v.isOwnHit?'命中':'失误'}</p>)}</article>)}</details>
+    <RoundHistory records={room.clueRecords??[]}/>
     <details className="panel result-fold result-board"><summary>查看本局终局棋盘</summary>{room.settings.variant==='anime'?<AnimeBoard room={room}/>:<div className="result-classic-board" style={{gridTemplateColumns:`repeat(${Number(room.settings.boardMode[0])},minmax(0,1fr))`}}>{room.board.map(c=><div className={`card-tile role-${c.role}`} key={c.id}>{c.word}</div>)}</div>}</details>
-    <details className="panel result-fold"><summary>详细积分</summary>{room.roundScoreHistory?.map((s,i)=><p key={i}>回合 {i+1} · {TEAM_LABELS[s.team]} · {s.totalRound} 分（己方 +{s.ownPoints} / 中立 -{s.neutralPenalty} / 刺客 -{s.assassinPenalty} / 精准 +{s.precisionBonus} / 胜利 +{s.victoryBonus}）</p>)}</details>
+    <details className="panel result-fold"><summary>详细积分</summary>{room.roundScoreHistory?.map((s,i)=><p key={i}>回合 {i+1} · {TEAM_LABELS[s.team]} · {s.totalRound} 分（己方 +{s.ownPoints} / 中立 -{s.neutralPenalty} / 刺客 -{s.assassinPenalty} / 超时 -{s.timeoutPenalty??0} / 精准 +{s.precisionBonus} / 胜利 +{s.victoryBonus}）</p>)}</details>
     {g.error&&<p className="error-text" role="alert">{g.error}</p>}
     {next&&<Dialog title="下一局计划" close={()=>setNext(false)} wide><NextMatchPanel room={room} embedded/></Dialog>}
   </section>;

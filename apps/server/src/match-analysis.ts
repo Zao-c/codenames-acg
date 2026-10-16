@@ -76,6 +76,12 @@ export function editAnalysis(room: Room, participantId: string, participantType:
   if (operation.kind === 'node') {
     const node = record(operation.node);
     const parsed: GraphNode = { id: identifier(node.id), text: text(node.text), x: coordinate(node.x), y: coordinate(node.y) };
+    const previousNode = graph.nodes.find(n => n.id === parsed.id);
+    if (previousNode?.clueId && node.clueId !== previousNode.clueId) throw new Error('已关联的比赛线索来源不可修改');
+    if (node.clueId !== undefined) {
+      parsed.clueId = identifier(node.clueId);
+      if (node.cardId !== undefined || !(room.clueRecords ?? []).some(c => c.clueId === parsed.clueId) && room.clue?.id !== parsed.clueId) throw new Error('只能关联本局已公开的线索');
+    }
     if (node.cardId !== undefined) {
       parsed.cardId = identifier(node.cardId);
       if (!room.board.some(c => c.id === parsed.cardId)) throw new Error('作品不在本局棋盘');

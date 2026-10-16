@@ -1,3 +1,4 @@
+import { ChatMessages, BattleEvents } from '../components/Conversation';
 import { CompactMembers, MatchManagement, MatchResult } from '../components/MatchSummary';
 import { PreparationLobby } from '../components/PreparationLobby';
 import { AnimeBoard, NextMatchPanel, StartCountdown } from "../components/AnimePlay";
@@ -7,7 +8,7 @@ import { copyText } from "../lib/clipboard";
 import {
   TEAM_LABELS, PLAYER_ROLE_LABELS,
   wordPackSummaries, type ChatReaction, type ParticipantType,
-  type PublicPlayer, type PublicSpectator, type ChatMessage,
+  type PublicPlayer, type PublicSpectator, 
   type RevealOutcome, type PublicCard, type Team, type BoardMode, type DanmakuMessage
 } from "@acg-codenames/shared";
 import { useGame, isPlayer, getRoomStageLabel, getSelfSummary, queuedForSpectator, roleLabelShort } from "../context/GameContext";
@@ -715,7 +716,7 @@ function SideTabPanel({ g, room, session }: {
   g: ReturnType<typeof useGame>; room: NonNullable<ReturnType<typeof useGame>["room"]>;
   session: ReturnType<typeof useGame>["session"];
 }) {
-  const { sideTab, setSideTab, chatText, setChatText, chatListRef, battleListRef, handleChatScroll, handleBattleScroll, jumpToLatest, scrollChatToBottom, sendChatMessage } = g;
+  const { sideTab, setSideTab, chatText, setChatText, chatListRef, battleListRef, handleChatScroll, handleBattleScroll, chatUnread, battleUnread, chatPending, chatError, scrollChatToBottom, scrollBattleToBottom, sendChatMessage } = g;
   const [collapsed, setCollapsed] = useState(false);
   const chatMessages = useMemo(() => room.messages.filter((m) => m.type === "chat" || m.type === "reaction"), [room.messages]);
   const battleMessages = useMemo(() => room.messages.filter((m) => m.type === "system"), [room.messages]);
@@ -732,8 +733,8 @@ function SideTabPanel({ g, room, session }: {
     <div className={`panel side-panel${collapsed ? " side-panel-collapsed" : ""}`}>
       <div className="side-panel-hdr">
         <div className="selection-grid side-tab-row">
-          <button className={sideTab === "chat" ? "selected" : ""} onClick={() => { setSideTab("chat"); if (collapsed) setCollapsed(false); }}>聊天</button>
-          <button className={sideTab === "battle" ? "selected" : ""} onClick={() => { setSideTab("battle"); if (collapsed) setCollapsed(false); }}>战况</button>
+          <button className={sideTab === "chat" ? "selected" : ""} onClick={() => { setSideTab("chat"); if (collapsed) setCollapsed(false); }}>聊天{chatUnread?` · ${chatUnread}`:''}</button>
+          <button className={sideTab === "battle" ? "selected" : ""} onClick={() => { setSideTab("battle"); if (collapsed) setCollapsed(false); }}>战况{battleUnread?` · ${battleUnread}`:''}</button>
           <button className={sideTab === "score" ? "selected" : ""} onClick={() => { setSideTab("score"); if (collapsed) setCollapsed(false); }}>积分</button>
           <button className={sideTab === "spectators" ? "selected" : ""} onClick={() => { setSideTab("spectators"); if (collapsed) setCollapsed(false); }}>旁观</button>
         </div>
@@ -748,34 +749,27 @@ function SideTabPanel({ g, room, session }: {
             <>
               <div className="chat-list" ref={chatListRef} onScroll={handleChatScroll} style={{ maxHeight: 240 }}>
                 {chatMessages.length === 0 ? <p className="empty-text">还没有聊天。</p> : null}
-                {chatMessages.map((message) => (
-                  <MessageRow key={message.id} message={message} selfId={session?.participantId} />
-                ))}
+                <ChatMessages messages={chatMessages} selfId={session?.participantId}/>
               </div>
-              {jumpToLatest ? <button className="chip-button jump-button" onClick={scrollChatToBottom} style={{ margin: "4px 0" }}>⬇ 有新消息</button> : null}
+              {chatUnread>0 ? <button className="chip-button jump-button" onClick={scrollChatToBottom} style={{ margin: "4px 0" }}>⬇ 有新消息</button> : null}
             </>
           ) : sideTab === "battle" ? (
             <>
               <div className="chat-list" ref={battleListRef} onScroll={handleBattleScroll} style={{ maxHeight: 320 }}>
                 {battleMessages.length === 0 && (room.roundHighlights?.length ?? 0) === 0 ? <p className="empty-text">暂无战况记录。</p> : null}
-                {(room.roundHighlights ?? []).map((hl) => (
-                  <RoundHighlightCard key={hl.id} highlight={hl} />
-                ))}
-                {battleMessages.map((message) => (
-                  <MessageRow key={message.id} message={message} selfId={session?.participantId} />
-                ))}
+                <BattleEvents messages={battleMessages} room={room}/>
               </div>
-              {jumpToLatest ? <button className="chip-button jump-button" onClick={() => { const list = battleListRef.current; if (!list) return; list.scrollTop = list.scrollHeight; scrollChatToBottom(); }} style={{ margin: "4px 0" }}>⬇ 有新战况</button> : null}
+              {battleUnread>0 ? <button className="chip-button jump-button" onClick={scrollBattleToBottom}>↓ {battleUnread} 条新战况</button> : null}
             </>
           ) : null}
 
           {sideTab === "chat" ? (
             <>
               <div className="chat-bar" onKeyDown={handleChatKeyDown} style={{ marginTop: 8 }}>
-                <input value={chatText} onChange={(e) => setChatText(e.target.value)} maxLength={120} placeholder="发一句话..." style={{ flex: 1 }} />
-                <button onClick={sendChatMessage} disabled={!chatText.trim()}>发送</button>
+                <input value={chatText} onChange={(e) => setChatText(e.target.value)} maxLength={120} disabled={chatPending} aria-label="发送聊天消息" placeholder="发一句话..." style={{ flex: 1 }} />
+                <button onClick={sendChatMessage} disabled={chatPending||!chatText.trim()}>{chatPending?'发送中…':chatError?'重试':'发送'}</button>
               </div>
-
+              {chatError&&<p className="error-text" role="alert">{chatError}</p>}
             </>
           ) : null}
 
@@ -896,19 +890,6 @@ function ReactionBanner({ reaction }: { reaction: import("@acg-codenames/shared"
           );
         })}
       </div>
-    </div>
-  );
-}
-
-function MessageRow({ message, selfId }: { message: ChatMessage; selfId?: string }) {
-  const isSelf = selfId && message.playerId === selfId;
-  return (
-    <div className={`chat-message ${isSelf ? "chat-self" : ""} ${message.type === "system" ? "chat-system" : ""} ${message.type === "reaction" ? "chat-reaction" : ""}`}>
-      <div className="chat-meta">
-        <strong>{message.nickname ?? "系统"}</strong>
-        <span>{new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
-      </div>
-      <p>{message.text}</p>
     </div>
   );
 }

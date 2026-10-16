@@ -14,6 +14,7 @@ export function listCommunityPools(scope = 'public', q = '', page = 1): Promise<
 }
 export function getCommunityPool(id: string): Promise<CommunityPool> { return request(`/api/anime-pools/${encodeURIComponent(id)}`, { headers: communityHeaders() }); }
 export function saveCommunityPool(input: CommunityPoolInput, id?: string): Promise<CommunityPool> { return request(`/api/anime-pools${id ? `/${encodeURIComponent(id)}` : ''}`, { method: id ? 'PUT' : 'POST', headers: communityHeaders(), body: JSON.stringify(input) }); }
+export function deleteCommunityPool(id: string): Promise<{ ok: boolean }> { return request(`/api/anime-pools/${encodeURIComponent(id)}`, { method: 'DELETE', headers: communityHeaders() }); }
 export function copyCommunityPool(id: string): Promise<CommunityPool> { return request(`/api/anime-pools/${encodeURIComponent(id)}/copy`, { method: 'POST', headers: communityHeaders(), body: '{}' }); }
 export function favoriteCommunityPool(id: string, value: boolean): Promise<{ ok: boolean }> { return request(`/api/anime-pools/${encodeURIComponent(id)}/favorite`, { method: 'PUT', headers: communityHeaders(), body: JSON.stringify({ value }) }); }
 export function reportCommunityPool(id: string, reason: string): Promise<{ ok: boolean }> { return request(`/api/anime-pools/${encodeURIComponent(id)}/report`, { method: 'POST', headers: communityHeaders(), body: JSON.stringify({ reason }) }); }

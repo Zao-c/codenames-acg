@@ -1,0 +1,125 @@
+/* Concentrated fixes: preserve the established shell and give each content type its own structure. */
+.graph-workspace.no-inspector{grid-template-columns:minmax(0,1fr)}
+.graph-workspace{grid-template-columns:minmax(0,1fr) 280px}
+.graph-toolbar button{font-size:13px;min-height:42px}
+.graph-canvas-frame{height:500px;cursor:grab}
+.graph-node{overflow:hidden;cursor:grab}
+.graph-node.clue{width:172px;min-height:76px;border-radius:12px}
+.graph-node.work{width:118px;height:118px;border-radius:50%}
+.graph-node-title{font-size:14px;line-height:1.5;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden;overflow-wrap:anywhere;max-width:100%}
+.graph-node-title small{display:block;font-size:12px;font-weight:400;color:var(--muted)}
+.graph-node.connecting{outline:3px solid var(--accent-2)}
+.graph-node .graph-port{opacity:0;pointer-events:none;width:18px;height:18px;right:2px;box-shadow:none}
+.graph-node:hover .graph-port,.graph-node.selected .graph-port,.graph-node:focus-within .graph-port{opacity:1;pointer-events:auto}
+.graph-inspector-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+.graph-inspector-heading h3{font-size:15px;margin:0}
+.graph-inspector-heading button{min-width:40px;min-height:40px;padding:6px}
+.graph-inspector-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.graph-inspector label,.graph-inspector p{font-size:12px}
+.graph-inspector input{width:100%;font-size:14px;margin:8px 0}
+.graph-clue-picker{display:grid;gap:7px;max-height:250px;overflow:auto;margin-bottom:18px}
+.graph-clue-picker button{text-align:left;white-space:normal;display:grid;gap:5px;padding:12px}
+.graph-clue-picker small{font-size:12px;color:var(--muted)}
+.graph-clue-picker strong{font-size:14px;overflow-wrap:anywhere}
+.graph-work-picker{max-height:350px;overflow:auto}
+.graph-work-picker button{font-size:14px;white-space:normal;overflow-wrap:anywhere}
+.conversation-message{display:flex;flex-direction:column;align-items:flex-start;margin:14px 0;min-width:0}
+.conversation-meta{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);margin-bottom:6px}
+.conversation-meta time{font-size:12px;opacity:.85}
+.conversation-avatar{width:30px;height:30px;border:1px solid var(--line);border-radius:50%;display:grid;place-items:center;background:var(--surface-strong);font-size:13px}
+.conversation-bubble{font-size:14px!important;font-weight:400!important;line-height:1.7!important;white-space:pre-wrap;overflow-wrap:anywhere;margin:0 0 0 37px!important;padding:9px 12px!important;border:1px solid var(--line);border-radius:3px 12px 12px;background:var(--surface-soft);max-width:calc(100% - 37px);text-align:left}
+.conversation-message.is-self{align-items:flex-end}
+.conversation-message.is-self .conversation-bubble{margin-left:0!important;background:color-mix(in srgb,var(--accent) 13%,var(--surface));border-radius:12px 3px 12px 12px}
+.conversation-message.consecutive{margin-top:-8px}
+.chat-list,.v2-chat-messages{overflow-anchor:none;scrollbar-width:thin;overscroll-behavior:contain}
+.side-panel .chat-bar,.v2-chat-compose{padding-top:12px;border-top:1px solid var(--line);gap:8px}
+.chat-bar input,.v2-chat-compose input{font-size:14px;min-height:44px}
+.chat-bar button,.v2-chat-compose button{font-size:14px;min-height:44px}
+.battle-timeline{padding:5px 0}
+.battle-event{display:grid;grid-template-columns:10px minmax(0,1fr);gap:12px;padding:12px 0;position:relative}
+.battle-event:before{content:'';position:absolute;left:4px;top:24px;bottom:-14px;width:1px;background:var(--line)}
+.battle-event:last-child:before{display:none}
+.battle-event-dot{width:9px;height:9px;border:2px solid var(--muted);border-radius:50%;margin-top:6px;background:var(--surface);z-index:1}
+.battle-event.team-red .battle-event-dot{border-color:var(--red)}
+.battle-event.team-blue .battle-event-dot{border-color:var(--blue)}
+.battle-event-meta{display:flex;gap:10px;justify-content:space-between;color:var(--muted);font-size:12px}
+.battle-event.team-red .battle-event-meta>span{color:var(--red)}
+.battle-event.team-blue .battle-event-meta>span{color:var(--blue)}
+.battle-clue{display:block;font-size:14px;margin:6px 0}
+.battle-event p{font-size:14px!important;line-height:1.65;font-weight:400;margin:6px 0 0;overflow-wrap:anywhere}
+.battle-event.low-priority{padding:7px 0;opacity:.7}
+.battle-event.low-priority p{font-size:12px!important}
+.round-history{margin:0;padding:20px;min-width:0}
+.round-history h2{font-size:17px;margin:0 0 16px}
+.round-history h2 small{font-size:12px;font-weight:400;color:var(--muted);margin-left:8px}
+.history-round{border:1px solid var(--line);background:var(--surface-soft);border-radius:12px;margin:9px 0;overflow:hidden}
+.history-round>summary{list-style:none;display:flex;align-items:center;gap:12px;cursor:pointer;padding:15px;min-height:64px}
+.history-round>summary::-webkit-details-marker{display:none}
+.history-round>summary>span:nth-child(2){min-width:0;flex:1}
+.history-round strong{font-size:14px;overflow-wrap:anywhere}
+.history-round small{display:block;font-size:12px;color:var(--muted);margin-top:5px}
+.history-round-number{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.history-round.team-red>summary strong{color:var(--red)}
+.history-round.team-blue>summary strong{color:var(--blue)}
+.history-round[open] .history-round-chevron{transform:rotate(180deg)}
+.history-guesses{list-style:none;padding:7px 15px;margin:0;border-top:1px solid var(--line)}
+.history-guesses li{display:flex;gap:10px;align-items:center;padding:11px 0}
+.history-guesses li>span:nth-child(2){min-width:0;flex:1}
+.history-guesses b{font-size:12px;color:var(--red);flex-shrink:0}
+.history-guesses .hit b{color:#51a98b}
+.history-guess-index{font-size:12px;color:var(--muted)}
+.route-replay .replay-page{grid-template-columns:minmax(0,7fr) minmax(300px,3fr);width:100%;max-width:1400px}
+.replay-mobile-tabs{display:none}
+.replay-board-card{transition:opacity .15s,outline-color .15s;scroll-margin:100px}
+.replay-board-card.round-highlight{outline:3px solid var(--accent-2);outline-offset:1px}
+.replay-board-card.round-dimmed{opacity:.25}
+.replay-board-card.card-focused{outline:4px solid var(--accent);box-shadow:0 0 0 5px color-mix(in srgb,var(--accent) 20%,transparent)}
+.replay-round.active{border-color:var(--accent)}
+.replay-round-header{display:flex;flex-wrap:wrap;gap:8px;width:100%;text-align:left;background:transparent;border:0;min-height:60px;padding:12px}
+.replay-round-header small{flex-basis:100%;font-size:12px;color:var(--muted)}
+.replay-round-header .soft-chip{white-space:normal;overflow-wrap:anywhere}
+.replay-guess{display:flex;width:100%;text-align:left;gap:10px;justify-content:space-between;font-size:14px;white-space:normal;overflow-wrap:anywhere;padding:10px;margin:5px 0}
+.replay-guess-result{font-size:12px;flex-shrink:0}
+.replay-bound-event{border-top:1px solid var(--line);padding:10px;font-size:12px}
+.replay-bound-event p{font-size:12px;line-height:1.7;color:var(--muted)}
+.replay-board-panel .panel-heading{justify-content:space-between;gap:10px;flex-wrap:wrap}
+.replay-board-word{font-size:14px;overflow-wrap:anywhere}
+.replay-meta-details>summary{font-size:13px;color:var(--muted);cursor:pointer;margin:8px 0 12px}
+.route-replay .replay-page>.replay-panel{max-width:none}
+.replay-hero .replay-title{margin:12px 0;font-size:26px}
+.replay-hero .replay-meta-grid{grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
+.replay-hero .replay-meta-item{padding:10px;min-width:0;overflow-wrap:anywhere;font-size:13px}
+.replay-hero .replay-players{margin-top:12px}
+.replay-board-guesser,.replay-board-tag{font-size:12px}
+.compact-member strong,.v2-member-main strong{font-size:13px}
+.compact-member small,.compact-team h3 small,.v2-member-main small{font-size:12px}
+.compact-member .avatar-badge,.v2-member .avatar-badge{width:30px;height:30px;min-width:30px}
+.preparation-lobby .hint-text,.v2-note,.v2-stage-header .hint-text,.v2-field-title,.v2-panel-footer,.v2-member-role{font-size:12px}
+.preparation-lobby p,.preparation-lobby .v2-mode-tiles span,.v2-next-step p{font-size:14px}
+.preparation-lobby button,.side-tab-row button{font-size:13px;min-height:40px}
+.result-fold p,.result-highlight p,.result-honors small{font-size:12px}
+.result-next-entry p,.result-highlight{font-size:14px}
+button:focus-visible,summary:focus-visible,[role=button]:focus-visible{outline:2px solid var(--accent-2);outline-offset:3px}
+@media(max-width:760px){
+  .graph-workspace{grid-template-columns:1fr;gap:10px}
+  .graph-canvas-frame{height:350px}
+  .graph-inspector{position:sticky;bottom:0;max-height:36dvh;overflow:auto;box-shadow:0 -8px 24px #0002;z-index:3}
+  .graph-toolbar button{font-size:12px;min-height:42px}
+  .graph-node .graph-port{display:none}
+  .graph-inspector input,.chat-bar input,.v2-chat-compose input{font-size:16px}
+  .replay-mobile-tabs{display:flex;gap:8px;width:100%;position:sticky;top:0;z-index:3;background:var(--bg);padding:6px 0}
+  .replay-mobile-tabs button{flex:1;min-height:44px}
+  .replay-view-board .replay-timeline,.replay-view-timeline .replay-board-panel{display:none}
+  .route-replay .replay-page>.replay-timeline{max-height:none;width:100%}
+  .route-replay .replay-board-card{min-height:65px;max-height:82px;padding:7px 3px}
+  .replay-board-word{font-size:12px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+  .replay-hero .replay-meta-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .replay-hero .replay-title{font-size:22px}
+  .replay-hero-header{gap:6px;flex-wrap:wrap}
+  .replay-hero-header button{font-size:12px;padding:8px;min-height:40px}
+  .replay-board-guesser{display:none}
+  .round-history{padding:14px}
+  .history-round>summary{padding:12px;gap:8px}
+  .conversation-bubble{max-width:calc(100% - 18px)}
+  .v2-member-main strong{font-size:13px}
+}

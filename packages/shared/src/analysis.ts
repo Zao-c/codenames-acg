@@ -42,7 +42,7 @@ export interface PreRevealSnapshot {
   predictions: Record<string, PrivatePrediction>;
 }
 
-export interface GraphNode { id: string; cardId?: string; text: string; x: number; y: number }
+export interface GraphNode { id: string; cardId?: string; clueId?: string; text: string; x: number; y: number }
 export interface GraphEdge { id: string; from: string; to: string; text: string }
 export interface AssociationGraph { revision: number; nodes: GraphNode[]; edges: GraphEdge[] }
 export interface CaptainIntent { graph: AssociationGraph; locked?: { graph: AssociationGraph; lockedAt: number } }

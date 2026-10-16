@@ -1,3 +1,4 @@
+import { theme } from './browser-support.mjs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -26,8 +27,8 @@ async function shot(page, name) {
   assert.ok(bounds.scroll <= bounds.width + 1, `${name}: horizontal overflow`);
 }
 async function mobileTab(page, label) { const nav = page.getByRole('navigation', { name: '房间导航' }); if (await nav.isVisible()) await nav.getByRole('button', { name: label, exact: true }).click(); }
-async function addNote(scope,text){await button(scope,'＋ 方形线索').click();await scope.getByLabel('线索内容').fill(text);await button(scope,'添加线索节点').click();}
-async function addWork(scope,title){await button(scope,'＋ 圆形作品').click();await button(scope.locator('.graph-work-picker'),title).click();}
+async function addNote(scope,text){await button(scope,'＋线索').click();await scope.getByLabel('线索内容').fill(text);await button(scope,'添加线索节点').click();}
+async function addWork(scope,title){await button(scope,'＋动画').click();await button(scope.locator('.graph-work-picker'),title).click();}
 async function emit(page, event, payload) { await page.evaluate(async ({ event, payload }) => { const module = await import('/src/lib/socket.ts'); module.getSocket().emit(event, payload); }, { event, payload }); }
 try {
   for (let i = 0; i < 5; i++) {
@@ -59,7 +60,7 @@ try {
   await button(host, '我的收藏').click(); await visible(host.getByRole('heading', { name: '二批社区联机池' }));
   await shot(host, '01-community-desktop');
   await pages[3].goto(`${base}/anime-pools`);await button(pages[3], '公开广场').click(); await visible(pages[3].getByRole('heading', { name: '二批社区联机池' })); await pages[3].setViewportSize({ width: 360, height: 780 });
-  await button(pages[3], '切换亮色主题').click(); await shot(pages[3], '02-community-mobile-light');
+  await theme(pages[3],true); await shot(pages[3], '02-community-mobile-light');
   await button(card, '举报').click(); dialog = host.getByRole('dialog', { name: '举报作品池' }); await dialog.getByLabel('举报原因').fill('验收举报与管理员隐藏'); await button(dialog, '提交举报').click();
   await button(host, '社区管理').click(); dialog = host.getByRole('dialog', { name: '作品池社区管理' });
   await dialog.getByLabel('管理员凭证').fill(process.env.PLAYTEST_ADMIN_KEY); await button(dialog, '读取待处理举报').click();
@@ -69,7 +70,7 @@ try {
   await request(`/api/anime-pools/${poolId}/moderation`, 0, 'PUT', { hidden: false, reason: '本地验收恢复' }, true);
   checks.push('community UI create, private identity, copy, favorite, mobile theme, report and administrator hide/restore');
   await host.reload(); await button(host, '公开广场').click(); await visible(host.getByRole('heading', { name: '二批社区联机池' })); await button(card, '查看作品').click();
-  await button(host.getByRole('dialog'), '用于下一局配置').click();
+  await button(host.getByRole('dialog'), '带回房间选择').click();
   await host.goto(base); await button(host,'＋ 创建房间').click(); await button(host.getByRole('dialog'),'创建房间 →').click(); await visible(host.locator('.room-code').first());
   const roomId = await host.locator('.room-code').first().innerText();
   for (let i = 1; i < 5; i++) { await pages[i].goto(`${base}/room/${roomId}`); await button(pages[i], i === 4 ? '旁观' : '加入房间').click(); await visible(pages[i].locator('.preparation-lobby')); }
@@ -90,7 +91,7 @@ try {
   const operative = pages[1]; await button(operative, '关联板与思路').click(); dialog = operative.getByRole('dialog', { name: '关联板与思路' });
   await addWork(dialog,states[1].board[0].word);await until(()=>states[1]?.analysis?.teamGraphs?.match?.revision===1,'team work node');
   await addNote(dialog,'队内联想验收');await until(()=>states[1]?.analysis?.teamGraphs?.match?.revision===2,'team note');
-  await dialog.locator('.graph-node').first().locator('.graph-port').click();await dialog.locator('.graph-node').nth(1).click();await until(()=>states[1]?.analysis?.teamGraphs?.match?.revision===3,'manual edge');
+  await dialog.locator('.graph-node').first().click();await button(dialog,'连接到…').click();await dialog.locator('.graph-node').nth(1).click();await until(()=>states[1]?.analysis?.teamGraphs?.match?.revision===3,'manual edge');
   await dialog.locator('.graph-wire-hit').click({force:true});await dialog.getByLabel('连线内容').fill('青春');await button(dialog,'保存编辑').click();await until(()=>states[1]?.analysis?.teamGraphs?.match?.revision===4,'edge text');
   await shot(operative, '03-team-graph-desktop'); assert.equal(JSON.stringify(states[2].analysis).includes('队内联想验收'), false); await button(operative, '关闭关联板与思路').click();
   await button(host, '关联板与思路').click(); dialog = host.getByRole('dialog', { name: '关联板与思路' }); await button(dialog, '我的意图图').click(); await addNote(dialog,'PRIVATE_INTENT_BROWSER'); await until(() => states[0]?.analysis?.myIntents?.match?.graph.revision === 1, 'captain intent'); await button(dialog, '锁定当前计划').click(); await until(() => !!states[0]?.analysis?.myIntents?.match?.locked, 'locked plan'); assert.equal(JSON.stringify(states[1].analysis).includes('PRIVATE_INTENT_BROWSER'), false); await button(host, '关闭关联板与思路').click();

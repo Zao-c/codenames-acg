@@ -57,10 +57,11 @@ import type {
   WaivePriorityGuessPayload,
 } from "./types.js";
 
+export type ActionReply = { ok: boolean; message?: string };
 export interface ClientToServerEvents {
-  analysis_action: (payload: AnalysisAction) => void;
+  analysis_action: (payload: AnalysisAction, reply?: (result: ActionReply) => void) => void;
   prediction_action: (payload: PredictionAction) => void;
-  plan_action: (payload: PlanAction) => void;
+  plan_action: (payload: PlanAction, reply?: (result: ActionReply) => void) => void;
   create_room: (payload: CreateRoomPayload) => void;
   join_room: (payload: JoinRoomPayload) => void;
   join_spectator: (payload: JoinSpectatorPayload) => void;
@@ -68,7 +69,7 @@ export interface ClientToServerEvents {
   set_team: (payload: SetTeamPayload) => void;
   set_role: (payload: SetRolePayload) => void;
   randomize_teams: (payload: RandomizeTeamsPayload) => void;
-  update_room_settings: (payload: UpdateRoomSettingsPayload) => void;
+  update_room_settings: (payload: UpdateRoomSettingsPayload, reply?: (result: ActionReply) => void) => void;
   start_game: (payload: StartGamePayload) => void;
   restart_game: (payload: RestartGamePayload) => void;
   return_to_lobby: (payload: ReturnToLobbyPayload) => void;
@@ -82,7 +83,7 @@ export interface ClientToServerEvents {
   leave_room: (payload: LeaveRoomPayload) => void;
   sync_room_state: (payload: SyncRoomStatePayload) => void;
   debug_fill_room: (payload: DebugFillRoomPayload) => void;
-  send_chat_message: (payload: SendChatMessagePayload) => void;
+  send_chat_message: (payload: SendChatMessagePayload, reply?: (result: ActionReply) => void) => void;
   send_reaction: (payload: SendReactionPayload) => void;
   queue_for_next_round: (payload: QueueForNextRoundPayload) => void;
   cancel_queue_join: (payload: CancelQueueJoinPayload) => void;

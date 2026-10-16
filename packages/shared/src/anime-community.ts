@@ -1,4 +1,5 @@
 export interface CommunityPoolSummary {
+  deleted?: boolean;
   id: string;
   revision: number;
   name: string;

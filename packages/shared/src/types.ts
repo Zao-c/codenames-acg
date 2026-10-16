@@ -383,6 +383,7 @@ export interface PublicRevealGuessState {
 }
 
 export interface ChatMessage {
+  event?: { kind: 'clue'|'guess'|'turn-end'; team: Team; clueId?: string }; 
   id: string;
   type: ChatMessageType;
   text: string;
@@ -393,6 +394,7 @@ export interface ChatMessage {
   targetParticipantId?: string;
   targetParticipantType?: ParticipantType;
   targetNickname?: string;
+  requestId?: string;
   targetProfile?: UserProfile;
 }
 
@@ -413,6 +415,7 @@ export interface RoundScoreDetail {
   opponentPointsLost: number;
   assassinHit: boolean;
   assassinPenalty: number;
+  timeoutPenalty?: number;
   precisionBonus: number;
   victoryBonus: number;
   totalRound: number;
@@ -803,6 +806,7 @@ export interface UpdateRoomSettingsPayload {
 }
 
 export interface SendChatMessagePayload {
+  requestId?: string;
   roomId: string;
   text: string;
 }
@@ -848,6 +852,7 @@ export interface ReplayRound {
   clueCount: number;
   giverNickname: string;
   guesses: {
+    cardId?: string;
     word: string;
     role: "red" | "blue" | "neutral" | "assassin";
     guessedByNickname: string;

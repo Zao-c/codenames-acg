@@ -1,3 +1,4 @@
+import { theme } from './browser-support.mjs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import assert from 'node:assert/strict';
@@ -12,7 +13,6 @@ const button=(p,name)=>p.getByRole('button',{name,exact:true});
 const visible=loc=>loc.waitFor({state:'visible',timeout:20000});
 async function until(fn,label){for(let i=0;i<100;i++){if(fn())return;await new Promise(r=>setTimeout(r,100));}throw new Error(`Timed out: ${label}`);}
 async function shot(p,name){await p.evaluate(()=>document.fonts.ready);await p.screenshot({path:path.join(artifacts,`${name}.png`),fullPage:false});const bounds=await p.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth}));assert.ok(bounds.scroll<=bounds.width+1,`${name}: horizontal overflow ${JSON.stringify(bounds)}`);}
-async function theme(p,light){const b=p.getByRole('button',{name:light?'切换亮色主题':'切换暗色主题',exact:true});if(await b.isVisible())await b.click();}
 async function mobileTab(p,label){const nav=p.getByRole('navigation',{name:'房间导航'});if(await nav.isVisible()){const actual=label==='棋盘'&&!(await nav.getByRole('button',{name:label,exact:true}).count())?'准备':label;await nav.getByRole('button',{name:actual,exact:true}).click();}}
 async function controls(p){const b=button(p,'选牌与操作');if(await b.isVisible())await b.click();}
 async function pool(p){const b=button(p,'候选池');if(await b.isVisible())await b.click();}

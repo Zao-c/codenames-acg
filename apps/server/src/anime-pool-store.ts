@@ -8,6 +8,7 @@ interface PoolData {
   schemaVersion: 1;
   pools: StoredPool[];
   favorites: Record<string, string[]>;
+  deletedPools?: StoredPool[];
   reports: Array<{ poolId: string; reporter: string; reason: string; createdAt: number }>;
   moderation: Array<{ poolId: string; hidden: boolean; reason: string; at: number }>;
 }
@@ -123,6 +124,22 @@ export class AnimePoolStore {
       return this.detail(pool, principal, data);
     });
   }
+  async delete(id: string, principal: string): Promise<void> {
+    return this.mutate(data => {
+      const pool = this.find(data, id);
+      if (pool.owner !== principal) throw new CommunityError('无权删除此作品池', 403);
+      data.pools = data.pools.filter(p => p.id !== id);
+      for (const ids of Object.values(data.favorites)) {
+        const index = ids.indexOf(id);
+        if (index !== -1) ids.splice(index, 1);
+      }
+      // Retain only audit metadata for reported/moderated pools, never remove catalog or frozen room snapshots.
+      if (data.reports.some(r => r.poolId === id) || data.moderation.some(m => m.poolId === id)) {
+        (data.deletedPools ??= []).push({ ...pool, owner: '', workIds: [], hidden: true, isPublic: false });
+        data.moderation.push({ poolId: id, hidden: true, reason: '所有者已删除作品池', at: Date.now() });
+      }
+    });
+  }
   async favorite(id: string, principal: string, value: unknown): Promise<void> {
     if (typeof value !== 'boolean') throw new CommunityError('收藏状态无效');
     return this.mutate(data => {
@@ -146,7 +163,7 @@ export class AnimePoolStore {
   }
   async moderation(): Promise<PoolModerationItem[]> {
     const data = await this.read();
-    return data.pools.filter(p => p.hidden || data.reports.some(r => r.poolId === p.id)).map(p => ({ pool: this.detail(p, undefined, data),
+    return [...data.pools, ...(data.deletedPools ?? [])].filter(p => p.hidden || data.reports.some(r => r.poolId === p.id)).map(p => ({ pool: { ...this.detail(p, undefined, data), deleted: !!data.deletedPools?.some(d => d.id === p.id) },
       reports: data.reports.filter(r => r.poolId === p.id).map(r => ({ reason: r.reason, createdAt: r.createdAt })),
       history: data.moderation.filter(m => m.poolId === p.id).map(m => ({ hidden: m.hidden, reason: m.reason, at: m.at })),
     }));

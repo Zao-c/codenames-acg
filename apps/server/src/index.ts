@@ -301,6 +301,8 @@ function optionalBoolean(value: unknown): boolean | undefined {
   return Boolean(value);
 }
 
+function acknowledge(reply: unknown, result: {ok:boolean;message?:string}): void { if (typeof reply === 'function') reply(result); }
+
 async function bootstrap(): Promise<void> {
   // dotenv can load an operator-provided proxy after Node initialized its default agent.
   if(process.env.NODE_USE_ENV_PROXY==='1'){
@@ -662,7 +664,7 @@ async function bootstrap(): Promise<void> {
       } catch (error) { fail(socket, error); }
     });
 
-    socket.on('analysis_action', async payload => {
+    socket.on('analysis_action', async (payload, reply) => {
       try {
         checkSocketRate(socket.id, 'analysis_action', 10, 1000);
         const roomId = requireRoomId(payload);
@@ -678,10 +680,11 @@ async function bootstrap(): Promise<void> {
           const analysis = game.getPublicRoomState(room, bound.participantId, bound.participantType).analysis;
           if (analysis && (sameParticipant || analysis.canReadTeamGraph)) client.emit('analysis_state', { roomId, analysis });
         }
-      } catch (error) { const bound=socketSessions.get(socket.id);if(bound)await sendRoomState(bound.roomId);fail(socket,error); }
+        acknowledge(reply, {ok:true});
+      } catch (error) { const bound=socketSessions.get(socket.id);if(bound)await sendRoomState(bound.roomId);acknowledge(reply, {ok:false,message:error instanceof Error?error.message:'图谱未保存'});fail(socket,error); }
     });
 
-    socket.on('plan_action', async payload => {
+    socket.on('plan_action', async (payload, reply) => {
       try {
         checkSocketRate(socket.id, 'plan_action', 30, 5_000);
         const body = asObject(payload);
@@ -691,7 +694,8 @@ async function bootstrap(): Promise<void> {
         if (typeof body.kind !== 'string') throw new Error('操作无效');
         await game.planAction(roomId,session.participantId,payload);
         await sendRoomState(roomId);
-      } catch(error) { fail(socket,error); }
+        acknowledge(reply, {ok:true});
+      } catch(error) { acknowledge(reply, {ok:false,message:error instanceof Error?error.message:'配置未保存'});fail(socket,error); }
     });
     socket.emit("room_summaries", []);
     broadcastRoomSummaries().catch((error) => {
@@ -831,7 +835,7 @@ async function bootstrap(): Promise<void> {
       }
     });
 
-    socket.on("update_room_settings", async (payload) => {
+    socket.on("update_room_settings", async (payload, reply) => {
       try {
         const body = parseUpdateRoomSettingsPayload(payload);
         const session = requireSession(socket.id, body.roomId);
@@ -840,7 +844,8 @@ async function bootstrap(): Promise<void> {
         }
         const room = await game.updateRoomSettings(body.roomId, session.participantId, body);
         await sendRoomState(room.id);
-      } catch (error) {
+      acknowledge(reply, {ok:true});
+      } catch (error) { acknowledge(reply, {ok:false,message:error instanceof Error?error.message:'配置未保存'});
         fail(socket, error);
       }
     });
@@ -1006,14 +1011,14 @@ async function bootstrap(): Promise<void> {
       }
     });
 
-    socket.on("send_chat_message", async (payload) => {
+    socket.on("send_chat_message", async (payload, reply) => {
       try {
         checkSocketRate(socket.id, "send_chat_message", 5, 5_000);
         const body = asObject(payload);
         const roomId = requireString(body, "roomId");
         const text = requireString(body, "text");
         const session = requireSession(socket.id, roomId);
-        const room = await game.sendChatMessage(roomId, session.participantId, session.participantType, text);
+        const room = await game.sendChatMessage(roomId, session.participantId, session.participantType, text, body.requestId === undefined ? undefined : requireString(body, "requestId"));
         await sendRoomState(room.id);
         if (session.participantType === "spectator") {
           const sender =
@@ -1028,7 +1033,9 @@ async function bootstrap(): Promise<void> {
             createdAt: Date.now()
           });
         }
+        acknowledge(reply, {ok:true});
       } catch (error) {
+        acknowledge(reply, {ok:false,message:error instanceof Error?error.message:"消息发送失败"});
         fail(socket, error);
       }
     });
