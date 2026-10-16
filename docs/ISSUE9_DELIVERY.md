@@ -2,6 +2,8 @@
 
 本轮在 `codex/cipai-stability-ux-fix` 上开发，基线为 `codex/cipai-lobby-ui-v2` 的 `95e9f6605c121dc849b3b6715d6ca15c68816fa1`，没有从 main 覆盖功能。开始时生产应用为 `793ea12d0f575eb64560391b339fcbf31f475720`。范围为用户授权的全部 P0/P1/P2；两个 HTML 的结构与七张 PNG 已核对，页面连接真实 React/Socket.IO 状态。
 
+应用提交：`3b8263a745bd889d01d77b0e0d77ef24f565877f`。唯一 [PR #10](https://github.com/Zao-c/codenames-acg/pull/10) 指向完整 UI 基线分支。应用已于 2026-10-16 18:29（北京时间）部署，本文件后续提交仅补充交付记录，不改变已验证应用产物。
+
 ## 根因与修复
 
 - 普通队员在锁定组牌期间主动离开会被删出名单，但原逻辑仅在队长离开时解除准备锁；早先安排的离线清理定时器也没有重新检查组牌锁。现在临时断线保留名单与进度；同一私密身份先尝试恢复原席位，再校验新入场限制。真正退出则作废本次准备、清理旧手选/封存数据并回到配置阶段，房主可补人或重新分队。新玩家仍不能进入锁定名单。
@@ -30,6 +32,21 @@
 
 ## 发布与限制
 
-尚未部署；待最终测试通过、提交推送与生产安全检查后更新。无新依赖、数据迁移或新增环境变量。shared/server/web 需要同版本完整构建。
+已部署一次，服务仅重启一次（2026-10-16 18:29:16，PID 705497）。无新依赖、数据迁移或新增环境变量；shared/server/web 完整构建。生产静态资源与本地一致：
+
+| 文件 | SHA256 |
+| --- | --- |
+| `index-Busb1sHh.js` | `30ec1f927aec3ad9c0e5b72c453e9155de9876e71a91e14357fdcf6afafb5727` |
+| `index-CajWU8cl.css` | `64192c81a2ab8103d49c55165c4f76d60fd1e676a8cdd492b60f1628ba72e7ed` |
+
+备份：`/opt/codenames-backups/issue9-3b8263a/`。`app.tar.gz` 保存原代码/构建产物、环境与全部仓库内持久数据（排除 `.git` 和 `node_modules`）；`system.tar.gz` 保存 systemd 单元与 Nginx；另有 `server.env`、`release.json.before`、`previous-sha.txt`、`SHA256SUMS`、持久文件部署前哈希、构建日志及重启前守卫记录。压缩包读取与 SHA256 校验通过，部署时账号、社区池与备份文件哈希一致，环境配置未变。
+
+开始与重启前多次预检均为零站点连接、过去 60 秒零成功 Socket 请求；仅剩两个已知旧大厅验收房间 `17C112`、`1CFE6B`。重启清掉这些离线验收房间，未中断活跃真实对局。首次服务器 GitHub fetch 因 TLS 故障停止，尚未切换代码或重启；随后通过 SSH 传送已推送分支的完整 Git bundle，验证同一 SHA、再次运行守卫和备份校验后完成发布。
+
+生产 `/health` 返回 `{"ok":true}`，service active，新 JS/CSS 均 200，动画目录 1810 部/128 池。部署后真实生产浏览器验收 10/10、零 pageerror，覆盖正常胜利、三局连续、独立回放、队长重连、桌面拖拽、真实触摸干扰、预览确认、缩放平移及深浅色；报告与截图在 `output/playwright/issue9/production/`。验收房间已正常解散清理。
+
+回滚目标为 `793ea12d0f575eb64560391b339fcbf31f475720`。重新确认没有活跃真实对局后，可在 `/opt/codenames-acg` checkout 该提交，并从 `app.tar.gz` 仅恢复 `codenames-acg/apps/server/dist`、`codenames-acg/apps/web/dist`、`codenames-acg/packages/shared/dist` 到 `/opt`，恢复 `release.json.before`，再重启服务。不要用整个旧备份覆盖部署后产生的账号/图库/社区数据。本轮没有执行回滚。
 
 生产仍为单进程内存房间和回放，重启会清空；磁盘账号、图库和社区池必须备份保留。用户名登录仍沿用原系统设计，私密内容额外使用设备凭证；本轮没有将其改造成密码账号系统。
+
+Issue #9 范围内无已知未完成项。保留的运行限制为内存房间/回放、原用户名登录方案及 Vite 单包体积提示；这些不影响本轮验收结果。

@@ -1,6 +1,6 @@
 # 《词牌结社 2.0》实施状态报告
 
-> Issue #9 更新（2026-10-16）：已有修复分支 `codex/cipai-stability-ux-fix` 基于完整 UI 分支 `95e9f66` 完成全部稳定性/交互修复，本轮本地规则、E2E、大厅/基础/第二批/稳定性浏览器套件通过。当前发布状态、根因与证据请优先读取 [Issue #9 交付](ISSUE9_DELIVERY.md)；以下为保留的此前发布记录。
+> Issue #9 更新（2026-10-16）：已有修复分支 `codex/cipai-stability-ux-fix` 基于完整 UI 分支 `95e9f66` 完成全部稳定性/交互修复，应用 `3b8263a` 已于 18:29 安全部署一次，[PR #10](https://github.com/Zao-c/codenames-acg/pull/10)；本地完整套件与生产浏览器 10/10 通过。备份 `/opt/codenames-backups/issue9-3b8263a/`。当前发布状态、根因与证据请优先读取 [Issue #9 交付](ISSUE9_DELIVERY.md)；以下为保留的此前发布记录。
 
 > 最新续接（2026-10-16，首页/准备大厅 UI v2 已上线）：`codex/cipai-lobby-ui-v2` 已重构用户指定两个页面并修正重复分队/动画队长同步（`3b18369`，基于完整第二批 `34c85ef`），并入身份热修 `bca57d6` 后以 `793ea12` 全量构建上线；线上验收旧版 10 项 + 第二批 4 组 + 新大厅 4 组与身份专项全部通过（`artifacts/prod-acceptance-3b18369/`、`artifacts/prod-acceptance-bca57d6/`）。交付范围以 [两页 UI 交付](LOBBY_UI_V2_DELIVERY.md) 为准；部署记录见 [交付记录](cipai-v2-delivery.md)。
 > 更新：2026-10-16（首页/准备大厅 UI v2 上线）。生产应用 `793ea12`（分支 `codex/cipai-lobby-ui-v2`，[PR #8](https://github.com/Zao-c/codenames-acg/pull/8)）；同日此前上线 `bca57d6` 身份热修（[PR #7](https://github.com/Zao-c/codenames-acg/pull/7)）与第二批 `34c85ef`，三开关保持开启。
