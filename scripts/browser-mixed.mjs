@@ -268,6 +268,8 @@ try {
     if (!room.clue) {
       const input = pages[captain].getByPlaceholder('例如：机甲 / 学园 / 主角团');
       await visible(input);
+      // Production allows three clues per captain per 10 seconds.
+      await pages[captain].waitForTimeout(3400);
       await input.fill(`线索${rounds}`);
       await pages[captain].getByLabel('数字', { exact: true }).fill('1');
       await button(pages[captain], '提交提示').click();
