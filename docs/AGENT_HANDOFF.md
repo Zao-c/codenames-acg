@@ -1,5 +1,16 @@
 # Agent 续接入口
 
+## 下一轮稳定性与混合动画作品池（2026-10-18，未部署）
+
+当前分支 `codex/cipai-bangumi-free-pools`（PR #11），基线 `1baae81`。本轮完成 P0 联机稳定性、P1 手动+Bangumi 混合作品池、P2 广场/档案/首页精修，**未部署生产、未重启服务、未修改线上数据**。
+
+- 必读：[本轮交付记录](ROUND4_STABILITY_MIXED_POOLS.md)。
+- 关键规则：社长离线 120 秒宽限 + 在线正式成员多数确认后接任（只移交管理权）；`submit_clue/guess_card/end_turn` 使用 requestId 幂等 + ACK；入房失败保留原房间；离线候补不会被静默晋升。
+- 数据：自建作品 `apps/server/data/manual-works.json`，封面 `apps/server/data/anime-covers/`（均不提交）；手工作品 `seriesId=manual:<uuid>`、内部负数 ID，不伪造 Bangumi ID。
+- 测试：`npm run test:rules`、`npm run test:e2e:local`、`npm run test:mixed:local`、`npm run test:stability:local`、`npm run test:bangumi:local`、`npm run test:phase2:local`、`npm run test:concentrated:local`、`npm run test:lobby:local`、`npm run test:browser:local`。
+- 截图：`docs/round4-screenshots/`。
+- 部署前置：备份 `apps/server/data/`；单进程内存房间重启即丢失；未获用户明确授权不得部署。
+
 ## 最新续接：Bangumi 自由组池与集中修复轮（2026-10-17）
 
 当前分支 `codex/cipai-bangumi-free-pools`（[PR #11](https://github.com/Zao-c/codenames-acg/pull/11)）。生产应用 `edd3072`（2026-10-16T17:21:20Z 部署）：同日先部署 `5b8af4c` Bangumi 真实上游发现/导入与自由组池轮，再部署 `077c4a1` 集中稳定性与交互修复轮，随后 `edd3072` 修复明文 HTTP 下聊天 `requestId` 使用 `crypto.randomUUID`（仅安全上下文的 API）导致的「发送中…」冻结，并新增 `web-client-safety` 规则测试。本地全量与线上真实浏览器验收通过；记录见 [Bangumi 轮交付](BANGUMI_FREE_POOLS_DELIVERY.md) 与 [集中修复轮交付](CONCENTRATED_STABILITY_UX_DELIVERY.md)；备份在 `/opt/codenames-backups/`（`bangumi-free-pools-5b8af4c`、`concentrated-077c4a1`、`concentrated-077c4a1-web-fix`）。以下历史记录保留，不应当作当前交付状态。

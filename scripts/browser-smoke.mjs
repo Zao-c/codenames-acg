@@ -6,7 +6,7 @@ import { chromium } from 'playwright';
 const url=process.env.PLAYTEST_BASE_URL??'http://127.0.0.1:5177';
 const api=process.env.PLAYTEST_API_URL??'http://127.0.0.1:3022';
 const artifacts=path.resolve(process.env.PLAYTEST_ARTIFACTS??'artifacts/ui-acceptance');await fs.mkdir(artifacts,{recursive:true});
-let browser;for(const channel of ['msedge','chrome',undefined]){try{browser=await chromium.launch({channel,headless:true});break;}catch{}}
+let browser;for(const channel of ['chromium','msedge','chrome',undefined]){try{browser=await chromium.launch({channel,headless:true});break;}catch{}}
 if(!browser)throw new Error('No browser available');
 const pages=[],states=[],errors=[],checks=[];
 const button=(p,name)=>p.getByRole('button',{name,exact:true});

@@ -8,3 +8,4 @@ export * from "./anime.js";
 export * from "./analysis.js";
 export * from "./analysis-view.js";
 export * from "./anime-community.js";
+export * from "./titles.js";

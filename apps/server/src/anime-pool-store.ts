@@ -31,8 +31,15 @@ export class AnimePoolStore {
   private tail: Promise<unknown> = Promise.resolve();
   private lastWorks?: AnimeWork[];
   private lastCatalog=new Map<number,AnimeWork>();
-  constructor(private readonly filename: string, private readonly works: AnimeWork[]|(()=>AnimeWork[])) {}
-  private get catalog():Map<number,AnimeWork>{const values=typeof this.works==='function'?this.works():this.works;if(values!==this.lastWorks){this.lastWorks=values;this.lastCatalog=new Map(values.map(w=>[w.id,w]));}return this.lastCatalog;}
+  constructor(
+    private readonly filename: string,
+    private readonly works: AnimeWork[]|((principal?: string)=>AnimeWork[]),
+    private readonly options: {
+      canUseWork?: (principal: string, workId: number) => boolean;
+      onPublish?: (workIds: number[]) => Promise<void> | void;
+    } = {}
+  ) {}
+  private catalogFor(principal?: string):Map<number,AnimeWork>{const values=typeof this.works==='function'?this.works(principal):this.works;if(values!==this.lastWorks){this.lastWorks=values;this.lastCatalog=new Map(values.map(w=>[w.id,w]));}return this.lastCatalog;}
   private async load(): Promise<PoolData> {
     if (this.data) return this.data;
     try {
@@ -61,8 +68,9 @@ export class AnimePoolStore {
   }
   private async read(): Promise<PoolData> { await this.tail; return this.load(); }
   private summary(pool: StoredPool, principal: string | undefined, data: PoolData): CommunityPoolSummary {
+    const catalog=this.catalogFor(principal);
     return { id: pool.id, revision: pool.revision, name: pool.name, description: pool.description, author: pool.author,
-      workCount: pool.workIds.length, seriesCount: new Set(pool.workIds.map(id => this.catalog.get(id)?.seriesId).filter(Boolean)).size,
+      workCount: pool.workIds.length, seriesCount: new Set(pool.workIds.map(id => catalog.get(id)?.seriesId).filter(Boolean)).size,
       previewWorkIds: pool.workIds.slice(0, 4),
       isPublic: pool.isPublic, hidden: pool.hidden, canEdit: principal === pool.owner,
       favorited: !!principal && !!data.favorites[principal]?.includes(pool.id), updatedAt: pool.updatedAt };
@@ -74,9 +82,10 @@ export class AnimePoolStore {
     return pool;
   }
   private visible(pool: StoredPool, principal?: string): boolean { return !pool.hidden && (pool.isPublic || pool.owner === principal); }
-  private validate(input: unknown): Omit<CommunityPoolInput, 'expectedRevision'> {
+  private validate(input: unknown, principal: string): Omit<CommunityPoolInput, 'expectedRevision'> {
     const body = object(input);
-    if (!Array.isArray(body.workIds) || body.workIds.length > 2500 || !body.workIds.every(id => Number.isSafeInteger(id) && this.catalog.has(id))) throw new CommunityError('请选择当前动画目录中的作品，最多 2500 部');
+    if (!Array.isArray(body.workIds) || body.workIds.length > 2500 || !body.workIds.every(id => Number.isSafeInteger(id) && this.catalogFor(principal).has(id))) throw new CommunityError('请选择当前动画目录中的作品，最多 2500 部');
+    if (this.options.canUseWork && !body.workIds.every(id => this.options.canUseWork!(principal, id as number))) throw new CommunityError('作品池包含无权使用的私人自建作品');
     if (typeof body.isPublic !== 'boolean') throw new CommunityError('发布状态无效');
     return { name: text(body.name, 64, true), description: text(body.description, 500), author: text(body.author, 24, true), workIds: [...new Set(body.workIds as number[])], isPublic: body.isPublic };
   }
@@ -96,23 +105,27 @@ export class AnimePoolStore {
     return this.detail(pool, principal, data);
   }
   async create(principal: string, input: unknown): Promise<CommunityPool> {
-    const parsed = this.validate(input);
-    return this.mutate(data => {
+    const parsed = this.validate(input, principal);
+    const created = await this.mutate(data => {
       if (data.pools.filter(p => p.owner === principal).length >= 50) throw new CommunityError('每个身份最多保存 50 个作品池');
       const pool: StoredPool = { ...parsed, owner: principal, id: crypto.randomUUID(), revision: 1, hidden: false, updatedAt: Date.now() };
       data.pools.push(pool);
       return this.detail(pool, principal, data);
     });
+    if (created.isPublic) await this.publishManual(created.workIds);
+    return created;
   }
   async update(id: string, principal: string, input: unknown): Promise<CommunityPool> {
-    const body = object(input), parsed = this.validate(body);
-    return this.mutate(data => {
+    const body = object(input), parsed = this.validate(body, principal);
+    const updated = await this.mutate(data => {
       const pool = this.find(data, id);
       if (pool.owner !== principal) throw new CommunityError('无权修改此作品池', 403);
       if (body.expectedRevision !== pool.revision) throw new CommunityError('作品池已更新，请重新打开后再保存', 409);
       Object.assign(pool, parsed, { revision: pool.revision + 1, updatedAt: Date.now() });
       return this.detail(pool, principal, data);
     });
+    if (updated.isPublic) await this.publishManual(updated.workIds);
+    return updated;
   }
   async copy(id: string, principal: string): Promise<CommunityPool> {
     return this.mutate(data => {
@@ -124,6 +137,12 @@ export class AnimePoolStore {
       return this.detail(pool, principal, data);
     });
   }
+  private async publishManual(workIds: number[]): Promise<void> {
+    if (!this.options.onPublish) return;
+    const manual = workIds.filter(id => id < 0);
+    if (manual.length) await this.options.onPublish(manual);
+  }
+
   async delete(id: string, principal: string): Promise<void> {
     return this.mutate(data => {
       const pool = this.find(data, id);

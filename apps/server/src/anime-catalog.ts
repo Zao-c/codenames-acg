@@ -10,6 +10,18 @@ let importedFile: string | undefined;
 let tail: Promise<unknown>=Promise.resolve();
 const overrides=resourceDir?JSON.parse(fs.readFileSync(path.join(resourceDir,'anime-series-overrides.json'),'utf8')):{titles:{}};
 let base: AnimeWork[] | undefined;
+/** Registered by the server bootstrap so manual works can join the shared catalog without circular imports. */
+let manualWorksProvider: ((principal?: string, extraIds?: number[]) => AnimeWork[]) | undefined;
+export function registerManualCatalog(provider: (principal?: string, extraIds?: number[]) => AnimeWork[]): void {
+  manualWorksProvider = provider;
+}
+export function animeCatalogAll(): AnimeWork[] {
+  return [...animeCatalog(), ...(manualWorksProvider?.() ?? [])];
+}
+/** Catalog visible to one principal: Bangumi plus owned/shared manual works (and explicitly allowed snapshot ids). */
+export function animeCatalogFor(principal?: string, extraIds: number[] = []): AnimeWork[] {
+  return [...animeCatalog(), ...(manualWorksProvider?.(principal, extraIds) ?? [])];
+}
 export function animeCatalog(): AnimeWork[] {
   if (cached) return cached;
   if (!resourceDir) return [];
@@ -29,6 +41,7 @@ export async function initializeAnimeCatalog(filename: string): Promise<void> {
 }
 
 export function catalogSeries(work: AnimeWork): AnimeWork {
+  if (work.source === 'manual' || work.seriesId.startsWith('manual:')) return { ...work, seriesSource: 'manual' };
   const known=animeCatalog().find(w=>w.id===work.id);
   const manual=overrides.subjectIds?.[work.id]??overrides.titles[work.fullTitle];
   const related=animeCatalog().find(w=>work.seriesLinks?.includes(w.id)||w.seriesLinks?.includes(work.id));

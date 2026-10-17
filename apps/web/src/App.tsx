@@ -15,7 +15,7 @@ import { PrivateReplayPage } from './routes/PrivateReplayPage';
 
 function JoinRoomFromLink() {
   const { roomId } = useParams<{ roomId: string }>();
-  const { effectiveIdentity, room, connectionState, setRoomCode, joinSpecificRoom, error } = useGame();
+  const { effectiveIdentity, room, connectionState, setRoomCode, joinSpecificRoom, error, joinError } = useGame();
   const navigate = useNavigate();
   const code = roomId ?? "";
   const location=useLocation();const attempted=useRef(false);
@@ -35,7 +35,7 @@ function JoinRoomFromLink() {
           : "请先登录"}
       </p>
       {!effectiveIdentity&&<div className="invite-login"><button className="primary-button" onClick={()=>navigate(`/login?next=${encodeURIComponent(`/room/${code}?join=1`)}`)}>登录并加入</button><button onClick={()=>navigate(`/login?guest=1&next=${encodeURIComponent(`/room/${code}?join=1`)}`)}>游客进入</button></div>}
-      {error&&<p role="alert" className="error-text">{error}</p>}
+      {(joinError||error)&&<p role="alert" className="error-text">{joinError||error}</p>}
       <button className="primary-button" disabled={!effectiveIdentity || connectionState === "connecting"} onClick={() => joinSpecificRoom(code, false)}>
         {connectionState === "connecting" ? "连接中..." : "加入房间"}
       </button>

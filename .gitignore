@@ -15,3 +15,4 @@ apps/server/data/*.json
 apps/server/data/*.json.bak
 apps/server/apps/server/data/*.json
 apps/server/apps/server/data/*.json.bak
+apps/server/data/anime-covers/

@@ -57,7 +57,14 @@ import type {
   WaivePriorityGuessPayload,
 } from "./types.js";
 
-export type ActionReply = { ok: boolean; message?: string };
+export type ActionReply = {
+  ok: boolean;
+  message?: string;
+  duplicate?: boolean;
+  roomId?: string;
+  roomVersion?: number;
+  turnVersion?: string;
+};
 export interface ClientToServerEvents {
   analysis_action: (payload: AnalysisAction, reply?: (result: ActionReply) => void) => void;
   prediction_action: (payload: PredictionAction) => void;
@@ -74,11 +81,12 @@ export interface ClientToServerEvents {
   restart_game: (payload: RestartGamePayload) => void;
   return_to_lobby: (payload: ReturnToLobbyPayload) => void;
   transfer_host: (payload: TransferHostPayload) => void;
+  host_takeover: (payload: import('./types.js').HostTakeoverPayload, reply?: (result: ActionReply) => void) => void;
   disband_room: (payload: DisbandRoomPayload) => void;
     force_end_game: (payload: { roomId: string; mode?: 'abort'|'surrender' }) => void;
-  submit_clue: (payload: SubmitCluePayload) => void;
-  guess_card: (payload: GuessCardPayload) => void;
-  end_turn: (payload: EndTurnPayload) => void;
+  submit_clue: (payload: SubmitCluePayload, reply?: (result: ActionReply) => void) => void;
+  guess_card: (payload: GuessCardPayload, reply?: (result: ActionReply) => void) => void;
+  end_turn: (payload: EndTurnPayload, reply?: (result: ActionReply) => void) => void;
   resume_timer: (payload: { roomId: string }) => void;
   leave_room: (payload: LeaveRoomPayload) => void;
   sync_room_state: (payload: SyncRoomStatePayload) => void;

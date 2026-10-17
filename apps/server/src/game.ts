@@ -56,7 +56,7 @@ import {
 } from "@acg-codenames/shared";
 import { REPLAY_TTL_SECONDS, computeRoomTTL } from "./store.js";
 import type { ReplayStore, RoomSession, RoomStore, UserStore } from "./types.js";
-import { animeCatalog } from './anime-catalog.js';
+import { animeCatalog, animeCatalogFor } from './anime-catalog.js';
 import { candidatesFor, editDraft, makePlan, sealDraft, validatePlanRoster } from './anime-draft.js';
 import type { PlanAction, NextPlan } from '@acg-codenames/shared';
 
@@ -335,11 +335,18 @@ function promoteQueuedSpectators(room: Room): {
     };
   }
 
-  const queueToPromote = room.joinQueue.slice(0, openSlots);
+  const queueToPromote: JoinRequest[] = [];
+  for (const entry of room.joinQueue) {
+    if (queueToPromote.length >= openSlots) break;
+    const spectator = room.spectators.find((candidate) => candidate.id === entry.spectatorId);
+    // Never silently promote an offline spectator or one without a restorable session.
+    if (spectator && spectator.connected !== false && spectator.sessionToken) queueToPromote.push(entry);
+  }
   const promotedIds = new Set(queueToPromote.map((entry) => entry.spectatorId));
   const promoted = room.spectators.filter((spectator) => promotedIds.has(spectator.id));
   const spectators = room.spectators.filter((spectator) => !promotedIds.has(spectator.id));
   const players = [...room.players, ...promoted.map(createPlayerFromSpectator)];
+  // Offline candidates keep their position and stay in the queue.
   const joinQueue = room.joinQueue.filter((entry) => !promotedIds.has(entry.spectatorId));
 
   return { players, spectators, joinQueue, promoted };
@@ -562,13 +569,20 @@ function finalizeAchievements(room: Room): Room {
 export class GameService {
   private readonly privateReplays = new PrivateReplayStore();
   private readonly roomLocks = new Map<string, Promise<void>>();
-  private readonly heldRoomLocks = new AsyncLocalStorage<Set<string>>();
+  /**
+   * AsyncLocalStorage propagates into timers created inside a lock. Tracking a per-acquisition
+   * token (not just the room id) prevents a stale disconnect timer from believing it still holds
+   * the room lock after the original call returned.
+   */
+  private readonly heldRoomLocks = new AsyncLocalStorage<Map<string, symbol>>();
+  private readonly roomLockTokens = new Map<string, symbol>();
+  private readonly duplicateRequestFlags = new Map<string, boolean>();
   private readonly disconnectKickTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   constructor(
     private readonly store: RoomStore,
     private readonly users: UserStore,
-    private readonly options: { enableDebugTools: boolean; disconnectKickDelayMs?: number; enableAnimeDraft?: boolean; enableMatchAnalysis?: boolean; enablePredictions?: boolean; resolveCommunityPool?: (id: string, principalId: string) => Promise<import('@acg-codenames/shared').CommunityPool> } = { enableDebugTools: false },
+    private readonly options: { enableDebugTools: boolean; disconnectKickDelayMs?: number; hostTakeoverGraceMs?: number; enableAnimeDraft?: boolean; enableMatchAnalysis?: boolean; enablePredictions?: boolean; resolveCommunityPool?: (id: string, principalId: string) => Promise<import('@acg-codenames/shared').CommunityPool>; resolveManualWorks?: (ids: number[]) => Promise<import('@acg-codenames/shared').AnimeWork[]> } = { enableDebugTools: false },
     private readonly replayStore?: ReplayStore
   ) {}
 
@@ -595,7 +609,9 @@ export class GameService {
   }
 
   private async withRoomLock<T>(roomId: string, fn: () => Promise<T>): Promise<T> {
-    if (this.heldRoomLocks.getStore()?.has(roomId)) {
+    const held = this.heldRoomLocks.getStore();
+    const token = held?.get(roomId);
+    if (token && this.roomLockTokens.get(roomId) === token) {
       return fn();
     }
     const prev = this.roomLocks.get(roomId) ?? Promise.resolve();
@@ -605,15 +621,55 @@ export class GameService {
     this.roomLocks.set(roomId, chained);
     try {
       await prev;
-      const held = new Set(this.heldRoomLocks.getStore() ?? []);
-      held.add(roomId);
-      return await this.heldRoomLocks.run(held, fn);
+      const acquired = Symbol(roomId);
+      const context = new Map(held ?? []);
+      context.set(roomId, acquired);
+      this.roomLockTokens.set(roomId, acquired);
+      try {
+        return await this.heldRoomLocks.run(context, fn);
+      } finally {
+        if (this.roomLockTokens.get(roomId) === acquired) this.roomLockTokens.delete(roomId);
+      }
     } finally {
       release();
       if (this.roomLocks.get(roomId) === chained) {
         this.roomLocks.delete(roomId);
       }
     }
+  }
+
+  /** Reads and clears a duplicate marker set by the last idempotent action. */
+  takeDuplicateRequest(roomId: string, requestId?: string): boolean {
+    if (!requestId) return false;
+    const key = `${roomId}:${requestId}`;
+    const value = this.duplicateRequestFlags.get(key) === true;
+    this.duplicateRequestFlags.delete(key);
+    return value;
+  }
+
+  private normalizeRequestId(value: unknown): string | undefined {
+    if (value === undefined || value === null) return undefined;
+    if (typeof value !== 'string' || !/^[A-Za-z0-9:_-]{8,128}$/.test(value)) throw new Error('请求标识无效，请重试');
+    return value;
+  }
+
+  private requestAlreadyHandled(room: Room, requestId: string | undefined): boolean {
+    if (!requestId) return false;
+    const record = room.requestLog?.[requestId];
+    if (!record) return false;
+    if (Date.now() - record.at > 15 * 60_000) return false;
+    this.duplicateRequestFlags.set(`${room.id}:${requestId}`, true);
+    return true;
+  }
+
+  private recordRequest(room: Room, requestId: string | undefined, action: 'submit_clue' | 'guess_card' | 'end_turn'): void {
+    if (!requestId) return;
+    const cutoff = Date.now() - 15 * 60_000;
+    const log = Object.fromEntries(Object.entries(room.requestLog ?? {}).filter(([, record]) => record.at >= cutoff));
+    const entries = Object.entries(log);
+    if (entries.length >= 200) entries.sort((a, b) => a[1].at - b[1].at).splice(0, entries.length - 199);
+    room.requestLog = { ...Object.fromEntries(entries), [requestId]: { at: Date.now(), action, roomVersion: room.updatedAt } };
+    this.duplicateRequestFlags.set(`${room.id}:${requestId}`, false);
   }
 
   async createRoom(nickname: string, profile?: Partial<UserProfile>, sessionToken?: string, principalId?: string): Promise<{ room: Room; player: Player }> {
@@ -680,6 +736,12 @@ export class GameService {
           this.clearDisconnectKickTimer(roomId, existing.id, "player");
           existing.connected = true;
           existing.sessionToken ??= crypto.randomUUID();
+          if (room.hostPlayerId === existing.id) {
+            room.hostOfflineSince = undefined;
+            if (room.hostTakeover) room.hostTakeover = undefined;
+          } else if (room.hostTakeover?.candidateId === existing.id) {
+            room.hostTakeover.approvals = room.hostTakeover.approvals.filter(id => id !== existing.id);
+          }
           const nextRoom = withEvent(room, `${existing.nickname} 已重连`);
           await this.store.setRoom(nextRoom);
           await this.store.setPlayerSession(existing.sessionToken!, createSession(nextRoom.id, existing.id, "player"));
@@ -784,6 +846,12 @@ export class GameService {
     this.clearDisconnectKickTimer(roomId, participant.id, session.participantType);
     participant.connected = true;
     await this.store.setPlayerSession(sessionToken,session);
+    if (room.hostPlayerId === participant.id) {
+      room.hostOfflineSince = undefined;
+      if (room.hostTakeover) room.hostTakeover = undefined;
+    } else if (room.hostTakeover?.candidateId === participant.id) {
+      room.hostTakeover.approvals = room.hostTakeover.approvals.filter(id => id !== participant.id);
+    }
 
     const nextRoom = withEvent(room, `${participant.nickname} 已重连`);
     await this.store.setRoom(nextRoom);
@@ -1195,9 +1263,110 @@ export class GameService {
       },
       `${currentHost.nickname} 将社长转让给 ${targetPlayer.nickname}`
     );
+    nextRoom.hostOfflineSince = undefined;
+    nextRoom.hostTakeover = undefined;
     await this.store.setRoom(nextRoom);
     return nextRoom;
     });
+  }
+
+  private hostGraceMs(): number {
+    const value = this.options.hostTakeoverGraceMs;
+    return Number.isFinite(value) && value! >= 0 ? value! : 120_000;
+  }
+
+  private takeoverEligibleVoters(room: Room, candidateId: string): Player[] {
+    return room.players.filter(p => !p.isBot && p.id !== room.hostPlayerId && p.id !== candidateId && p.connected !== false);
+  }
+
+  private takeoverRequired(room: Room, candidateId: string): number {
+    const eligible = this.takeoverEligibleVoters(room, candidateId).length;
+    return eligible === 0 ? 0 : Math.floor(eligible / 2) + 1;
+  }
+
+  private applyHostTransfer(room: Room, targetPlayer: Player, reason: string): Room {
+    const previousHost = room.players.find(p => p.id === room.hostPlayerId);
+    return withEvent({
+      ...room,
+      hostPlayerId: targetPlayer.id,
+      hostOfflineSince: undefined,
+      hostTakeover: undefined,
+      players: room.players.map(player => ({ ...player, isHost: player.id === targetPlayer.id }))
+    }, `${previousHost?.nickname ?? '原社长'} 的社长权限已移交给 ${targetPlayer.nickname}${reason ? `（${reason}）` : ''}`);
+  }
+
+  async hostTakeover(roomId: string, playerId: string, kind: 'request' | 'approve' | 'reject' | 'cancel'): Promise<Room> {
+    return this.withRoomLock(roomId, async () => {
+      const room = structuredClone(await this.requireRoom(roomId));
+      const player = requirePlayer(room, playerId);
+      if (player.isBot || player.connected === false) throw new Error('需要在线正式玩家才能发起或确认接任');
+      if (!['request', 'approve', 'reject', 'cancel'].includes(kind)) throw new Error('接任操作无效');
+      const host = room.players.find(p => p.id === room.hostPlayerId);
+      const hostOffline = !!host && host.connected === false;
+      if (kind === 'request') {
+        if (!host) throw new Error('房间没有可接任的社长');
+        if (!hostOffline) throw new Error('社长当前在线，无需接任');
+        const offlineSince = room.hostOfflineSince ?? Date.now();
+        const waitMs = offlineSince + this.hostGraceMs() - Date.now();
+        if (waitMs > 0) throw new Error(`社长离线宽限期尚未结束，约 ${Math.ceil(waitMs / 1000)} 秒后可发起接任`);
+        if (room.hostPlayerId === playerId) return room;
+        const pending = room.hostTakeover;
+        if (pending && pending.candidateId !== playerId && Date.now() - pending.requestedAt < this.hostGraceMs()) {
+          const nickname = room.players.find(p => p.id === pending.candidateId)?.nickname ?? '其他成员';
+          throw new Error(`已有成员（${nickname}）发起接任，请确认或等待该请求结束`);
+        }
+        const required = this.takeoverRequired(room, playerId);
+        if (required === 0) return this.commitHostTakeover(room, player, '无人可投票，宽限期结束后自动接任');
+        const nextRoom: Room = { ...room, hostTakeover: { candidateId: playerId, requestedAt: Date.now(), approvals: [], rejections: [], version: (pending?.version ?? 0) + 1 } };
+        await this.store.setRoom(withEvent(nextRoom, `${player.nickname} 发起社长接任，等待在线成员确认（需 ${required} 票）`));
+        return (await this.store.getRoom(roomId))!;
+      }
+      if (kind === 'cancel') {
+        const pending = room.hostTakeover;
+        if (!pending) return room;
+        if (pending.candidateId !== playerId && room.hostPlayerId !== playerId) throw new Error('只有接任候选人可以撤回请求');
+        const nextRoom = withEvent({ ...room, hostTakeover: undefined }, `${player.nickname} 撤回了社长接任请求`);
+        await this.store.setRoom(nextRoom);
+        return nextRoom;
+      }
+      const pending = room.hostTakeover && { ...room.hostTakeover, rejections: room.hostTakeover.rejections ?? [] };
+      if (!pending) throw new Error('当前没有待确认的接任请求');
+      if (pending.candidateId === playerId) throw new Error('发起人不能给自己投票');
+      if (!this.takeoverEligibleVoters(room, pending.candidateId).some(p => p.id === playerId)) throw new Error('你不在本次接任的确认名单中');
+      if (Date.now() - pending.requestedAt > this.hostGraceMs() * 2) throw new Error('接任请求已过期，请重新发起');
+      if (kind === 'reject') {
+        const rejections = [...new Set([...pending.rejections, playerId])];
+        const approvals = pending.approvals.filter(id => id !== playerId);
+        if (rejections.length >= this.takeoverRequired(room, pending.candidateId)) {
+          const nextRoom = withEvent({ ...room, hostTakeover: undefined }, `在线成员否决了 ${room.players.find(p => p.id === pending.candidateId)?.nickname ?? '成员'} 的接任请求`);
+          await this.store.setRoom(nextRoom);
+          return nextRoom;
+        }
+        const nextRoom: Room = { ...room, hostTakeover: { ...pending, approvals, rejections } };
+        await this.store.setRoom(nextRoom);
+        return nextRoom;
+      }
+      const approvals = [...new Set([...pending.approvals, playerId])];
+      const rejections = pending.rejections.filter(id => id !== playerId);
+      if (approvals.length >= this.takeoverRequired(room, pending.candidateId)) {
+        const candidate = room.players.find(p => p.id === pending.candidateId);
+        if (!candidate || candidate.connected === false) {
+          const nextRoom = withEvent({ ...room, hostTakeover: undefined }, '接任候选人已离线，本次请求取消');
+          await this.store.setRoom(nextRoom);
+          return nextRoom;
+        }
+        return this.commitHostTakeover({ ...room, hostTakeover: { ...pending, approvals, rejections } }, candidate, `${approvals.length} 名在线成员确认`);
+      }
+      const nextRoom: Room = { ...room, hostTakeover: { ...pending, approvals, rejections } };
+      await this.store.setRoom(nextRoom);
+      return nextRoom;
+    });
+  }
+
+  private async commitHostTakeover(room: Room, target: Player, reason: string): Promise<Room> {
+    const nextRoom = this.applyHostTransfer(room, target, reason);
+    await this.store.setRoom(nextRoom);
+    return nextRoom;
   }
 
   async disbandRoom(roomId: string, playerId: string): Promise<Room> {
@@ -1212,9 +1381,11 @@ export class GameService {
     });
   }
 
-  async submitClue(roomId: string, playerId: string, word: string, count: number): Promise<Room> {
+  async submitClue(roomId: string, playerId: string, word: string, count: number, requestId?: string): Promise<Room> {
     return this.withRoomLock(roomId, async () => {
     const room = await this.requireRoom(roomId);
+    const rid = this.normalizeRequestId(requestId);
+    if (this.requestAlreadyHandled(room, rid)) return room;
     requirePlaying(room);
     const player = requirePlayer(room, playerId);
     if (!player.connected) {
@@ -1264,14 +1435,17 @@ export class GameService {
     nextRoom.currentRoundScore = isScoringMode(room.settings.scoringMode) ? emptyRoundScore(room.currentTeam) : undefined;
     nextRoom.comboStreaks = {};
     ensurePlayerStats(nextRoom, player).cluesGiven += 1;
+    this.recordRequest(nextRoom, rid, 'submit_clue');
     await this.store.setRoom(nextRoom);
     return nextRoom;
     });
   }
 
-  async guessCard(roomId: string, playerId: string, cardId: string): Promise<Room> {
+  async guessCard(roomId: string, playerId: string, cardId: string, requestId?: string): Promise<Room> {
     return this.withRoomLock(roomId, async () => {
     const room = structuredClone(await this.requireRoom(roomId));
+    const rid = this.normalizeRequestId(requestId);
+    if (this.requestAlreadyHandled(room, rid)) return room;
     requirePlaying(room);
     const player = requirePlayer(room, playerId);
     if (room.exposedPlayerIds?.includes(playerId)) throw new Error("已见本局秘密的卸任队长不能猜牌");
@@ -1293,6 +1467,9 @@ export class GameService {
       throw new Error("词牌不存在");
     }
     if (card.revealed) {
+      // A late duplicate click after a broadcast must not flip a second card.
+      this.recordRequest(room, rid, 'guess_card');
+      await this.store.setRoom(room);
       return room;
     }
 
@@ -1454,6 +1631,7 @@ export class GameService {
         nextRoom.roundHighlights = highlights;
       }
     }
+    this.recordRequest(nextRoom, rid, 'guess_card');
     await this.store.setRoom(nextRoom);
     if (winner) {
       await this.users.recordRoundResult(nextRoom.players, winner);
@@ -1462,9 +1640,11 @@ export class GameService {
     });
   }
 
-  async endTurn(roomId: string, playerId: string): Promise<Room> {
+  async endTurn(roomId: string, playerId: string, requestId?: string): Promise<Room> {
     return this.withRoomLock(roomId, async () => {
     const room = await this.requireRoom(roomId);
+    const rid = this.normalizeRequestId(requestId);
+    if (this.requestAlreadyHandled(room, rid)) return room;
     requirePlaying(room);
     const player = requirePlayer(room, playerId);
     const isDebugHost = isSoloDebugController(room, playerId, this.options.enableDebugTools);
@@ -1534,6 +1714,7 @@ export class GameService {
       highlights.push(hl);
       nextRoom.roundHighlights = highlights;
     }
+    this.recordRequest(nextRoom, rid, 'end_turn');
     await this.store.setRoom(nextRoom);
     return nextRoom;
     });
@@ -1674,6 +1855,8 @@ export class GameService {
     return this.withRoomLock(roomId, async () => {
     const room = await this.requireRoom(roomId);
     const spectator = requireSpectator(room, spectatorId);
+    if (spectator.connected === false) throw new Error('你已离线，请重新连接后再排队');
+    if (!spectator.sessionToken) throw new Error('当前旁观会话不可恢复，请重新加入房间');
 
     if (room.phase === "lobby" && !room.nextPlan?.lockedPlayerIds) {
       throw new Error("准备阶段请直接加入玩家席");
@@ -1742,7 +1925,8 @@ export class GameService {
       return null;
     }
 
-    const nextHostId = room.hostPlayerId === participantId
+    const hostLeft = room.hostPlayerId === participantId;
+    const nextHostId = hostLeft
       ? players.find((entry) => !entry.isBot)?.id ?? players[0].id
       : room.hostPlayerId;
     const nextRoom = withEvent(
@@ -1755,6 +1939,8 @@ export class GameService {
         spectators,
         joinQueue,
         hostPlayerId: nextHostId,
+        hostOfflineSince: hostLeft ? undefined : room.hostOfflineSince,
+        hostTakeover: hostLeft || room.hostTakeover?.candidateId === participantId ? undefined : room.hostTakeover,
         countdown: room.countdown
       },
       `${participant.nickname} 离开了房间`
@@ -1805,6 +1991,12 @@ export class GameService {
 
     if (!stillDisconnected()) return room;
     participant.connected = false;
+    if (room.hostPlayerId === participant.id) {
+      room.hostOfflineSince = now();
+    }
+    if (room.hostTakeover && (room.hostTakeover.candidateId === participant.id || room.hostPlayerId === participant.id)) {
+      room.hostTakeover = undefined;
+    }
     const nextRoom = withEvent(room, `${participant.nickname} 暂时离线`);
 
     this.clearDisconnectKickTimer(roomId, participantId, participantType);
@@ -1882,10 +2074,17 @@ export class GameService {
           wordPack = createCustomWordPack(action.customWordPack);
         }
         if (action.variant === 'classic') validateWordPackForMode(wordPack,boardMode);
-        const catalog = animeCatalog();
+        const principal = room.participantPrincipals?.[playerId];
+        const catalog = animeCatalogFor(principal);
         if (action.poolIds && (!Array.isArray(action.poolIds) || action.poolIds.length > 2500 || action.poolIds.some(id => !Number.isSafeInteger(id)))) throw new Error('作品池格式无效');
         const ids = new Set(action.poolIds ?? (plan.pool.length ? plan.pool.map(w => w.id) : catalog.map(w => w.id)));
-        const pool = catalog.filter(w => ids.has(w.id));
+        let pool = catalog.filter(w => ids.has(w.id));
+        if (pool.length !== ids.size && sourcePool && this.options.resolveManualWorks) {
+          // A server-verified community pool may reference retired manual works; room snapshots must stay playable.
+          const extra = await this.options.resolveManualWorks([...ids].filter(id => id < 0));
+          const known = new Set(pool.map(w => w.id));
+          pool = [...pool, ...extra.filter(w => ids.has(w.id) && !known.has(w.id))];
+        }
         if (pool.length !== ids.size) throw new Error('作品池包含目录外作品');
         const candidates = action.variant === 'anime' ? candidatesFor(pool, room.seriesHistory) : [];
         if (action.variant === 'anime' && candidates.length < BOARD_MODE_CONFIG[boardMode].size) throw new Error(`所选题库至少需要 ${BOARD_MODE_CONFIG[boardMode].size} 个不同系列，当前只有 ${candidates.length} 个`);
@@ -1994,7 +2193,7 @@ export class GameService {
         ? room.joinQueue.some((entry) => entry.spectatorId === participantId)
         : false;
 
-    return sanitizeRoom(room, {
+    const state = sanitizeRoom(room, {
       participantType: participantType ?? null,
       participantId: participantId ?? null,
       team: player?.team,
@@ -2004,6 +2203,8 @@ export class GameService {
       isQueuedForNextRound,
       revealAll: isDebugController
     });
+    state.hostTakeoverAvailableAt = room.hostOfflineSince ? room.hostOfflineSince + this.hostGraceMs() : undefined;
+    return state;
   }
 
   async ensureReplay(roomId: string): Promise<string | undefined> {
@@ -2397,7 +2598,8 @@ export function buildReplay(room: Room, replayId: string): GameReplay {
     role: c.role,
     revealed: c.revealed,
     guessedByNickname: undefined,
-    guessedByTeam: c.revealedBy
+    guessedByTeam: c.revealedBy,
+    anime: c.anime
   }));
 
   for (const cr of room.clueRecords ?? []) {

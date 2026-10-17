@@ -8,7 +8,7 @@ import { io } from 'socket.io-client';
 
 const base=process.env.PLAYTEST_BASE_URL, api=process.env.PLAYTEST_API_URL;
 const artifacts=path.resolve('output/playwright/lobby-v2');await fs.mkdir(artifacts,{recursive:true});
-let browser;for(const channel of ['msedge','chrome',undefined]){try{browser=await chromium.launch({channel,headless:true});break;}catch{}}
+let browser;for(const channel of ['chromium','msedge','chrome',undefined]){try{browser=await chromium.launch({channel,headless:true});break;}catch{}}
 if(!browser)throw new Error('No browser available');
 const pages=[],states=[],errors=[],clients=[],checks=[];
 const button=(p,name)=>p.getByRole('button',{name,exact:true});

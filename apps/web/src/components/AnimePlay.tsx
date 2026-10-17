@@ -6,6 +6,7 @@ import { Dialog } from './UI';
 import { DraftWorkspace } from './DraftWorkspace';
 import type { DropAction } from './DraftTile';
 import { getPublicWordPackDetail, getCommunityPool, listCommunityPools } from '../lib/api';
+import { privateIdentityKey } from '../lib/private-identity';
 import { useNavigate } from 'react-router-dom';
 import { PrivateReview } from './PrivateReview';
 import type { CommunityPoolSummary } from '@acg-codenames/shared';
@@ -58,6 +59,12 @@ export function NextMatchPanel({ room, mode = 'full', onConfigured, embedded=fal
   const configureLock=useRef(false);
   const [savedPools, setSavedPools] = useState<AnimePool[]>([]);
   const [communityPools, setCommunityPools] = useState<CommunityPoolSummary[]>([]);
+  const [poolDialog,setPoolDialog]=useState(false);
+  const [poolScope,setPoolScope]=useState<'public'|'mine'|'favorites'>('public');
+  const [poolSearch,setPoolSearch]=useState(''),[poolSearchApplied,setPoolSearchApplied]=useState('');
+  const [poolPage,setPoolPage]=useState(1),[poolTotal,setPoolTotal]=useState(0),[poolBusy,setPoolBusy]=useState(false);
+  const [poolChoices,setPoolChoices]=useState<CommunityPoolSummary[]>([]);
+  const bringBackKey=`cipai-selected-community-pool:${privateIdentityKey()}:${room.id}`;
   const [wordPackId, setWordPackId] = useState('');
   const [uploadedPack,setUploadedPack] = useState<{name:string;entries:string[]}>();
   const [advanced,setAdvanced] = useState(() => {
@@ -73,9 +80,20 @@ export function NextMatchPanel({ room, mode = 'full', onConfigured, embedded=fal
     try {
       const pages = await Promise.all([listCommunityPools('public'), listCommunityPools('mine'), listCommunityPools('favorites')]);
       const items = new Map(pages.flatMap(p => p.items).filter(p => !p.hidden).map(p => [p.id, p]));
-      const remembered = localStorage.getItem('cipai-selected-community-pool');
+      const emptyRoomKey = `cipai-selected-community-pool:${privateIdentityKey()}:`;
+      const remembered = localStorage.getItem(bringBackKey) ?? localStorage.getItem(emptyRoomKey) ?? localStorage.getItem('cipai-selected-community-pool');
       if (remembered) {
-        try { const selected = await getCommunityPool(remembered); if (!selected.hidden) { items.set(selected.id, selected); setPoolId(`community:${selected.id}`);setVariant('anime');setConfigNotice('此池待选择保存；由房主点击保存后才会更新候选池。'); } } catch { localStorage.removeItem('cipai-selected-community-pool');setPoolId('');setError('带回的作品池已失效，请重新选择作品池。'); }
+        try {
+          const selected = await getCommunityPool(remembered);
+          if (!selected.hidden) {
+            items.set(selected.id, selected);
+            setPoolId(`community:${selected.id}`);setVariant('anime');
+            setConfigNotice(`「${selected.name}」尚未生效：请点击“保存配置并更新候选池”。`);
+          }
+        } catch {
+          localStorage.removeItem(bringBackKey);localStorage.removeItem('cipai-selected-community-pool');
+          setPoolId('');setError('带回的作品池已失效，请重新选择作品池。');
+        }
       }
       if(plan?.sourcePool&&!items.has(plan.sourcePool.id)){
         try{const source=await getCommunityPool(plan.sourcePool.id);if(source.hidden)throw new Error('已隐藏');items.set(source.id,source);}
@@ -85,6 +103,15 @@ export function NextMatchPanel({ room, mode = 'full', onConfigured, embedded=fal
     } catch { /* Older servers can keep the existing local/quarterly pool workflow. */ }
   };
   useEffect(() => { if (room.viewer?.isHost) void refreshCommunity(); }, [room.viewer?.isHost]);
+  useEffect(() => {
+    if(!poolDialog)return;
+    let live=true;setPoolBusy(true);
+    listCommunityPools(poolScope,poolSearchApplied,poolPage)
+      .then(value=>{if(!live)return;setPoolChoices(value.items.filter(item=>!item.hidden));setPoolTotal(value.total);})
+      .catch(error=>{if(live)setError((error as Error).message);})
+      .finally(()=>{if(live)setPoolBusy(false);});
+    return()=>{live=false;};
+  },[poolDialog,poolScope,poolSearchApplied,poolPage]);
   const send = (action: Omit<PlanAction,'roomId'|'version'>) => socket.emit('plan_action', { roomId: room.id, version: plan?.version, ...action });
   const team = plan?.myTeam;
   const claims = plan?.captainView?.claims ?? {};
@@ -120,6 +147,9 @@ export function NextMatchPanel({ room, mode = 'full', onConfigured, embedded=fal
       onConfigured?.(); return;
     }
     await confirmed('plan_action',{ roomId:room.id,version:plan?.version,kind:'configure', variant, boardMode:size, scoringMode:score, ...(mode==='settings'&&variant==='classic'?advanced:{}), poolIds:selected, poolName:poolId === 'custom' ? poolName : pool?.name, communityPoolId: community?.id, communityPoolRevision: community?.revision, builtinWordPackId: wordPackId.startsWith('builtin:') ? wordPackId.slice(8) : undefined, customWordPack: selectedPack ? { name:selectedPack.name, entries:selectedPack.entries } : undefined });
+    if(community)localStorage.removeItem(bringBackKey);
+    localStorage.removeItem(`cipai-selected-community-pool:${privateIdentityKey()}:`);
+    localStorage.removeItem('cipai-selected-community-pool');
     setConfigNotice('配置已由服务器保存，候选池已更新。');
     onConfigured?.();
     }catch(e){setConfigNotice('');setError((e as Error).message);}finally{configureLock.current=false;setConfiguring(false);}
@@ -155,7 +185,7 @@ export function NextMatchPanel({ room, mode = 'full', onConfigured, embedded=fal
         </div>
         {variant === 'classic' ? <><label>文字题库 <select value={wordPackId} onChange={e => setWordPackId(e.target.value)}><option value="">沿用上次</option>{wordPackSummaries.map(p => <option key={p.id} value={`builtin:${p.id}`}>{p.name}</option>)}{accountPacks.map(p => <option key={p.id} value={`mine:${p.id}`}>{p.name}</option>)}{publicPacks.map(p => <option key={p.publicId} value={`public:${p.publicId}`}>{p.name} · {p.ownerUsername}</option>)}{uploadedPack&&<option value="upload">上传：{uploadedPack.name}</option>}</select></label>{mode==='settings'&&<label>上传文字题库<input type="file" accept=".txt,.json" onChange={async e=>{const file=e.target.files?.[0];if(!file)return;try{const data=await parseCustomWordFile(file);setUploadedPack(data.kind==='candidate'?autoExportCandidatePack(data.pack):data.pack);setWordPackId('upload');setError('');}catch(error){setError((error as Error).message);}}}/></label>}</> : <>
           <label>动画作品池 <select aria-label="动画作品池" value={poolId} onChange={e => {setPoolId(e.target.value);setError('');}}> {!poolId&&<option value="">作品池失效，请重新选择</option>}{plan?.variant === 'anime' && <option value="current">沿用：{plan.poolName}</option>}{[...pools,...savedPools].map(p => <option key={p.id} value={p.id}>{p.name}（{p.workIds.length} 部）</option>)}{communityPools.map(p => <option key={`community:${p.id}`} value={`community:${p.id}`}>社区 · {p.name}（{p.workCount} 部）</option>)}<option value="custom">自定义作品池</option></select></label>
-          {(communityEnabled || !!communityPools.length) && <div className="anime-toolbar"><button onClick={() => navigate('/anime-pools')}>浏览动画题库广场</button><button onClick={() => void refreshCommunity()}>刷新社区作品池</button></div>}
+          {(communityEnabled || !!communityPools.length) && <div className="anime-toolbar"><button onClick={() => {setPoolDialog(true);setPoolPage(1);}}>搜索全部作品池…</button><button onClick={() => navigate('/anime-pools')}>浏览动画题库广场</button><button onClick={() => void refreshCommunity()}>刷新社区作品池</button></div>}
           {poolId === 'custom' && <div className="anime-pool-editor"><input aria-label="动画题库名称" value={poolName} onChange={e => setPoolName(e.target.value)} /><input aria-label="搜索目录" placeholder="搜索作品，勾选加入题库" value={query} onChange={e => setQuery(e.target.value)} />
             <p>已选 {customIds.length} 部 / {new Set(catalog.filter(w => customIds.includes(w.id)).map(w => w.seriesId)).size} 个系列</p>
             <div className="anime-pool-list">{catalog.filter(w => `${w.fullTitle} ${w.aliases.join(' ')}`.toLowerCase().includes(query.toLowerCase())).map(w => <label key={w.id}><input type="checkbox" checked={customIds.includes(w.id)} onChange={() => setCustomIds(ids => ids.includes(w.id) ? ids.filter(id => id !== w.id) : [...ids,w.id])} />{w.fullTitle}</label>)}</div>
@@ -176,13 +206,7 @@ export function NextMatchPanel({ room, mode = 'full', onConfigured, embedded=fal
     {room.interferenceReview && <p>本局干扰记录：{room.interferenceReview.map(c => `${TEAM_LABELS[c.from]} → ${TEAM_LABELS[c.team]}：${room.board.find(b => b.anime?.id === c.workId)?.word ?? c.workId}`).join('；') || '无干扰'}</p>}
 
     </div>;
-  if (mode === 'settings') return <div className="lobby-config-form">{content}<p className="hint-text">胜场制：赢一局记一胜。积分制：猜对加分，失误扣分。</p></div>;
-  return <section className={`panel next-match-panel ${room.phase==='playing'?'next-plan-during-game':''} ${plan?.variant==='anime'?'has-anime-plan':''}`}>
-    {mode === 'full' && room.phase === 'lobby' && <PrivateReview room={room}/>}
-    {mode === 'full' && !embedded && <div className="panel-heading"><div><p className="eyebrow">{room.phase==='playing'?'下一局 · 独立准备':'准备工作区'}</p><h2>{room.phase==='playing'?'下一局计划':'玩法与组牌'}</h2></div><button onClick={()=>setOpen(!open)}>{open?'收起准备':'查看准备'}</button></div>}
-    {!plan && !room.viewer?.isHost && <div className="plan-readonly"><strong>经典词牌 · {room.settings.boardMode}</strong><p>{room.wordPackSummary.name}</p><p className="hint-text">社长正在配置玩法。选择队伍与席位后，等待社长开局。</p></div>}
-    {plan && room.phase!=='playing' && <p className="hint-text">{plan.variant==='anime'?'动画组牌':'经典词牌'} · {plan.settings.boardMode} · {plan.poolName} · {TEAM_LABELS[plan.startingTeam]}先手</p>}
-    {open && (!embedded && room.phase==='playing'?<Dialog title="下一局计划" close={()=>setOpen(false)} wide>{content}</Dialog>:content)}
+  const overlay = <>
     {preview && <Preview work={preview} close={() => setPreview(null)}>{team && draft && (() => { const c = claims[preview.id];
       if (c?.kind === 'interference') return <p className="hint-text">这是{c.from === team ? '本方投放给对方' : '对方投放给本方'}的干扰牌，占用接收方的随机补位，不占手选额度，不能撤回或抢夺。</p>;
       if (c?.team === team) return <div className="anime-toolbar"><button onClick={() => { send({kind:'release',workId:preview.id}); setPreview(null); }}>撤回这张</button></div>;
@@ -196,5 +220,22 @@ export function NextMatchPanel({ room, mode = 'full', onConfigured, embedded=fal
         <button className="primary-button" onClick={() => { send({kind:'interfere',workId:interfere.id}); setInterfere(null); }}>确认投放</button>
         <button onClick={() => setInterfere(null)}>取消</button></div>
     </Dialog>}
+    {poolDialog&&<Dialog title="选择动画作品池" close={()=>setPoolDialog(false)} wide>
+      <div className="pool-picker">
+        <div className="anime-toolbar" role="group" aria-label="作品池范围">{(['public','mine','favorites'] as const).map((value,i)=><button key={value} aria-pressed={poolScope===value} className={poolScope===value?'primary-button':''} onClick={()=>{setPoolScope(value);setPoolPage(1);}}>{['公开广场','我的作品池','我的收藏'][i]}</button>)}</div>
+        <form className="community-search" onSubmit={e=>{e.preventDefault();setPoolSearchApplied(poolSearch);setPoolPage(1);}}><label>搜索作品池<input maxLength={100} value={poolSearch} onChange={e=>setPoolSearch(e.target.value)} placeholder="名称、介绍或作者"/></label><button>搜索</button></form>
+        {poolBusy?<p role="status">正在读取…</p>:poolChoices.length?<div className="pool-picker-list">{poolChoices.map(item=><article key={item.id} className={poolId===`community:${item.id}`?'selected':''}><div><strong>{item.name}</strong><small>{item.workCount} 部 · {item.seriesCount} 个系列 · {item.author}{item.hidden?' · 已隐藏':''}</small>{item.description&&<p>{item.description}</p>}</div><button className="primary-button" disabled={item.hidden||item.seriesCount<25} onClick={()=>{setPoolId(`community:${item.id}`);setVariant('anime');setCommunityPools(previous=>previous.some(p=>p.id===item.id)?previous:[item,...previous]);setConfigNotice(`已选择「${item.name}」，点击“保存配置并更新候选池”后生效。`);setPoolDialog(false);}}>{item.seriesCount<25?'系列不足 25':'选择'}</button></article>)}</div>:<p className="empty-text">没有找到作品池。可切换范围或清空搜索词。</p>}
+        {poolTotal>20&&<nav className="anime-toolbar" aria-label="作品池分页"><button disabled={poolPage<=1||poolBusy} onClick={()=>setPoolPage(p=>p-1)}>上一页</button><span>第 {poolPage} / {Math.ceil(poolTotal/20)} 页 · 共 {poolTotal} 个</span><button disabled={poolPage*20>=poolTotal||poolBusy} onClick={()=>setPoolPage(p=>p+1)}>下一页</button></nav>}
+      </div>
+    </Dialog>}
+  </>;
+  if (mode === 'settings') return <div className="lobby-config-form">{content}<p className="hint-text">胜场制：赢一局记一胜。积分制：猜对加分，失误扣分。</p>{overlay}</div>;
+  return <section className={`panel next-match-panel ${room.phase==='playing'?'next-plan-during-game':''} ${plan?.variant==='anime'?'has-anime-plan':''}`}>
+    {mode === 'full' && room.phase === 'lobby' && <PrivateReview room={room}/>}
+    {mode === 'full' && !embedded && <div className="panel-heading"><div><p className="eyebrow">{room.phase==='playing'?'下一局 · 独立准备':'准备工作区'}</p><h2>{room.phase==='playing'?'下一局计划':'玩法与组牌'}</h2></div><button onClick={()=>setOpen(!open)}>{open?'收起准备':'查看准备'}</button></div>}
+    {!plan && !room.viewer?.isHost && <div className="plan-readonly"><strong>经典词牌 · {room.settings.boardMode}</strong><p>{room.wordPackSummary.name}</p><p className="hint-text">社长正在配置玩法。选择队伍与席位后，等待社长开局。</p></div>}
+    {plan && room.phase!=='playing' && <p className="hint-text">{plan.variant==='anime'?'动画组牌':'经典词牌'} · {plan.settings.boardMode} · {plan.poolName} · {TEAM_LABELS[plan.startingTeam]}先手</p>}
+    {open && (!embedded && room.phase==='playing'?<Dialog title="下一局计划" close={()=>setOpen(false)} wide>{content}</Dialog>:content)}
+    {overlay}
   </section>;
 }

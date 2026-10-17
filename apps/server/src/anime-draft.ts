@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { BOARD_MODE_CONFIG, draftQuota, type AnimeWork, type Card, type NextPlan, type PlanAction, type Room, type Team } from '@acg-codenames/shared';
+import { BOARD_MODE_CONFIG, animeWorkKey, draftQuota, type AnimeWork, type Card, type NextPlan, type PlanAction, type Room, type Team } from '@acg-codenames/shared';
 
 const other = (team: Team): Team => team === 'red' ? 'blue' : 'red';
 export function shuffled<T>(items: readonly T[], random = Math.random): T[] {
@@ -38,7 +38,7 @@ export function sealDraft(plan: NextPlan, history: Record<string, number> = {}, 
   const add = (work: AnimeWork, role: Card['role']) => {
     if (used.has(work.seriesId)) throw new Error('作品系列重复，无法封存');
     used.add(work.seriesId);
-    cards.push({ id: crypto.randomUUID(), wordId: `bgm:${work.id}`, word: work.title, anime: work, role, revealed: false });
+    cards.push({ id: crypto.randomUUID(), wordId: animeWorkKey(work), word: work.title, anime: work, role, revealed: false });
   };
   for (const [id, claim] of Object.entries(plan.claims)) {
     const work = candidates.get(Number(id));

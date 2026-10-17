@@ -2,8 +2,12 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+const animeCommunityEnabled = process.env.ENABLE_ANIME_COMMUNITY === '1';
 export const env = {
-  enableAnimeCommunity: process.env.ENABLE_ANIME_COMMUNITY === '1',
+  enableAnimeCommunity: animeCommunityEnabled,
+  enableAnimeManual: process.env.ENABLE_ANIME_MANUAL === undefined ? animeCommunityEnabled : process.env.ENABLE_ANIME_MANUAL === '1',
+  manualWorkStoreFile: process.env.MANUAL_WORK_STORE_FILE ?? 'apps/server/data/manual-works.json',
+  animeCoverDir: process.env.ANIME_COVER_DIR ?? 'apps/server/data/anime-covers',
   animePoolStoreFile: process.env.ANIME_POOL_STORE_FILE ?? 'apps/server/data/anime-pools.json',
   animeImportFile: process.env.ANIME_IMPORT_FILE ?? 'apps/server/data/anime-imports.json',
   animePoolAdminKey: process.env.ANIME_POOL_ADMIN_KEY ?? '',

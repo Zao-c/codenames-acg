@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { fetchReplay } from "../lib/api";
 import { copyText } from "../lib/clipboard";
 import { TEAM_LABELS, type GameReplay, type Team } from "@acg-codenames/shared";
+import { Cover } from "../components/AnimeBoard";
 
 function ReplayBoard({ finalBoard,selected,focused }: { finalBoard: GameReplay["finalBoard"];selected:Set<string>|null;focused:string|null }) {
   return (
@@ -12,6 +13,7 @@ function ReplayBoard({ finalBoard,selected,focused }: { finalBoard: GameReplay["
           key={card.id} id={`replay-card-${card.id}`} title={card.word} tabIndex={-1} data-card-id={card.id}
           className={`replay-board-card replay-card-role-${card.role}${card.revealed ? "" : " replay-card-unrevealed"} ${selected?(selected.has(card.id)?"round-highlight":"round-dimmed"):""} ${focused===card.id?"card-focused":""}`}
         >
+          {card.anime && <span className="replay-board-cover"><Cover work={card.anime}/></span>}
           <span className="replay-board-word">{card.word}</span>
           {card.revealed && card.guessedByNickname ? (
             <span className="replay-board-guesser">{card.guessedByNickname}</span>

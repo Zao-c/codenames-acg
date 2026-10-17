@@ -17,6 +17,37 @@ import { PrivateReview } from '../components/PrivateReview';
 
 import { RevealGuessRoom } from "../components/reveal-guess/RevealGuessRoom";
 
+function useNow(interval = 1000) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), interval); return () => window.clearInterval(timer); }, [interval]);
+  return now;
+}
+
+function RoomStabilityBanner() {
+  const g = useGame();
+  const room = g.room;
+  const now = useNow(1000);
+  if (!room) return null;
+  const takeover = room.hostTakeover;
+  const offlineSeconds = room.hostOfflineSince ? Math.max(0, Math.floor(((room.serverNow - room.hostOfflineSince) + (now - Date.now())) / 1000)) : null;
+  const graceRemaining = room.hostTakeoverAvailableAt ? Math.max(0, Math.ceil((room.hostTakeoverAvailableAt - room.serverNow - (now - Date.now())) / 1000)) : 0;
+  const canRequest = !room.hostOnline && room.viewer?.participantType === 'player' && !takeover && graceRemaining <= 0;
+  return <>
+    {g.lostRoom && <div className="stability-banner danger" role="alert"><strong>房间已断开</strong><p>{g.lostRoom.message}</p><button onClick={() => { g.setError(''); location.assign('/'); }}>返回大厅</button></div>}
+    {g.joinError && <div className="stability-banner" role="status"><strong>入房未完成</strong><p>{g.joinError}</p></div>}
+    {!room.hostOnline && <div className="stability-banner" role="status">
+      <strong>社长当前离线</strong>
+      <p>{offlineSeconds !== null ? `已离线约 ${offlineSeconds} 秒。` : ''}{graceRemaining > 0 ? `安全接任宽限期还有 ${graceRemaining} 秒。` : '宽限期已结束，在线正式玩家可以发起接任；接任只移交房间管理权，不会获得队长秘密或私人图谱。'}</p>
+      {takeover ? <div className="stability-actions">
+        <span>{takeover.candidateNickname} 申请接任 · 已确认 {takeover.approvals}/{takeover.required}{takeover.rejections ? ` · 反对 ${takeover.rejections}` : ''}</span>
+        {takeover.canApprove && <><button className="primary-button" onClick={() => g.hostTakeover('approve')}>同意接任</button><button onClick={() => g.hostTakeover('reject')}>拒绝</button></>}
+        {takeover.candidateId === room.viewer?.participantId && <button onClick={() => g.hostTakeover('cancel')}>撤回请求</button>}
+      </div> : canRequest ? <div className="stability-actions"><button className="primary-button" onClick={() => g.hostTakeover('request')}>发起社长接任</button><span className="hint-text">需其他在线正式玩家多数确认；仅你一人在线时宽限期后直接接任。</span></div> : null}
+    </div>}
+    {g.actionStatus && <p className="stability-status" role="status">{g.actionStatus}</p>}
+  </>;
+}
+
 export function RoomPage() {
   const { roomId } = useParams<{ roomId: string }>();
   const g = useGame();
@@ -95,6 +126,7 @@ export function RoomPage() {
         <div className="panel-heading">
           <h2>{connectionState === "connecting" ? "正在连接房间..." : "等待进入房间"}</h2>
         </div>
+        {g.lostRoom ? <p className="error-text" role="alert">{g.lostRoom.message}</p> : null}
         {error ? <p className="error-text">{error}</p> : null}
         <button className="primary-button" onClick={navigateHome}>返回首页</button>
       </section>
@@ -105,8 +137,8 @@ export function RoomPage() {
     return <RevealGuessRoom />;
   }
 
-  if (isLobby && room.nextPlan?.stage !== 'draft') return <PreparationLobby room={room}/>;
-  if(isLobby&&room.nextPlan?.stage==='draft')return <section className={`room-layout room-layout-lobby room-preparing-anime draft-room-shell mobile-view-${g.mobileRoomTab}`}><header className="room-bar"><div><strong className="room-code">{room.id}</strong><p className="hint-text">动画组牌 · {room.nextPlan.settings.boardMode}</p></div><div className="bar-actions"><button onClick={()=>void copyLink()}>{copied?'已复制':'邀请好友'}</button>{viewer?.isHost&&<MatchManagement/>}</div></header><NextMatchPanel room={room}/><aside className="lobby-people"><CompactMembers room={room}/></aside><aside className="room-right-col lobby-chat"><SideTabPanel g={g} room={room} session={session}/></aside>{error&&<p className="error-text" role="alert">{error}</p>}</section>;
+  if (isLobby && room.nextPlan?.stage !== 'draft') return <><RoomStabilityBanner/><PreparationLobby room={room}/></>;
+  if(isLobby&&room.nextPlan?.stage==='draft')return <section className={`room-layout room-layout-lobby room-preparing-anime draft-room-shell mobile-view-${g.mobileRoomTab}`}><RoomStabilityBanner/><header className="room-bar"><div><strong className="room-code">{room.id}</strong><p className="hint-text">动画组牌 · {room.nextPlan.settings.boardMode}</p></div><div className="bar-actions"><button onClick={()=>void copyLink()}>{copied?'已复制':'邀请好友'}</button>{viewer?.isHost&&<MatchManagement/>}</div></header><NextMatchPanel room={room}/><aside className="lobby-people"><CompactMembers room={room}/></aside><aside className="room-right-col lobby-chat"><SideTabPanel g={g} room={room} session={session}/></aside>{error&&<p className="error-text" role="alert">{error}</p>}</section>;
 
   if(isFinished)return <MatchResult room={room}/>;
 
@@ -125,6 +157,7 @@ export function RoomPage() {
       {showDanmaku ? <DanmakuLayer items={danmakuQueue} /> : null}
       {highlightToast ? <RoundHighlightToast highlight={highlightToast} /> : null}
       {achievementToast ? <AchievementToast achievement={achievementToast} /> : null}
+      <RoomStabilityBanner />
 
       {focusMode ? (
         <FocusBar room={room} viewer={viewer} onExitFocus={exitFocusMode} g={g} />

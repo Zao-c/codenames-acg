@@ -192,6 +192,23 @@ export function sanitizeRoom(room: Room, viewer: ViewerIdentity = {}): PublicRoo
   const captainClaims = myTeam && plan && plan.stage !== 'sealed'
     ? plan.claims
     : undefined;
+  const host = room.players.find(p => p.id === room.hostPlayerId);
+  const onlinePlayers = room.players.filter(p => !p.isBot && p.connected);
+  const takeover = room.hostTakeover;
+  const eligibleVoters = onlinePlayers.filter(p => p.id !== room.hostPlayerId && p.id !== takeover?.candidateId);
+  const required = eligibleVoters.length ? Math.floor(eligibleVoters.length / 2) + 1 : 0;
+  const publicHostTakeover = takeover ? {
+    candidateId: takeover.candidateId,
+    candidateNickname: room.players.find(p => p.id === takeover.candidateId)?.nickname ?? '成员',
+    requestedAt: takeover.requestedAt,
+    approvals: takeover.approvals.length,
+    rejections: takeover.rejections.length,
+    required,
+    voters: takeover.approvals,
+    eligibleVoters: eligibleVoters.map(p => p.id),
+    canApprove: viewer.participantType === 'player' && !!viewer.participantId && eligibleVoters.some(p => p.id === viewer.participantId) && !takeover.approvals.includes(viewer.participantId) && !takeover.rejections.includes(viewer.participantId),
+    expiresAt: takeover.requestedAt + 120_000
+  } : undefined;
   const nextPlan = plan ? {
     id: plan.id, version: plan.version, variant: plan.variant, settings: plan.settings,
     wordPackName: plan.wordPack.name, poolName: plan.poolName, sourcePool: plan.sourcePool, poolIds: plan.pool.map(w => w.id), candidates: plan.candidates,
@@ -205,6 +222,9 @@ export function sanitizeRoom(room: Room, viewer: ViewerIdentity = {}): PublicRoo
     animeEnabled: room.animeEnabled,
     analysis: analysisPermissions(room, viewer),
     nextPlan,
+    hostOnline: host ? host.connected !== false : false,
+    hostOfflineSince: room.hostOfflineSince,
+    hostTakeover: publicHostTakeover,
     interferenceReview: room.endReason === "normal" && room.phase === "finished" && room.draftReview && room.draftReview.matchId === room.matchId && room.draftReview.participantIds.includes(viewer.participantId ?? "") ? room.draftReview.interference : undefined,
     matchId: room.matchId,
     gameStartedAt: room.gameStartedAt,

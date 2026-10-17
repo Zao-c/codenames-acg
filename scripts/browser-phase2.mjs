@@ -9,10 +9,12 @@ const base = process.env.PLAYTEST_BASE_URL ?? 'http://127.0.0.1:5187';
 const api = process.env.PLAYTEST_API_URL ?? 'http://127.0.0.1:3032';
 const artifacts = path.resolve('output/playwright/phase2'); await fs.mkdir(artifacts, { recursive: true });
 let browser;
-for (const channel of ['msedge', 'chrome', undefined]) { try { browser = await chromium.launch({ channel, headless: true }); break; } catch {} }
+for (const channel of ['chromium', 'msedge', 'chrome', undefined]) { try { browser = await chromium.launch({ channel, headless: true }); break; } catch {} }
 if (!browser) throw new Error('No local browser available');
 const pages = [], states = [], keys = [], errors = [], checks = [];
 const button = (page, name) => page.getByRole('button', { name, exact: true });
+const openPoolMenu=async card=>{const more=card.locator('.pool-more');if(!(await more.evaluate(el=>el.open)))await more.locator('summary').click();};
+const poolAction=async(card,label)=>{await openPoolMenu(card);await button(card,label).click();};
 const until = async (condition, label) => { for (let i = 0; i < 150; i++) { if (condition()) return; await new Promise(r => setTimeout(r, 100)); } throw new Error(`Timed out: ${label}`); };
 const visible = locator => locator.waitFor({ state: 'visible', timeout: 20_000 });
 async function request(route, i = 0, method = 'GET', body, admin = false) {
@@ -44,7 +46,7 @@ try {
     await page.goto(base);
   }
   const host = pages[0];
-  await host.goto(`${base}/anime-pools`); await visible(host.locator('.anime-discovery'));
+  await host.goto(`${base}/anime-pools`); await button(host,'动画发现与手动新增').click(); await visible(host.locator('.anime-discovery'));
   let dialog = host.locator('.anime-discovery'); await visible(dialog);
   await dialog.getByLabel('作品池名称', { exact: true }).fill('浏览器私人草稿');
   await dialog.locator('.discovery-poster-actions button').first().click();
@@ -56,20 +58,20 @@ try {
   assert.equal(created.status, 201); const poolId = created.data.id;
   await button(host, '公开广场').click(); await visible(host.getByRole('heading', { name: '二批社区联机池' }));
   const card = host.locator('.community-pool-card').filter({ has: host.getByRole('heading', { name: '二批社区联机池' }) });
-  await button(card, '收藏').click(); await visible(button(card, '取消收藏')); await button(card, '复制到我的作品池').click();
+  await poolAction(card, '收藏'); await openPoolMenu(card); await visible(button(card, '取消收藏')); await openPoolMenu(card); await poolAction(card, '复制到我的作品池');
   await button(host, '我的收藏').click(); await visible(host.getByRole('heading', { name: '二批社区联机池' }));
   await shot(host, '01-community-desktop');
   await pages[3].goto(`${base}/anime-pools`);await button(pages[3], '公开广场').click(); await visible(pages[3].getByRole('heading', { name: '二批社区联机池' })); await pages[3].setViewportSize({ width: 360, height: 780 });
   await theme(pages[3],true); await shot(pages[3], '02-community-mobile-light');
-  await button(card, '举报').click(); dialog = host.getByRole('dialog', { name: '举报作品池' }); await dialog.getByLabel('举报原因').fill('验收举报与管理员隐藏'); await button(dialog, '提交举报').click();
-  await button(host, '社区管理').click(); dialog = host.getByRole('dialog', { name: '作品池社区管理' });
+  await poolAction(card, '举报'); dialog = host.getByRole('dialog', { name: '举报作品池' }); await dialog.getByLabel('举报原因').fill('验收举报与管理员隐藏'); await button(dialog, '提交举报').click();
+  await host.goto(`${base}/anime-pools?admin=1`);await visible(host.locator('.community-pool-card').first());await button(host, '社区管理').click(); dialog = host.getByRole('dialog', { name: '作品池社区管理' });
   await dialog.getByLabel('管理员凭证').fill(process.env.PLAYTEST_ADMIN_KEY); await button(dialog, '读取待处理举报').click();
   await visible(dialog.locator('summary').filter({ hasText: '二批社区联机池' })); await dialog.locator('summary').filter({ hasText: '二批社区联机池' }).click(); await button(dialog, '处理此作品池').click(); await dialog.getByLabel('处理理由').fill('本地验收隐藏'); await button(dialog, '保存处理结果').click();
   await visible(dialog.locator('summary').filter({ hasText: /二批社区联机池.*已隐藏/ })); await button(host, '关闭作品池社区管理').click();
   const hidden = await request(`/api/anime-pools/${poolId}`, 0); assert.equal(hidden.status, 404);
   await request(`/api/anime-pools/${poolId}/moderation`, 0, 'PUT', { hidden: false, reason: '本地验收恢复' }, true);
   checks.push('community UI create, private identity, copy, favorite, mobile theme, report and administrator hide/restore');
-  await host.reload(); await button(host, '公开广场').click(); await visible(host.getByRole('heading', { name: '二批社区联机池' })); await button(card, '查看作品').click();
+  await host.reload(); await button(host, '公开广场').click(); await visible(host.getByRole('heading', { name: '二批社区联机池' })); await button(card, '查看作品池').click();
   await button(host.getByRole('dialog'), '带回房间选择').click();
   await host.goto(base); await button(host,'＋ 创建房间').click(); await button(host.getByRole('dialog'),'创建房间 →').click(); await visible(host.locator('.room-code').first());
   const roomId = await host.locator('.room-code').first().innerText();

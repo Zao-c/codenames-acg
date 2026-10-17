@@ -18,6 +18,7 @@ import {
   type UserProfile,
   type UserStats
 } from "@acg-codenames/shared";
+import { isTitleUnlocked } from '@acg-codenames/shared';
 import type { UserStore } from "./types.js";
 
 interface UserDatabase {
@@ -100,6 +101,13 @@ function normalizeWordPack(pack: SavedWordPack): SavedWordPack {
     createdAt: typeof pack.createdAt === "number" ? pack.createdAt : timestamp,
     updatedAt: timestamp
   };
+}
+
+function normalizeTitle(value: unknown, stats: UserStats): string | null {
+  if (value === null || value === undefined || value === '') return null;
+  if (typeof value !== 'string' || value.length > 24) throw new Error('称号格式无效');
+  if (!isTitleUnlocked(stats, value)) throw new Error('该称号尚未解锁，不能佩戴');
+  return value;
 }
 
 function emptyStats(): UserStats {
@@ -211,6 +219,7 @@ export class JsonUserStore implements UserStore {
     const updated: NamedUserAccount = {
       ...current,
       avatarUrl: payload.avatarUrl === undefined ? current.avatarUrl : normalizeAvatarUrl(payload.avatarUrl),
+      title: payload.title === undefined ? current.title ?? null : normalizeTitle(payload.title, current.stats),
       customWordPacks: normalizeSavedPacks(payload.customWordPacks) ?? current.customWordPacks,
       customImagePacks: normalizeSavedImagePacks(payload.customImagePacks) ?? current.customImagePacks,
       updatedAt: now()

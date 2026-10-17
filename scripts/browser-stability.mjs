@@ -6,7 +6,7 @@ import { chromium } from 'playwright';
 
 const base=process.env.PLAYTEST_BASE_URL??'http://127.0.0.1:5207';
 const out=path.resolve('output/playwright/issue9');await fs.mkdir(out,{recursive:true});
-let browser;for(const channel of ['msedge','chrome',undefined]){try{browser=await chromium.launch({channel,headless:true});break;}catch{}}
+let browser;for(const channel of ['chromium','msedge','chrome',undefined]){try{browser=await chromium.launch({channel,headless:true});break;}catch{}}
 if(!browser)throw new Error('No browser');
 const pages=[],states=[],errors=[],wsReady=[],checks=[],names=Array.from({length:7},(_,i)=>`修复验收${Date.now().toString().slice(-5)}${i}`);
 const button=(p,name)=>p.getByRole('button',{name,exact:true});

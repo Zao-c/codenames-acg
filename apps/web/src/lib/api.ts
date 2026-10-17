@@ -5,7 +5,23 @@ import { privateIdentityKey } from './private-identity';
 import type { CommunityPool, CommunityPoolInput, CommunityPoolPage, PoolModerationItem, AnimeWork } from '@acg-codenames/shared';
 
 export function getFeatures(): Promise<{ animeCommunity: boolean }> { return request('/api/features'); }
-export function getAnimeCatalog(): Promise<{ works: AnimeWork[] }> { return request('/api/anime/catalog'); }
+export function getAnimeCatalog(): Promise<{ works: AnimeWork[]; pools?: import('@acg-codenames/shared').AnimePool[] }> { return request('/api/anime/catalog', { headers: communityHeaders() }); }
+export function listManualWorks(scope: 'mine'|'public' = 'mine', q = '', page = 1): Promise<import('@acg-codenames/shared').ManualAnimePage> {
+  return request(`/api/anime/manual?${new URLSearchParams({ scope, q, page: String(page) })}`, { headers: communityHeaders() });
+}
+export function createManualWork(input: import('@acg-codenames/shared').ManualAnimeInput): Promise<AnimeWork> {
+  return request('/api/anime/manual', { method: 'POST', headers: communityHeaders(), body: JSON.stringify(input) }, 30000);
+}
+export function updateManualWork(id: number, input: import('@acg-codenames/shared').ManualAnimeInput): Promise<AnimeWork> {
+  return request(`/api/anime/manual/${id}`, { method: 'PUT', headers: communityHeaders(), body: JSON.stringify(input) }, 30000);
+}
+export function deleteManualWork(id: number): Promise<{ ok: boolean }> {
+  return request(`/api/anime/manual/${id}`, { method: 'DELETE', headers: communityHeaders() });
+}
+export function resolveAnimeAssetUrl(src: string): string {
+  if (!src || /^https?:|^data:|^blob:/.test(src)) return src;
+  return `${API_BASE}${src}`;
+}
 export function discoverAnime(query:import('@acg-codenames/shared').AnimeDiscoveryQuery):Promise<import('@acg-codenames/shared').AnimeDiscoveryResult>{return request('/api/anime/discovery/search',{method:'POST',headers:communityHeaders(),body:JSON.stringify(query)},30000);}
 export function importAnime(input:string):Promise<AnimeWork>{return request('/api/anime/discovery/import',{method:'POST',headers:communityHeaders(),body:JSON.stringify({input})},30000);}
 const communityHeaders = () => ({ 'content-type': 'application/json', 'x-private-key': privateIdentityKey() });
