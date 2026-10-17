@@ -63,12 +63,12 @@ try {
   assert.equal(next.stage,'draft'); assert.equal(next.endsAt,clock+180000);
   await assert.rejects(game.joinRoom(room.id,'late'));
   const {spectator} = await game.joinSpectator(room.id,'watch');
-  const beforePublic = game.getPublicRoomState(await current(),spectator.id,'spectator').nextPlan;
   const contested = next.candidates[0].id;
   const results = await Promise.allSettled([act(1,{kind:'take',workId:contested}),act(2,{kind:'take',workId:contested})]);
   assert.equal(results.filter(r=>r.status==='fulfilled').length,1);
-  assert.deepEqual(game.getPublicRoomState(await current(),spectator.id,'spectator').nextPlan,beforePublic);
-  assert.equal(game.getPublicRoomState(await current(),spectator.id,'spectator').nextPlan?.captainView,undefined);
+  const afterClaim = game.getPublicRoomState(await current(),spectator.id,'spectator').nextPlan;
+  assert.equal(afterClaim?.captainView,undefined);
+  assert.deepEqual(afterClaim?.publicSelectedWorkIds,[contested]);
   clock+=9999; await assert.rejects(act(2,{kind:'take',workId:contested}),/保护/);
   clock+=1; await act(2,{kind:'take',workId:contested});
   const w = next.candidates[1].id;
@@ -90,7 +90,9 @@ try {
     assert.equal(Object.values(victim.claims).filter(c => c.team === 'blue' && c.kind === 'manual').length,
       Object.values((await current()).nextPlan!.claims).filter(c => c.team === 'blue' && c.kind === 'manual').length);
     assert.equal(game.getPublicRoomState(await current(), players[3].id, 'player').nextPlan!.captainView, undefined);
-    assert.deepEqual(game.getPublicRoomState(await current(), spectator.id, 'spectator').nextPlan, beforePublic);
+    const neutral = game.getPublicRoomState(await current(), spectator.id, 'spectator').nextPlan!;
+    assert.equal(neutral.captainView, undefined);
+    assert.deepEqual(neutral.publicSelectedWorkIds, [contested, w].sort((a, b) => a - b));
     assert.equal(source.claims[interfered].kind,'interference');
     assert.equal(source.claims[interfered].from,'red');
   }
