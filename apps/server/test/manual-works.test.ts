@@ -50,8 +50,8 @@ const manual = new ManualWorkStore(path.join(directory, 'manual.json'), path.joi
 await manual.initialize();
 registerManualCatalog((principal, extraIds) => manual.worksForSync(principal, extraIds));
 const pools = new AnimePoolStore(path.join(directory, 'pools.json'), (principal?: string) => animeCatalogFor(principal), {
-  canUseWork: (principal, id) => manual.canUseSync(principal, id),
-  onPublish: ids => manual.markPublished(ids),
+  canUseWork: (principal, id, allowExisting) => manual.canUseSync(principal, id, allowExisting),
+  onPublicationChange: ids => manual.syncPublication(ids),
 });
 const ownerKey = 'c'.repeat(64), otherKey = 'd'.repeat(64);
 const owner = principalFromKey(ownerKey), other = principalFromKey(otherKey);

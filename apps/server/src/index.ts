@@ -21,6 +21,7 @@ import {
   type ParticipantType,
   type PlayerRole,
   sanitizeRoundHighlightsForPhase,
+  roomTurnKey,
   type ServerToClientEvents,
   type Team,
   type UpdateNamedUserPayload,
@@ -321,14 +322,17 @@ async function bootstrap(): Promise<void> {
   const manualWorks = new ManualWorkStore(env.manualWorkStoreFile, env.animeCoverDir);
   await manualWorks.initialize();
   registerManualCatalog((principal, extraIds) => manualWorks.worksForSync(principal, extraIds));
-  const communityPools = new AnimePoolStore(env.animePoolStoreFile, (principal?: string) => animeCatalogFor(principal), {
-    canUseWork: (principal, workId) => manualWorks.canUseSync(principal, workId),
-    onPublish: ids => manualWorks.markPublished(ids),
+  const communityPools = new AnimePoolStore(env.animePoolStoreFile, (principal?: string, extraIds: number[] = []) => animeCatalogFor(principal, extraIds), {
+    canUseWork: (principal, workId, allowExisting) => manualWorks.canUseSync(principal, workId, allowExisting),
+    onPublicationChange: ids => manualWorks.syncPublication(ids),
   });
+  try { await manualWorks.syncPublication(await communityPools.publicWorkIds()); }
+  catch (error) { console.error('Failed to restore manual work publication state', error); }
   const bangumi=new BangumiAdapter();
   const revealImages = new RevealImageAssetStore(env.revealImageDir);
   await revealImages.ensureReady();
-  const game = new GameService(store, users, { enableDebugTools: env.enableDebugTools, enableAnimeDraft: env.enableAnimeDraft, enableMatchAnalysis: env.enableMatchAnalysis, enablePredictions: env.enablePredictions, resolveCommunityPool: (id, principal) => communityPools.get(id, principal), resolveManualWorks: ids => manualWorks.resolveIds(ids) }, store);
+  const optionalMs = (value: string | undefined) => { const n = Number(value); return Number.isFinite(n) && n >= 0 ? n : undefined; };
+  const game = new GameService(store, users, { enableDebugTools: env.enableDebugTools, disconnectKickDelayMs: optionalMs(process.env.DISCONNECT_KICK_DELAY_MS), hostTakeoverGraceMs: optionalMs(process.env.HOST_TAKEOVER_GRACE_MS), enableAnimeDraft: env.enableAnimeDraft, enableMatchAnalysis: env.enableMatchAnalysis, enablePredictions: env.enablePredictions, resolveCommunityPool: (id, principal) => communityPools.get(id, principal), resolveManualWorks: ids => manualWorks.resolveIds(ids) }, store);
   const privatePrincipal = (body: PayloadRecord) => body.identityKey !== undefined || env.enableMatchAnalysis ? principalFromKey(body.identityKey) : undefined;
   const app = express();
   const httpServer = createServer(app);
@@ -345,6 +349,14 @@ async function bootstrap(): Promise<void> {
   });
 
   const socketSessions = new Map<string, { roomId: string; participantId: string; participantType: ParticipantType }>();
+  // Test-only fault injection for create-room atomicity; never enabled in production.
+  let createdRoomCount = 0;
+  const failCreateAfter = Number(process.env.SIMULATE_CREATE_FAILURE_AFTER);
+  function maybeFailCreate(): void {
+    if (!Number.isFinite(failCreateAfter) || failCreateAfter < 0) return;
+    if (createdRoomCount >= failCreateAfter) throw new Error('模拟创建房间失败，请稍后重试');
+    createdRoomCount += 1;
+  }
 
   app.use(cors({ origin: allowedOrigins, credentials: true }));
   app.use(helmet());
@@ -398,9 +410,9 @@ async function bootstrap(): Promise<void> {
         const owner=principalFromKey(req.header('x-private-key'));
         const q=typeof req.body?.q==='string'?req.body.q.slice(0,100):'';
         const offset=Number.isSafeInteger(req.body?.offset)&&req.body.offset>0?req.body.offset:0;
-        const [mine,published]=await Promise.all([manualWorks.listMine(owner,q,1),manualWorks.listPublished(q,1)]);
-        const works=[...new Map([...mine.items,...published.items].map(w=>[w.id,w])).values()];
-        res.json({works,total:works.length,nextOffset:null,source:'manual',notice:'自建作品：同名作品会按稳定 ID 去重；可继续在 Bangumi 或缓存结果中加入其他作品，混合保存到同一作品池。',updatedAt:Date.now(),missingMetadata:works.filter(w=>!w.cover).length,offset});
+        const page=Math.floor(offset/24)+1;
+        const mine=await manualWorks.listMine(owner,q,page);
+        res.json({works:mine.items,total:mine.total,nextOffset:mine.nextOffset,source:'manual',notice:'自建作品：可继续加载更多；Bangumi 未收录的作品也能与 Bangumi 作品混合保存到同一作品池。',updatedAt:Date.now(),missingMetadata:mine.items.filter(w=>!w.cover).length});
         return;
       }
       res.json(action==='search'?await bangumi.discover(req.body):await bangumi.import(req.body?.input));
@@ -409,12 +421,14 @@ async function bootstrap(): Promise<void> {
   });
   const metadataLimiter = rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: true, legacyHeaders: false, message: { message: '目录读取太频繁，请稍后重试' } });
   app.get('/api/features', metadataLimiter, (_req, res) => { res.setHeader('Cache-Control', 'no-store'); res.json({ animeCommunity: env.enableAnimeCommunity }); });
-  app.get('/api/anime/catalog', metadataLimiter, (req, res) => {
+  app.get('/api/anime/catalog', metadataLimiter, async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     const available = env.enableAnimeDraft || env.enableAnimeCommunity;
     let principalId: string | undefined;
     if (req.header('x-private-key')) { try { principalId = principalFromKey(req.header('x-private-key')); } catch { principalId = undefined; } }
-    res.json({ enabled: env.enableAnimeDraft, works: available ? animeCatalogFor(principalId) : [], pools: available ? animePools() : [] });
+    let extraIds: number[] = [];
+    if (principalId) { try { extraIds = await communityPools.workIdsForPrincipal(principalId); } catch { extraIds = []; } }
+    res.json({ enabled: env.enableAnimeDraft, works: available ? animeCatalogFor(principalId, extraIds) : [], pools: available ? animePools() : [] });
   });
   app.use("/api/", apiLimiter);
   app.use("/rooms", apiLimiter);
@@ -684,8 +698,8 @@ async function bootstrap(): Promise<void> {
     });
   }
 
-  function turnVersion(room: { roundNumber: number; currentTeam: string; clue: { id?: string } | null; board: Array<{ revealed: boolean }>; phase: string }): string {
-    return `${room.roundNumber}:${room.currentTeam}:${room.clue?.id ?? "none"}:${room.board.filter(card => card.revealed).length}:${room.phase}`;
+  function turnVersion(room: Parameters<typeof roomTurnKey>[0]): string {
+    return roomTurnKey(room);
   }
 
   async function resync(socket: Parameters<typeof io.on>[1] extends (socket: infer T) => void ? T : never): Promise<void> {
@@ -746,6 +760,7 @@ async function bootstrap(): Promise<void> {
 
     socket.on("create_room", async (payload) => {
       try {
+        maybeFailCreate();
         const body = asObject(payload);
         const nickname = requireString(body, "nickname");
         const profile = optionalProfile(body.profile);
@@ -758,7 +773,7 @@ async function bootstrap(): Promise<void> {
         socket.emit("room_state", game.getPublicRoomState(room, player.id, "player"));
         await broadcastRoomSummaries();
       } catch (error) {
-        fail(socket, error);
+        fail(socket, error, { code: 'CREATE_ROOM_FAILED', action: 'create_room' });
       }
     });
 
@@ -1265,6 +1280,7 @@ async function bootstrap(): Promise<void> {
 
     socket.on("create_reveal_guess_room", async (payload) => {
       try {
+        maybeFailCreate();
         const body = asObject(payload);
         const nickname = requireString(body, "nickname");
         const profile = optionalProfile(body.profile);
@@ -1298,7 +1314,7 @@ async function bootstrap(): Promise<void> {
         socket.emit("room_state", roomStatePayload);
         await broadcastRoomSummaries();
       } catch (error) {
-        fail(socket, error);
+        fail(socket, error, { code: 'CREATE_ROOM_FAILED', action: 'create_reveal_guess_room' });
       }
     });
 
