@@ -31,6 +31,7 @@ export function animePoolRouter(store: AnimePoolStore, options: { enabled: boole
   router.post('/', writeLimiter, route(async (req, res) => { writable(); res.status(201).json(await store.create(principal(req), req.body)); }));
   router.get('/:poolId', route(async (req, res) => { res.json(await store.get(String(req.params.poolId), optionalPrincipal(req))); }));
   router.put('/:poolId', writeLimiter, route(async (req, res) => { writable(); res.json(await store.update(String(req.params.poolId), principal(req), req.body)); }));
+  router.delete('/:poolId', writeLimiter, route(async (req, res) => { await store.delete(String(req.params.poolId), principal(req)); res.json({ ok: true }); }));
   router.post('/:poolId/copy', writeLimiter, route(async (req, res) => { writable(); res.status(201).json(await store.copy(String(req.params.poolId), principal(req))); }));
   router.put('/:poolId/favorite', writeLimiter, route(async (req, res) => { writable(); await store.favorite(String(req.params.poolId), principal(req), req.body?.value); res.json({ ok: true }); }));
   router.post('/:poolId/report', writeLimiter, route(async (req, res) => { await store.report(String(req.params.poolId), principal(req), req.body?.reason); res.json({ ok: true }); }));

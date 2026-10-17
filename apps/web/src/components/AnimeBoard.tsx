@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { BOARD_MODE_CONFIG, type AnimeWork, type PublicCard, type PublicRoomState } from '@acg-codenames/shared';
+import { BOARD_MODE_CONFIG, animeWorkLink, type AnimeWork, type PublicCard, type PublicRoomState } from '@acg-codenames/shared';
+import { resolveAnimeAssetUrl } from '../lib/api';
+
 import { useGame } from '../context/GameContext';
 import { Dialog } from './UI';
 import { AssociationBoard } from './AssociationBoard';
@@ -7,12 +9,12 @@ import { SpectatorPredictions } from './SpectatorPredictions';
 import { privateIdentityKey } from '../lib/private-identity';
 export function Cover({ work }: { work: AnimeWork }) {
   const [failed, setFailed] = useState(false);
-  return !failed && work.cover ? <img src={work.cover} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setFailed(true)} /> : <span className="anime-cover-fallback">{work.title}</span>;
+  return !failed && work.cover ? <img src={resolveAnimeAssetUrl(work.cover)} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setFailed(true)} /> : <span className="anime-cover-fallback">{work.title}</span>;
 }
 export function Preview({ work, close, children }: { work: AnimeWork; close: () => void; children?: React.ReactNode }) {
   return <Dialog title={work.fullTitle} close={close}><section className="anime-modal">
     <Cover work={work}/><h2>{work.fullTitle}</h2><p>{work.type} · {work.airDate}</p><p>{work.aliases.join(' / ')}</p>
-    <a className="anime-bgm-link" href={`https://bgm.tv/subject/${work.id}`} target="_blank" rel="noopener noreferrer">在 Bangumi 查看</a>{children}
+    {animeWorkLink(work) ? <a className="anime-bgm-link" href={animeWorkLink(work)!} target="_blank" rel="noopener noreferrer">在 Bangumi 查看</a> : <p className="anime-bgm-link manual-source">自建作品 · 封面与元数据由创建者提供</p>}{children}
   </section></Dialog>;
 }
 

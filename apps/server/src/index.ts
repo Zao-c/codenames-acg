@@ -1,4 +1,5 @@
-import { animeCatalog, animePools } from "./anime-catalog.js";
+import { animeCatalogFor, animePools, initializeAnimeCatalog, registerManualCatalog } from "./anime-catalog.js";
+import { BangumiAdapter } from './bangumi.js';
 import cors from "cors";
 import crypto from "node:crypto";
 import express from "express";
@@ -33,8 +34,10 @@ import { REPLAY_TTL_SECONDS, createRoomStore } from "./store.js";
 import type { ReplayStore } from "./types.js";
 import { JsonUserStore } from "./user-store.js";
 import { principalFromKey } from './private-identity.js';
-import { AnimePoolStore } from './anime-pool-store.js';
+import { AnimePoolStore, CommunityError } from './anime-pool-store.js';
 import { animePoolRouter } from './anime-pools.js';
+import { ManualWorkStore } from './manual-works.js';
+import { manualCoverRouter, manualWorkRouter } from './manual-works-api.js';
 
 type PayloadRecord = Record<string, unknown>;
 
@@ -249,6 +252,10 @@ function parseUpdateNamedUserPayload(value: unknown): UpdateNamedUserPayload {
     }
     parsed.avatarUrl = body.avatarUrl;
   }
+  if (body.title !== undefined) {
+    if (body.title !== null && (typeof body.title !== 'string' || body.title.length > 24)) throw new Error("title 参数无效");
+    parsed.title = body.title as string | null;
+  }
   if (body.customWordPacks !== undefined) {
     if (!Array.isArray(body.customWordPacks)) {
       throw new Error("customWordPacks 参数无效");
@@ -300,13 +307,28 @@ function optionalBoolean(value: unknown): boolean | undefined {
   return Boolean(value);
 }
 
+function acknowledge(reply: unknown, result: import('@acg-codenames/shared').ActionReply): void { if (typeof reply === 'function') reply(result); }
+
 async function bootstrap(): Promise<void> {
+  // dotenv can load an operator-provided proxy after Node initialized its default agent.
+  if(process.env.NODE_USE_ENV_PROXY==='1'){
+    const http=await import('node:http') as typeof import('node:http') & {setGlobalProxyFromEnv?:()=>void};
+    http.setGlobalProxyFromEnv?.();
+  }
+  await initializeAnimeCatalog(env.animeImportFile);
   const store = await createRoomStore(env.redisUrl, env.useMemoryStore);
   const users = new JsonUserStore(env.userStoreFile);
-  const communityPools = new AnimePoolStore(env.animePoolStoreFile, animeCatalog());
+  const manualWorks = new ManualWorkStore(env.manualWorkStoreFile, env.animeCoverDir);
+  await manualWorks.initialize();
+  registerManualCatalog((principal, extraIds) => manualWorks.worksForSync(principal, extraIds));
+  const communityPools = new AnimePoolStore(env.animePoolStoreFile, (principal?: string) => animeCatalogFor(principal), {
+    canUseWork: (principal, workId) => manualWorks.canUseSync(principal, workId),
+    onPublish: ids => manualWorks.markPublished(ids),
+  });
+  const bangumi=new BangumiAdapter();
   const revealImages = new RevealImageAssetStore(env.revealImageDir);
   await revealImages.ensureReady();
-  const game = new GameService(store, users, { enableDebugTools: env.enableDebugTools, enableAnimeDraft: env.enableAnimeDraft, enableMatchAnalysis: env.enableMatchAnalysis, enablePredictions: env.enablePredictions, resolveCommunityPool: (id, principal) => communityPools.get(id, principal) }, store);
+  const game = new GameService(store, users, { enableDebugTools: env.enableDebugTools, enableAnimeDraft: env.enableAnimeDraft, enableMatchAnalysis: env.enableMatchAnalysis, enablePredictions: env.enablePredictions, resolveCommunityPool: (id, principal) => communityPools.get(id, principal), resolveManualWorks: ids => manualWorks.resolveIds(ids) }, store);
   const privatePrincipal = (body: PayloadRecord) => body.identityKey !== undefined || env.enableMatchAnalysis ? principalFromKey(body.identityKey) : undefined;
   const app = express();
   const httpServer = createServer(app);
@@ -364,12 +386,35 @@ async function bootstrap(): Promise<void> {
   }
 
   app.use('/api/anime-pools', animePoolRouter(communityPools, { enabled: env.enableAnimeCommunity, adminKey: env.animePoolAdminKey }));
+  app.use('/api/anime/manual', manualWorkRouter(manualWorks, { enabled: env.enableAnimeManual }));
+  app.use('/api/anime/covers', manualCoverRouter(manualWorks));
+  const discoveryLimiter=rateLimit({windowMs:60000,limit:30,standardHeaders:true,legacyHeaders:false,message:{message:'搜索或导入过于频繁，请稍后重试'}});
+  for(const action of ['search','import'] as const)app.post(`/api/anime/discovery/${action}`,discoveryLimiter,async(req,res)=>{
+    res.setHeader('Cache-Control','no-store');
+    try{
+      if(!env.enableAnimeCommunity)throw new CommunityError('动画发现暂未开放',503);
+      principalFromKey(req.header('x-private-key'));
+      if(action==='search'&&req.body?.source==='manual'){
+        const owner=principalFromKey(req.header('x-private-key'));
+        const q=typeof req.body?.q==='string'?req.body.q.slice(0,100):'';
+        const offset=Number.isSafeInteger(req.body?.offset)&&req.body.offset>0?req.body.offset:0;
+        const [mine,published]=await Promise.all([manualWorks.listMine(owner,q,1),manualWorks.listPublished(q,1)]);
+        const works=[...new Map([...mine.items,...published.items].map(w=>[w.id,w])).values()];
+        res.json({works,total:works.length,nextOffset:null,source:'manual',notice:'自建作品：同名作品会按稳定 ID 去重；可继续在 Bangumi 或缓存结果中加入其他作品，混合保存到同一作品池。',updatedAt:Date.now(),missingMetadata:works.filter(w=>!w.cover).length,offset});
+        return;
+      }
+      res.json(action==='search'?await bangumi.discover(req.body):await bangumi.import(req.body?.input));
+    }
+    catch(error){res.status(error instanceof CommunityError?error.status:400).json({message:error instanceof Error?error.message:'动画发现未完成，请重试'});}
+  });
   const metadataLimiter = rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: true, legacyHeaders: false, message: { message: '目录读取太频繁，请稍后重试' } });
   app.get('/api/features', metadataLimiter, (_req, res) => { res.setHeader('Cache-Control', 'no-store'); res.json({ animeCommunity: env.enableAnimeCommunity }); });
-  app.get('/api/anime/catalog', metadataLimiter, (_req, res) => {
-    res.setHeader('Cache-Control', 'public, max-age=60');
+  app.get('/api/anime/catalog', metadataLimiter, (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
     const available = env.enableAnimeDraft || env.enableAnimeCommunity;
-    res.json({ enabled: env.enableAnimeDraft, works: available ? animeCatalog() : [], pools: available ? animePools() : [] });
+    let principalId: string | undefined;
+    if (req.header('x-private-key')) { try { principalId = principalFromKey(req.header('x-private-key')); } catch { principalId = undefined; } }
+    res.json({ enabled: env.enableAnimeDraft, works: available ? animeCatalogFor(principalId) : [], pools: available ? animePools() : [] });
   });
   app.use("/api/", apiLimiter);
   app.use("/rooms", apiLimiter);
@@ -377,7 +422,8 @@ async function bootstrap(): Promise<void> {
     "/api/reveal-images",
     express.static(revealImages.getStaticDir(), {
       immutable: true,
-      maxAge: "7d"
+      maxAge: "7d",
+      setHeaders: (res) => res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin')
     })
   );
 
@@ -629,10 +675,22 @@ async function bootstrap(): Promise<void> {
     });
   }
 
-  function fail(socket: Parameters<typeof io.on>[1] extends (socket: infer T) => void ? T : never, error: unknown): void {
+  function fail(socket: Parameters<typeof io.on>[1] extends (socket: infer T) => void ? T : never, error: unknown, context: { roomId?: string; code?: string; action?: string } = {}): void {
     socket.emit("error_message", {
-      message: error instanceof Error ? error.message : "请求失败"
+      message: error instanceof Error ? error.message : "请求失败",
+      ...(context.roomId ? { roomId: context.roomId } : {}),
+      ...(context.code ? { code: context.code } : {}),
+      ...(context.action ? { action: context.action } : {})
     });
+  }
+
+  function turnVersion(room: { roundNumber: number; currentTeam: string; clue: { id?: string } | null; board: Array<{ revealed: boolean }>; phase: string }): string {
+    return `${room.roundNumber}:${room.currentTeam}:${room.clue?.id ?? "none"}:${room.board.filter(card => card.revealed).length}:${room.phase}`;
+  }
+
+  async function resync(socket: Parameters<typeof io.on>[1] extends (socket: infer T) => void ? T : never): Promise<void> {
+    const bound = socketSessions.get(socket.id);
+    if (bound) await sendRoomState(bound.roomId);
   }
 
 
@@ -648,7 +706,7 @@ async function bootstrap(): Promise<void> {
       } catch (error) { fail(socket, error); }
     });
 
-    socket.on('analysis_action', async payload => {
+    socket.on('analysis_action', async (payload, reply) => {
       try {
         checkSocketRate(socket.id, 'analysis_action', 10, 1000);
         const roomId = requireRoomId(payload);
@@ -664,10 +722,11 @@ async function bootstrap(): Promise<void> {
           const analysis = game.getPublicRoomState(room, bound.participantId, bound.participantType).analysis;
           if (analysis && (sameParticipant || analysis.canReadTeamGraph)) client.emit('analysis_state', { roomId, analysis });
         }
-      } catch (error) { const bound=socketSessions.get(socket.id);if(bound)await sendRoomState(bound.roomId);fail(socket,error); }
+        acknowledge(reply, {ok:true});
+      } catch (error) { const bound=socketSessions.get(socket.id);if(bound)await sendRoomState(bound.roomId);acknowledge(reply, {ok:false,message:error instanceof Error?error.message:'图谱未保存'});fail(socket,error); }
     });
 
-    socket.on('plan_action', async payload => {
+    socket.on('plan_action', async (payload, reply) => {
       try {
         checkSocketRate(socket.id, 'plan_action', 30, 5_000);
         const body = asObject(payload);
@@ -677,7 +736,8 @@ async function bootstrap(): Promise<void> {
         if (typeof body.kind !== 'string') throw new Error('操作无效');
         await game.planAction(roomId,session.participantId,payload);
         await sendRoomState(roomId);
-      } catch(error) { fail(socket,error); }
+        acknowledge(reply, {ok:true});
+      } catch(error) { acknowledge(reply, {ok:false,message:error instanceof Error?error.message:'配置未保存'});fail(socket,error); }
     });
     socket.emit("room_summaries", []);
     broadcastRoomSummaries().catch((error) => {
@@ -730,7 +790,8 @@ async function bootstrap(): Promise<void> {
         emitSession(socket, room.id, player.id, "player", player.sessionToken!);
         await sendRoomState(room.id);
       } catch (error) {
-        fail(socket, error);
+        const roomId = typeof payload?.roomId === 'string' ? payload.roomId : undefined;
+        fail(socket, error, { roomId, code: 'JOIN_FAILED', action: 'join_room' });
       }
     });
 
@@ -750,7 +811,8 @@ async function bootstrap(): Promise<void> {
         emitSession(socket, room.id, spectator.id, "spectator", spectator.sessionToken!);
         await sendRoomState(room.id);
       } catch (error) {
-        fail(socket, error);
+        const roomId = typeof payload?.roomId === 'string' ? payload.roomId : undefined;
+        fail(socket, error, { roomId, code: 'JOIN_FAILED', action: 'join_spectator' });
       }
     });
 
@@ -817,7 +879,7 @@ async function bootstrap(): Promise<void> {
       }
     });
 
-    socket.on("update_room_settings", async (payload) => {
+    socket.on("update_room_settings", async (payload, reply) => {
       try {
         const body = parseUpdateRoomSettingsPayload(payload);
         const session = requireSession(socket.id, body.roomId);
@@ -826,7 +888,8 @@ async function bootstrap(): Promise<void> {
         }
         const room = await game.updateRoomSettings(body.roomId, session.participantId, body);
         await sendRoomState(room.id);
-      } catch (error) {
+      acknowledge(reply, {ok:true});
+      } catch (error) { acknowledge(reply, {ok:false,message:error instanceof Error?error.message:'配置未保存'});
         fail(socket, error);
       }
     });
@@ -889,6 +952,26 @@ async function bootstrap(): Promise<void> {
       }
     });
 
+    socket.on("host_takeover", async (payload, reply) => {
+      try {
+        checkSocketRate(socket.id, "host_takeover", 6, 10_000);
+        const body = asObject(payload);
+        const roomId = requireString(body, "roomId");
+        const kind = requireString(body, "kind");
+        if (!['request', 'approve', 'reject', 'cancel'].includes(kind)) throw new Error('接任操作无效');
+        const session = requireSession(socket.id, roomId);
+        if (session.participantType !== "player") throw new Error("旁观者不能参与社长接任");
+        const room = await game.hostTakeover(roomId, session.participantId, kind as 'request' | 'approve' | 'reject' | 'cancel');
+        await sendRoomState(room.id);
+        acknowledge(reply, { ok: true, roomId: room.id, roomVersion: room.updatedAt, turnVersion: turnVersion(room) });
+      } catch (error) {
+        const roomId = typeof payload?.roomId === 'string' ? payload.roomId : undefined;
+        await resync(socket);
+        acknowledge(reply, { ok: false, message: error instanceof Error ? error.message : '接任未完成' });
+        fail(socket, error, { roomId, code: 'HOST_TAKEOVER_FAILED', action: 'host_takeover' });
+      }
+    });
+
     socket.on("disband_room", async (payload) => {
       try {
         const roomId = requireRoomId(payload);
@@ -916,7 +999,7 @@ async function bootstrap(): Promise<void> {
         if (session.participantType !== "player") {
           throw new Error("旁观者不能结束对局");
         }
-        const room = await game.forceEndGame(roomId, session.participantId);
+        const room = await game.forceEndGame(roomId, session.participantId,payload.mode??'abort');
         if (room.phase === "finished") {
           await game.ensureReplay(room.id);
         }
@@ -926,58 +1009,76 @@ async function bootstrap(): Promise<void> {
       }
     });
 
-    socket.on("submit_clue", async (payload) => {
+    socket.on("submit_clue", async (payload, reply) => {
       try {
         checkSocketRate(socket.id, "submit_clue", 3, 10_000);
         const body = asObject(payload);
         const roomId = requireString(body, "roomId");
         const word = requireString(body, "word");
         const count = requireNumber(body, "count");
+        const requestId = typeof body.requestId === 'string' ? body.requestId : undefined;
         const session = requireSession(socket.id, roomId);
         if (session.participantType !== "player") {
           throw new Error("旁观者不能发提示");
         }
-        const room = await game.submitClue(roomId, session.participantId, word, count);
+        const room = await game.submitClue(roomId, session.participantId, word, count, requestId);
+        const duplicate = game.takeDuplicateRequest(room.id, requestId);
         await sendRoomState(room.id);
+        acknowledge(reply, { ok: true, duplicate, roomId: room.id, roomVersion: room.updatedAt, turnVersion: turnVersion(room) });
       } catch (error) {
-        fail(socket, error);
+        const roomId = typeof payload?.roomId === 'string' ? payload.roomId : undefined;
+        await resync(socket);
+        acknowledge(reply, { ok: false, message: error instanceof Error ? error.message : '提示未提交' });
+        fail(socket, error, { roomId, code: 'SUBMIT_CLUE_FAILED', action: 'submit_clue' });
       }
     });
 
-    socket.on("guess_card", async (payload) => {
+    socket.on("guess_card", async (payload, reply) => {
       try {
         checkSocketRate(socket.id, "guess_card", 8, 5_000);
         const body = asObject(payload);
         const roomId = requireString(body, "roomId");
         const cardId = requireString(body, "cardId");
+        const requestId = typeof body.requestId === 'string' ? body.requestId : undefined;
         const session = requireSession(socket.id, roomId);
         if (session.participantType !== "player") {
           throw new Error("旁观者不能猜词");
         }
-        const room = await game.guessCard(roomId, session.participantId, cardId);
+        const room = await game.guessCard(roomId, session.participantId, cardId, requestId);
+        const duplicate = game.takeDuplicateRequest(room.id, requestId);
         if (room.phase === "finished") {
           await game.ensureReplay(room.id);
         }
         await sendRoomState(room.id);
         await emitRoundHighlights(room.id);
+        acknowledge(reply, { ok: true, duplicate, roomId: room.id, roomVersion: room.updatedAt, turnVersion: turnVersion(room) });
       } catch (error) {
-        fail(socket, error);
+        const roomId = typeof payload?.roomId === 'string' ? payload.roomId : undefined;
+        await resync(socket);
+        acknowledge(reply, { ok: false, message: error instanceof Error ? error.message : '猜牌未完成' });
+        fail(socket, error, { roomId, code: 'GUESS_CARD_FAILED', action: 'guess_card' });
       }
     });
 
-    socket.on("end_turn", async (payload) => {
+    socket.on("end_turn", async (payload, reply) => {
       try {
         checkSocketRate(socket.id, "end_turn", 3, 10_000);
         const roomId = requireRoomId(payload);
+        const requestId = typeof payload?.requestId === 'string' ? payload.requestId : undefined;
         const session = requireSession(socket.id, roomId);
         if (session.participantType !== "player") {
           throw new Error("旁观者不能结束回合");
         }
-        const room = await game.endTurn(roomId, session.participantId);
+        const room = await game.endTurn(roomId, session.participantId, requestId);
+        const duplicate = game.takeDuplicateRequest(room.id, requestId);
         await sendRoomState(room.id);
         await emitRoundHighlights(room.id);
+        acknowledge(reply, { ok: true, duplicate, roomId: room.id, roomVersion: room.updatedAt, turnVersion: turnVersion(room) });
       } catch (error) {
-        fail(socket, error);
+        const roomId = typeof payload?.roomId === 'string' ? payload.roomId : undefined;
+        await resync(socket);
+        acknowledge(reply, { ok: false, message: error instanceof Error ? error.message : '结束回合未完成' });
+        fail(socket, error, { roomId, code: 'END_TURN_FAILED', action: 'end_turn' });
       }
     });
 
@@ -992,14 +1093,14 @@ async function bootstrap(): Promise<void> {
       }
     });
 
-    socket.on("send_chat_message", async (payload) => {
+    socket.on("send_chat_message", async (payload, reply) => {
       try {
         checkSocketRate(socket.id, "send_chat_message", 5, 5_000);
         const body = asObject(payload);
         const roomId = requireString(body, "roomId");
         const text = requireString(body, "text");
         const session = requireSession(socket.id, roomId);
-        const room = await game.sendChatMessage(roomId, session.participantId, session.participantType, text);
+        const room = await game.sendChatMessage(roomId, session.participantId, session.participantType, text, body.requestId === undefined ? undefined : requireString(body, "requestId"));
         await sendRoomState(room.id);
         if (session.participantType === "spectator") {
           const sender =
@@ -1014,7 +1115,9 @@ async function bootstrap(): Promise<void> {
             createdAt: Date.now()
           });
         }
+        acknowledge(reply, {ok:true});
       } catch (error) {
+        acknowledge(reply, {ok:false,message:error instanceof Error?error.message:"消息发送失败"});
         fail(socket, error);
       }
     });

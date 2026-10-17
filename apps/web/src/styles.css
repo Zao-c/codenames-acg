@@ -2163,3 +2163,30 @@ a { color: var(--accent-2); }
 }
 
 
+
+/* ── Profile refresh (round 4) ───────────────────────────────────────── */
+.profile-equipped{font-size:12.5px;color:var(--muted)}
+.profile-equipped b{color:var(--accent-2);font-size:13.5px}
+.profile-card-actions{display:flex;gap:8px;align-items:center}
+.profile-guest-note{margin:14px 0 0}
+.achievement-card.featured{border-color:var(--accent)}
+.achievement-card .soft-chip{align-self:center;flex:0 0 auto}
+.achievement-card>button{flex:0 0 auto;font-size:12px;min-height:34px;padding:6px 10px}
+.achievement-card{display:flex;align-items:center;gap:10px;font-size:13.5px}
+.achievement-body{min-width:0;flex:1}
+.achievement-title{font-size:14px}
+.achievement-desc{font-size:12px}
+.title-choice-list{display:grid;gap:8px;margin:12px 0}
+.title-choice-list button{display:flex;align-items:center;gap:10px;text-align:left;padding:11px 13px;min-height:48px}
+.title-choice-list button strong{font-size:14px}
+.title-choice-list button small{font-size:12px;color:var(--muted);flex:1}
+.title-choice-list button.selected{border-color:var(--accent);background:var(--surface-strong)}
+.profile-content-links{display:flex;gap:8px;flex-wrap:wrap}
+.profile-content-links button{font-size:13px;min-height:40px}
+.profile-security summary{cursor:pointer;font-size:16px;font-weight:700;padding:4px 0}
+.profile-security .profile-actions{margin:12px 0}
+.profile-stat span{font-size:12px}
+.recent-stat span{font-size:12px;color:var(--muted);line-height:1.6;display:block;margin-top:4px}
+.replay-board-cover{display:block;width:100%;height:52%;overflow:hidden;border-radius:5px;margin-bottom:2px}
+.replay-board-cover img{width:100%;height:100%;object-fit:cover}
+@media(max-width:640px){.profile-card{align-items:flex-start}.profile-card-actions{width:100%}.achievement-card{align-items:flex-start;flex-wrap:wrap}.achievement-card>button,.achievement-card .soft-chip{margin-left:34px}}

@@ -1,3 +1,4 @@
+import { ChatMessages, BattleEvents } from '../components/Conversation';
 import { CompactMembers, MatchManagement, MatchResult } from '../components/MatchSummary';
 import { PreparationLobby } from '../components/PreparationLobby';
 import { AnimeBoard, NextMatchPanel, StartCountdown } from "../components/AnimePlay";
@@ -7,7 +8,7 @@ import { copyText } from "../lib/clipboard";
 import {
   TEAM_LABELS, PLAYER_ROLE_LABELS,
   wordPackSummaries, type ChatReaction, type ParticipantType,
-  type PublicPlayer, type PublicSpectator, type ChatMessage,
+  type PublicPlayer, type PublicSpectator, 
   type RevealOutcome, type PublicCard, type Team, type BoardMode, type DanmakuMessage
 } from "@acg-codenames/shared";
 import { useGame, isPlayer, getRoomStageLabel, getSelfSummary, queuedForSpectator, roleLabelShort } from "../context/GameContext";
@@ -15,6 +16,37 @@ import { AvatarBadge } from "../components/AvatarBadge";
 import { PrivateReview } from '../components/PrivateReview';
 
 import { RevealGuessRoom } from "../components/reveal-guess/RevealGuessRoom";
+
+function useNow(interval = 1000) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), interval); return () => window.clearInterval(timer); }, [interval]);
+  return now;
+}
+
+function RoomStabilityBanner() {
+  const g = useGame();
+  const room = g.room;
+  const now = useNow(1000);
+  if (!room) return null;
+  const takeover = room.hostTakeover;
+  const offlineSeconds = room.hostOfflineSince ? Math.max(0, Math.floor(((room.serverNow - room.hostOfflineSince) + (now - Date.now())) / 1000)) : null;
+  const graceRemaining = room.hostTakeoverAvailableAt ? Math.max(0, Math.ceil((room.hostTakeoverAvailableAt - room.serverNow - (now - Date.now())) / 1000)) : 0;
+  const canRequest = !room.hostOnline && room.viewer?.participantType === 'player' && !takeover && graceRemaining <= 0;
+  return <>
+    {g.lostRoom && <div className="stability-banner danger" role="alert"><strong>房间已断开</strong><p>{g.lostRoom.message}</p><button onClick={() => { g.setError(''); location.assign('/'); }}>返回大厅</button></div>}
+    {g.joinError && <div className="stability-banner" role="status"><strong>入房未完成</strong><p>{g.joinError}</p></div>}
+    {!room.hostOnline && <div className="stability-banner" role="status">
+      <strong>社长当前离线</strong>
+      <p>{offlineSeconds !== null ? `已离线约 ${offlineSeconds} 秒。` : ''}{graceRemaining > 0 ? `安全接任宽限期还有 ${graceRemaining} 秒。` : '宽限期已结束，在线正式玩家可以发起接任；接任只移交房间管理权，不会获得队长秘密或私人图谱。'}</p>
+      {takeover ? <div className="stability-actions">
+        <span>{takeover.candidateNickname} 申请接任 · 已确认 {takeover.approvals}/{takeover.required}{takeover.rejections ? ` · 反对 ${takeover.rejections}` : ''}</span>
+        {takeover.canApprove && <><button className="primary-button" onClick={() => g.hostTakeover('approve')}>同意接任</button><button onClick={() => g.hostTakeover('reject')}>拒绝</button></>}
+        {takeover.candidateId === room.viewer?.participantId && <button onClick={() => g.hostTakeover('cancel')}>撤回请求</button>}
+      </div> : canRequest ? <div className="stability-actions"><button className="primary-button" onClick={() => g.hostTakeover('request')}>发起社长接任</button><span className="hint-text">需其他在线正式玩家多数确认；仅你一人在线时宽限期后直接接任。</span></div> : null}
+    </div>}
+    {g.actionStatus && <p className="stability-status" role="status">{g.actionStatus}</p>}
+  </>;
+}
 
 export function RoomPage() {
   const { roomId } = useParams<{ roomId: string }>();
@@ -94,6 +126,7 @@ export function RoomPage() {
         <div className="panel-heading">
           <h2>{connectionState === "connecting" ? "正在连接房间..." : "等待进入房间"}</h2>
         </div>
+        {g.lostRoom ? <p className="error-text" role="alert">{g.lostRoom.message}</p> : null}
         {error ? <p className="error-text">{error}</p> : null}
         <button className="primary-button" onClick={navigateHome}>返回首页</button>
       </section>
@@ -104,8 +137,8 @@ export function RoomPage() {
     return <RevealGuessRoom />;
   }
 
-  if (isLobby && room.nextPlan?.stage !== 'draft') return <PreparationLobby room={room}/>;
-  if(isLobby&&room.nextPlan?.stage==='draft')return <section className={`room-layout room-layout-lobby room-preparing-anime draft-room-shell mobile-view-${g.mobileRoomTab}`}><header className="room-bar"><div><strong className="room-code">{room.id}</strong><p className="hint-text">动画组牌 · {room.nextPlan.settings.boardMode}</p></div><div className="bar-actions"><button onClick={()=>void copyLink()}>{copied?'已复制':'邀请好友'}</button>{viewer?.isHost&&<MatchManagement/>}</div></header><NextMatchPanel room={room}/><aside className="lobby-people"><CompactMembers room={room}/></aside><aside className="room-right-col lobby-chat"><SideTabPanel g={g} room={room} session={session}/></aside>{error&&<p className="error-text" role="alert">{error}</p>}</section>;
+  if (isLobby && room.nextPlan?.stage !== 'draft') return <><RoomStabilityBanner/><PreparationLobby room={room}/></>;
+  if(isLobby&&room.nextPlan?.stage==='draft')return <section className={`room-layout room-layout-lobby room-preparing-anime draft-room-shell mobile-view-${g.mobileRoomTab}`}><RoomStabilityBanner/><header className="room-bar"><div><strong className="room-code">{room.id}</strong><p className="hint-text">动画组牌 · {room.nextPlan.settings.boardMode}</p></div><div className="bar-actions"><button onClick={()=>void copyLink()}>{copied?'已复制':'邀请好友'}</button>{viewer?.isHost&&<MatchManagement/>}</div></header><NextMatchPanel room={room}/><aside className="lobby-people"><CompactMembers room={room}/></aside><aside className="room-right-col lobby-chat"><SideTabPanel g={g} room={room} session={session}/></aside>{error&&<p className="error-text" role="alert">{error}</p>}</section>;
 
   if(isFinished)return <MatchResult room={room}/>;
 
@@ -124,6 +157,7 @@ export function RoomPage() {
       {showDanmaku ? <DanmakuLayer items={danmakuQueue} /> : null}
       {highlightToast ? <RoundHighlightToast highlight={highlightToast} /> : null}
       {achievementToast ? <AchievementToast achievement={achievementToast} /> : null}
+      <RoomStabilityBanner />
 
       {focusMode ? (
         <FocusBar room={room} viewer={viewer} onExitFocus={exitFocusMode} g={g} />
@@ -715,7 +749,7 @@ function SideTabPanel({ g, room, session }: {
   g: ReturnType<typeof useGame>; room: NonNullable<ReturnType<typeof useGame>["room"]>;
   session: ReturnType<typeof useGame>["session"];
 }) {
-  const { sideTab, setSideTab, chatText, setChatText, chatListRef, battleListRef, handleChatScroll, handleBattleScroll, jumpToLatest, scrollChatToBottom, sendChatMessage } = g;
+  const { sideTab, setSideTab, chatText, setChatText, chatListRef, battleListRef, handleChatScroll, handleBattleScroll, chatUnread, battleUnread, chatPending, chatError, scrollChatToBottom, scrollBattleToBottom, sendChatMessage } = g;
   const [collapsed, setCollapsed] = useState(false);
   const chatMessages = useMemo(() => room.messages.filter((m) => m.type === "chat" || m.type === "reaction"), [room.messages]);
   const battleMessages = useMemo(() => room.messages.filter((m) => m.type === "system"), [room.messages]);
@@ -732,8 +766,8 @@ function SideTabPanel({ g, room, session }: {
     <div className={`panel side-panel${collapsed ? " side-panel-collapsed" : ""}`}>
       <div className="side-panel-hdr">
         <div className="selection-grid side-tab-row">
-          <button className={sideTab === "chat" ? "selected" : ""} onClick={() => { setSideTab("chat"); if (collapsed) setCollapsed(false); }}>聊天</button>
-          <button className={sideTab === "battle" ? "selected" : ""} onClick={() => { setSideTab("battle"); if (collapsed) setCollapsed(false); }}>战况</button>
+          <button className={sideTab === "chat" ? "selected" : ""} onClick={() => { setSideTab("chat"); if (collapsed) setCollapsed(false); }}>聊天{chatUnread?` · ${chatUnread}`:''}</button>
+          <button className={sideTab === "battle" ? "selected" : ""} onClick={() => { setSideTab("battle"); if (collapsed) setCollapsed(false); }}>战况{battleUnread?` · ${battleUnread}`:''}</button>
           <button className={sideTab === "score" ? "selected" : ""} onClick={() => { setSideTab("score"); if (collapsed) setCollapsed(false); }}>积分</button>
           <button className={sideTab === "spectators" ? "selected" : ""} onClick={() => { setSideTab("spectators"); if (collapsed) setCollapsed(false); }}>旁观</button>
         </div>
@@ -748,34 +782,27 @@ function SideTabPanel({ g, room, session }: {
             <>
               <div className="chat-list" ref={chatListRef} onScroll={handleChatScroll} style={{ maxHeight: 240 }}>
                 {chatMessages.length === 0 ? <p className="empty-text">还没有聊天。</p> : null}
-                {chatMessages.map((message) => (
-                  <MessageRow key={message.id} message={message} selfId={session?.participantId} />
-                ))}
+                <ChatMessages messages={chatMessages} selfId={session?.participantId}/>
               </div>
-              {jumpToLatest ? <button className="chip-button jump-button" onClick={scrollChatToBottom} style={{ margin: "4px 0" }}>⬇ 有新消息</button> : null}
+              {chatUnread>0 ? <button className="chip-button jump-button" onClick={scrollChatToBottom} style={{ margin: "4px 0" }}>⬇ 有新消息</button> : null}
             </>
           ) : sideTab === "battle" ? (
             <>
               <div className="chat-list" ref={battleListRef} onScroll={handleBattleScroll} style={{ maxHeight: 320 }}>
                 {battleMessages.length === 0 && (room.roundHighlights?.length ?? 0) === 0 ? <p className="empty-text">暂无战况记录。</p> : null}
-                {(room.roundHighlights ?? []).map((hl) => (
-                  <RoundHighlightCard key={hl.id} highlight={hl} />
-                ))}
-                {battleMessages.map((message) => (
-                  <MessageRow key={message.id} message={message} selfId={session?.participantId} />
-                ))}
+                <BattleEvents messages={battleMessages} room={room}/>
               </div>
-              {jumpToLatest ? <button className="chip-button jump-button" onClick={() => { const list = battleListRef.current; if (!list) return; list.scrollTop = list.scrollHeight; scrollChatToBottom(); }} style={{ margin: "4px 0" }}>⬇ 有新战况</button> : null}
+              {battleUnread>0 ? <button className="chip-button jump-button" onClick={scrollBattleToBottom}>↓ {battleUnread} 条新战况</button> : null}
             </>
           ) : null}
 
           {sideTab === "chat" ? (
             <>
               <div className="chat-bar" onKeyDown={handleChatKeyDown} style={{ marginTop: 8 }}>
-                <input value={chatText} onChange={(e) => setChatText(e.target.value)} maxLength={120} placeholder="发一句话..." style={{ flex: 1 }} />
-                <button onClick={sendChatMessage} disabled={!chatText.trim()}>发送</button>
+                <input value={chatText} onChange={(e) => setChatText(e.target.value)} maxLength={120} disabled={chatPending} aria-label="发送聊天消息" placeholder="发一句话..." style={{ flex: 1 }} />
+                <button onClick={sendChatMessage} disabled={chatPending||!chatText.trim()}>{chatPending?'发送中…':chatError?'重试':'发送'}</button>
               </div>
-
+              {chatError&&<p className="error-text" role="alert">{chatError}</p>}
             </>
           ) : null}
 
@@ -896,19 +923,6 @@ function ReactionBanner({ reaction }: { reaction: import("@acg-codenames/shared"
           );
         })}
       </div>
-    </div>
-  );
-}
-
-function MessageRow({ message, selfId }: { message: ChatMessage; selfId?: string }) {
-  const isSelf = selfId && message.playerId === selfId;
-  return (
-    <div className={`chat-message ${isSelf ? "chat-self" : ""} ${message.type === "system" ? "chat-system" : ""} ${message.type === "reaction" ? "chat-reaction" : ""}`}>
-      <div className="chat-meta">
-        <strong>{message.nickname ?? "系统"}</strong>
-        <span>{new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
-      </div>
-      <p>{message.text}</p>
     </div>
   );
 }

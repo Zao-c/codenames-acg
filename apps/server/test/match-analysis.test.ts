@@ -71,6 +71,14 @@ try {
   assert.equal((await view(spectator.id, 'spectator')).analysis?.predictionResult, undefined);
   assert.equal((await view(host.id)).analysis?.myPredictions, undefined);
   await game.submitClue(room.id, players[captainIndex].id, '关联', 3);
+  const publicClue=(await current()).clue!;
+  const sourced={id:'published-clue',clueId:publicClue.id!,text:publicClue.word,x:.3,y:.4};
+  await edit(1,'team',0,{kind:'node',node:sourced},publicClue.id!);
+  await assert.rejects(edit(1,'team',1,{kind:'node',node:{...sourced,clueId:'never-submitted'}},publicClue.id!),/来源/);
+  await assert.rejects(edit(1,'team',1,{kind:'node',node:{...sourced,id:'fake-clue',clueId:'never-submitted'}},publicClue.id!),/公开/);
+  await edit(1,'team',1,{kind:'node',node:{...sourced,text:'只是节点说明'}},publicClue.id!);
+  assert.equal((await current()).clueRecords!.at(-1)!.word,'关联');
+  assert.equal(JSON.stringify(await view(players[3].id)).includes('只是节点说明'),false);
   await Promise.all([game.guessCard(room.id, players[operativeIndex].id, guessId), game.guessCard(room.id, players[operativeIndex].id, guessId)]);
   assert.equal((await current()).privateMatch!.snapshots.length, 1);
   assert.equal((await current()).privateMatch!.snapshots[0].teamGraphs.red.match.nodes[0].text, node.text);

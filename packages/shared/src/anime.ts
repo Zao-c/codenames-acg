@@ -6,9 +6,50 @@ export interface AnimeWork {
   fullTitle: string;
   aliases: string[];
   cover: string;
-  type: 'TV' | 'OVA' | 'ONA' | '电影';
+  type: 'TV' | 'OVA' | 'ONA' | '电影' | '未知';
   seriesId: string;
   airDate: string;
+  tags?: string[];
+  rating?: number | null;
+  ratingCount?: number | null;
+  popularity?: number | null;
+  source?: 'bangumi' | 'legacy' | 'manual';
+  /** Stable UUID for manual entries; never a fabricated Bangumi subject id. */
+  manualId?: string;
+  updatedAt?: number;
+  detailFetchedAt?: number;
+  seriesSource?: 'manual-override' | 'official-relation' | 'subject-id' | 'legacy' | 'manual';
+  seriesLinks?: number[];
+}
+
+export interface ManualAnimeInput {
+  title: string;
+  fullTitle?: string;
+  aliases?: string[];
+  airDate?: string;
+  type?: AnimeWork['type'];
+  tags?: string[];
+  /** data:image/(jpeg|png|webp);base64,... — validated by the server. */
+  coverDataUrl?: string;
+  removeCover?: boolean;
+  expectedUpdatedAt?: number;
+}
+export interface ManualAnimePage { items: AnimeWork[]; total: number; page: number }
+export function animeWorkKey(work: Pick<AnimeWork, 'id' | 'source' | 'manualId'>): string {
+  return work.source === 'manual' && work.manualId ? `manual:${work.manualId}` : `bgm:${work.id}`;
+}
+export function animeWorkLink(work: Pick<AnimeWork, 'id' | 'source' | 'manualId'>): string | null {
+  return animeWorkKey(work).startsWith('manual:') ? null : `https://bgm.tv/subject/${work.id}`;
+}
+export interface AnimeDiscoveryQuery {
+  q?: string; yearFrom?: number; yearTo?: number; quarter?: number;
+  type?: AnimeWork['type']; tags?: string[]; tagMode?: 'all'|'any';
+  minRating?: number; minVotes?: number; sort?: 'match'|'score'|'heat'|'recent';
+  offset?: number; source?: 'bangumi'|'cache'|'manual';
+}
+export interface AnimeDiscoveryResult {
+  works: AnimeWork[]; nextOffset: number | null; total: number; source: 'bangumi'|'cache'|'manual';
+  notice: string; updatedAt: number; missingMetadata: number;
 }
 export interface AnimePool { id: string; name: string; workIds: number[] }
 export interface DraftClaim { team: Team; kind: 'manual' | 'interference'; protectedUntil: number; from?: Team }

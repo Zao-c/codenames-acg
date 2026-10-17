@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { ChatMessages } from './Conversation';
+import { useEffect, useState } from 'react';
 import { MAX_PLAYERS, TEAM_LABELS, type PlanAction, type PublicPlayer, type PublicRoomState, type Team } from '@acg-codenames/shared';
 import { useGame } from '../context/GameContext';
 import { AvatarBadge } from './AvatarBadge';
@@ -12,7 +13,6 @@ export function PreparationLobby({room}:{room:PublicRoomState}) {
   const [settings,setSettings] = useState(false);
   const [preview,setPreview] = useState(false);
   const [management,setManagement] = useState(false);
-  const chatEnd = useRef<HTMLDivElement>(null);
   const plan = room.nextPlan;
   const stage = plan?.stage ?? 'planning';
   const host = room.viewer?.isHost;
@@ -24,12 +24,13 @@ export function PreparationLobby({room}:{room:PublicRoomState}) {
   const missing = (['red','blue'] as const).filter(t=>!captain(t));
   const balanced = room.players.length>=4 && (['red','blue'] as const).every(t=>room.players.filter(p=>p.team===t).length>=2);
   const rosterReady = balanced && !missing.length;
+  const offlineCaptains=(['red','blue'] as const).filter(t=>!room.players.some(p=>p.id===captain(t)&&(p.connected||p.isBot)));
   const myTeam = plan?.myTeam;
   const ready = myTeam ? plan?.captainView?.ready[myTeam] : false;
   const send = (action:Omit<PlanAction,'roomId'|'version'>) => g.socket.emit('plan_action',{roomId:room.id,version:plan?.version,...action});
   const changeMode=(variant:'classic'|'anime')=>{if(!host||locked)return;send({kind:'configure',variant,boardMode:variant==='classic'&&config.boardMode==='6x6'?'5x5':variant==='anime'&&!['5x5','6x6'].includes(config.boardMode)?'5x5':config.boardMode});};
   useEffect(()=>{if(stage!=='guide')setPreview(false);},[stage]);
-  useEffect(()=>{chatEnd.current?.scrollIntoView({block:'nearest'});},[room.messages.length,g.mobileRoomTab]);
+  useEffect(()=>{g.setSideTab('chat');},[]);
   let title = anime ? '下一步：队长预览' : '下一步：开始对局';
   let description = !balanced ? '至少 4 名玩家，每队至少 2 人。邀请好友并完成分队。' : missing.length ? `请先指定${missing.map(t=>TEAM_LABELS[t]).join('、')}队长。` : anime ? '双方队长先浏览候选作品，确认后再开始 180 秒组牌。' : '队伍与设置已就位，由房主发起五秒开局。';
   let label = host ? anime ? '进入队长预览 →' : '开始游戏' : '等待房主开始';
@@ -41,7 +42,7 @@ export function PreparationLobby({room}:{room:PublicRoomState}) {
     label=myTeam?(ready?'已确认，等待另一队':'确认就绪，开始组牌'):'等待队长确认';
     action=()=>send({kind:'ready'});disabled=!myTeam||!!ready||!rosterReady;
   } else if(stage==='sealed') {
-    title='下一步：开始对局';description='组牌已封存，等待房主发起五秒开局。';label=host?'开始五秒倒计时':'等待房主开局';action=g.startGame;disabled=!host;
+    title='下一步：开始对局';description=offlineCaptains.length?`${offlineCaptains.map(t=>TEAM_LABELS[t]).join('、')}队长离线，已保留封存棋盘；等待原队长恢复后开局。`:'组牌已封存，等待房主发起五秒开局。';label=host?'开始五秒倒计时':'等待房主开局';action=g.startGame;disabled=!host||!!offlineCaptains.length;
   }
   if(room.countdown){title='即将开始对局';description='服务器倒计时结束后自动进入棋盘。';label='倒计时中';disabled=true;}
   const member = (p:PublicPlayer) => {
@@ -62,7 +63,7 @@ export function PreparationLobby({room}:{room:PublicRoomState}) {
         {!!room.spectators.length&&<details className="v2-spectators"><summary>旁观与排队 · {room.spectators.length} 人</summary>{room.spectators.map(s=><p key={s.id}>{s.nickname}{room.joinQueue.some(q=>q.spectatorId===s.id)?' · 已排队下一局':''}</p>)}</details>}
         {room.viewer?.participantType==='spectator'&&<button onClick={room.viewer.isQueuedForNextRound?g.cancelQueueJoin:g.queueForNextRound}>{room.viewer.isQueuedForNextRound?'取消排队':'排队下一局'}</button>}
       </section>
-      <aside className="v2-panel v2-chat"><div className="v2-panel-heading"><div><p className="eyebrow">COMMUNITY</p><h2>房间聊天</h2></div><Icon name="chat"/></div><div className="v2-chat-messages" aria-live="polite">{!room.messages.some(m=>m.type==='chat')&&<div className="v2-chat-empty"><Icon name="chat" size={26}/><span>还没有消息</span></div>}{room.messages.filter(m=>m.type==='chat').map(m=><div key={m.id} className="v2-chat-message"><strong>{m.nickname}</strong><p>{m.text}</p></div>)}<div ref={chatEnd}/></div><form className="v2-chat-compose" onSubmit={e=>{e.preventDefault();g.sendChatMessage();}}><input aria-label="发送聊天消息" placeholder="发送消息…" maxLength={120} value={g.chatText} onChange={e=>g.setChatText(e.target.value)}/><button type="submit" className="primary-button" disabled={!g.chatText.trim()}>发送</button></form></aside>
+      <aside className="v2-panel v2-chat"><div className="v2-panel-heading"><div><p className="eyebrow">COMMUNITY</p><h2>房间聊天</h2></div><Icon name="chat"/></div><div className="v2-chat-messages" ref={g.chatListRef} onScroll={g.handleChatScroll}>{!room.messages.some(m=>m.type==='chat')&&<div className="v2-chat-empty"><Icon name="chat" size={26}/><span>还没有消息</span></div>}<ChatMessages messages={room.messages.filter(m=>m.type==='chat')} selfId={room.viewer?.participantId??undefined}/></div>{g.chatUnread>0&&<button className="jump-button" onClick={g.scrollChatToBottom}>↓ {g.chatUnread} 条新消息</button>}<form className="v2-chat-compose" onSubmit={e=>{e.preventDefault();g.sendChatMessage();}}><input disabled={g.chatPending} aria-label="发送聊天消息" placeholder="发送消息…" maxLength={120} value={g.chatText} onChange={e=>g.setChatText(e.target.value)}/><button type="submit" className="primary-button" disabled={g.chatPending||!g.chatText.trim()}>{g.chatPending?'发送中…':g.chatError?'重试':'发送'}</button></form>{g.chatError&&<p role="alert" className="error-text">{g.chatError}</p>}</aside>
       <section className="v2-panel v2-next-step" aria-label="下一步操作"><span className="v2-step-icon"><Icon name="arrow"/></span><div><strong>{title}</strong><p>{description}</p>{stage==='guide'&&myTeam&&<button className="v2-text-button" onClick={()=>setPreview(true)}>预览候选作品 →</button>}{host&&stage!=='planning'&&!room.countdown&&<button className="v2-text-button" onClick={()=>{if(window.confirm('取消本次准备并保留配置？'))send({kind:'cancel'});}}>取消本次准备</button>}</div><button className="primary-button" disabled={disabled} onClick={action}>{label}</button></section>
     </div>
     <PrivateReview room={room}/>

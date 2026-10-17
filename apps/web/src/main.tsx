@@ -20,3 +20,4 @@ import "./anime.css";
 
 import "./lobby-v2.css";
 import "./stability.css";
+import "./concentrated.css";

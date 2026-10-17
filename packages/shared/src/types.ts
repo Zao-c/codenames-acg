@@ -33,6 +33,30 @@ export interface UserProfile {
   userSessionToken?: string;
 }
 
+export interface HostTakeoverRequest {
+  candidateId: string;
+  requestedAt: number;
+  approvals: string[];
+  rejections: string[];
+  version: number;
+}
+export interface PublicHostTakeover {
+  candidateId: string;
+  candidateNickname: string;
+  requestedAt: number;
+  approvals: number;
+  rejections: number;
+  required: number;
+  voters: string[];
+  eligibleVoters: string[];
+  canApprove: boolean;
+  expiresAt: number;
+}
+export interface ActionRequestRecord {
+  at: number;
+  action: "submit_clue" | "guess_card" | "end_turn";
+  roomVersion: number;
+}
 export interface UserStats {
   gamesPlayed: number;
   wins: number;
@@ -152,6 +176,8 @@ export interface CandidatePack {
 export interface NamedUserAccount {
   username: string;
   avatarUrl: string | null;
+  /** Server-validated equipped title. Only unlocked titles can be stored. */
+  title?: string | null;
   customWordPacks: SavedWordPack[];
   customImagePacks: SavedImagePack[];
   stats: UserStats;
@@ -383,6 +409,7 @@ export interface PublicRevealGuessState {
 }
 
 export interface ChatMessage {
+  event?: { kind: 'clue'|'guess'|'turn-end'; team: Team; clueId?: string }; 
   id: string;
   type: ChatMessageType;
   text: string;
@@ -393,6 +420,7 @@ export interface ChatMessage {
   targetParticipantId?: string;
   targetParticipantType?: ParticipantType;
   targetNickname?: string;
+  requestId?: string;
   targetProfile?: UserProfile;
 }
 
@@ -413,6 +441,7 @@ export interface RoundScoreDetail {
   opponentPointsLost: number;
   assassinHit: boolean;
   assassinPenalty: number;
+  timeoutPenalty?: number;
   precisionBonus: number;
   victoryBonus: number;
   totalRound: number;
@@ -517,6 +546,11 @@ export interface Room {
   players: Player[];
   spectators: Spectator[];
   joinQueue: JoinRequest[];
+  /** Set when the host has no live socket; cleared on reconnect. */
+  hostOfflineSince?: number;
+  hostTakeover?: HostTakeoverRequest;
+  /** Idempotency records for clue/guess/end-turn requests. Pruned by age. */
+  requestLog?: Record<string, ActionRequestRecord>;
   board: Card[];
   currentTeam: Team;
   startingTeam: Team;
@@ -554,7 +588,8 @@ export interface Room {
   revealGuessState?: RevealGuessState;
   matchId?: string;
   gameStartedAt?: number;
-  endReason?: "normal" | "forfeit" | "abandoned";
+  endReason?: "normal" | "forfeit" | "abandoned" | "aborted";
+  scoresAtMatchStart?: RoomScore;
   replayHistory?: Array<{ matchId: string; replayId: string; roundNumber: number; privateAvailable?: boolean }>;
   countdown?: { matchId: string; startsAt: number; hostId: string };
   exposedPlayerIds?: string[];
@@ -632,7 +667,10 @@ export interface PublicCard {
   revealedBy?: Team;
 }
 
-export interface PublicRoomState extends Omit<Room, "players" | "spectators" | "board" | "wordPack" | "revealGuessState" | "exposedPlayerIds" | "nextPlan" | "seriesHistory" | "draftReview" | "participantPrincipals" | "privateMatch"> {
+export interface PublicRoomState extends Omit<Room, "players" | "spectators" | "board" | "wordPack" | "revealGuessState" | "exposedPlayerIds" | "nextPlan" | "seriesHistory" | "draftReview" | "participantPrincipals" | "privateMatch" | "hostTakeover" | "requestLog"> {
+  hostTakeover?: PublicHostTakeover;
+  hostOnline?: boolean;
+  hostTakeoverAvailableAt?: number;
   analysis?: AnalysisPermissions;
   nextPlan?: PublicNextPlan;
   interferenceReview?: Array<{ workId: number; from: Team; team: Team }>;
@@ -749,15 +787,24 @@ export interface SubmitCluePayload {
   roomId: string;
   word: string;
   count: number;
+  requestId?: string;
 }
 
 export interface GuessCardPayload {
   roomId: string;
   cardId: string;
+  requestId?: string;
 }
 
 export interface EndTurnPayload {
   roomId: string;
+  requestId?: string;
+}
+
+export interface HostTakeoverPayload {
+  roomId: string;
+  kind: "request" | "approve" | "reject" | "cancel";
+  requestId?: string;
 }
 
 export interface LeaveRoomPayload {
@@ -802,6 +849,7 @@ export interface UpdateRoomSettingsPayload {
 }
 
 export interface SendChatMessagePayload {
+  requestId?: string;
   roomId: string;
   text: string;
 }
@@ -827,6 +875,7 @@ export interface UsernameLoginPayload {
 
 export interface UpdateNamedUserPayload {
   avatarUrl?: string | null;
+  title?: string | null;
   customWordPacks?: SavedWordPack[];
   customImagePacks?: SavedImagePack[];
 }
@@ -834,6 +883,7 @@ export interface UpdateNamedUserPayload {
 export interface ReplayBoardCard {
   id: string;
   word: string;
+  anime?: AnimeWork;
   role: "red" | "blue" | "neutral" | "assassin";
   revealed: boolean;
   guessedByNickname?: string;
@@ -847,6 +897,7 @@ export interface ReplayRound {
   clueCount: number;
   giverNickname: string;
   guesses: {
+    cardId?: string;
     word: string;
     role: "red" | "blue" | "neutral" | "assassin";
     guessedByNickname: string;
@@ -868,6 +919,7 @@ export interface ReplayKeyEvent {
 }
 
 export interface GameReplay {
+  endReason?: Room['endReason'];
   id: string;
   roomId: string;
   createdAt: number;

@@ -34,16 +34,18 @@ export function AssociationBoard({ room }: { room: PublicRoomState }) {
   const graph = (actualTarget === 'team' ? scope && view.teamGraphs?.[scope] : intent?.graph) || empty;
   const editable = !!scope && (actualTarget === 'team' ? view.canEditTeamGraph : view.canEditIntent);
   const send = (operation: GraphOperation) => {
-    if (!editable || !scope) return;
-    getSocket().emit('analysis_action', { roomId: room.id, matchId: view.matchId, requestId: freshId(), target: actualTarget, scope, expectedRevision: graph.revision, operation });
+    if (!editable || !scope) return Promise.reject(new Error('当前只读'));
+    return new Promise<void>((resolve,reject)=>{
+      const timer=setTimeout(()=>reject(new Error('同步超时，请基于最新内容重试')),8000);
+      getSocket().emit('analysis_action', { roomId: room.id, matchId: view.matchId, requestId: freshId(), target: actualTarget, scope, expectedRevision: graph.revision, operation }, result=>{clearTimeout(timer);if(!result.ok)reject(new Error(result.message));else resolve();});
+    });
   };
   return <><button onClick={() => setOpen(true)}>关联板与思路</button>{open && <Dialog title="关联板与思路" close={() => setOpen(false)} wide>
     <div className="anime-toolbar">{view.canReadTeamGraph && <button aria-pressed={actualTarget === 'team'} onClick={() => setTarget('team')}>团队关联板</button>}{(view.canEditIntent || view.myIntents) && <button aria-pressed={actualTarget === 'intent'} onClick={() => setTarget('intent')}>我的意图图</button>}
       <label>范围<select value={scopeMode} onChange={e => setScopeMode(e.target.value as 'match' | 'clue')}><option value="match">整局</option><option value="clue" disabled={!room.clue?.id}>当前线索</option></select></label>
     </div>
     <p className="hint-text">{actualTarget === 'team' ? '仅队内可见；队员手工协作，队长只读。' : '仅你可见。锁定后保留当时计划，继续编辑不会改写已锁定副本。'} 正常完赛后向本局参赛成员开放复盘。</p>
-    {error && <p role="alert">{error}</p>}
-    <GraphCanvas error={error} key={`${view.matchId}:${actualTarget}:${scope}`} graph={graph} cards={room.board} editable={editable} send={send}/>
-    {actualTarget === 'intent' && <><button disabled={!editable} onClick={() => send({ kind: 'lock' })}>锁定当前计划</button>{intent?.locked && <details><summary>已锁定计划 · {new Date(intent.locked.lockedAt).toLocaleTimeString()}</summary><GraphPicture graph={intent.locked.graph} cards={room.board}/></details>}</>}
+    <GraphCanvas error={error} key={`${view.matchId}:${actualTarget}:${scope}`} graph={graph} cards={room.board} clues={room.clueRecords??[]} editable={editable} send={send}/>
+    {actualTarget === 'intent' && <><button disabled={!editable} onClick={() => {void send({ kind: 'lock' }).catch(()=>{});}}>锁定当前计划</button>{intent?.locked && <details><summary>已锁定计划 · {new Date(intent.locked.lockedAt).toLocaleTimeString()}</summary><GraphPicture graph={intent.locked.graph} cards={room.board}/></details>}</>}
   </Dialog>}</>;
 }

@@ -18,10 +18,14 @@
     "test:stability:local": "node scripts/test-browser-local.mjs --stability",
     "test:lobby:local": "node scripts/test-browser-local.mjs --lobby-v2",
     "test:phase2:local": "node scripts/test-browser-local.mjs --phase2",
-    "test:rules": "npm run build -w @acg-codenames/shared && node node_modules/tsx/dist/cli.mjs apps/server/test/lifecycle.test.ts && node node_modules/tsx/dist/cli.mjs apps/server/test/room-recovery.test.ts && node node_modules/tsx/dist/cli.mjs apps/server/test/lobby-teams.test.ts && node node_modules/tsx/dist/cli.mjs apps/server/test/anime-draft.test.ts && node node_modules/tsx/dist/cli.mjs apps/server/test/match-analysis.test.ts && node node_modules/tsx/dist/cli.mjs apps/server/test/private-replay.test.ts && node node_modules/tsx/dist/cli.mjs apps/server/test/anime-pools.test.ts",
+    "test:rules": "npm run build -w @acg-codenames/shared && node node_modules/tsx/dist/cli.mjs apps/server/test/lifecycle.test.ts && node node_modules/tsx/dist/cli.mjs apps/server/test/room-recovery.test.ts && node node_modules/tsx/dist/cli.mjs apps/server/test/game-continuity.test.ts && node node_modules/tsx/dist/cli.mjs apps/server/test/bangumi.test.ts && node node_modules/tsx/dist/cli.mjs apps/server/test/lobby-teams.test.ts && node node_modules/tsx/dist/cli.mjs apps/server/test/anime-draft.test.ts && node node_modules/tsx/dist/cli.mjs apps/server/test/match-analysis.test.ts && node node_modules/tsx/dist/cli.mjs apps/server/test/private-replay.test.ts && node node_modules/tsx/dist/cli.mjs apps/server/test/anime-pools.test.ts && node node_modules/tsx/dist/cli.mjs apps/server/test/concentrated-fixes.test.ts && node node_modules/tsx/dist/cli.mjs apps/server/test/pool-deletion.test.ts && node node_modules/tsx/dist/cli.mjs apps/server/test/web-client-safety.test.ts && node node_modules/tsx/dist/cli.mjs apps/server/test/stability-round.test.ts && node node_modules/tsx/dist/cli.mjs apps/server/test/manual-works.test.ts && node node_modules/tsx/dist/cli.mjs apps/server/test/profile-title.test.ts",
     "verify": "npm run typecheck && npm run test:e2e:local && npm run build",
     "check": "npm run check --workspaces",
-    "typecheck": "npm run typecheck --workspaces"
+    "typecheck": "npm run typecheck --workspaces",
+    "test:bangumi:live": "node --use-env-proxy scripts/bangumi-smoke.mjs",
+    "test:bangumi:local": "node scripts/test-browser-local.mjs --bangumi",
+    "test:concentrated:local": "node scripts/test-browser-local.mjs --concentrated",
+    "test:mixed:local": "node scripts/test-browser-local.mjs --mixed"
   },
   "devDependencies": {
     "playwright": "^1.59.1",
