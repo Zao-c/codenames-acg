@@ -1,8 +1,8 @@
 # Agent 续接入口
 
-## Round 5：稳定性与匿名实时组牌（2026-10-18，开发完成，未部署）
+## Round 5：稳定性与匿名实时组牌（2026-10-18，已部署）
 
-开发工作区 `/opt/codenames-round5`（独立 clone，基于 `0c54201`）。生产 `/opt/codenames-acg` 与 `codenames.service` 未修改、未重启。分支待推送；交付说明见 [Round 5 交付](ROUND5_STABILITY_ANONYMOUS_DRAFT.md)。
+开发工作区 `/opt/codenames-round5`（独立 clone，基于 `0c54201`）。应用 `53fad47` 已于 2026-10-18 04:23 CST 部署（分支 `codex/cipai-round5-stability-anonymous-draft`），备份 `/opt/codenames-backups/round5-53fad47/`。详见 [Round 5 交付](ROUND5_STABILITY_ANONYMOUS_DRAFT.md) 与 [部署记录](ROUND5_DEPLOYMENT.md)。
 
 - P0：动作级请求锁、迟到恢复错误隔离、guide 掉线保席、创建房间原子切换。
 - P1：封面版本保留、sharp 真实解码、公开可发现性与副本使用权分离、锁内并发校验、自建作品分页。
