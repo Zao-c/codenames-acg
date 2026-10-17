@@ -34,7 +34,7 @@ export interface ManualAnimeInput {
   removeCover?: boolean;
   expectedUpdatedAt?: number;
 }
-export interface ManualAnimePage { items: AnimeWork[]; total: number; page: number }
+export interface ManualAnimePage { items: AnimeWork[]; total: number; page: number; nextOffset: number | null }
 export function animeWorkKey(work: Pick<AnimeWork, 'id' | 'source' | 'manualId'>): string {
   return work.source === 'manual' && work.manualId ? `manual:${work.manualId}` : `bgm:${work.id}`;
 }
@@ -87,6 +87,8 @@ export interface PublicNextPlan {
   poolName: string;
   sourcePool?: { id: string; revision: number };
   poolIds: number[];
+  /** Neutral current manual selections; no team, actor, protection or interference data. */
+  publicSelectedWorkIds?: number[];
   candidates: AnimeWork[];
   startingTeam: Team;
   stage: NextPlan['stage'];

@@ -209,9 +209,12 @@ export function sanitizeRoom(room: Room, viewer: ViewerIdentity = {}): PublicRoo
     canApprove: viewer.participantType === 'player' && !!viewer.participantId && eligibleVoters.some(p => p.id === viewer.participantId) && !takeover.approvals.includes(viewer.participantId) && !takeover.rejections.includes(viewer.participantId),
     expiresAt: takeover.requestedAt + 120_000
   } : undefined;
+  const publicSelectedWorkIds = plan && plan.stage === 'draft'
+    ? Object.entries(plan.claims).filter(([, claim]) => claim.kind === 'manual').map(([id]) => Number(id)).sort((a, b) => a - b)
+    : undefined;
   const nextPlan = plan ? {
     id: plan.id, version: plan.version, variant: plan.variant, settings: plan.settings,
-    wordPackName: plan.wordPack.name, poolName: plan.poolName, sourcePool: plan.sourcePool, poolIds: plan.pool.map(w => w.id), candidates: plan.candidates,
+    wordPackName: plan.wordPack.name, poolName: plan.poolName, sourcePool: plan.sourcePool, poolIds: plan.pool.map(w => w.id), publicSelectedWorkIds, candidates: plan.candidates,
     startingTeam: plan.startingTeam, stage: plan.stage, captains: plan.captains, endsAt: plan.endsAt,
     myTeam, myBookmarks: myTeam ? plan.bookmarks[viewer.participantId!] ?? [] : undefined,
     captainView: captainClaims ? { claims: captainClaims, ready: plan.ready, done: plan.done } : undefined,

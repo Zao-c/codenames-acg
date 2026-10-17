@@ -9,9 +9,9 @@ export type DropAllow = Record<DropAction, boolean>;
 // Only one tile gesture may run at a time so ghost, highlight and drop stay consistent.
 let gestureActive = false;
 
-export function DraftTile({ work, claim, time, bookmark, canEdit, allow, onPreview, onBookmark, onDrop, compact=false }: {
+export function DraftTile({ work, claim, time, bookmark, canEdit, allow, onPreview, onBookmark, onDrop, compact=false, publicSelected=false }: {
   work: AnimeWork; claim?: DraftClaim; time: number; bookmark?: boolean; canEdit: boolean; allow: DropAllow;
-  onPreview: () => void; onBookmark?: () => void; onDrop: (work: AnimeWork, action: DropAction, replaceId?:number) => void; compact?:boolean;
+  onPreview: () => void; onBookmark?: () => void; onDrop: (work: AnimeWork, action: DropAction, replaceId?:number) => void; compact?:boolean; publicSelected?:boolean;
 }) {
   const [star,setStar]=useState(!!bookmark);
   const [bookmarkStatus,setBookmarkStatus]=useState('');
@@ -90,11 +90,12 @@ export function DraftTile({ work, claim, time, bookmark, canEdit, allow, onPrevi
     window.addEventListener('pointercancel', cancel);
   };
 
-  return <article className={`draft-tile ${compact?'draft-tile-compact':''} role-${claim?.team ?? 'hidden'} ${ghost ? 'is-dragging' : ''}`} data-drop={compact&&canEdit&&claim?.kind==='manual'?'replace':undefined} data-replace-id={work.id}>
+  return <article className={`draft-tile ${compact?'draft-tile-compact':''} role-${claim?.team ?? 'hidden'} ${ghost ? 'is-dragging' : ''} ${publicSelected ? 'is-public-selected' : ''}`} data-drop={compact&&canEdit&&claim?.kind==='manual'?'replace':undefined} data-replace-id={work.id}>
     <button type="button" className="draft-tile-main" aria-haspopup="dialog"
       onPointerDown={handlePointerDown} onContextMenu={e => e.preventDefault()} onDragStart={e => e.preventDefault()}
       onClick={() => { if (suppress.current) { suppress.current = false; return; } onPreview(); }} aria-label={work.title}>
       <Cover work={work}/><span>{work.title}</span>
+      {publicSelected && <span className="draft-public-badge">已选入</span>}
       {claim && <small>{TEAM_LABELS[claim.team]}{claim.kind === 'interference' ? ' · 干扰' : ''}{claim.protectedUntil > time ? ` · 保护 ${Math.ceil((claim.protectedUntil-time)/1000)}s` : ''}</small>}
     </button>
     {onBookmark && <button type="button" className={`draft-star ${star ? 'is-on' : ''}`} aria-pressed={star}

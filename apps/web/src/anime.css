@@ -90,3 +90,30 @@ body.draft-drag-active { user-select: none; cursor: grabbing; }
  .anime-modal>img { height: 30dvh; }.anime-modal h2 { font-size: 18px; }.anime-confirm button { min-height: 48px; }
 }
 @media (max-width:375px) { .anime-board { grid-auto-rows: 54px; gap: 3px; }.draft-tile>button img { height: 112px; }.anime-board-panel>.anime-toolbar strong { width: 100%; }.anime-board-panel>.anime-toolbar { justify-content: space-between; } }
+
+/* Round 5: neutral public draft view (no team / actor / protection / interference). */
+.draft-public-panel { border: 1px solid var(--line); border-radius: 13px; background: var(--surface-strong); padding: 12px 13px; margin-bottom: 12px; }
+.draft-public-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.draft-public-head h4 { margin: 2px 0 0; font-size: 15px; }
+.draft-public-head strong { font-size: 22px; line-height: 1.1; color: var(--accent-2); }
+.draft-public-head strong small { font-size: 11px; color: var(--muted); font-weight: 500; }
+.draft-public-panel .hint-text { margin: 7px 0 9px; font-size: 11.5px; line-height: 1.65; }
+.draft-public-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; max-height: 218px; overflow: auto; }
+.draft-public-item { min-width: 0; display: grid; gap: 3px; background: var(--surface); border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
+.draft-public-item img, .draft-public-item .anime-cover-fallback { width: 100%; height: 62px; object-fit: cover; display: grid; place-items: center; font-size: 10px; }
+.draft-public-item span { font-size: 10.5px; padding: 4px 5px 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.draft-public-empty { margin: 0; padding: 18px 8px; text-align: center; font-size: 11.5px; color: var(--muted); border: 1px dashed var(--line); border-radius: 8px; }
+.draft-tile.is-public-selected { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.draft-public-badge { position: absolute; right: 5px; top: 5px; z-index: 2; background: var(--surface); border: 1px solid var(--accent); color: var(--accent-2); border-radius: 5px; padding: 2px 5px; font-size: 9px; font-weight: 700; pointer-events: none; }
+.draft-mobile-tabs button span { font-size: 10px; opacity: .8; }
+@media (max-width: 760px) {
+  .draft-public-panel { display: none; margin-bottom: 10px; }
+  .draft-pane-public .draft-public-panel { display: block; }
+  .draft-pane-public>.draft-pool { display: none; }
+  .draft-pane-public>.draft-control-panel { display: block; }
+  .draft-pane-public .draft-selected-panel,
+  .draft-pane-public .draft-drop-zones,
+  .draft-pane-public .plan-controls { display: none; }
+  .draft-public-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); max-height: none; }
+  .draft-public-item img, .draft-public-item .anime-cover-fallback { height: 78px; }
+}

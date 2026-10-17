@@ -113,11 +113,11 @@ export function AnimePoolsPage() {
                 <div className="pool-more-menu">
                   {pool.canEdit ? <>
                     <button disabled={!data?.enabled} onClick={() => void detail(pool, true)}>编辑作品池</button>
-                    <button disabled={!data?.enabled} onClick={() => void act(pool.id, () => copyCommunityPool(pool.id), '已复制为你的私人作品池。')}>复制副本</button>
+                    <button disabled={!data?.enabled} onClick={() => void act(pool.id, () => copyCommunityPool(pool.id), '已复制独立选片清单；Bangumi 与公共自建作品资料仍引用共享目录，原作者更新会同步。')}>复制副本</button>
                     <button className="danger-button" onClick={() => { setDeleting(pool); setDeleteError(''); }}>删除作品池</button>
                   </> : <>
                     {!pool.hidden && <button disabled={!data?.enabled} aria-pressed={pool.favorited} onClick={() => void act(pool.id, () => favoriteCommunityPool(pool.id, !pool.favorited), pool.favorited ? '已取消收藏。' : '已收藏。')}>{pool.favorited ? '取消收藏' : '收藏'}</button>}
-                    <button disabled={!data?.enabled} onClick={() => void act(pool.id, () => copyCommunityPool(pool.id), '已复制为你的私人作品池，可在“我的作品池”编辑。')}>复制到我的作品池</button>
+                    <button disabled={!data?.enabled} onClick={() => void act(pool.id, () => copyCommunityPool(pool.id), '已复制独立选片清单，可在“我的作品池”编辑；公共作品资料仍引用共享目录。')}>复制到我的作品池</button>
                     {pool.isPublic && !pool.hidden && <button onClick={() => { setReport(pool); setReportReason(''); }}>举报</button>}
                   </>}
                 </div>
@@ -133,14 +133,14 @@ export function AnimePoolsPage() {
         })}
       </div>
       {data && data.total > 20 && <nav className="anime-toolbar community-pagination" aria-label="作品池分页"><button disabled={page <= 1 || loading} onClick={() => setPage(p => p - 1)}>上一页</button><span>第 {page} / {Math.ceil(data.total / 20)} 页</span><button disabled={page * 20 >= data.total || loading} onClick={() => setPage(p => p + 1)}>下一页</button></nav>}
-      <p className="note">卡片只突出作品封面与主要入口。编辑、删除、举报等动作收进「···」；所有操作仍由服务端按身份鉴权。</p>
+      <p className="note">卡片只突出作品封面与主要入口。编辑、删除、举报等动作收进「···」；所有操作仍由服务端按身份鉴权。复制作品池复制的是独立选片清单，作品元数据仍引用共享目录。</p>
     </>}
     {editor && <AnimeDiscovery key={`${identityKey}:${editor === 'new' ? 'new' : `${editor.id}:${editor.revision}`}`} pool={activePool ?? undefined} works={works} author={effectiveIdentity?.nickname ?? '同好'} onWorks={values => setWorks(previous => [...new Map([...previous, ...values].map(w => [w.id, w])).values()])} saved={value => { setEditor(value); setNotice('作品池已保存。'); void reload(); }} reloaded={setEditor} />}
     {selected && <Dialog title={selected.name} close={() => setSelected(null)} wide>
       {selected.description && <p>{selected.description}</p>}
       <p className="hint-text">{selected.workCount} 部作品 · {selected.seriesCount} 个系列 · 作品池 ID：{selected.id}</p>
       <div className="anime-toolbar"><button disabled={selected.hidden || selected.seriesCount < 25} onClick={() => { try { localStorage.setItem(`cipai-selected-community-pool:${identityKey}:${room?.id ?? ''}`, selected.id); } catch {} if (room) navigate(`/room/${room.id}`); else navigate('/?create=1&variant=anime'); }}>带回房间选择</button>{selected.canEdit && <button onClick={() => { setEditor(selected); setSelected(null); }}>编辑</button>}</div>
-      <p className="hint-text">返回后由房主选择此池，点击“保存配置并更新候选池”才会生效；进行中的牌局保持原样。</p>
+      <p className="hint-text">返回后由房主选择此池，点击“保存配置并更新候选池”才会生效；进行中的牌局保持原样。复制此池只复制独立选片清单，Bangumi 与公共自建作品的资料仍引用共享目录。</p>
       <div className="community-work-grid">{selected.workIds.map(id => workMap.get(id)).filter((work): work is AnimeWork => !!work).map(work => <article key={work.id}><button className="community-cover" aria-label={`预览 ${work.title}`} onClick={() => setPreview(work)}><Cover work={work} /></button><span>{work.title}</span>{animeWorkLink(work) ? <a href={animeWorkLink(work)!} target="_blank" rel="noopener noreferrer">Bangumi</a> : <em className="manual-tag">自建</em>}</article>)}</div>
     </Dialog>}
     {preview && <Preview work={preview} close={() => setPreview(null)} />}
