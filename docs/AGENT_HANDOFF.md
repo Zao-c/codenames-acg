@@ -1,5 +1,16 @@
 # Agent 续接入口
 
+## Round 5：稳定性与匿名实时组牌（2026-10-18，开发完成，未部署）
+
+开发工作区 `/opt/codenames-round5`（独立 clone，基于 `0c54201`）。生产 `/opt/codenames-acg` 与 `codenames.service` 未修改、未重启。分支待推送；交付说明见 [Round 5 交付](ROUND5_STABILITY_ANONYMOUS_DRAFT.md)。
+
+- P0：动作级请求锁、迟到恢复错误隔离、guide 掉线保席、创建房间原子切换。
+- P1：封面版本保留、sharp 真实解码、公开可发现性与副本使用权分离、锁内并发校验、自建作品分页。
+- 新功能：draft 阶段服务端输出 `publicSelectedWorkIds` 中性只读集合；队员/旁观者可见，绝不含队伍、操作者、保护、干扰、书签。
+- 测试：`npm run test:round5:local`、`round5-privacy`、`round5-manual`，以及全量 rules/E2E/build/旧浏览器回归。
+- 截图：`docs/round5-screenshots/`。
+- 部署前置：`npm ci`（sharp）、备份 data/dist、不得设置 `SIMULATE_CREATE_FAILURE_AFTER`/测试短踢人变量。未获授权不得部署。
+
 ## 下一轮稳定性与混合动画作品池（2026-10-18，未部署）
 
 当前分支 `codex/cipai-bangumi-free-pools`（PR #11），基线 `1baae81`。本轮完成 P0 联机稳定性、P1 手动+Bangumi 混合作品池、P2 广场/档案/首页精修。应用 `c61ca1d` 已于 2026-10-18 01:01 CST 部署（systemd `codenames.service`），备份 `/opt/codenames-backups/round4-c61ca1d/`；重启清空内存房间。
