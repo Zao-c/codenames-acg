@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
 import { Dialog, Icon } from './UI';
 import { useCommunityEnabled } from '../lib/use-community';
+import { BrandMark } from './BrandMark';
 
 function useTheme() {
  const [light,setLight]=useState(()=>localStorage.getItem('theme')==='light');
@@ -19,7 +20,7 @@ export function AppNav() {
  const links=[{path:'/',label:'大厅'},{path:'/?create=1',label:'创建房间'},{path:'/packs',label:'文字题库'},...(community?[{path:'/anime-pools',label:'动画题库'}]:[]),{path:'/gallery',label:'图片图库'},{path:g.effectiveIdentity?'/profile':'/login',label:g.effectiveIdentity?'个人资料':'登录'}];
  return <>
   <nav className={`app-nav ${inRoom?'app-nav-room':''}`} aria-label="主导航">
-   <button className="nav-brand" onClick={()=>navigate('/')}><span className="brand-mark"><Icon name="cards" size={22}/></span><span>词牌结社<small>一词相连，同好成局</small></span></button>
+   <button className="nav-brand" onClick={()=>navigate('/')}><span className="brand-mark"><BrandMark/></span><span>词牌结社<small>一词相连，同好成局</small></span></button>
    <div className="nav-links">{inRoom?<><button onClick={()=>navigate('/')}>大厅</button><button onClick={()=>navigate('/anime-pools')}>动画题库</button><span className="nav-room-label">{(preparing?g.room?.nextPlan?.variant:g.room?.settings.variant)==='anime'?'动画组牌':g.room?.gameMode==='reveal-guess'?'揭幕猜番':'经典词牌'}</span>{!preparing&&<><button onClick={()=>void g.copyLink()}>{g.copied?'已复制链接':'复制邀请链接'}</button><button onClick={g.focusMode?g.exitFocusMode:g.enterFocusMode}>{g.focusMode?'退出专注':'专注模式'}</button></>}<button onClick={()=>setRules(true)}>规则说明</button></>:links.map(l=><button key={l.path} className={location.pathname===l.path?'selected':''} onClick={()=>navigate(l.path)}>{l.label}</button>)}</div>
    <div className="nav-tools"><button className="icon-button" onClick={()=>setSettings(true)} aria-label="打开快捷设置" title="设置"><Icon name="settings"/></button><span className="nav-identity">{g.effectiveIdentity?.nickname??'欢迎加入'}</span></div>
   </nav>
