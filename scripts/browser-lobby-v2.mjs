@@ -25,7 +25,8 @@ try{
     const p=await context.newPage();pages.push(p);p.on('pageerror',e=>errors.push(e.message));p.on('websocket',ws=>ws.on('framereceived',f=>{try{const s=String(f.payload);if(s.startsWith('42')){const [e,d]=JSON.parse(s.slice(2));if(e==='room_state')states[i]=d;}}catch{}}));await p.goto(base);
   }
   const host=pages[0];await create(host,'动画组牌');await until(()=>states[0]?.nextPlan?.variant==='anime','anime create');const id=states[0].id;
-  assert.equal(await button(host,'取消本次准备').count(),0);
+  await host.getByRole('heading',{name:'本局玩法',exact:true}).waitFor({state:'visible',timeout:20000});
+  assert.equal(await button(host,'取消本次准备').isVisible(),false);
   assert.equal(await host.getByRole('heading',{name:'本局玩法',exact:true}).count(),1);
   assert.equal(await host.getByRole('heading',{name:'队伍与成员',exact:true}).count(),1);
   for(let i=1;i<5;i++){await pages[i].goto(`${base}/room/${id}`);await button(pages[i],'加入房间').click();await until(()=>states[i]?.id===id,`join ${i}`);}

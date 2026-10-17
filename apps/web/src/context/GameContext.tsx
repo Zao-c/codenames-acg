@@ -12,6 +12,7 @@ import {
   PLAYER_ROLE_LABELS,
   TEAM_LABELS,
   wordPackSummaries,
+  roomTurnKey,
   type BoardMode,
   type ScoringMode,
   type CandidateEntry,
@@ -508,8 +509,24 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const setClueCountInput = (value: string) => {
     if (/^\d*$/.test(value)) {
       setClueCountInputRaw(value);
-      setError("");
+      if (scopedErrorRef.current?.scope === 'clue') { scopedErrorRef.current = null; setError(''); }
     }
+  };
+  const setActionError = (scope: 'clue' | 'guess' | 'endTurn', message: string) => {
+    scopedErrorRef.current = { scope, message };
+    setError(message);
+  };
+  const clearActionError = (scope: 'clue' | 'guess' | 'endTurn') => {
+    if (scopedErrorRef.current?.scope === scope) {
+      scopedErrorRef.current = null;
+      setError('');
+    }
+  };
+  const releaseCreateAttempt = () => {
+    createAttemptRef.current = null;
+    clearTimeout(createTimerRef.current);
+    createTimerRef.current = undefined;
+    navigateAfterSession.current = false;
   };
   const handleSetSoundEnabled = (v: boolean) => {
     setSoundEnabledRaw(v);
@@ -540,6 +557,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const guessLockRef = useRef(false);
   const endTurnLockRef = useRef(false);
   const clueRequestRef = useRef<{ id: string; word: string; count: string } | null>(null);
+  const guessActionRef = useRef<{ requestId: string; cardId: string; turnKey: string; matchId?: string } | null>(null);
+  const endTurnActionRef = useRef<{ requestId: string; turnKey: string; matchId?: string } | null>(null);
+  const scopedErrorRef = useRef<{ scope: 'clue' | 'guess' | 'endTurn'; message: string } | null>(null);
+  const createAttemptRef = useRef<{ previousRoomId?: string; previousPhase?: string; previousToken?: string } | null>(null);
+  const createTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const guessUnlockTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const endTurnUnlockTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const joinAttemptRef = useRef<{ roomId: string; spectator: boolean; previousRoomId?: string; previousPhase?: string; previousToken?: string } | null>(null);
@@ -618,15 +640,20 @@ export function GameProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     function onSession(p: ClientSession) {
       const attempt=joinAttemptRef.current;
+      const created=createAttemptRef.current;
       releaseJoin();
+      clearTimeout(createTimerRef.current);
+      createTimerRef.current=undefined;
+      createAttemptRef.current=null;
       joinAttemptRef.current=null;
       recoveryAttempt.current=null;
       setJoinError('');setLostRoom(null);
       setSession(p); saveSession(p); setConnectionState("ready"); setError(""); activeRoomIdRef.current = p.roomId; freshSessionRef.current = true;
-      if(attempt&&attempt.previousRoomId&&attempt.previousRoomId!==p.roomId&&attempt.previousPhase==='lobby'&&attempt.previousToken){
+      const previous = attempt ?? created;
+      if(previous&&previous.previousRoomId&&previous.previousRoomId!==p.roomId&&previous.previousPhase==='lobby'&&previous.previousToken){
         // The new seat is confirmed; explicitly release the old lobby seat without risking rollback.
-        socket.emit('leave_room',{roomId:attempt.previousRoomId,sessionToken:attempt.previousToken,identityKey:privateIdentityKey()});
-        removeRecoverableSession(attempt.previousRoomId);
+        socket.emit('leave_room',{roomId:previous.previousRoomId,sessionToken:previous.previousToken,identityKey:privateIdentityKey()});
+        removeRecoverableSession(previous.previousRoomId);
       }
       const recoverable = loadRecoverableSessions();
       recoverable[p.roomId] = { sessionToken: p.sessionToken, participantType: p.participantType, savedAt: Date.now() };
@@ -635,15 +662,36 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
     function onRoomState(p: PublicRoomState) {
       if (!loadSession() || p.id !== activeRoomIdRef.current) return;
-      setRoom(p); setConnectionState("ready"); setError(""); setLostRoom(null);
-      setPendingGuess(null); guessLockRef.current = false; endTurnLockRef.current = false;
-      clearTimeout(guessUnlockTimerRef.current); clearTimeout(endTurnUnlockTimerRef.current);
+      setRoom(p); setConnectionState("ready"); setLostRoom(null);
+      // Only a local action-scoped error survives unrelated room broadcasts.
+      if (!scopedErrorRef.current) setError("");
+      const pendingGuessAction = guessActionRef.current;
+      if (pendingGuessAction) {
+        const targetRevealed = p.board.some(card => card.id === pendingGuessAction.cardId && card.revealed);
+        const turnChanged = roomTurnKey(p) !== pendingGuessAction.turnKey || p.phase !== 'playing' || (!!pendingGuessAction.matchId && p.matchId !== pendingGuessAction.matchId);
+        if (targetRevealed || turnChanged) {
+          guessActionRef.current = null;
+          guessLockRef.current = false;
+          setPendingGuess(null);
+          clearTimeout(guessUnlockTimerRef.current);
+        }
+      }
+      const pendingEndTurn = endTurnActionRef.current;
+      if (pendingEndTurn) {
+        const turnChanged = roomTurnKey(p) !== pendingEndTurn.turnKey || p.phase !== 'playing' || (!!pendingEndTurn.matchId && p.matchId !== pendingEndTurn.matchId);
+        if (turnChanged) {
+          endTurnActionRef.current = null;
+          endTurnLockRef.current = false;
+          clearTimeout(endTurnUnlockTimerRef.current);
+        }
+      }
       const pendingClue=clueRequestRef.current;
       // ACK loss must not erase a clue the server actually accepted, nor duplicate the input.
       if(pendingClue&&p.clue&&p.clue.word===pendingClue.word){
         clueRequestRef.current=null;
         setClueWord(current=>current.trim()===pendingClue.word?'':current);
         setClueCountInputRaw("2");setActionStatus("");
+        clearActionError('clue');
       }
     }
     function onRoomSummaries(p: RoomSummary[]) { setRoomSummaries(p); }
@@ -654,6 +702,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
     function onError(p: { message: string; code?:string; roomId?:string; action?:string }) {
       const attempt=joinAttemptRef.current;
       const activeId=loadSession()?.roomId??activeRoomIdRef.current??undefined;
+      if(p.action==='create_room'||p.action==='create_reveal_guess_room'){
+        releaseCreateAttempt();
+        pendingCreateConfigRef.current=null;
+        setConnectionState(activeId?'ready':'idle');
+        const message=`创建新房间失败：${p.message}${activeId?'。你仍留在原房间。':'。'}`;
+        if(activeId) setError(message); else setJoinError(message);
+        return;
+      }
       // A failed attempt to enter another room must never tear down the room we are still in.
       if(p.action==='join_room'||p.action==='join_spectator'||(attempt&&attempt.roomId===(p.roomId??attempt.roomId))){
         releaseJoin();joinAttemptRef.current=null;
@@ -666,6 +722,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
       releaseJoin();
       if(p.code==='ROOM_RECOVERY_FAILED') {
         const id=p.roomId??recoveryAttempt.current?.roomId;
+        // A late recovery failure for room A must never disturb a successfully joined room B.
+        if(id&&activeId&&id!==activeId&&loadSession()?.roomId===activeId){
+          removeRecoverableSession(id);
+          if(recoveryAttempt.current?.roomId===id)recoveryAttempt.current=null;
+          return;
+        }
         if(id)removeRecoverableSession(id);
         const recoveringCurrent=!!id&&loadSession()?.roomId===id;
         const wasInGame=recoveringCurrent&&(room?.phase==='playing'||room?.phase==='finished');
@@ -699,8 +761,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         else setJoinError(`房间 ${currentRoomId} 已失效：${p.message}`);
         return;
       }
-      setError(p.message); setConnectionState("ready"); setPendingGuess(null); guessLockRef.current = false; endTurnLockRef.current = false;
-      clearTimeout(guessUnlockTimerRef.current); clearTimeout(endTurnUnlockTimerRef.current);
+      setError(p.message); setConnectionState("ready");
     }
     function onRoomClosed(p: { roomId: string; reason: string }) {
       if (p.roomId !== session?.roomId) return;
@@ -856,7 +917,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const reveal = room?.lastReveal; if (!reveal || reveal.id === lastRevealIdRef.current) return;
     lastRevealIdRef.current = reveal.id;
-    setRevealBanner(reveal); setRevealingCardIds((prev) => new Set(prev).add(reveal.cardId)); setPendingGuess(null); guessLockRef.current = false;
+    setRevealBanner(reveal); setRevealingCardIds((prev) => new Set(prev).add(reveal.cardId));
     if (soundEnabledRef.current) {
       if (reveal.outcome === "own-hit") playOwnHit(); else if (reveal.outcome === "opponent-hit") playOpponentHit(); else if (reveal.outcome === "neutral-hit") playNeutralHit(); else if (reveal.outcome === "assassin-hit") playAssassinHit();
     }
@@ -865,9 +926,17 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }, [room?.lastReveal]);
   useEffect(() => {
     if (!pendingGuess || !room) return;
+    const action = guessActionRef.current;
+    if (!action) return;
     const guessed = room.board.find((c) => c.id === pendingGuess);
-    if (guessed?.revealed || room.phase !== "playing" || !viewer?.canGuess) { setPendingGuess(null); guessLockRef.current = false; }
-  }, [pendingGuess, room, viewer?.canGuess]);
+    const turnChanged = roomTurnKey(room) !== action.turnKey || room.phase !== 'playing';
+    if (guessed?.revealed || turnChanged) {
+      guessActionRef.current = null;
+      setPendingGuess(null);
+      guessLockRef.current = false;
+      clearTimeout(guessUnlockTimerRef.current);
+    }
+  }, [pendingGuess, room]);
   useEffect(() => {
     if (room?.phase === "finished" && room.winner && soundEnabledRef.current) playVictory();
   }, [room?.phase, room?.winner]);
@@ -1137,6 +1206,24 @@ export function GameProvider({ children }: { children: ReactNode }) {
       : { nickname: effectiveIdentity.nickname, profile: effectiveIdentity };
   }
 
+  function beginCreateRoom(emit: () => void, pendingConfig: typeof pendingCreateConfigRef.current) {
+    const stored = loadSession();
+    createAttemptRef.current = { previousRoomId: stored?.roomId, previousPhase: room?.phase, previousToken: stored?.sessionToken };
+    pendingCreateConfigRef.current = pendingConfig;
+    navigateAfterSession.current = true;
+    setConnectionState("connecting"); setError(""); setJoinError(""); setLostRoom(null);
+    clearTimeout(createTimerRef.current);
+    createTimerRef.current = setTimeout(() => {
+      const active = loadSession()?.roomId ?? activeRoomIdRef.current;
+      createAttemptRef.current = null;
+      pendingCreateConfigRef.current = null;
+      navigateAfterSession.current = false;
+      setConnectionState(active ? "ready" : "idle");
+      setError(`创建房间未确认：请检查网络后重试。${active ? '你仍留在原房间。' : ''}`);
+    }, 12000);
+    emit();
+  }
+
   function createRoom(defaults = false, variant: 'classic'|'anime' = 'classic') {
     const ji = buildJoinProfile(); if (!ji) return;
 
@@ -1148,38 +1235,25 @@ export function GameProvider({ children }: { children: ReactNode }) {
       });
       return;
     }
-    if(session){if(!window.confirm('创建新房间将退出当前房间，继续？'))return;leaveRoom();}
-    navigateAfterSession.current=true;
-    clearSession(); setSession(null); setRoom(null); activeRoomIdRef.current = null;
-    const pending: { boardMode: BoardMode; builtinWordPackId?: string; customWordPack?: { name: string; entries: string[] }; scoringMode?: ScoringMode; timerMode?: import("@acg-codenames/shared").TimerMode; timerClueSeconds?: number; timerGuessSeconds?: number; neutralCount?: number | null; flipMode?: import("@acg-codenames/shared").FlipMode } = { boardMode: createBoardMode, scoringMode, timerMode: createTimerMode, timerClueSeconds: createTimerClueSeconds, timerGuessSeconds: createTimerGuessSeconds, neutralCount: createNeutralCount === 0 ? null : createNeutralCount, flipMode: createFlipMode }; 
+    if(session){if(!window.confirm('创建新房间将切换到新房间；失败会保留当前房间，继续？'))return;}
+    const pending: { boardMode: BoardMode; builtinWordPackId?: string; customWordPack?: { name: string; entries: string[] }; scoringMode?: ScoringMode; timerMode?: import("@acg-codenames/shared").TimerMode; timerClueSeconds?: number; timerGuessSeconds?: number; neutralCount?: number | null; flipMode?: import("@acg-codenames/shared").FlipMode } = { boardMode: createBoardMode, scoringMode, timerMode: createTimerMode, timerClueSeconds: createTimerClueSeconds, timerGuessSeconds: createTimerGuessSeconds, neutralCount: createNeutralCount === 0 ? null : createNeutralCount, flipMode: createFlipMode };
     if (packSource === "builtin") pending.builtinWordPackId = selectedBuiltinPackId;
     else if (selectedAccountPack) pending.customWordPack = { name: selectedAccountPack.name, entries: selectedAccountPack.entries };
-    pendingCreateConfigRef.current = variant === 'anime' ? {boardMode:'5x5',variant} : defaults ? null : pending;
-    setConnectionState("connecting"); setError("");
-    socket.emit("create_room", { identityKey: privateIdentityKey(), nickname: ji.nickname, profile: { accountType: ji.profile.mode, username: ji.profile.mode === "named" ? ji.profile.username : null, avatarUrl: ji.profile.avatarUrl, userSessionToken: ji.profile.mode === "named" ? ji.profile.userSessionToken : undefined } });
+    beginCreateRoom(() => socket.emit("create_room", { identityKey: privateIdentityKey(), nickname: ji.nickname, profile: { accountType: ji.profile.mode, username: ji.profile.mode === "named" ? ji.profile.username : null, avatarUrl: ji.profile.avatarUrl, userSessionToken: ji.profile.mode === "named" ? ji.profile.userSessionToken : undefined } }), variant === 'anime' ? { boardMode: '5x5', variant } : defaults ? null : pending);
   }
 
   function createRoomWithEntries(packName: string, packEntries: string[]) {
     const ji = buildJoinProfile(); if (!ji) return;
-    if(session){if(!window.confirm('创建新房间将退出当前房间，继续？'))return;leaveRoom();}
-    navigateAfterSession.current=true;
-
-    clearSession(); setSession(null); setRoom(null); activeRoomIdRef.current = null;
-    const pending: { boardMode: BoardMode; builtinWordPackId?: string; customWordPack?: { name: string; entries: string[] }; scoringMode?: ScoringMode; timerMode?: import("@acg-codenames/shared").TimerMode; timerClueSeconds?: number; timerGuessSeconds?: number; neutralCount?: number | null; flipMode?: import("@acg-codenames/shared").FlipMode } = { boardMode: createBoardMode, scoringMode, timerMode: createTimerMode, timerClueSeconds: createTimerClueSeconds, timerGuessSeconds: createTimerGuessSeconds, neutralCount: createNeutralCount === 0 ? null : createNeutralCount, flipMode: createFlipMode }; 
+    if(session){if(!window.confirm('创建新房间将切换到新房间；失败会保留当前房间，继续？'))return;}
+    const pending: { boardMode: BoardMode; builtinWordPackId?: string; customWordPack?: { name: string; entries: string[] }; scoringMode?: ScoringMode; timerMode?: import("@acg-codenames/shared").TimerMode; timerClueSeconds?: number; timerGuessSeconds?: number; neutralCount?: number | null; flipMode?: import("@acg-codenames/shared").FlipMode } = { boardMode: createBoardMode, scoringMode, timerMode: createTimerMode, timerClueSeconds: createTimerClueSeconds, timerGuessSeconds: createTimerGuessSeconds, neutralCount: createNeutralCount === 0 ? null : createNeutralCount, flipMode: createFlipMode };
     pending.customWordPack = { name: packName, entries: packEntries };
-    pendingCreateConfigRef.current = pending;
-    setConnectionState("connecting"); setError("");
-    socket.emit("create_room", { identityKey: privateIdentityKey(), nickname: ji.nickname, profile: { accountType: ji.profile.mode, username: ji.profile.mode === "named" ? ji.profile.username : null, avatarUrl: ji.profile.avatarUrl, userSessionToken: ji.profile.mode === "named" ? ji.profile.userSessionToken : undefined } });
+    beginCreateRoom(() => socket.emit("create_room", { identityKey: privateIdentityKey(), nickname: ji.nickname, profile: { accountType: ji.profile.mode, username: ji.profile.mode === "named" ? ji.profile.username : null, avatarUrl: ji.profile.avatarUrl, userSessionToken: ji.profile.mode === "named" ? ji.profile.userSessionToken : undefined } }), pending);
   }
 
   function createRevealGuessRoom(settings?: Partial<RevealGuessSettings>, initialPuzzle?: { imageUrl: string; answer: string; aliases?: string[]; hints?: string[] }) {
     const ji = buildJoinProfile(); if (!ji) return;
-    if(session){if(!window.confirm('创建新房间将退出当前房间，继续？'))return;leaveRoom();}
-    navigateAfterSession.current=true;
-
-    clearSession(); setSession(null); setRoom(null); activeRoomIdRef.current = null;
-    setConnectionState("connecting"); setError("");
-    socket.emit("create_reveal_guess_room", {
+    if(session){if(!window.confirm('创建新房间将切换到新房间；失败会保留当前房间，继续？'))return;}
+    beginCreateRoom(() => socket.emit("create_reveal_guess_room", {
       identityKey:privateIdentityKey(),
       nickname: ji.nickname,
       profile: {
@@ -1190,7 +1264,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       },
       settings,
       initialPuzzle
-    });
+    }), null);
   }
 
   function joinSpecificRoom(roomId: string, asSpectator: boolean) {
@@ -1278,54 +1352,64 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
     const word=clueWord.trim(), rawCount=clueCountInput, requestId=genId();
     clueRequestRef.current={id:requestId,word,count:rawCount};
-    setActionStatus('正在提交提示…');setError('');
+    setActionStatus('正在提交提示…');clearActionError('clue');setError('');
     let settled=false;
     const timer=setTimeout(()=>{
       if(settled)return;settled=true;clueRequestRef.current=null;setActionStatus('');
-      setError('提示提交未确认：正在同步最新局面。输入已保留，请勿重复提交。');
+      setActionError('clue','提示提交未确认：正在同步最新局面。输入已保留，请勿重复提交。');
       socket.emit('sync_room_state',{roomId:session.roomId});
     },9000);
     socket.emit("submit_clue", { roomId: session.roomId, word, count, requestId }, result => {
       if(settled)return;settled=true;clearTimeout(timer);clueRequestRef.current=null;setActionStatus('');
       if(!result?.ok){
-        setError(`提示未提交：${result?.message??'服务器拒绝'}。输入已保留。`);
+        setActionError('clue',`提示未提交：${result?.message??'服务器拒绝'}。输入已保留。`);
         return;
       }
       // Only the confirmed request clears the draft, so a failed send never loses the word.
       setClueWord(current=>current.trim()===word?'':current);
-      setClueCountInputRaw("2");setError("");
+      setClueCountInputRaw("2");clearActionError('clue');
     });
     if (soundEnabled) playSubmitClue();
   }
   function guessCard(cardId: string) {
     if (!session || !viewer?.canGuess || guessLockRef.current) return;
-    guessLockRef.current = true; setPendingGuess(cardId); setError('');
-    const requestId=genId();let settled=false;
+    const requestId=genId();
+    const turnKey=room?roomTurnKey(room):'';
+    guessActionRef.current={requestId,cardId,turnKey,matchId:room?.matchId};
+    guessLockRef.current = true; setPendingGuess(cardId); clearActionError('guess');
+    let settled=false;
     const timer=setTimeout(()=>{
-      if(settled)return;settled=true;guessLockRef.current=false;setPendingGuess(null);
-      setError('猜牌未确认：已同步最新棋盘，请确认后再操作，重复点击不会重复翻牌。');
+      if(settled)return;settled=true;guessActionRef.current=null;guessLockRef.current=false;setPendingGuess(null);
+      setActionError('guess','猜牌未确认：已同步最新棋盘，请确认后再操作，重复点击不会重复翻牌。');
       socket.emit('sync_room_state',{roomId:session.roomId});
     },9000);
     guessUnlockTimerRef.current=timer;
     socket.emit("guess_card", { roomId: session.roomId, cardId, requestId }, result => {
       if(settled)return;settled=true;clearTimeout(timer);
-      if(!result?.ok){guessLockRef.current=false;setPendingGuess(null);setError(`猜牌未完成：${result?.message??'服务器拒绝'}`);}
+      if(!result?.ok){
+        guessActionRef.current=null;guessLockRef.current=false;setPendingGuess(null);
+        setActionError('guess',`猜牌未完成：${result?.message??'服务器拒绝'}`);
+        return;
+      }
+      guessActionRef.current=null;guessLockRef.current=false;setPendingGuess(null);clearActionError('guess');
     });
   }
   function endTurn() {
     if (!session || !viewer?.canEndTurn || endTurnLockRef.current) return;
-    endTurnLockRef.current = true; setActionStatus('正在结束回合…'); setError('');
-    const requestId=genId();let settled=false;
+    const requestId=genId();
+    endTurnActionRef.current={requestId,turnKey:room?roomTurnKey(room):'',matchId:room?.matchId};
+    endTurnLockRef.current = true; setActionStatus('正在结束回合…'); clearActionError('endTurn');
+    let settled=false;
     const timer=setTimeout(()=>{
-      if(settled)return;settled=true;endTurnLockRef.current=false;setActionStatus('');
-      setError('结束回合未确认：已同步最新局面。');
+      if(settled)return;settled=true;endTurnActionRef.current=null;endTurnLockRef.current=false;setActionStatus('');
+      setActionError('endTurn','结束回合未确认：已同步最新局面。');
       socket.emit('sync_room_state',{roomId:session.roomId});
     },9000);
     endTurnUnlockTimerRef.current=timer;
     socket.emit('end_turn',{roomId:session.roomId,requestId},result=>{
-      if(settled)return;settled=true;clearTimeout(timer);endTurnLockRef.current=false;setActionStatus('');
-      if(!result?.ok)setError(`结束回合未完成：${result?.message??'服务器拒绝'}`);
-      else if (soundEnabled) playEndTurn();
+      if(settled)return;settled=true;clearTimeout(timer);endTurnActionRef.current=null;endTurnLockRef.current=false;setActionStatus('');
+      if(!result?.ok)setActionError('endTurn',`结束回合未完成：${result?.message??'服务器拒绝'}`);
+      else { clearActionError('endTurn'); if (soundEnabled) playEndTurn(); }
     });
   }
   function hostTakeover(kind: 'request'|'approve'|'reject'|'cancel') {
@@ -1378,7 +1462,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       socket.emit("leave_room", { roomId: session.roomId, sessionToken: session.sessionToken,identityKey:privateIdentityKey() });
     }
     clearSession(); setSession(null); setRoom(null); setConnectionState("idle"); setDidReconnect(false); setRevealBanner(null); setDanmakuQueue([]); setRoundHighlights([]); setRoundAchievements([]); setHighlightToast(null); setAchievementToast(null); setError(""); setJoinError(""); setLostRoom(null); setActionStatus(""); activeRoomIdRef.current = null;
-    clueRequestRef.current=null;guessLockRef.current=false;endTurnLockRef.current=false;setPendingGuess(null);
+    clueRequestRef.current=null;guessActionRef.current=null;endTurnActionRef.current=null;guessLockRef.current=false;endTurnLockRef.current=false;setPendingGuess(null);scopedErrorRef.current=null;
     clearTimeout(guessUnlockTimerRef.current);clearTimeout(endTurnUnlockTimerRef.current);
   }
   function logoutNamedUser() {

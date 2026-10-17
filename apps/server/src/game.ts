@@ -1953,7 +1953,10 @@ export class GameService {
         delete plan.captains[team];
       }
       if (participantType === 'player') {
-        if (plan.stage === 'draft' || plan.stage === 'sealed') {
+        if (plan.stage === 'guide') {
+          // Leaving during the captain preview invalidates the ready state; the host can replace a captain.
+          plan.stage = 'planning'; plan.ready = { red:false, blue:false }; plan.done = { red:false, blue:false }; plan.version += 1;
+        } else if (plan.stage === 'draft' || plan.stage === 'sealed') {
           // Explicit withdrawal aborts this preparation, never leaves a three-player locked roster.
           plan.stage = 'planning'; plan.matchId = crypto.randomUUID();
           plan.endsAt = undefined; plan.lockedPlayerIds = undefined;
@@ -2000,14 +2003,18 @@ export class GameService {
     const nextRoom = withEvent(room, `${participant.nickname} 暂时离线`);
 
     this.clearDisconnectKickTimer(roomId, participantId, participantType);
-    if (room.phase === "lobby" && !room.countdown && !room.nextPlan?.lockedPlayerIds && !(participant as Player).isBot) {
+    // Guide preview, draft and sealed preparation are part of the locked preparation flow:
+    // a normal 120s lobby cleanup must never silently remove a captain who stepped away.
+    const preparationStarted = !!room.nextPlan && room.nextPlan.stage !== 'planning';
+    if (room.phase === "lobby" && !room.countdown && !preparationStarted && !room.nextPlan?.lockedPlayerIds && !(participant as Player).isBot) {
       const key = this.disconnectTimerKey(roomId, participantId, participantType);
       const timer = setTimeout(async () => {
         await this.withRoomLock(roomId, async () => {
           if (this.disconnectKickTimers.get(key) !== timer) return;
           this.disconnectKickTimers.delete(key);
           const current = await this.store.getRoom(roomId);
-          if (!current || current.phase !== "lobby" || current.countdown || current.nextPlan?.lockedPlayerIds || current.nextPlan?.stage === 'sealed') return;
+          if (!current || current.phase !== "lobby" || current.countdown || current.nextPlan?.lockedPlayerIds) return;
+          if (current.nextPlan && current.nextPlan.stage !== 'planning') return;
           const entry = participantType === 'player' ? current.players.find(p => p.id === participantId) : current.spectators.find(p => p.id === participantId);
           if (entry && !entry.connected && stillDisconnected()) await this.leaveRoom(roomId, participantId, participantType);
         }).catch(() => { /* Room may expire while a cleanup is queued. */ });
