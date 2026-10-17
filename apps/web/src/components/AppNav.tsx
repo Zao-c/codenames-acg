@@ -1,4 +1,3 @@
-import { loadRecoverableSessions } from '../lib/storage';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useGame } from '../context/GameContext';
@@ -15,7 +14,7 @@ export function AppNav() {
  const g=useGame();const navigate=useNavigate();const location=useLocation();const [light,toggleTheme]=useTheme();const [settings,setSettings]=useState(false);const [rules,setRules]=useState(false);
  const inRoom=!!g.room&&location.pathname.startsWith('/room/');
  const preparing=inRoom&&g.room?.phase==='lobby'&&g.room?.gameMode!=='reveal-guess';
- const activeCode=g.session?.roomId??Object.entries(loadRecoverableSessions()).sort((a,b)=>b[1].savedAt-a[1].savedAt)[0]?.[0];
+ const activeCode=g.room?.id===g.session?.roomId?g.room?.id:undefined;
  const leave=()=>{if(window.confirm(g.room?.nextPlan?.stage==='draft'||g.room?.nextPlan?.stage==='sealed'?'确定退出本局？退出将取消当前组牌，其他玩家可重新准备。':'确定要离开房间吗？')){g.leaveRoom();navigate('/');setSettings(false);}};
  const links=[{path:'/',label:'大厅'},{path:'/?create=1',label:'创建房间'},{path:'/packs',label:'文字题库'},...(community?[{path:'/anime-pools',label:'动画题库'}]:[]),{path:'/gallery',label:'图片图库'},{path:g.effectiveIdentity?'/profile':'/login',label:g.effectiveIdentity?'个人资料':'登录'}];
  return <>

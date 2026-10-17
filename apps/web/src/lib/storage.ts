@@ -33,8 +33,8 @@ export function loadSession(): ClientSession | null {
   }
 }
 
-export function clearSession(): void {
-  localStorage.removeItem(scoped(SESSION_KEY));
+export function clearSession(roomId?: string): void {
+  if (!roomId || loadSession()?.roomId === roomId) localStorage.removeItem(scoped(SESSION_KEY));
 }
 
 export function saveIdentity(identity: LocalIdentity): void {
@@ -107,4 +107,16 @@ export function removeRecoverableSession(roomId: string): void {
   const records = loadRecoverableSessions();
   delete records[roomId];
   saveRecoverableSessions(records);
+}
+
+// An authoritative invalidation is scoped to this identity AND this room. A
+// storage event reaches other tabs; ordinary disconnects never call this.
+export function roomInvalidationKey(): string {
+  return scoped('acg-codenames-invalid-room');
+}
+
+export function invalidateRoomSession(roomId: string): void {
+  removeRecoverableSession(roomId);
+  clearSession(roomId);
+  localStorage.setItem(roomInvalidationKey(), JSON.stringify({ roomId, at: Date.now() }));
 }

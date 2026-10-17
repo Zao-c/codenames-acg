@@ -47,7 +47,7 @@ import {
 import { listPublicWordPacks, getPublicWordPackDetail, listPublicImagePacks, getPublicImagePackDetail, loginNamedUser, logoutNamedUser as apiLogoutNamedUser, updateNamedUser } from "../lib/api";
 import { getSocket } from "../lib/socket";
 import { privateIdentityKey, activatePrivateIdentity } from '../lib/private-identity';
-import { clearIdentity, clearSession, loadIdentity, loadRecentUsernames, loadSession, saveIdentity, saveSession, loadRecoverableSessions, saveRecoverableSessions, removeRecoverableSession, type LocalIdentity } from "../lib/storage";
+import { clearIdentity, clearSession, loadIdentity, loadRecentUsernames, loadSession, saveIdentity, saveSession, loadRecoverableSessions, saveRecoverableSessions, removeRecoverableSession, invalidateRoomSession, roomInvalidationKey, type LocalIdentity } from "../lib/storage";
 import { copyText } from "../lib/clipboard";
 import {
   defaultExportFilters,
@@ -631,7 +631,18 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   useEffect(()=>{
     const changed=()=>{socket.disconnect();setRoom(null);activeRoomIdRef.current=null;setDidReconnect(false);_setIdentity(loadIdentity());setSession(loadSession());socket.connect();};
-    const storage=(e:StorageEvent)=>{if(e.key==='acg-codenames-identity'||e.key==='cipai.private-identity.v1')changed();};
+    const storage=(e:StorageEvent)=>{
+      if(e.key==='acg-codenames-identity'||e.key==='cipai.private-identity.v1')changed();
+      if(e.key===roomInvalidationKey()&&e.newValue){
+        try {
+          const {roomId}=JSON.parse(e.newValue);
+          if(typeof roomId==='string'&&activeRoomIdRef.current===roomId){
+            setSession(null);setRoom(null);activeRoomIdRef.current=null;
+            setConnectionState('idle');setDidReconnect(false);setRevealBanner(null);
+          }
+        } catch { /* Ignore malformed external storage notifications. */ }
+      }
+    };
     window.addEventListener('storage',storage);window.addEventListener('private-identity-changed',changed);
     return()=>{window.removeEventListener('storage',storage);window.removeEventListener('private-identity-changed',changed);};
   },[socket]);
@@ -701,7 +712,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
     function onError(p: { message: string; code?:string; roomId?:string; action?:string }) {
       const attempt=joinAttemptRef.current;
-      const activeId=loadSession()?.roomId??activeRoomIdRef.current??undefined;
+      // Tabs may own different live rooms while sharing one persisted "last room".
+      const activeId=activeRoomIdRef.current??session?.roomId??loadSession()?.roomId??undefined;
       if(p.action==='create_room'||p.action==='create_reveal_guess_room'){
         releaseCreateAttempt();
         pendingCreateConfigRef.current=null;
@@ -714,8 +726,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
       if(p.action==='join_room'||p.action==='join_spectator'||(attempt&&attempt.roomId===(p.roomId??attempt.roomId))){
         releaseJoin();joinAttemptRef.current=null;
         const target=p.roomId??attempt?.roomId;
+        if(target&&p.message.includes('房间不存在')){
+          invalidateRoomSession(target);
+          if(target===activeId){setSession(null);setRoom(null);activeRoomIdRef.current=null;setDidReconnect(false);}
+        }
         setJoinError(target?`无法加入房间 ${target}：${p.message}。${activeId?'你仍留在原房间。':'可返回大厅重试。'}`:`无法加入房间：${p.message}`);
-        setConnectionState(room?'ready':'idle');
+        setConnectionState(activeRoomIdRef.current?'ready':'idle');
         if(activeId&&activeId!==target)setError('');
         return;
       }
@@ -723,16 +739,16 @@ export function GameProvider({ children }: { children: ReactNode }) {
       if(p.code==='ROOM_RECOVERY_FAILED') {
         const id=p.roomId??recoveryAttempt.current?.roomId;
         // A late recovery failure for room A must never disturb a successfully joined room B.
-        if(id&&activeId&&id!==activeId&&loadSession()?.roomId===activeId){
+        if(id&&activeId&&id!==activeId){
           removeRecoverableSession(id);
           if(recoveryAttempt.current?.roomId===id)recoveryAttempt.current=null;
           return;
         }
-        if(id)removeRecoverableSession(id);
-        const recoveringCurrent=!!id&&loadSession()?.roomId===id;
+        const recoveringCurrent=!!id&&id===activeId;
+        if(id)invalidateRoomSession(id);
         const wasInGame=recoveringCurrent&&(room?.phase==='playing'||room?.phase==='finished');
         if(recoveringCurrent){
-          clearSession();setSession(null);setRoom(null);activeRoomIdRef.current=null;setDidReconnect(false);
+          clearSession(id);setSession(null);setRoom(null);activeRoomIdRef.current=null;setDidReconnect(false);
         }
         const attemptRef=recoveryAttempt.current;recoveryAttempt.current=null;
         if(id&&attemptRef?.retry&&!p.message.includes('身份')&&!p.message.includes('房间不存在')) {
@@ -752,10 +768,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
           if(p.roomId)removeRecoverableSession(p.roomId);
           setError('');return;
         }
-        if(p.roomId&&p.roomId!==currentRoomId){setError('');return;}
-        removeRecoverableSession(currentRoomId);
+        if(p.roomId&&p.roomId!==currentRoomId){invalidateRoomSession(p.roomId);setError('');return;}
+        invalidateRoomSession(currentRoomId);
         const wasInGame=room?.phase==='playing'||room?.phase==='finished';
-        clearSession();setSession(null);setRoom(null);setConnectionState("idle");setDidReconnect(false);setRevealBanner(null);
+        clearSession(currentRoomId);setSession(null);setRoom(null);setConnectionState("idle");setDidReconnect(false);setRevealBanner(null);
         activeRoomIdRef.current = null;
         if(wasInGame){setLostRoom({roomId:currentRoomId,message:'当前房间已结束或已解散，本局无法继续。'});setError('');}
         else setJoinError(`房间 ${currentRoomId} 已失效：${p.message}`);
@@ -764,8 +780,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setError(p.message); setConnectionState("ready");
     }
     function onRoomClosed(p: { roomId: string; reason: string }) {
-      if (p.roomId !== session?.roomId) return;
-      clearSession(); setSession(null); setRoom(null); setConnectionState("idle"); setDidReconnect(false); setRevealBanner(null); setError(p.reason); activeRoomIdRef.current = null;
+      invalidateRoomSession(p.roomId);
+      if (p.roomId !== activeRoomIdRef.current) return;
+      setSession(null); setRoom(null); setConnectionState("idle"); setDidReconnect(false); setRevealBanner(null); setError(p.reason); activeRoomIdRef.current = null;
     }
     const onConnect=()=>{if(!loadSession()&&!joinLockRef.current)setConnectionState('idle');};
     socket.on('connect',onConnect);
@@ -782,9 +799,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     function onVisible() {
-      if (document.visibilityState === 'visible' && loadSession()) {
-        const current = loadSession()!;
-        socket.emit('sync_room_state', { roomId: current.roomId });
+      if (document.visibilityState === 'visible' && activeRoomIdRef.current) {
+        socket.emit('sync_room_state', { roomId: activeRoomIdRef.current });
       }
     }
     document.addEventListener('visibilitychange', onVisible);
@@ -1207,7 +1223,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }
 
   function beginCreateRoom(emit: () => void, pendingConfig: typeof pendingCreateConfigRef.current) {
-    const stored = loadSession();
+    const stored = session?.roomId===activeRoomIdRef.current?session:loadSession();
     createAttemptRef.current = { previousRoomId: stored?.roomId, previousPhase: room?.phase, previousToken: stored?.sessionToken };
     pendingCreateConfigRef.current = pendingConfig;
     navigateAfterSession.current = true;
@@ -1271,8 +1287,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if(joinLockRef.current)return;
     const target=normalizeRoomCode(roomId);
     const ji = buildJoinProfile(); if (!ji) return;
-    const storedSession=loadSession();
-    if(storedSession&&storedSession.roomId===target){
+    const storedSession=session?.roomId===activeRoomIdRef.current?session:loadSession();
+    const enteringPlayerSeat=storedSession?.roomId===target&&storedSession.participantType==='spectator'&&!asSpectator;
+    if(storedSession&&storedSession.roomId===target&&!enteringPlayerSeat){
       // Returning to the seat we already own must not create a duplicate player.
       setConnectionState("connecting");setError("");setJoinError("");
       recoveryAttempt.current={roomId:target,retry:false};
@@ -1293,7 +1310,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     navigateAfterSession.current=true;
     const saved=loadRecoverableSessions()[target];
     const token=storedSession?.roomId===target?storedSession.sessionToken:saved?.sessionToken;
-    if(!asSpectator&&token){recoveryAttempt.current={roomId:target,retry:false};socket.emit('reconnect_room',{roomId:target,sessionToken:token,identityKey:privateIdentityKey()});return;}
+    if(!asSpectator&&token&&!enteringPlayerSeat){recoveryAttempt.current={roomId:target,retry:false};socket.emit('reconnect_room',{roomId:target,sessionToken:token,identityKey:privateIdentityKey()});return;}
     recoveryAttempt.current=null;
     const payload = { identityKey: privateIdentityKey(), roomId: target, nickname: ji.nickname, profile: { accountType: ji.profile.mode, username: ji.profile.mode === "named" ? ji.profile.username : null, avatarUrl: ji.profile.avatarUrl, userSessionToken: ji.profile.mode === "named" ? ji.profile.userSessionToken : undefined }, sessionToken: undefined };
     if (asSpectator) socket.emit("join_spectator", payload);
@@ -1461,7 +1478,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       }
       socket.emit("leave_room", { roomId: session.roomId, sessionToken: session.sessionToken,identityKey:privateIdentityKey() });
     }
-    clearSession(); setSession(null); setRoom(null); setConnectionState("idle"); setDidReconnect(false); setRevealBanner(null); setDanmakuQueue([]); setRoundHighlights([]); setRoundAchievements([]); setHighlightToast(null); setAchievementToast(null); setError(""); setJoinError(""); setLostRoom(null); setActionStatus(""); activeRoomIdRef.current = null;
+    if(session)clearSession(session.roomId);
+    setSession(null); setRoom(null); setConnectionState("idle"); setDidReconnect(false); setRevealBanner(null); setDanmakuQueue([]); setRoundHighlights([]); setRoundAchievements([]); setHighlightToast(null); setAchievementToast(null); setError(""); setJoinError(""); setLostRoom(null); setActionStatus(""); activeRoomIdRef.current = null;
     clueRequestRef.current=null;guessActionRef.current=null;endTurnActionRef.current=null;guessLockRef.current=false;endTurnLockRef.current=false;setPendingGuess(null);scopedErrorRef.current=null;
     clearTimeout(guessUnlockTimerRef.current);clearTimeout(endTurnUnlockTimerRef.current);
   }
