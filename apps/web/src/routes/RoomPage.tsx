@@ -1,3 +1,4 @@
+import { RoomIdentity } from '../components/RoomIdentity';
 import { ChatMessages, BattleEvents } from '../components/Conversation';
 import { CompactMembers, MatchManagement, MatchResult } from '../components/MatchSummary';
 import { PreparationLobby } from '../components/PreparationLobby';
@@ -138,7 +139,7 @@ export function RoomPage() {
   }
 
   if (isLobby && room.nextPlan?.stage !== 'draft') return <><RoomStabilityBanner/><PreparationLobby room={room}/></>;
-  if(isLobby&&room.nextPlan?.stage==='draft')return <section className={`room-layout room-layout-lobby room-preparing-anime draft-room-shell mobile-view-${g.mobileRoomTab}`}><RoomStabilityBanner/><header className="room-bar"><div><strong className="room-code">{room.id}</strong><p className="hint-text">动画组牌 · {room.nextPlan.settings.boardMode}</p></div><div className="bar-actions"><button onClick={()=>void copyLink()}>{copied?'已复制':'邀请好友'}</button>{viewer?.isHost&&<MatchManagement/>}</div></header><NextMatchPanel room={room}/><aside className="lobby-people"><CompactMembers room={room}/></aside><aside className="room-right-col lobby-chat"><SideTabPanel g={g} room={room} session={session}/></aside>{error&&<p className="error-text" role="alert">{error}</p>}</section>;
+  if(isLobby&&room.nextPlan?.stage==='draft')return <section className={`room-layout room-layout-lobby room-preparing-anime draft-room-shell mobile-view-${g.mobileRoomTab}`}><RoomStabilityBanner/><header className="room-bar"><div><strong className="room-code">{room.id}</strong><p className="hint-text">动画组牌 · {room.nextPlan.settings.boardMode}</p></div><div className="bar-actions"><button onClick={()=>void copyLink()}>{copied?'已复制':'邀请好友'}</button>{viewer?.isHost&&<MatchManagement/>}</div></header><RoomIdentity room={room}/><NextMatchPanel room={room}/><aside className="lobby-people"><CompactMembers room={room}/></aside><aside className="room-right-col lobby-chat"><SideTabPanel g={g} room={room} session={session}/></aside>{error&&<p className="error-text" role="alert">{error}</p>}</section>;
 
   if(isFinished)return <MatchResult room={room}/>;
 
@@ -158,6 +159,7 @@ export function RoomPage() {
       {highlightToast ? <RoundHighlightToast highlight={highlightToast} /> : null}
       {achievementToast ? <AchievementToast achievement={achievementToast} /> : null}
       <RoomStabilityBanner />
+      <RoomIdentity room={room}/>
 
       {focusMode ? (
         <FocusBar room={room} viewer={viewer} onExitFocus={exitFocusMode} g={g} />
@@ -720,8 +722,8 @@ function ActionPanel({ viewer, room, g }: { viewer: NonNullable<ReturnType<typeo
   return (
     <section className="panel action-panel" style={{ marginBottom: 12 }}>
       {viewer.canSubmitClue ? (
-        <div className="clue-form" onKeyDown={handleClueKeyDown}>
-          <p className="clue-form-hint">你是本回合队长 · 请在这里输入提示词</p>
+        <div className={`clue-form clue-team-${room.currentTeam}`} onKeyDown={handleClueKeyDown}>
+          <p className="clue-form-hint">{TEAM_LABELS[room.currentTeam]}队长 · 请在这里输入提示词</p>
           <label className="field">
             <span>提示词</span>
             <input value={clueWord} onChange={(e) => setClueWord(e.target.value)} maxLength={12} placeholder="例如：机甲 / 学园 / 主角团" />
