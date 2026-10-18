@@ -1,6 +1,6 @@
 {
   "baseCommit": "3008f050d542268b0a8710b44f23bfc85017ef4e",
-  "applicationCommit": "106928026e91f0b3a4f8579d54d6ba032a0d5482",
+  "applicationCommit": "03cecbc671396c3eb94b1aae22c2a3241e144886",
   "checks": [
     {
       "command": "npm run typecheck",
@@ -98,7 +98,7 @@
     },
     {
       "file": "screenshots/after-board-6x6-red-captain-1440-dark.png",
-      "sha256": "b2db9919072ddda284bcddd2ce145bf910f5292090920d1469b73591537bd390",
+      "sha256": "f40b1a12815b2dcb84fdcc412c6204914bd4da266b8612e435ac7c8d80c01f95",
       "stage": "after"
     },
     {
@@ -108,27 +108,27 @@
     },
     {
       "file": "screenshots/after-lobby-4-1440-dark.png",
-      "sha256": "19ef8c80c60a351f271434690bcc5ee970c7c4e0db821e340339c22683667229",
+      "sha256": "abc397faf285a69dcae9a26a7ac87d16827d151c7c2c05a89750d499ae77c4bd",
       "stage": "after"
     },
     {
       "file": "screenshots/after-board-6x6-red-captain-390-dark.png",
-      "sha256": "9b5838c657c393e845020c960ff1b98a7fc0d8e7ab7cce38cab54d6abbfe25b2",
+      "sha256": "6a84773f08d37fcdabfe3781fbeaed7e4b6f8fe1b24776619d0899e97028e4d8",
       "stage": "after"
     },
     {
       "file": "screenshots/after-draft-6-console-390-dark.png",
-      "sha256": "87c94ffe1667cb3b0d081612243e8f615394977ceb658789ba6365a906116230",
+      "sha256": "73bb174f63d4f9e8a1826c7ab92981e7da7af0d3f91a4d9e8232926b93e1445f",
       "stage": "after"
     },
     {
       "file": "screenshots/after-clue-5x5-red-1440-light.png",
-      "sha256": "b10e3490270ad8ef7b5cda84b2a578f4c3be824746f34cb39e9f08e99a4a47ef",
+      "sha256": "0f154237181364d4c0c4879e7cdb10ae854b4b9e54ab40880b2c5f7679105c1d",
       "stage": "after"
     },
     {
       "file": "screenshots/after-clue-5x5-blue-1440-dark.png",
-      "sha256": "8a5939d2872d6c5079a992fd19598549018548e314836c2e062167dd52323ce5",
+      "sha256": "ae003119296f6c6ce25e6916e5eaab172659def7a092834b98627c0a4ccaa1da",
       "stage": "after"
     }
   ],

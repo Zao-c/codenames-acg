@@ -1,6 +1,6 @@
 # Round 7 稳定性与操作体验验收
 
-基线 `3008f050d542268b0a8710b44f23bfc85017ef4e`，应用提交 `106928026e91f0b3a4f8579d54d6ba032a0d5482`。独立分支 `codex/cipai-round7`，新 PR 以 `codex/cipai-round6` 为 base；未使用旧 main。生产部署状态与备份记录见本地私有交付报告。
+基线 `3008f050d542268b0a8710b44f23bfc85017ef4e`，应用提交 `03cecbc671396c3eb94b1aae22c2a3241e144886`。独立分支 `codex/cipai-round7`，新 PR 以 `codex/cipai-round6` 为 base；未使用旧 main。生产部署状态与备份记录见本地私有交付报告。
 
 ## 修改结果
 
