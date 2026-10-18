@@ -7,10 +7,8 @@ import { Dialog } from './UI';
 import { AssociationBoard } from './AssociationBoard';
 import { SpectatorPredictions } from './SpectatorPredictions';
 import { privateIdentityKey } from '../lib/private-identity';
-export function Cover({ work }: { work: AnimeWork }) {
-  const [failed, setFailed] = useState(false);
-  return !failed && work.cover ? <img src={resolveAnimeAssetUrl(work.cover)} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setFailed(true)} /> : <span className="anime-cover-fallback">{work.title}</span>;
-}
+import { Cover } from './Cover';
+export { Cover } from './Cover';
 export function Preview({ work, close, children }: { work: AnimeWork; close: () => void; children?: React.ReactNode }) {
   return <Dialog title={work.fullTitle} close={close}><section className="anime-modal">
     <Cover work={work}/><h2>{work.fullTitle}</h2><p>{work.type} · {work.airDate}</p><p>{work.aliases.join(' / ')}</p>

@@ -66,6 +66,7 @@ export type ActionReply = {
   turnVersion?: string;
 };
 export interface ClientToServerEvents {
+  enable_room_deltas: () => void;
   analysis_action: (payload: AnalysisAction, reply?: (result: ActionReply) => void) => void;
   prediction_action: (payload: PredictionAction) => void;
   plan_action: (payload: PlanAction, reply?: (result: ActionReply) => void) => void;
@@ -134,7 +135,8 @@ export interface ReactionEffectPayload {
 
 export interface ServerToClientEvents {
   analysis_state: (payload: { roomId: string; analysis: AnalysisPermissions }) => void;
-  room_state: (payload: PublicRoomState) => void;
+  room_state: (payload: import("./room-transport.js").RoomSnapshot) => void;
+  room_state_delta: (payload: import("./room-transport.js").RoomDelta) => void;
   session: (payload: ClientSession) => void;
   room_summaries: (payload: RoomSummary[]) => void;
   error_message: (payload: ErrorMessagePayload) => void;

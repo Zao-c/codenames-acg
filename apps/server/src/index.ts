@@ -1,6 +1,10 @@
-import { animeCatalogFor, animePools, initializeAnimeCatalog, registerManualCatalog } from "./anime-catalog.js";
+import { animeCatalog, animeCatalogFor, animePools, initializeAnimeCatalog, registerManualCatalog } from "./anime-catalog.js";
 import { BangumiAdapter } from './bangumi.js';
 import cors from "cors";
+import compression from "compression";
+import path from "node:path";
+import { PublicAssets } from "./public-assets.js";
+import { RoomTransport } from "@acg-codenames/shared";
 import crypto from "node:crypto";
 import express from "express";
 import rateLimit from "express-rate-limit";
@@ -360,7 +364,20 @@ async function bootstrap(): Promise<void> {
     createdRoomCount += 1;
   }
 
+  const assets = new PublicAssets(path.join(path.dirname(env.userStoreFile), "public-cache"));
+  const transports = new WeakMap<object, RoomTransport>();
+  const deltaSockets = new WeakSet<object>();
+  function emitRoom(socket: import("socket.io").Socket<ClientToServerEvents, ServerToClientEvents>, state: import("@acg-codenames/shared").PublicRoomState, full = false) {
+    const wire = assets.wire(state);
+    if (!deltaSockets.has(socket)) { socket.emit("room_state", wire); return; }
+    let transport = transports.get(socket);
+    if (!transport) { transport = new RoomTransport(); transports.set(socket, transport); }
+    const next = transport.next(wire, full);
+    if (next.snapshot) socket.emit("room_state", next.snapshot);
+    else if (next.delta) socket.emit("room_state_delta", next.delta);
+  }
   app.use(cors({ origin: allowedOrigins, credentials: true }));
+  app.use(compression({ threshold: 1024 }));
   app.use(helmet());
   app.use(express.json({ limit: "50mb" }));
 
@@ -421,10 +438,27 @@ async function bootstrap(): Promise<void> {
     }
     catch(error){res.status(error instanceof CommunityError?error.status:400).json({message:error instanceof Error?error.message:'动画发现未完成，请重试'});}
   });
+  app.get('/api/profile-avatars/:key', async (req, res) => {
+    try { const data = await assets.readAvatar(req.params.key); res.set({'Content-Type':'image/webp','Cache-Control':'public, max-age=604800, immutable','Cross-Origin-Resource-Policy':'cross-origin'}).send(data); }
+    catch { res.set('Cache-Control','no-store').status(404).end(); }
+  });
+  const coverLimiter = rateLimit({windowMs:60_000,limit:3000,standardHeaders:true,legacyHeaders:false});
+  app.get('/api/anime/cover/:id', coverLimiter, async (req, res) => {
+    const id = Number(req.params.id);
+    const work = Number.isSafeInteger(id) && id > 0 ? animeCatalog().find(work => work.id === id) : undefined;
+    if (!work?.cover) { res.status(404).end(); return; }
+    try { const data = await assets.cover(work.cover); res.set({'Content-Type':'image/webp','Cache-Control':'public, max-age=86400','Cross-Origin-Resource-Policy':'cross-origin'}).send(data); }
+    catch { res.set('Cache-Control','no-store').status(503).end(); }
+  });
   const metadataLimiter = rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: true, legacyHeaders: false, message: { message: '目录读取太频繁，请稍后重试' } });
   app.get('/api/features', metadataLimiter, (_req, res) => { res.setHeader('Cache-Control', 'no-store'); res.json({ animeCommunity: env.enableAnimeCommunity }); });
+  app.get('/api/anime/home-covers', metadataLimiter, (_req, res) => {
+    const works = animeCatalog().filter(work => work.cover).slice(0, 24).map(({id,title,fullTitle,cover}) => ({id,title,fullTitle,cover}));
+    res.set('Cache-Control','public, max-age=300').json({works});
+  });
   app.get('/api/anime/catalog', metadataLimiter, async (req, res) => {
-    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Cache-Control', 'private, max-age=60, must-revalidate');
+    res.vary('x-private-key');
     const available = env.enableAnimeDraft || env.enableAnimeCommunity;
     let principalId: string | undefined;
     if (req.header('x-private-key')) { try { principalId = principalFromKey(req.header('x-private-key')); } catch { principalId = undefined; } }
@@ -449,7 +483,7 @@ async function bootstrap(): Promise<void> {
 
   app.get("/rooms", async (_req, res) => {
     const rooms = await game.listRoomSummaries();
-    res.json(rooms);
+    res.json(assets.wire(rooms));
   });
 
   app.get("/api/public-word-packs", async (_req, res) => {
@@ -620,8 +654,10 @@ async function bootstrap(): Promise<void> {
     }
   });
 
+  let summariesTimer: ReturnType<typeof setTimeout> | undefined;
   async function broadcastRoomSummaries(): Promise<void> {
-    io.emit("room_summaries", await game.listRoomSummaries());
+    if (summariesTimer) return;
+    summariesTimer=setTimeout(()=>{summariesTimer=undefined;game.listRoomSummaries().then(rooms=>io.emit("room_summaries",assets.wire(rooms))).catch(error=>console.warn('room summaries:',error));},150);
   }
 
   async function sendRoomState(roomId: string): Promise<void> {
@@ -646,7 +682,9 @@ async function bootstrap(): Promise<void> {
       if (room.revealGuessState) {
         payload.revealGuessPublic = RevealGuess.sanitizeRevealGuessState(room, session.participantId, session.participantType) ?? undefined;
       }
-      currentSocket.emit("room_state", payload);
+      const localSocket = io.sockets.sockets.get(currentSocket.id);
+      if (localSocket) emitRoom(localSocket, payload);
+      else currentSocket.emit("room_state", assets.wire(payload));
     }
 
     await broadcastRoomSummaries();
@@ -736,6 +774,7 @@ async function bootstrap(): Promise<void> {
 
 
   io.on("connection", (socket) => {
+    socket.on("enable_room_deltas", () => { deltaSockets.add(socket); transports.delete(socket); });
     socket.on('prediction_action', async payload => {
       try {
         checkSocketRate(socket.id, 'prediction_action', 10, 1000);
@@ -797,7 +836,7 @@ async function bootstrap(): Promise<void> {
         socket.join(room.id);
         socket.join(`member:${player.id}`);
         emitSession(socket, room.id, player.id, "player", player.sessionToken!);
-        socket.emit("room_state", game.getPublicRoomState(room, player.id, "player"));
+        emitRoom(socket, game.getPublicRoomState(room, player.id, "player"), true);
         await broadcastRoomSummaries();
       } catch (error) {
         fail(socket, error, { code: 'CREATE_ROOM_FAILED', action: 'create_room' });
@@ -1283,7 +1322,7 @@ async function bootstrap(): Promise<void> {
         if (room.revealGuessState) {
           state.revealGuessPublic = RevealGuess.sanitizeRevealGuessState(room, session.participantId, session.participantType) ?? undefined;
         }
-        socket.emit("room_state", state);
+        emitRoom(socket, state, true);
       } catch (error) {
         fail(socket, error);
       }
@@ -1338,7 +1377,7 @@ async function bootstrap(): Promise<void> {
         emitSession(socket, room.id, player.id, "player", player.sessionToken!);
         const roomStatePayload = game.getPublicRoomState(room, player.id, "player");
         roomStatePayload.revealGuessPublic = RevealGuess.sanitizeRevealGuessState(room, player.id, "player") ?? undefined;
-        socket.emit("room_state", roomStatePayload);
+        emitRoom(socket, roomStatePayload, true);
         await broadcastRoomSummaries();
       } catch (error) {
         fail(socket, error, { code: 'CREATE_ROOM_FAILED', action: 'create_reveal_guess_room' });

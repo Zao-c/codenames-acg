@@ -5,7 +5,7 @@ export { AnimeBoard } from './AnimeBoard';
 import { Dialog } from './UI';
 import { DraftWorkspace } from './DraftWorkspace';
 import type { DropAction } from './DraftTile';
-import { getPlanPool, getPublicWordPackDetail, getCommunityPool, listCommunityPools } from '../lib/api';
+import { getAnimeCatalog, getPlanPool, getPublicWordPackDetail, getCommunityPool, listCommunityPools } from '../lib/api';
 import { privateIdentityKey } from '../lib/private-identity';
 import { useNavigate } from 'react-router-dom';
 import type { CommunityPoolSummary } from '@acg-codenames/shared';
@@ -16,7 +16,7 @@ export function useServerTime(room: PublicRoomState) {
   const offset = useRef(room.serverNow - Date.now());
   const [time, setTime] = useState(Date.now() + offset.current);
   useEffect(() => { offset.current = room.serverNow - Date.now(); }, [room.serverNow]);
-  useEffect(() => { const timer = window.setInterval(() => setTime(Date.now() + offset.current), 200); return () => clearInterval(timer); }, []);
+  useEffect(() => { const timer = window.setInterval(() => setTime(Date.now() + offset.current), 1000); return () => clearInterval(timer); }, []);
   return time;
 }
 export function StartCountdown({ room }: { room: PublicRoomState }) {
@@ -86,9 +86,14 @@ export function NextMatchPanel({ room, mode = 'full', onConfigured, embedded=fal
     return new Map([...pools,...savedPools].map(pool=>[pool.id,new Set(pool.workIds.map(id=>byId.get(id)).filter(Boolean)).size]));
   },[catalog,pools,savedPools]);
   useEffect(() => { try { setSavedPools(JSON.parse(localStorage.getItem(storageKey) ?? '[]')); } catch {} }, [storageKey]);
+  const needsCatalog = room.viewer?.isHost && (mode==='settings'||(mode==='full'&&!embedded&&(!plan||plan.stage==='planning')));
+  const catalogOwner = privateIdentityKey();
   useEffect(() => {
-    fetch(`${import.meta.env.VITE_SERVER_URL || ''}/api/anime/catalog`).then(r => r.json()).then(data => { setCatalog(data.works ?? []); setPools(data.pools ?? []); }).catch(() => setError('目录读取失败，请稍后重试。已准备的候选池仍可使用。'));
-  }, []);
+    if (!needsCatalog) return;
+    let live=true;
+    getAnimeCatalog().then(data=>{if(live){setCatalog(data.works);setPools(data.pools??[]);}}).catch(()=>{if(live)setError('目录读取失败，请稍后重试。已准备的候选池仍可使用。');});
+    return()=>{live=false;};
+  }, [needsCatalog,catalogOwner]);
   const refreshCommunity = async () => {
     try {
       const pages = await Promise.all([listCommunityPools('public'), listCommunityPools('mine'), listCommunityPools('favorites')]);

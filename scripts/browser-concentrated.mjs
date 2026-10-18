@@ -1,3 +1,4 @@
+import { readRoomState } from './room-observer.mjs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import assert from 'node:assert/strict';
@@ -18,7 +19,7 @@ async function emit(p,event,payload){return p.evaluate(async({event,payload})=>{
 async function raw(p,event,payload){await p.evaluate(async({event,payload})=>{(await import('/src/lib/socket.ts')).getSocket().emit(event,payload);},{event,payload});}
 async function tab(p,name){if(p.viewportSize().width<=760)await p.getByRole('navigation',{name:'房间导航'}).getByRole('button',{name,exact:true}).click();}
 async function page(i){const ctx=await browser.newContext(i>=2?{viewport:{width:390,height:844},hasTouch:true,isMobile:true}:{viewport:{width:1440,height:900}});const p=await ctx.newPage();pages[i]=p;p.on('pageerror',e=>errors.push(e.message));requests[i]=[];
- p.on('websocket',ws=>{ws.on('framesent',f=>{try{const v=String(f.payload);if(/^42/.test(v)){const [e,d]=JSON.parse(v.slice(v.indexOf('[')));requests[i].push({event:e,payload:d});}}catch{}});ws.on('framereceived',f=>{try{const v=String(f.payload);if(v.startsWith('42')){const [e,d]=JSON.parse(v.slice(v.indexOf('[')));if(e==='room_state')states[i]=d;if(e==='analysis_state'&&states[i]?.id===d.roomId)states[i].analysis=d.analysis;}}catch{}});});
+ p.on('response',async response=>{if(!response.url().includes('/socket.io/')||response.request().method()!=='GET')return;try{for(const packet of(await response.text()).split('\x1e'))if(packet.startsWith('42')){const[event,data]=JSON.parse(packet.slice(2));if(event==='room_state'||event==='room_state_delta')states[i]=readRoomState(event,data,states[i]);}}catch{}});p.on('websocket',ws=>{ws.on('framesent',f=>{try{const v=String(f.payload);if(/^42/.test(v)){const [e,d]=JSON.parse(v.slice(v.indexOf('[')));requests[i].push({event:e,payload:d});}}catch{}});ws.on('framereceived',f=>{try{const v=String(f.payload);if(v.startsWith('42')){const [e,d]=JSON.parse(v.slice(v.indexOf('[')));if(e==='room_state'||e==='room_state_delta')states[i]=readRoomState(e,d,states[i]);if(e==='analysis_state'&&states[i]?.id===d.roomId)states[i].analysis=d.analysis;}}catch{}});});
  await p.goto(`${base}/login`);await button(p,'游客').click();await p.getByPlaceholder('输入昵称直接开玩').fill(names[i]);await button(p,'快速进入').click();await visible(button(p,'＋ 创建房间'));return p;
 }
 async function request(p,route,method='GET',body){const key=await p.evaluate(()=>localStorage.getItem('cipai.private-identity.v1'));const response=await p.request.fetch(api+route,{method,headers:{'x-private-key':key,'content-type':'application/json'},...(body===undefined?{}:{data:body})});return {status:response.status(),data:await response.json()};}

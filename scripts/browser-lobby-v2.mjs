@@ -1,3 +1,4 @@
+import { readRoomState } from './room-observer.mjs';
 import { theme } from './browser-support.mjs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -22,7 +23,7 @@ try{
     const mobile=i===2||i===3;
     const context=await browser.newContext(mobile?{viewport:{width:390,height:844},isMobile:true,hasTouch:true}:{viewport:{width:1440,height:900}});
     await context.addInitScript(({i})=>{localStorage.setItem('acg-codenames-identity',JSON.stringify({mode:'guest',nickname:`大厅验收${i}`,username:'',avatarUrl:null}));},{i});
-    const p=await context.newPage();pages.push(p);p.on('response',async response=>{if(!response.url().includes('/socket.io/')||!response.url().includes('transport=polling'))return;try{for(const packet of (await response.text()).split('\x1e'))if(packet.startsWith('42')){const [event,data]=JSON.parse(packet.slice(2));if(event==='room_state')states[i]=data;}}catch{}});p.on('pageerror',e=>errors.push(e.message));p.on('websocket',ws=>ws.on('framereceived',f=>{try{const s=String(f.payload);if(s.startsWith('42')){const [e,d]=JSON.parse(s.slice(2));if(e==='room_state')states[i]=d;}}catch{}}));await p.goto(base);
+    const p=await context.newPage();pages.push(p);p.on('response',async response=>{if(!response.url().includes('/socket.io/')||!response.url().includes('transport=polling'))return;try{for(const packet of (await response.text()).split('\x1e'))if(packet.startsWith('42')){const [event,data]=JSON.parse(packet.slice(2));if(event==='room_state'||event==='room_state_delta')states[i]=readRoomState(event,data,states[i]);}}catch{}});p.on('pageerror',e=>errors.push(e.message));p.on('websocket',ws=>ws.on('framereceived',f=>{try{const s=String(f.payload);if(s.startsWith('42')){const [e,d]=JSON.parse(s.slice(2));if(e==='room_state'||e==='room_state_delta')states[i]=readRoomState(e,d,states[i]);}}catch{}}));await p.goto(base);
   }
   const host=pages[0];await create(host,'动画组牌');await until(()=>states[0]?.nextPlan?.variant==='anime','anime create');const id=states[0].id;
   await host.getByRole('heading',{name:'本局玩法',exact:true}).waitFor({state:'visible',timeout:20000});

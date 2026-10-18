@@ -1,3 +1,4 @@
+import { resolveAnimeAssetUrl } from "../lib/api";
 import type { ChatReaction } from "@acg-codenames/shared";
 
 export function AvatarBadge({
@@ -16,7 +17,7 @@ export function AvatarBadge({
   const fallbackText = fallback.trim().slice(0, 1).toUpperCase() || "?";
   return (
     <div className={className.join(" ")}>
-      {avatarUrl ? <img src={avatarUrl} alt={fallback} /> : <span>{fallbackText}</span>}
+      {avatarUrl ? <img src={resolveAnimeAssetUrl(avatarUrl)} alt={fallback} /> : <span>{fallbackText}</span>}
     </div>
   );
 }

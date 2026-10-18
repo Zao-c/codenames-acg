@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { memo, useMemo, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { TEAM_LABELS, type AnimeWork, type DraftClaim } from '@acg-codenames/shared';
 import { Cover } from './AnimeBoard';
@@ -9,10 +9,16 @@ export type DropAllow = Record<DropAction, boolean> & { reason?: string };
 // Only one tile gesture may run at a time so ghost, highlight and drop stay consistent.
 let gestureActive = false;
 
-export function DraftTile({ work, claim, time, bookmark, canEdit, allow, onPreview, onBookmark, onDrop, compact=false, publicSelected=false }: {
+type TileProps = {
   work: AnimeWork; claim?: DraftClaim; time: number; bookmark?: boolean; canEdit: boolean; allow: DropAllow;
   onPreview: () => void; onBookmark?: () => void; onDrop: (work: AnimeWork, action: DropAction, replaceId?:number) => void; compact?:boolean; publicSelected?:boolean;
-}) {
+};
+export function DraftTile(props: TileProps) {
+  const latest=useRef(props);latest.current=props;
+  const handlers=useMemo(()=>({onDrop:(...args:Parameters<TileProps['onDrop']>)=>latest.current.onDrop(...args),onPreview:()=>latest.current.onPreview(),onBookmark:()=>latest.current.onBookmark?.()}),[]);
+  return <MemoDraftTile {...props} onDrop={handlers.onDrop} onPreview={handlers.onPreview} onBookmark={props.onBookmark?handlers.onBookmark:undefined}/>;
+}
+function DraftTileView({work,claim,time,bookmark,canEdit,allow,onPreview,onBookmark,onDrop,compact=false,publicSelected=false}:TileProps) {
   const [star,setStar]=useState(!!bookmark);
   const [bookmarkStatus,setBookmarkStatus]=useState('');
   const [dropStatus,setDropStatus]=useState('');
@@ -119,3 +125,10 @@ export function DraftTile({ work, claim, time, bookmark, canEdit, allow, onPrevi
     {ghost && createPortal(<div className="draft-drag-ghost" style={{ left: ghost.x, top: ghost.y }} aria-hidden="true"><Cover work={work}/><span>{work.title}</span></div>, document.body)}
   </article>;
 }
+
+const MemoDraftTile=memo(DraftTileView,(a,b)=>
+  a.work===b.work&&a.bookmark===b.bookmark&&a.canEdit===b.canEdit&&a.compact===b.compact&&a.publicSelected===b.publicSelected&&
+  a.onDrop===b.onDrop&&a.onPreview===b.onPreview&&a.onBookmark===b.onBookmark&&
+  JSON.stringify(a.claim)===JSON.stringify(b.claim)&&
+  Math.max(0,Math.ceil(((a.claim?.protectedUntil??0)-a.time)/1000))===Math.max(0,Math.ceil(((b.claim?.protectedUntil??0)-b.time)/1000))&&
+  a.allow.take===b.allow.take&&a.allow.release===b.allow.release&&a.allow.interfere===b.allow.interfere&&a.allow.replace===b.allow.replace&&a.allow.reason===b.allow.reason);

@@ -1,3 +1,4 @@
+import { readRoomState } from './room-observer.mjs';
 import {io} from 'socket.io-client';
 import {execFileSync} from 'node:child_process';
 import { theme } from './browser-support.mjs';
@@ -35,12 +36,12 @@ async function shot(p, name, mobile = false) {
 async function attach(p, i) {
   pages[i] = p;
   p.on('pageerror', e => errors.push(`page${i}: ${e.message}`));
-  p.on('websocket', ws => ws.on('framereceived', frame => {
+  p.on('response',async response=>{if(!response.url().includes('/socket.io/')||response.request().method()!=='GET')return;try{for(const packet of(await response.text()).split('\x1e'))if(packet.startsWith('42')){const[event,data]=JSON.parse(packet.slice(2));if(event==='room_state'||event==='room_state_delta')states[i]=readRoomState(event,data,states[i]);}}catch{}});p.on('websocket', ws => ws.on('framereceived', frame => {
     try {
       const value = String(frame.payload);
       if (!value.startsWith('42')) return;
       const [event, data] = JSON.parse(value.slice(2));
-      if (event === 'room_state') states[i] = data;
+      if(event==='room_state'||event==='room_state_delta')states[i]=readRoomState(event,data,states[i]);
     } catch { /* ignore non-json frames */ }
   }));
 }
