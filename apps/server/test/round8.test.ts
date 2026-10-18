@@ -57,7 +57,7 @@ const realNow=Date.now;let clock=realNow();Date.now=()=>clock;
 const store=await createRoomStore('',true),users={resolveProfile:async()=>({accountType:'guest',username:null,avatarUrl:null}),recordRoundResult:async()=>{}} as unknown as UserStore;
 const game=new GameService(store,users,{enableAnimeDraft:true,enableMatchAnalysis:true},store);
 try{
-  const {room,player}=await game.createRoom('R8甲'),players=[player];for(const name of ['乙','丙','丁'])players.push((await game.joinRoom(room.id,name)).player);
+  const {room,player}=await game.createRoom('R8甲',undefined,undefined,'r8-owner'),players=[player];for(const name of ['乙','丙','丁'])players.push((await game.joinRoom(room.id,name)).player);
   for(let i=0;i<4;i++){await game.setTeam(room.id,players[i].id,i<2?'red':'blue');if(i%2===0)await game.setRole(room.id,players[i].id,'spymaster');}
   const current=async()=>(await game.getRoom(room.id))!;
   const act=async(i:number,action:Omit<PlanAction,'roomId'|'version'>)=>game.planAction(room.id,players[i].id,{roomId:room.id,version:(await current()).nextPlan?.version,...action});
@@ -65,7 +65,20 @@ try{
   for(let round=0;round<3;round++){
     await act(0,{kind:'configure',variant:'anime',boardMode:round===1?'6x6':'5x5',poolIds:pool.map(w=>w.id),animeRandomSwap:round!==0});
     let plan=(await current()).nextPlan!;assert.equal(plan.settings.animeSeriesRotation,true);
-    if(round===0){await act(0,{kind:'prepare'});await act(0,{kind:'cancel'});assert.equal(Object.keys((await current()).seriesHistory??{}).length,0);}
+    if(round===0){
+      assert.equal((await game.getPlanPool(room.id,'r8-owner',plan.id,plan.version)).works.length,171);
+      await assert.rejects(game.getPlanPool(room.id,'not-host',plan.id,plan.version),/只有房主/);
+      await assert.rejects(game.getPlanPool(room.id,'r8-owner','old-plan',plan.version),/已更新/);
+      await assert.rejects(game.getPlanPool(room.id,'r8-owner',plan.id,plan.version-1),/已更新/);
+      const original=await current(),large=structuredClone(original);
+      large.nextPlan!.pool=Array.from({length:5000},(_,i)=>({...pool[i%pool.length],id:500000+i,seriesId:'large:'+i}));
+      await store.setRoom(large);
+      const state=game.getPublicRoomState(await current(),player.id,'player');
+      assert.equal(state.nextPlan!.poolPreview,undefined);
+      assert.equal((await game.getPlanPool(room.id,'r8-owner',plan.id,plan.version)).works.length,5000);
+      assert.ok(JSON.stringify(state).length<JSON.stringify({...state,nextPlan:{...state.nextPlan,poolPreview:large.nextPlan!.pool}}).length/3);
+      await store.setRoom(original);
+      await act(0,{kind:'prepare'});await act(0,{kind:'cancel'});assert.equal(Object.keys((await current()).seriesHistory??{}).length,0);}
     await act(0,{kind:'prepare'});await act(0,{kind:'ready'});await act(2,{kind:'ready'});
     plan=(await current()).nextPlan!;
     await act(0,{kind:'take',workId:plan.candidates[0].id});await act(2,{kind:'take',workId:plan.candidates[1].id});

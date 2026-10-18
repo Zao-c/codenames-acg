@@ -35,7 +35,8 @@
     "test:round7:load": "node scripts/round7-spectator-load.mjs",
     "verify:round7": "node scripts/verify-round7.mjs",
     "test:round8:local": "node scripts/test-browser-local.mjs --round8",
-    "verify:round8": "node scripts/verify-round8.mjs"
+    "verify:round8": "node scripts/verify-round8.mjs",
+    "test:round8:large:local": "node scripts/test-browser-local.mjs --round8-large"
   },
   "devDependencies": {
     "playwright": "^1.59.1",

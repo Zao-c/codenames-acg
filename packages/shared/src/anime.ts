@@ -83,7 +83,7 @@ export interface NextPlan {
 export interface PublicNextPlan {
   randomSwapCompleted?: boolean;
   poolSummary?: { source: number; series: number; excluded: number; available: number; required: number };
-  /** Full configured source snapshot, visible to the host only. */
+  /** Legacy field; current servers fetch the full source snapshot on demand. */
   poolPreview?: AnimeWork[];
   wordPackName?: string;
   id: string;

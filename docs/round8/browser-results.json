@@ -4,6 +4,7 @@
     "4 players + spectator, game 1, 25 cards, swap false, interference, 4 clue turns, no-guess end-turn and terminal assassin",
     "4 players + spectator, game 2, 36 cards, swap true, interference, 4 clue turns, no-guess end-turn and terminal assassin",
     "4 players + spectator, game 3, 25 cards, swap true, interference, 4 clue turns, no-guess end-turn and terminal assassin",
+    "pool preview fetched only on demand, protected by host identity and plan version; no full pool in room broadcasts",
     "public replay fail→success, stale delayed request ignored, three replay ids, cumulative actual guesses and no-guess turns",
     "private replay expired→authorized, consecutive match ids and permission validation",
     "actual live CDN CORS export plus bounded server fallback; fallback count recorded",
@@ -12,5 +13,6 @@
     "replay navigation preserves active room session"
   ],
   "screenshotCount": 80,
-  "errors": []
+  "errors": [],
+  "extraImportedFixtureWorks": 5000
 }

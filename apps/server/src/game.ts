@@ -2029,6 +2029,14 @@ export class GameService {
     });
   }
 
+  async getPlanPool(roomId: string, principalId: string, planId: string, version: number) {
+    const room = await this.requireRoom(roomId);
+    if (!principalId || room.participantPrincipals?.[room.hostPlayerId] !== principalId) throw new Error('只有房主可以查看当前作品池');
+    const plan = room.nextPlan;
+    if (!plan || plan.id !== planId || !Number.isSafeInteger(version) || plan.version !== version) throw new Error('准备计划已更新，请重新打开作品池');
+    return { planId: plan.id, version: plan.version, works: plan.pool };
+  }
+
   async planAction(roomId: string, playerId: string, action: PlanAction): Promise<Room> {
     return this.withRoomLock(roomId, async () => {
       let room = structuredClone(await this.requireRoom(roomId));

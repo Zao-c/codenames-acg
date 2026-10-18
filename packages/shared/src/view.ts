@@ -214,7 +214,6 @@ export function sanitizeRoom(room: Room, viewer: ViewerIdentity = {}): PublicRoo
     : undefined;
   const nextPlan = plan ? {
     randomSwapCompleted: !!plan.randomSwap,
-    poolPreview: viewer.participantType === 'player' && viewer.participantId === room.hostPlayerId ? plan.pool : undefined,
     poolSummary: {
       source: plan.pool.length, series: new Set(plan.pool.map(w => w.seriesId)).size,
       excluded: plan.settings.animeSeriesRotation === true ? new Set(plan.pool.filter(w => room.seriesHistory?.[w.seriesId] !== undefined).map(w => w.seriesId)).size : 0,

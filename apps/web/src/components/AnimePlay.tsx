@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { BOARD_MODE_CONFIG, TEAM_LABELS, draftQuota, wordPackSummaries, type AnimePool, type AnimeWork, type BoardMode, type PlanAction, type PublicCard, type PublicRoomState } from '@acg-codenames/shared';
 import { Cover, Preview } from './AnimeBoard';
 export { AnimeBoard } from './AnimeBoard';
 import { Dialog } from './UI';
 import { DraftWorkspace } from './DraftWorkspace';
 import type { DropAction } from './DraftTile';
-import { getPublicWordPackDetail, getCommunityPool, listCommunityPools } from '../lib/api';
+import { getPlanPool, getPublicWordPackDetail, getCommunityPool, listCommunityPools } from '../lib/api';
 import { privateIdentityKey } from '../lib/private-identity';
 import { useNavigate } from 'react-router-dom';
 import type { CommunityPoolSummary } from '@acg-codenames/shared';
@@ -59,6 +59,13 @@ export function NextMatchPanel({ room, mode = 'full', onConfigured, embedded=fal
   const [savedPools, setSavedPools] = useState<AnimePool[]>([]);
   const [communityPools, setCommunityPools] = useState<CommunityPoolSummary[]>([]);
   const [poolPreview,setPoolPreview]=useState(false);
+  const [previewWorks,setPreviewWorks]=useState<AnimeWork[]>([]),[previewBusy,setPreviewBusy]=useState(false),[previewError,setPreviewError]=useState('');
+  useEffect(()=>{
+    if(!poolPreview||!plan)return;
+    let live=true;setPreviewBusy(true);setPreviewError('');setPreviewWorks([]);
+    getPlanPool(room.id,plan.id,plan.version).then(value=>{if(live)setPreviewWorks(value.works);}).catch(error=>{if(live)setPreviewError(error.message);}).finally(()=>{if(live)setPreviewBusy(false);});
+    return()=>{live=false;};
+  },[poolPreview,room.id,plan?.id,plan?.version]);
   const [randomSwap,setRandomSwap]=useState(plan?.variant==='anime'?plan.settings.animeRandomSwap===true:true);
   const [seriesRotation,setSeriesRotation]=useState(plan?.variant==='anime'?plan.settings.animeSeriesRotation===true:true);
   const [poolDialog,setPoolDialog]=useState(false);
@@ -74,6 +81,10 @@ export function NextMatchPanel({ room, mode = 'full', onConfigured, embedded=fal
     return {timerMode:settings.timerMode??'unlimited',timerClueSeconds:settings.timerClueSeconds??90,timerGuessSeconds:settings.timerGuessSeconds??90,flipMode:settings.flipMode??'word-color'};
   });
   const storageKey = `anime-pools:${effectiveIdentity?.nickname ?? 'guest'}`;
+  const sourceSeriesCounts=useMemo(()=>{
+    const byId=new Map(catalog.map(w=>[w.id,w.seriesId]));
+    return new Map([...pools,...savedPools].map(pool=>[pool.id,new Set(pool.workIds.map(id=>byId.get(id)).filter(Boolean)).size]));
+  },[catalog,pools,savedPools]);
   useEffect(() => { try { setSavedPools(JSON.parse(localStorage.getItem(storageKey) ?? '[]')); } catch {} }, [storageKey]);
   useEffect(() => {
     fetch(`${import.meta.env.VITE_SERVER_URL || ''}/api/anime/catalog`).then(r => r.json()).then(data => { setCatalog(data.works ?? []); setPools(data.pools ?? []); }).catch(() => setError('目录读取失败，请稍后重试。已准备的候选池仍可使用。'));
@@ -188,7 +199,7 @@ export function NextMatchPanel({ room, mode = 'full', onConfigured, embedded=fal
         </div>
         {variant==='anime'&&<div className="anime-option-flags"><label><input type="checkbox" checked={randomSwap} onChange={e=>setRandomSwap(e.target.checked)}/>随机互换 A · 封存时双方各一张</label><label><input type="checkbox" checked={seriesRotation} onChange={e=>setSeriesRotation(e.target.checked)}/>历局作品轮换 · 排除已玩系列</label></div>}
         {variant === 'classic' ? <><label>文字题库 <select value={wordPackId} onChange={e => setWordPackId(e.target.value)}><option value="">沿用上次</option>{wordPackSummaries.map(p => <option key={p.id} value={`builtin:${p.id}`}>{p.name}</option>)}{accountPacks.map(p => <option key={p.id} value={`mine:${p.id}`}>{p.name}</option>)}{publicPacks.map(p => <option key={p.publicId} value={`public:${p.publicId}`}>{p.name} · {p.ownerUsername}</option>)}{uploadedPack&&<option value="upload">上传：{uploadedPack.name}</option>}</select></label>{mode==='settings'&&<label>上传文字题库<input type="file" accept=".txt,.json" onChange={async e=>{const file=e.target.files?.[0];if(!file)return;try{const data=await parseCustomWordFile(file);setUploadedPack(data.kind==='candidate'?autoExportCandidatePack(data.pack):data.pack);setWordPackId('upload');setError('');}catch(error){setError((error as Error).message);}}}/></label>}</> : <>
-          <label>动画作品池 <select aria-label="动画作品池" value={poolId} onChange={e => {setPoolId(e.target.value);setError('');}}> {!poolId&&<option value="">作品池失效，请重新选择</option>}{plan?.variant === 'anime' && <option value="current">沿用：{plan.poolName}</option>}{[...pools,...savedPools].map(p => <option key={p.id} value={p.id}>{p.name}（{p.workIds.length} 部{new Set(catalog.filter(w=>p.workIds.includes(w.id)).map(w=>w.seriesId)).size<BOARD_MODE_CONFIG[size].size?' · 系列不足，建议合并年份':''}）</option>)}{communityPools.map(p => <option key={`community:${p.id}`} value={`community:${p.id}`}>社区 · {p.name}（{p.workCount} 部）</option>)}<option value="custom">自定义作品池</option></select></label>
+          <label>动画作品池 <select aria-label="动画作品池" value={poolId} onChange={e => {setPoolId(e.target.value);setError('');}}> {!poolId&&<option value="">作品池失效，请重新选择</option>}{plan?.variant === 'anime' && <option value="current">沿用：{plan.poolName}</option>}{[...pools,...savedPools].map(p => <option key={p.id} value={p.id}>{p.name}（{p.workIds.length} 部{(sourceSeriesCounts.get(p.id)??0)<BOARD_MODE_CONFIG[size].size?' · 系列不足，建议合并年份':''}）</option>)}{communityPools.map(p => <option key={`community:${p.id}`} value={`community:${p.id}`}>社区 · {p.name}（{p.workCount} 部）</option>)}<option value="custom">自定义作品池</option></select></label>
           {(communityEnabled || !!communityPools.length) && <div className="anime-toolbar"><button onClick={() => {setPoolDialog(true);setPoolPage(1);}}>搜索全部作品池…</button><button onClick={() => navigate('/anime-pools')}>浏览动画题库广场</button><button onClick={() => void refreshCommunity()}>更新社区列表</button></div>}
           {poolId === 'custom' && <div className="anime-pool-editor"><input aria-label="动画题库名称" value={poolName} onChange={e => setPoolName(e.target.value)} /><input aria-label="搜索目录" placeholder="搜索作品，勾选加入题库" value={query} onChange={e => setQuery(e.target.value)} />
             <p>已选 {customIds.length} 部 / {new Set(catalog.filter(w => customIds.includes(w.id)).map(w => w.seriesId)).size} 个系列</p>
@@ -212,7 +223,7 @@ export function NextMatchPanel({ room, mode = 'full', onConfigured, embedded=fal
 
     </div>;
   const overlay = <>
-    {poolPreview&&plan&&<Dialog title={`当前作品池 · ${plan.poolName}`} close={()=>setPoolPreview(false)} wide><p>{plan.poolSummary?.source} 部作品 · {plan.poolSummary?.series} 个系列 · 可用 {plan.poolSummary?.available} / 需要 {plan.poolSummary?.required}</p><div className="current-pool-grid">{plan.poolPreview?.map(w=><article key={w.id}><Cover work={w}/><span>{w.title}</span></article>)}</div></Dialog>}
+    {poolPreview&&plan&&<Dialog title={`当前作品池 · ${plan.poolName}`} close={()=>setPoolPreview(false)} wide><p>{plan.poolSummary?.source} 部作品 · {plan.poolSummary?.series} 个系列 · 可用 {plan.poolSummary?.available} / 需要 {plan.poolSummary?.required}</p><div className="current-pool-grid">{previewBusy&&<p role="status">正在读取作品池…</p>}{previewError&&<p role="alert">{previewError}</p>}{previewWorks.map(w=><article key={w.id}><Cover work={w}/><span>{w.title}</span></article>)}</div></Dialog>}
     {preview && <Preview work={preview} close={() => setPreview(null)}>{team && draft && (() => { const c = claims[preview.id];
       if (c?.kind === 'interference') return <p className="hint-text">这是{c.from === team ? '本方投放给对方' : '对方投放给本方'}的干扰牌，占用接收方的随机补位，不占手选额度，不能撤回或抢夺。</p>;
       if (c?.team === team) return <div className="anime-toolbar"><button onClick={() => { send({kind:'release',workId:preview.id}); setPreview(null); }}>撤回这张</button></div>;

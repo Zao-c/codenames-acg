@@ -494,6 +494,13 @@ async function bootstrap(): Promise<void> {
     }
   });
 
+  app.get('/api/rooms/:roomId/plan-pool',metadataLimiter,async(req,res)=>{
+    res.setHeader('Cache-Control','no-store');
+    try {
+      const principal=principalFromKey(req.header('x-private-key'));
+      res.json(await game.getPlanPool(String(req.params.roomId),principal,String(req.query.planId??''),Number(req.query.version)));
+    } catch(error) { res.status(403).json({message:error instanceof Error?error.message:'作品池读取失败'}); }
+  });
   app.get('/api/private-replays/:matchId', (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     try { res.json(game.getPrivateReplay(req.params.matchId, principalFromKey(req.header('x-private-key')))); }

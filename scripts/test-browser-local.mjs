@@ -1,10 +1,11 @@
 import { pathToFileURL } from 'node:url';
 import { spawn } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
-const round8=process.argv.includes("--round8");
+const largeCatalog=process.argv.includes("--round8-large");
+const round8=largeCatalog||process.argv.includes("--round8");
 const bangumi=process.argv.includes('--bangumi');
 const bangumiLive=process.argv.includes('--bangumi-live');
 const concentrated=process.argv.includes('--concentrated');
@@ -24,6 +25,7 @@ const children=[];
 function run(args,env={}) { const child=spawn(process.execPath,args,{env:{...process.env,...env},stdio:'inherit',windowsHide:true});children.push(child);child.on('exit',(code,signal)=>console.log(`Test child exited (${path.basename(args.at(-1))}): code=${code} signal=${signal}`));return child; }
 async function ready(url) { for(let i=0;i<100;i++){if(children.some(c=>c.exitCode!==null))throw new Error(`Test service exited before ready: ${url}`);try{if((await fetch(url,{signal:AbortSignal.timeout(2000)})).ok)return;}catch{} await new Promise(r=>setTimeout(r,250));}throw new Error(`Not ready: ${url}`); }
 try {
+  if(largeCatalog){const {works}=JSON.parse(await readFile('apps/server/resources/anime-catalog.json','utf8'));await writeFile(path.join(dir,'anime-imports.json'),JSON.stringify({schemaVersion:1,works:Array.from({length:5000},(_,i)=>({...works[i%works.length],id:900000+i,title:'Large catalog '+i,fullTitle:'Large catalog '+i,seriesId:'bgm:'+(900000+i),source:'bangumi'}))}));}
   const adminKey = crypto.randomBytes(32).toString('hex');
   run([...(round8?['--use-env-proxy']:[]),...(bangumi?['--import',pathToFileURL(path.resolve('scripts/bangumi-fixture.mjs')).href]:[]),'node_modules/tsx/dist/cli.mjs','apps/server/src/index.ts'],{...(bangumi?{NODE_OPTIONS:`${process.env.NODE_OPTIONS??''} --import=${pathToFileURL(path.resolve('scripts/bangumi-fixture.mjs')).href}`} : {}),PORT:serverPort,CLIENT_ORIGIN:`http://127.0.0.1:${webPort}`,USE_MEMORY_STORE:'1',ENABLE_DEBUG_TOOLS:'0',ENABLE_ANIME_DRAFT:'1',ENABLE_MATCH_ANALYSIS:(round8||phase2||stability||bangumi||bangumiLive||concentrated)?'1':'0',ENABLE_PREDICTIONS:(round8||phase2||stability||bangumi||bangumiLive||concentrated)?'1':'0',ENABLE_ANIME_COMMUNITY:(round8||phase2||stability||bangumi||bangumiLive||concentrated||mixed)?'1':'0',ENABLE_ANIME_MANUAL:'1',DISCONNECT_KICK_DELAY_MS:(round5?'250':undefined),SIMULATE_CREATE_FAILURE_AFTER:(round5?'1':undefined),MANUAL_WORK_STORE_FILE:path.join(dir,'manual-works.json'),ANIME_COVER_DIR:path.join(dir,'anime-covers'),ANIME_IMPORT_FILE:path.join(dir,'anime-imports.json'),ANIME_POOL_STORE_FILE:path.join(dir,'anime-pools.json'),ANIME_POOL_ADMIN_KEY:adminKey,USER_STORE_FILE:path.join(dir,'users.json'),REVEAL_IMAGE_DIR:path.join(dir,'images')});
   run(['node_modules/vite/bin/vite.js','--host','127.0.0.1','--port',webPort,'--strictPort','apps/web'],{VITE_SERVER_URL:`http://127.0.0.1:${serverPort}`});
