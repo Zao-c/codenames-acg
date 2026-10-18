@@ -1,3 +1,4 @@
+import { RecentClues } from '../components/RecentClues';
 import { Dialog } from '../components/UI';
 import { RoomIdentity } from '../components/RoomIdentity';
 import { ChatMessages, BattleEvents } from '../components/Conversation';
@@ -142,7 +143,7 @@ export function RoomPage() {
   if (isLobby && room.nextPlan?.stage !== 'draft') return <><RoomStabilityBanner/><PreparationLobby room={room}/></>;
   if(isLobby&&room.nextPlan?.stage==='draft')return <section className={`room-layout room-layout-lobby room-preparing-anime draft-room-shell mobile-view-${g.mobileRoomTab}`}><RoomStabilityBanner/><header className="room-bar"><div><strong className="room-code">{room.id}</strong><span className={`self-identity-anchor team-${room.viewer?.team??'spectator'}`}>{room.viewer?.participantType==='spectator'?'旁观者':room.viewer?.team?`我的队伍：${TEAM_LABELS[room.viewer.team]} · ${room.viewer.role==='spymaster'?'队长':'队员'}`:'待分队'}</span><p className="hint-text">动画组牌 · {room.nextPlan.settings.boardMode}</p></div><div className="bar-actions"><button onClick={()=>void copyLink()}>{copied?'已复制':'邀请好友'}</button>{viewer?.isHost&&<><button onClick={()=>{if(window.confirm('取消本次准备并保留配置？'))g.socket.emit('plan_action',{roomId:room.id,kind:'cancel',version:room.nextPlan?.version});}}>取消本次准备</button><MatchManagement/></>}</div></header><RoomIdentity room={room}/><PrivateReview room={room}/><NextMatchPanel room={room}/><aside className="lobby-people"><CompactMembers room={room}/></aside><aside className="room-right-col lobby-chat"><SideTabPanel g={g} room={room} session={session}/></aside>{error&&<p className="error-text" role="alert">{error}</p>}</section>;
 
-  if(isFinished)return <>{highlightToast&&<RoundHighlightToast highlight={highlightToast}/ >}{achievementToast&&<AchievementToast achievement={achievementToast}/ >}<MatchResult room={room}/></>;
+  if(isFinished)return <><MatchNotice g={g}/><MatchResult room={room}/></>;
 
   const phaseClass =
     focusMode ? "room-layout-focus"
@@ -157,8 +158,7 @@ export function RoomPage() {
         <ReactionBanner key={reaction.id} reaction={reaction} />
       ))}
       {showDanmaku ? <DanmakuLayer items={danmakuQueue} /> : null}
-      {highlightToast ? <RoundHighlightToast highlight={highlightToast} /> : null}
-      {achievementToast ? <AchievementToast achievement={achievementToast} /> : null}
+      <MatchNotice g={g}/>
       <RoomStabilityBanner />
       <RoomIdentity room={room}/>
 
@@ -220,13 +220,14 @@ export function RoomPage() {
           {isFinished ? null : (
             <aside className="room-left-col">
               <MatchStatus room={room}/>
+              <RecentClues room={room}/>
               <CompactMembers room={room}/>
             </aside>
           )}
 
           <div className={`room-center-col ${isFinished ? "result-workspace" : ""}`}>
             {!isFinished && <div className="mobile-match-status"><MatchStatus room={room}/></div>}
-            {!isFinished && revealBanner && room.lastReveal?.id === revealBanner.id ? <RevealBanner reveal={revealBanner} /> : null}
+            
 
             {!isFinished&&<PrivateReview room={room}/>}
             {isFinished ? <details className="panel result-board"><summary>查看终局棋盘</summary><BoardPanel room={room} viewer={viewer} g={g} cardMarks={cardMarks} markCard={markCard}/></details> : <BoardPanel room={room} viewer={viewer} g={g} cardMarks={cardMarks} markCard={markCard} />}
@@ -256,6 +257,10 @@ export function RoomPage() {
       {error ? <div className="error-text room-error" role="alert"><span>{error}</span><button aria-label="关闭提示" onClick={()=>g.setError("")}>×</button></div> : null}
     </section>
   );
+}
+
+function MatchNotice({g}:{g:ReturnType<typeof useGame>}) {
+  return <div className="match-notice" aria-live="polite" aria-atomic="true">{g.revealBanner?<RevealBanner reveal={g.revealBanner}/>:g.highlightToast?<RoundHighlightToast highlight={g.highlightToast}/>:g.achievementToast?<AchievementToast achievement={g.achievementToast}/>:null}</div>;
 }
 
 function MatchStatus({room}:{room:NonNullable<ReturnType<typeof useGame>["room"]>}) {
@@ -511,10 +516,10 @@ function ParticipantRow({ participant, label, isSelf, effect, onReact }: {
         {"connected" in participant && !participant.connected ? <span className="soft-chip">离线</span> : null}
         {"isBot" in participant && participant.isBot ? <span className="soft-chip">测试位</span> : null}
         {!isSelf ? (
-          <>
-            <button className="reaction-button" onClick={() => onReact("flower", participant.id, type)} title="送花">💐</button>
-            <button className="reaction-button" onClick={() => onReact("egg", participant.id, type)} title="丢蛋">🥚</button>
-          </>
+          <details><summary aria-label={`与${participant.nickname}互动`}>互动 ▾</summary><div>
+            <button className="reaction-button" onClick={() => onReact("flower", participant.id, type)} title="送花">💐 送花</button>
+            <button className="reaction-button" onClick={() => onReact("egg", participant.id, type)} title="丢蛋">🥚 丢蛋</button>
+          </div></details>
         ) : null}
       </div>
     </div>
@@ -770,9 +775,9 @@ function SideTabPanel({ g, room, session }: {
     <div className={`panel side-panel${collapsed ? " side-panel-collapsed" : ""}`}>
       {battleExpanded&&<Dialog title="完整战况" close={()=>setBattleExpanded(false)} wide><BattleEvents messages={battleMessages} room={room}/></Dialog>}
       <div className="side-panel-hdr">
-        <div className="selection-grid side-tab-row">
-          <button className={sideTab === "chat" ? "selected" : ""} onClick={() => { setSideTab("chat"); if (collapsed) setCollapsed(false); }}>聊天{chatUnread?` · ${chatUnread}`:''}</button>
-          <button className={sideTab === "battle" ? "selected" : ""} onClick={() => { setSideTab("battle"); if (collapsed) setCollapsed(false); }}>战况{battleUnread?` · ${battleUnread}`:''}</button>
+        <div className="selection-grid side-tab-row" aria-label="比赛信息">
+          <button className={sideTab === "battle" ? "selected" : ""} onClick={() => { setSideTab("battle"); if (collapsed) setCollapsed(false); }}>战况{battleUnread>0&&<span className="tab-unread" aria-label={`${battleUnread} 条未读战况`}>{battleUnread>99?'99+':battleUnread}</span>}</button>
+          <button className={sideTab === "chat" ? "selected" : ""} onClick={() => { setSideTab("chat"); if (collapsed) setCollapsed(false); }}>聊天{chatUnread>0&&<span className="tab-unread" aria-label={`${chatUnread} 条未读聊天`}>{chatUnread>99?'99+':chatUnread}</span>}</button>
           <button className={sideTab === "score" ? "selected" : ""} onClick={() => { setSideTab("score"); if (collapsed) setCollapsed(false); }}>积分</button>
           <button className={sideTab === "spectators" ? "selected" : ""} onClick={() => { setSideTab("spectators"); if (collapsed) setCollapsed(false); }}>旁观</button>
         </div>
@@ -817,7 +822,7 @@ function SideTabPanel({ g, room, session }: {
               <span className="soft-chip">旁观 {room.spectators.length}</span>
               <span className="soft-chip" style={{ marginLeft: 6 }}>排队 {room.joinQueue.length}</span>
               {room.spectators.length === 0 ? <p className="empty-text">当前没有旁观者。</p> : null}
-              {room.spectators.map((spectator) => (
+              <div className="spectator-list">{room.spectators.map((spectator) => (
                 <ParticipantRow
                   key={spectator.id}
                   participant={spectator}
@@ -826,7 +831,7 @@ function SideTabPanel({ g, room, session }: {
                   effect={g.reactionEffects[spectator.id]}
                   onReact={g.sendReaction}
                 />
-              ))}
+              ))}</div>
             </>
           ) : null}
 
@@ -878,9 +883,6 @@ function SideTabPanel({ g, room, session }: {
 }
 
 function RevealBanner({ reveal }: { reveal: NonNullable<ReturnType<typeof useGame>["revealBanner"]> }) {
-  const [visible,setVisible]=useState(true);
-  useEffect(()=>{setVisible(true);const t=window.setTimeout(()=>setVisible(false),3000);return()=>clearTimeout(t);},[reveal.id]);
-  if(!visible)return null;
   const teamLabel = TEAM_LABELS[reveal.guessedByTeam];
   const title =
     reveal.outcome === "own-hit" ? `${teamLabel} 命中`

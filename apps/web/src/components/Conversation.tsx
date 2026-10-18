@@ -12,11 +12,13 @@ export function ChatMessages({messages,selfId}:{messages:ChatMessage[];selfId?:s
 }
 
 export function BattleEvents({messages,room}:{messages:ChatMessage[];room:PublicRoomState}){
+  const connections=messages.filter(m=>m.connection);
+  const diagnostics=connections.length>0&&<details className="connection-summary"><summary>连接记录 · {connections.reduce((n,m)=>n+(m.connection?.disconnects??0),0)} 次断线</summary>{connections.map(m=><p key={m.id}>{m.text}<time> · {new Date(m.connection!.lastChangedAt).toLocaleTimeString()}</time></p>)}</details>;
   if(room.clueRecords?.length)return <div className="battle-timeline">{room.clueRecords.map((record,index)=><details key={record.clueId} className={`battle-turn team-${record.team}`}>
     <summary><span>{record.team==='red'?'红队':'蓝队'} · 第 {index+1} 回合</span><strong>{record.word} ×{record.count}</strong><small>{record.giverNickname} · 命中 {record.guesses.filter(g=>g.isOwnHit).length} · 失误 {record.guesses.filter(g=>!g.isOwnHit).length}</small></summary>
     {record.guesses.length?record.guesses.map((g,i)=><p key={g.cardId??i}><span>{g.nickname}</span> 翻开 <strong>{g.cardWord}</strong> · {({red:'红队',blue:'蓝队',neutral:'中立',assassin:'刺客'} as Record<string,string>)[g.cardRole]} · {g.isOwnHit?'命中':g.cardRole==='assassin'?'刺客':g.cardRole==='neutral'?'中立':'误伤'}</p>):<p className="hint-text">{index===room.clueRecords!.length-1&&room.clue?'等待猜牌':'本回合未翻牌'}</p>}
-  </details>)}</div>;
-  return <div className="battle-timeline">{messages.map(m=>{
+  </details>)}{diagnostics}</div>;
+  return <div className="battle-timeline">{messages.filter(m=>!m.connection).map(m=>{
     const event=m.event;
     const player=room.players.find(p=>m.text.startsWith(p.nickname));
     const team=event?.team??(m.text.startsWith('红队')?'red':m.text.startsWith('蓝队')?'blue':player?.team);
@@ -29,5 +31,5 @@ export function BattleEvents({messages,room}:{messages:ChatMessage[];room:Public
       {record&&<strong className="battle-clue">{record.word} ×{record.count}</strong>}
       <p>{m.text}</p></div>
     </article>;
-  })}</div>;
+  })}{diagnostics}</div>;
 }
