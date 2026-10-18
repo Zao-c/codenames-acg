@@ -1,0 +1,26 @@
+{
+  "checkedDate": "2026-10-19 Asia/Shanghai",
+  "gitSha": "59f2bd1aad922bad41d42b63ca0857b0102ad0b1",
+  "runtimeSha": "59f2bd1aad922bad41d42b63ca0857b0102ad0b1",
+  "service": "codenames.service",
+  "mainPid": 1007817,
+  "workingDirectory": "/opt/codenames-acg/apps/server",
+  "active": true,
+  "healthOk": true,
+  "roomCountAtInitialCheck": 0,
+  "trackedModifications": false,
+  "serverConfigPresent": true,
+  "dataDirectoryPresent": true,
+  "cutoverBackupPresent": true,
+  "deploymentPerformed": false,
+  "restartPerformed": false,
+  "finalReadOnlyCheck": {
+    "checkedAt": "2026-10-18T22:25:16.757514+00:00",
+    "gitSha": "59f2bd1aad922bad41d42b63ca0857b0102ad0b1",
+    "runtimeSha": "59f2bd1aad922bad41d42b63ca0857b0102ad0b1",
+    "mainPid": 1007817,
+    "active": true,
+    "healthOk": true,
+    "trackedModifications": false
+  }
+}
