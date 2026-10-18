@@ -11,7 +11,7 @@ import { copyText } from "../lib/clipboard";
 import {
   TEAM_LABELS, PLAYER_ROLE_LABELS,
   wordPackSummaries, type ChatReaction, type ParticipantType,
-  type PublicPlayer, type PublicSpectator, 
+  type PublicPlayer, type PublicSpectator,
   type RevealOutcome, type PublicCard, type Team, type BoardMode, type DanmakuMessage
 } from "@acg-codenames/shared";
 import { useGame, isPlayer, getRoomStageLabel, getSelfSummary, queuedForSpectator, roleLabelShort } from "../context/GameContext";
@@ -227,7 +227,7 @@ export function RoomPage() {
 
           <div className={`room-center-col ${isFinished ? "result-workspace" : ""}`}>
             {!isFinished && <div className="mobile-match-status"><MatchStatus room={room}/></div>}
-            
+
 
             {!isFinished&&<PrivateReview room={room}/>}
             {isFinished ? <details className="panel result-board"><summary>查看终局棋盘</summary><BoardPanel room={room} viewer={viewer} g={g} cardMarks={cardMarks} markCard={markCard}/></details> : <BoardPanel room={room} viewer={viewer} g={g} cardMarks={cardMarks} markCard={markCard} />}

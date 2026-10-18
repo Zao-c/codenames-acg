@@ -36,7 +36,7 @@ function CoverImage({ work }: { work: Work }) {
   },[visible,direct,backup,failed,retry]);
   if(!work.cover)return <span className="anime-cover-fallback">{work.title}</span>;
   return <>
-    <img ref={image} src={replacement??direct} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" style={failed?{display:'none'}:undefined} onLoad={()=>{loaded.current=true;setFailed(false);setWaiting(false);}} onError={()=>{if(!loaded.current)setFailed(true);}}/>
+    <img ref={image} src={replacement??direct} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" style={failed||waiting?{display:'none'}:undefined} onLoad={()=>{loaded.current=true;setFailed(false);setWaiting(false);}} onError={()=>{if(!loaded.current)setFailed(true);}}/>
     {(failed||waiting)&&<span className="anime-cover-fallback" title={failed?'封面暂不可用，点击重试':'封面加载较慢，原图仍在加载，可点击重试'} onClick={e=>{e.stopPropagation();loaded.current=false;setRetry(n=>n+1);}}>{work.title}<small>{failed?'封面暂不可用 · 点此重试':'封面加载中…'}</small></span>}
   </>;
 }
