@@ -169,6 +169,38 @@ export function addPuzzle(
   return room;
 }
 
+export function updatePuzzle(room: Room, index: number, data: { imageUrl?: string; answer?: string; aliases?: string[]; hints?: string[] }): Room {
+  const state = requireRevealGuessState(room);
+  if (room.phase !== "lobby") throw new Error("只能在准备阶段编辑题目");
+  const p = state.puzzles[index];
+  if (!p) throw new Error("题目不存在");
+  if (data.imageUrl !== undefined) p.imageUrl = data.imageUrl;
+  if (data.answer !== undefined) p.answer = data.answer;
+  if (data.aliases !== undefined) p.aliases = data.aliases;
+  if (data.hints !== undefined) p.hints = data.hints;
+  return room;
+}
+
+export function removePuzzle(room: Room, index: number): Room {
+  const state = requireRevealGuessState(room);
+  if (room.phase !== "lobby") throw new Error("只能在准备阶段删除题目");
+  if (index < 0 || index >= state.puzzles.length) throw new Error("题目不存在");
+  state.puzzles.splice(index, 1);
+  state.puzzles.forEach((p, i) => { p.index = i; });
+  return room;
+}
+
+export function reorderPuzzles(room: Room, fromIndex: number, toIndex: number): Room {
+  const state = requireRevealGuessState(room);
+  if (room.phase !== "lobby") throw new Error("只能在准备阶段调整顺序");
+  if (fromIndex < 0 || fromIndex >= state.puzzles.length) throw new Error("题目不存在");
+  if (toIndex < 0 || toIndex >= state.puzzles.length) throw new Error("目标位置无效");
+  const [item] = state.puzzles.splice(fromIndex, 1);
+  state.puzzles.splice(toIndex, 0, item);
+  state.puzzles.forEach((p, i) => { p.index = i; });
+  return room;
+}
+
 // ═══════════════════════════════════════════
 // Start Game
 // ═══════════════════════════════════════════
@@ -220,11 +252,11 @@ export function revealCell(room: Room, playerId: string, cellId: string): Room {
       throw new Error("本题你已经翻过格子了（once-per-player 模式）");
     }
     if (mode === "free-after-all-used") {
-      if (!puzzle.freeRevealUnlocked && !checkAllActivePlayersRevealed(puzzle, room)) {
+      const allRevealed = checkAllActivePlayersRevealed(puzzle, room);
+      if (!puzzle.freeRevealUnlocked && !allRevealed) {
         throw new Error("你已翻过，请等待其他玩家翻牌或裁判开放自由翻牌");
       }
-      // Auto-unlock when all active players have revealed
-      if (!puzzle.freeRevealUnlocked && checkAllActivePlayersRevealed(puzzle, room)) {
+      if (!puzzle.freeRevealUnlocked && allRevealed) {
         puzzle.freeRevealUnlocked = true;
       }
     }

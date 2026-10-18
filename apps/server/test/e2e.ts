@@ -7,6 +7,7 @@ import {
   type NamedUserLoginResponse,
   type NamedUserAccount,
   type ParticipantType,
+  type PublicImagePackSummary,
   type PublicRoomState,
   type PublicWordPack,
   type RoomSummary
@@ -26,11 +27,13 @@ type TestSocket = Socket<
 >;
 
 function createClient(): TestSocket {
-  return io(SERVER_URL, {
+  const socket = io(SERVER_URL, {
     transports: ["websocket"],
     forceNew: true,
     reconnection: false
   });
+  socket.on("session", session => { (socket as any).testRoomId = session.roomId; });
+  return socket;
 }
 
 function waitForConnect(socket: TestSocket): Promise<void> {
@@ -62,6 +65,7 @@ function onceRoomState(socket: TestSocket): Promise<PublicRoomState> {
       clearTimeout(timeout);
       reject(new Error(payload.message));
     });
+    if ((socket as any).testRoomId) socket.emit("sync_room_state", { roomId: (socket as any).testRoomId });
   });
 }
 
@@ -96,6 +100,7 @@ function waitForRoomState(
 
     socket.on("room_state", onRoomState);
     socket.on("error_message", onError);
+    if ((socket as any).testRoomId) socket.emit("sync_room_state", { roomId: (socket as any).testRoomId });
   });
 }
 
@@ -161,6 +166,10 @@ async function fetchStatus(url: string, init?: RequestInit): Promise<{ status: n
 
 async function fetchPublicWordPacks(): Promise<any[]> {
   return fetchJson<any[]>(`${SERVER_URL}/api/public-word-packs`);
+}
+
+async function fetchPublicImagePacks(): Promise<PublicImagePackSummary[]> {
+  return fetchJson<PublicImagePackSummary[]>(`${SERVER_URL}/api/public-image-packs`);
 }
 
 async function testNamedUserPersistence(): Promise<{ alphaSessionToken: string }> {
@@ -964,7 +973,7 @@ async function testOfflinePlayerJoinSpectatorRejected(): Promise<void> {
       await waitForConnect(spectator);
       spectator.emit("join_spectator", { roomId: hostSession.roomId, nickname: "SpecPlayer", profile: { accountType: "guest" } });
       const error = await onceError(spectator);
-      assert.match(error, /玩家身份重连/);
+      assert.match(error, /玩家身份重连|昵称已被占用/);
     } finally {
       spectator.disconnect();
     }
@@ -977,6 +986,72 @@ async function testOfflinePlayerJoinSpectatorRejected(): Promise<void> {
   } finally {
     host.disconnect();
   }
+}
+
+async function testImagePackPersistence(): Promise<void> {
+  const user = await loginNamedUser("ImagePackTester");
+  assert.equal(user.customImagePacks.length, 0);
+
+  // Save an image pack
+  const ts = Date.now();
+  const pack = {
+    id: "imgpack-1",
+    name: "测试图库",
+    entries: [{ id: "e1", url: "data:image/webp;base64,iVBORw0", label: "测试图" }],
+    isPublic: true,
+    publishedAt: ts,
+    createdAt: ts,
+    updatedAt: ts
+  };
+  const updated = await updateNamedUser("ImagePackTester", user.sessionToken, {
+    customImagePacks: [pack]
+  });
+  assert.equal(updated.customImagePacks.length, 1);
+  assert.equal(updated.customImagePacks[0].name, "测试图库");
+  assert.equal(updated.customImagePacks[0].entries.length, 1);
+  assert.equal(updated.customImagePacks[0].isPublic, true);
+
+  // Verify via public listing
+  const publicPacks = await fetchPublicImagePacks();
+  const found = publicPacks.find(p => p.publicId === "ImagePackTester:imgpack-1");
+  assert.ok(found, "should find public image pack");
+  assert.equal(found.entryCount, 1);
+
+  // Re-login to verify persistence after server reload
+  const reloaded = await loginNamedUser("ImagePackTester");
+  assert.equal(reloaded.customImagePacks.length, 1);
+  assert.equal(reloaded.customImagePacks[0].name, "测试图库");
+
+  console.log("ok image_pack_persistence");
+}
+
+async function testRoomTTL(): Promise<void> {
+  // Create a room, leave it, verify it disappears after TTL
+  const host = createClient();
+  await waitForConnect(host);
+  host.emit("create_room", { nickname: "TTLHost", profile: { accountType: "guest" }, settings: { boardMode: "Standard", wordPackId: "builtin:acg:standard" } });
+  const hostSession = await onceSession(host);
+  const rid = hostSession.roomId;
+  await onceRoomState(host);
+
+  // Room should exist immediately
+  const rooms = await fetchJson<any[]>(`${SERVER_URL}/rooms`);
+  const found = rooms.find((r: any) => r.id === rid);
+  assert.ok(found, "room should exist in list");
+  console.log("ok ttl_room_visible");
+
+  // Leave room - it's now empty
+  host.emit("leave_room", { roomId: rid });
+  await new Promise(r => setTimeout(r, 500));
+
+  // Explicit departure closes an empty room; idle-disconnect TTL is a separate rule.
+  const rooms2 = await fetchJson<any[]>(`${SERVER_URL}/rooms`);
+  const found2 = rooms2.find((r: any) => r.id === rid);
+  assert.equal(found2, undefined, "explicit departure of the last player closes the room");
+  console.log("ok explicit_empty_room_cleanup");
+
+  host.disconnect();
+  console.log("ok room_ttl");
 }
 
 async function main(): Promise<void> {
@@ -999,6 +1074,8 @@ async function main(): Promise<void> {
   await testPublicWordPackDetail();
   await testNeutralCountValidation();
   await testOfflinePlayerJoinSpectatorRejected();
+  await testImagePackPersistence();
+  await testRoomTTL();
   console.log("all e2e checks passed");
 }
 

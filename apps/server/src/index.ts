@@ -1,4 +1,10 @@
+import { animeCatalog, animeCatalogFor, animePools, initializeAnimeCatalog, registerManualCatalog } from "./anime-catalog.js";
+import { BangumiAdapter } from './bangumi.js';
 import cors from "cors";
+import compression from "compression";
+import path from "node:path";
+import { PublicAssets } from "./public-assets.js";
+import { RoomTransport } from "@acg-codenames/shared";
 import crypto from "node:crypto";
 import express from "express";
 import rateLimit from "express-rate-limit";
@@ -7,6 +13,7 @@ import { createServer } from "node:http";
 import { Server } from "socket.io";
 import {
   BOARD_MODE_CONFIG,
+  MatchEventLedger,
   MAX_AVATAR_DATA_URL_LENGTH,
   type BoardMode,
   type RevealGuessSettings,
@@ -19,6 +26,7 @@ import {
   type ParticipantType,
   type PlayerRole,
   sanitizeRoundHighlightsForPhase,
+  roomTurnKey,
   type ServerToClientEvents,
   type Team,
   type UpdateNamedUserPayload,
@@ -31,6 +39,12 @@ import { RevealImageAssetStore } from "./reveal-image-assets.js";
 import { REPLAY_TTL_SECONDS, createRoomStore } from "./store.js";
 import type { ReplayStore } from "./types.js";
 import { JsonUserStore } from "./user-store.js";
+import { principalFromKey } from './private-identity.js';
+import { AnimePoolStore, CommunityError } from './anime-pool-store.js';
+import { animePoolRouter } from './anime-pools.js';
+import { ManualWorkStore } from './manual-works.js';
+import { manualCoverRouter, manualWorkRouter } from './manual-works-api.js';
+import { fetchReplayCover } from './replay-cover.js';
 
 type PayloadRecord = Record<string, unknown>;
 
@@ -245,6 +259,10 @@ function parseUpdateNamedUserPayload(value: unknown): UpdateNamedUserPayload {
     }
     parsed.avatarUrl = body.avatarUrl;
   }
+  if (body.title !== undefined) {
+    if (body.title !== null && (typeof body.title !== 'string' || body.title.length > 24)) throw new Error("title 参数无效");
+    parsed.title = body.title as string | null;
+  }
   if (body.customWordPacks !== undefined) {
     if (!Array.isArray(body.customWordPacks)) {
       throw new Error("customWordPacks 参数无效");
@@ -296,12 +314,32 @@ function optionalBoolean(value: unknown): boolean | undefined {
   return Boolean(value);
 }
 
+function acknowledge(reply: unknown, result: import('@acg-codenames/shared').ActionReply): void { if (typeof reply === 'function') reply(result); }
+
 async function bootstrap(): Promise<void> {
+  // dotenv can load an operator-provided proxy after Node initialized its default agent.
+  if(process.env.NODE_USE_ENV_PROXY==='1'){
+    const http=await import('node:http') as typeof import('node:http') & {setGlobalProxyFromEnv?:()=>void};
+    http.setGlobalProxyFromEnv?.();
+  }
+  await initializeAnimeCatalog(env.animeImportFile);
   const store = await createRoomStore(env.redisUrl, env.useMemoryStore);
   const users = new JsonUserStore(env.userStoreFile);
+  const manualWorks = new ManualWorkStore(env.manualWorkStoreFile, env.animeCoverDir);
+  await manualWorks.initialize();
+  registerManualCatalog((principal, extraIds) => manualWorks.worksForSync(principal, extraIds));
+  const communityPools = new AnimePoolStore(env.animePoolStoreFile, (principal?: string, extraIds: number[] = []) => animeCatalogFor(principal, extraIds), {
+    canUseWork: (principal, workId, allowExisting) => manualWorks.canUseSync(principal, workId, allowExisting),
+    onPublicationChange: ids => manualWorks.syncPublication(ids),
+  });
+  try { await manualWorks.syncPublication(await communityPools.publicWorkIds()); }
+  catch (error) { console.error('Failed to restore manual work publication state', error); }
+  const bangumi=new BangumiAdapter();
   const revealImages = new RevealImageAssetStore(env.revealImageDir);
   await revealImages.ensureReady();
-  const game = new GameService(store, users, { enableDebugTools: env.enableDebugTools }, store);
+  const optionalMs = (value: string | undefined) => { const n = Number(value); return Number.isFinite(n) && n >= 0 ? n : undefined; };
+  const game = new GameService(store, users, { enableDebugTools: env.enableDebugTools, disconnectKickDelayMs: optionalMs(process.env.DISCONNECT_KICK_DELAY_MS), hostTakeoverGraceMs: optionalMs(process.env.HOST_TAKEOVER_GRACE_MS), enableAnimeDraft: env.enableAnimeDraft, enableMatchAnalysis: env.enableMatchAnalysis, enablePredictions: env.enablePredictions, resolveCommunityPool: (id, principal) => communityPools.get(id, principal), resolveManualWorks: ids => manualWorks.resolveIds(ids) }, store);
+  const privatePrincipal = (body: PayloadRecord) => body.identityKey !== undefined || env.enableMatchAnalysis ? principalFromKey(body.identityKey) : undefined;
   const app = express();
   const httpServer = createServer(app);
   const allowedOrigins = env.clientOrigin
@@ -317,8 +355,29 @@ async function bootstrap(): Promise<void> {
   });
 
   const socketSessions = new Map<string, { roomId: string; participantId: string; participantType: ParticipantType }>();
+  // Test-only fault injection for create-room atomicity; never enabled in production.
+  let createdRoomCount = 0;
+  const failCreateAfter = Number(process.env.SIMULATE_CREATE_FAILURE_AFTER);
+  function maybeFailCreate(): void {
+    if (!Number.isFinite(failCreateAfter) || failCreateAfter < 0) return;
+    if (createdRoomCount >= failCreateAfter) throw new Error('模拟创建房间失败，请稍后重试');
+    createdRoomCount += 1;
+  }
 
+  const assets = new PublicAssets(path.join(path.dirname(env.userStoreFile), "public-cache"));
+  const transports = new WeakMap<object, RoomTransport>();
+  const deltaSockets = new WeakSet<object>();
+  function emitRoom(socket: import("socket.io").Socket<ClientToServerEvents, ServerToClientEvents>, state: import("@acg-codenames/shared").PublicRoomState, full = false) {
+    const wire = assets.wire(state);
+    if (!deltaSockets.has(socket)) { socket.emit("room_state", wire); return; }
+    let transport = transports.get(socket);
+    if (!transport) { transport = new RoomTransport(); transports.set(socket, transport); }
+    const next = transport.next(wire, full);
+    if (next.snapshot) socket.emit("room_state", next.snapshot);
+    else if (next.delta) socket.emit("room_state_delta", next.delta);
+  }
   app.use(cors({ origin: allowedOrigins, credentials: true }));
+  app.use(compression({ threshold: 1024 }));
   app.use(helmet());
   app.use(express.json({ limit: "50mb" }));
 
@@ -357,13 +416,64 @@ async function bootstrap(): Promise<void> {
     }
   }
 
+  app.use('/api/anime-pools', animePoolRouter(communityPools, { enabled: env.enableAnimeCommunity, adminKey: env.animePoolAdminKey }));
+  app.use('/api/anime/manual', manualWorkRouter(manualWorks, { enabled: env.enableAnimeManual }));
+  app.use('/api/anime/covers', manualCoverRouter(manualWorks));
+  const discoveryLimiter=rateLimit({windowMs:60000,limit:30,standardHeaders:true,legacyHeaders:false,message:{message:'搜索或导入过于频繁，请稍后重试'}});
+  for(const action of ['search','import'] as const)app.post(`/api/anime/discovery/${action}`,discoveryLimiter,async(req,res)=>{
+    res.setHeader('Cache-Control','no-store');
+    try{
+      if(!env.enableAnimeCommunity)throw new CommunityError('动画发现暂未开放',503);
+      principalFromKey(req.header('x-private-key'));
+      if(action==='search'&&req.body?.source==='manual'){
+        const owner=principalFromKey(req.header('x-private-key'));
+        const q=typeof req.body?.q==='string'?req.body.q.slice(0,100):'';
+        const offset=Number.isSafeInteger(req.body?.offset)&&req.body.offset>0?req.body.offset:0;
+        const page=Math.floor(offset/24)+1;
+        const mine=await manualWorks.listMine(owner,q,page);
+        res.json({works:mine.items,total:mine.total,nextOffset:mine.nextOffset,source:'manual',notice:'自建作品：可继续加载更多；Bangumi 未收录的作品也能与 Bangumi 作品混合保存到同一作品池。',updatedAt:Date.now(),missingMetadata:mine.items.filter(w=>!w.cover).length});
+        return;
+      }
+      res.json(action==='search'?await bangumi.discover(req.body):await bangumi.import(req.body?.input));
+    }
+    catch(error){res.status(error instanceof CommunityError?error.status:400).json({message:error instanceof Error?error.message:'动画发现未完成，请重试'});}
+  });
+  app.get('/api/profile-avatars/:key', async (req, res) => {
+    try { const data = await assets.readAvatar(req.params.key); res.set({'Content-Type':'image/webp','Cache-Control':'public, max-age=604800, immutable','Cross-Origin-Resource-Policy':'cross-origin'}).send(data); }
+    catch { res.set('Cache-Control','no-store').status(404).end(); }
+  });
+  const coverLimiter = rateLimit({windowMs:60_000,limit:3000,standardHeaders:true,legacyHeaders:false});
+  app.get('/api/anime/cover/:id', coverLimiter, async (req, res) => {
+    const id = Number(req.params.id);
+    const work = Number.isSafeInteger(id) && id > 0 ? animeCatalog().find(work => work.id === id) : undefined;
+    if (!work?.cover) { res.status(404).end(); return; }
+    try { const data = await assets.cover(work.cover); res.set({'Content-Type':'image/webp','Cache-Control':'public, max-age=86400','Cross-Origin-Resource-Policy':'cross-origin'}).send(data); }
+    catch { res.set('Cache-Control','no-store').status(503).end(); }
+  });
+  const metadataLimiter = rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: true, legacyHeaders: false, message: { message: '目录读取太频繁，请稍后重试' } });
+  app.get('/api/features', metadataLimiter, (_req, res) => { res.setHeader('Cache-Control', 'no-store'); res.json({ animeCommunity: env.enableAnimeCommunity }); });
+  app.get('/api/anime/home-covers', metadataLimiter, (_req, res) => {
+    const works = animeCatalog().filter(work => work.cover).slice(0, 24).map(({id,title,fullTitle,cover}) => ({id,title,fullTitle,cover}));
+    res.set('Cache-Control','public, max-age=300').json({works});
+  });
+  app.get('/api/anime/catalog', metadataLimiter, async (req, res) => {
+    res.setHeader('Cache-Control', 'private, max-age=60, must-revalidate');
+    res.vary('x-private-key');
+    const available = env.enableAnimeDraft || env.enableAnimeCommunity;
+    let principalId: string | undefined;
+    if (req.header('x-private-key')) { try { principalId = principalFromKey(req.header('x-private-key')); } catch { principalId = undefined; } }
+    let extraIds: number[] = [];
+    if (principalId) { try { extraIds = await communityPools.workIdsForPrincipal(principalId); } catch { extraIds = []; } }
+    res.json({ enabled: env.enableAnimeDraft, works: available ? animeCatalogFor(principalId, extraIds) : [], pools: available ? animePools() : [] });
+  });
   app.use("/api/", apiLimiter);
   app.use("/rooms", apiLimiter);
   app.use(
     "/api/reveal-images",
     express.static(revealImages.getStaticDir(), {
       immutable: true,
-      maxAge: "7d"
+      maxAge: "7d",
+      setHeaders: (res) => res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin')
     })
   );
 
@@ -373,7 +483,7 @@ async function bootstrap(): Promise<void> {
 
   app.get("/rooms", async (_req, res) => {
     const rooms = await game.listRoomSummaries();
-    res.json(rooms);
+    res.json(assets.wire(rooms));
   });
 
   app.get("/api/public-word-packs", async (_req, res) => {
@@ -418,11 +528,44 @@ async function bootstrap(): Promise<void> {
     }
   });
 
+  app.get('/api/rooms/:roomId/plan-pool',metadataLimiter,async(req,res)=>{
+    res.setHeader('Cache-Control','no-store');
+    try {
+      const principal=principalFromKey(req.header('x-private-key'));
+      res.json(await game.getPlanPool(String(req.params.roomId),principal,String(req.query.planId??''),Number(req.query.version)));
+    } catch(error) { res.status(403).json({message:error instanceof Error?error.message:'作品池读取失败'}); }
+  });
+  app.get('/api/private-replays/:matchId', (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    try { res.json(game.getPrivateReplay(req.params.matchId, principalFromKey(req.header('x-private-key')))); }
+    catch { res.status(404).json({ message: '私密复盘不存在、已过期或无权访问。服务重启后内存复盘会失效；请在原设备重试或恢复身份凭证。' }); }
+  });
+  app.post('/api/private-replays/:matchId/share', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    try {
+      const body = asObject(req.body);
+      if (typeof body.shared !== 'boolean') throw new Error('分享状态无效');
+      const principal = principalFromKey(req.header('x-private-key'));
+      await game.sharePrivatePrediction(req.params.matchId, principal, body.shared);
+      res.json(game.getPrivateReplay(req.params.matchId, principal));
+    } catch { res.status(404).json({ message: '预测不存在、未开放或无权修改' }); }
+  });
+
+  const replayCoverLimiter=rateLimit({windowMs:60_000,limit:240,standardHeaders:true,legacyHeaders:false});
+  app.get('/api/replays/:replayId/covers/:cardId',replayCoverLimiter,async(req,res)=>{
+    try{
+      const replay=await game.getReplay(String(req.params.replayId));
+      const card=replay?.finalBoard.find(c=>c.id===req.params.cardId);
+      if(!card?.anime?.cover){res.sendStatus(404);return;}
+      const cover=await fetchReplayCover(card.anime.cover);
+      res.setHeader('Cache-Control','public, max-age=300');res.type(cover.type).send(cover.data);
+    }catch{res.sendStatus(404);}
+  });
   app.get("/api/replays/:replayId", async (req, res) => {
     try {
       const replay = await game.getReplay(req.params.replayId);
       if (!replay) {
-        res.status(404).json({ message: "复盘不存在或已过期" });
+        res.status(404).json({ message: "公开复盘不存在、已过期或服务重启后已失效" });
         return;
       }
       res.json(replay);
@@ -511,8 +654,10 @@ async function bootstrap(): Promise<void> {
     }
   });
 
+  let summariesTimer: ReturnType<typeof setTimeout> | undefined;
   async function broadcastRoomSummaries(): Promise<void> {
-    io.emit("room_summaries", await game.listRoomSummaries());
+    if (summariesTimer) return;
+    summariesTimer=setTimeout(()=>{summariesTimer=undefined;game.listRoomSummaries().then(rooms=>io.emit("room_summaries",assets.wire(rooms))).catch(error=>console.warn('room summaries:',error));},150);
   }
 
   async function sendRoomState(roomId: string): Promise<void> {
@@ -528,31 +673,54 @@ async function bootstrap(): Promise<void> {
       if (!session || session.roomId !== roomId) {
         continue;
       }
+      if (session.participantType === 'spectator' && room.players.some(p => p.id === session.participantId)) {
+        session.participantType = 'player';
+        const promoted = room.players.find(p => p.id === session.participantId)!;
+        currentSocket.emit('session',{roomId,playerId:promoted.id,participantId:promoted.id,participantType:'player',sessionToken:promoted.sessionToken!});
+      }
       const payload = game.getPublicRoomState(room, session.participantId, session.participantType);
       if (room.revealGuessState) {
         payload.revealGuessPublic = RevealGuess.sanitizeRevealGuessState(room, session.participantId, session.participantType) ?? undefined;
       }
-      currentSocket.emit("room_state", payload);
+      const localSocket = io.sockets.sockets.get(currentSocket.id);
+      if (localSocket) emitRoom(localSocket, payload);
+      else currentSocket.emit("room_state", assets.wire(payload));
     }
 
     await broadcastRoomSummaries();
   }
 
+  const publishedMatchEvents = new MatchEventLedger();
   async function emitRoundHighlights(roomId: string): Promise<void> {
     const room = await game.getRoom(roomId);
     if (!room) return;
     const highlights = room.roundHighlights ?? [];
     if (highlights.length === 0) return;
     const sanitizedHighlights = sanitizeRoundHighlightsForPhase(highlights, room.phase) ?? [];
-    const lastHl = sanitizedHighlights[sanitizedHighlights.length - 1];
-    io.to(roomId).emit("round_highlight", lastHl);
-    const achievements = buildAchievementUnlocksFromHighlight(highlights[highlights.length - 1], room);
-    for (const ach of achievements) {
-      io.to(roomId).emit("achievement_unlock", ach);
+    const scope = { roomId, matchId: room.matchId!, roundNumber: room.roundNumber };
+    // Claim synchronously after the fetch, before emitting. Concurrent guess/end-turn
+    // handlers may observe the same snapshot, or more than one new closed turn.
+    for (const highlight of sanitizedHighlights) {
+      if (!publishedMatchEvents.claim(roomId, scope.matchId, `highlight:${highlight.id}`)) continue;
+      io.to(roomId).emit("round_highlight", { ...highlight, ...scope });
+      const original = highlights.find(h => h.id === highlight.id)!;
+      for (const ach of buildAchievementUnlocksFromHighlight(original, room)) {
+        if (publishedMatchEvents.claim(roomId, scope.matchId, `achievement:${ach.id}`)) {
+          io.to(roomId).emit("achievement_unlock", { ...ach, ...scope, team: highlight.team, roundIndex: highlight.roundIndex });
+        }
+      }
     }
   }
 
-  function bind(socketId: string, roomId: string, participantId: string, participantType: ParticipantType): void {
+  async function bind(socketId: string, roomId: string, participantId: string, participantType: ParticipantType): Promise<void> {
+    const previous = socketSessions.get(socketId);
+    if (previous && (previous.roomId !== roomId || previous.participantId !== participantId)) {
+      const client = io.sockets.sockets.get(socketId);
+      client?.leave(previous.roomId); client?.leave(`member:${previous.participantId}`);
+      socketSessions.delete(socketId);
+      await game.markDisconnected(previous.roomId,previous.participantId,previous.participantType,()=>![...socketSessions.values()].some(s=>s.roomId===previous.roomId&&s.participantId===previous.participantId));
+      await sendRoomState(previous.roomId);
+    }
     socketSessions.set(socketId, { roomId, participantId, participantType });
   }
 
@@ -586,13 +754,71 @@ async function bootstrap(): Promise<void> {
     });
   }
 
-  function fail(socket: Parameters<typeof io.on>[1] extends (socket: infer T) => void ? T : never, error: unknown): void {
+  function fail(socket: Parameters<typeof io.on>[1] extends (socket: infer T) => void ? T : never, error: unknown, context: { roomId?: string; code?: string; action?: string } = {}): void {
     socket.emit("error_message", {
-      message: error instanceof Error ? error.message : "请求失败"
+      message: error instanceof Error ? error.message : "请求失败",
+      ...(context.roomId ? { roomId: context.roomId } : {}),
+      ...(context.code ? { code: context.code } : {}),
+      ...(context.action ? { action: context.action } : {})
     });
   }
 
+  function turnVersion(room: Parameters<typeof roomTurnKey>[0]): string {
+    return roomTurnKey(room);
+  }
+
+  async function resync(socket: Parameters<typeof io.on>[1] extends (socket: infer T) => void ? T : never): Promise<void> {
+    const bound = socketSessions.get(socket.id);
+    if (bound) await sendRoomState(bound.roomId);
+  }
+
+
   io.on("connection", (socket) => {
+    socket.on("enable_room_deltas", () => { deltaSockets.add(socket); transports.delete(socket); });
+    socket.on('prediction_action', async payload => {
+      try {
+        checkSocketRate(socket.id, 'prediction_action', 10, 1000);
+        const roomId = requireRoomId(payload);
+        const session = requireSession(socket.id, roomId);
+        const room = await game.predictionAction(roomId, session.participantId, session.participantType, payload);
+        const analysis = game.getPublicRoomState(room, session.participantId, session.participantType).analysis;
+        if (analysis) socket.emit('analysis_state', { roomId, analysis });
+      } catch (error) { fail(socket, error); }
+    });
+
+    socket.on('analysis_action', async (payload, reply) => {
+      try {
+        checkSocketRate(socket.id, 'analysis_action', 10, 1000);
+        const roomId = requireRoomId(payload);
+        const session = requireSession(socket.id, roomId);
+        const room = await game.analysisAction(roomId, session.participantId, session.participantType, payload);
+        const team = room.players.find(p => p.id === session.participantId)?.team;
+        for (const client of await io.in(roomId).fetchSockets()) {
+          const bound = socketSessions.get(client.id);
+          if (!bound || bound.roomId !== roomId) continue;
+          const sameParticipant = bound.participantId === session.participantId;
+          const sameTeam = room.players.some(p => p.id === bound.participantId && p.team === team);
+          if (!sameParticipant && !(payload.target === 'team' && sameTeam)) continue;
+          const analysis = game.getPublicRoomState(room, bound.participantId, bound.participantType).analysis;
+          if (analysis && (sameParticipant || analysis.canReadTeamGraph)) client.emit('analysis_state', { roomId, analysis });
+        }
+        acknowledge(reply, {ok:true});
+      } catch (error) { const bound=socketSessions.get(socket.id);if(bound)await sendRoomState(bound.roomId);acknowledge(reply, {ok:false,message:error instanceof Error?error.message:'图谱未保存'});fail(socket,error); }
+    });
+
+    socket.on('plan_action', async (payload, reply) => {
+      try {
+        checkSocketRate(socket.id, 'plan_action', 30, 5_000);
+        const body = asObject(payload);
+        const roomId = requireRoomId(payload);
+        const session = requireSession(socket.id,roomId);
+        if (session.participantType !== 'player') throw new Error('旁观者不能操作下局准备');
+        if (typeof body.kind !== 'string') throw new Error('操作无效');
+        await game.planAction(roomId,session.participantId,payload);
+        await sendRoomState(roomId);
+        acknowledge(reply, {ok:true});
+      } catch(error) { acknowledge(reply, {ok:false,message:error instanceof Error?error.message:'配置未保存'});fail(socket,error); }
+    });
     socket.emit("room_summaries", []);
     broadcastRoomSummaries().catch((error) => {
       console.error("Failed to broadcast room summaries on connect", error);
@@ -600,19 +826,20 @@ async function bootstrap(): Promise<void> {
 
     socket.on("create_room", async (payload) => {
       try {
+        maybeFailCreate();
         const body = asObject(payload);
         const nickname = requireString(body, "nickname");
         const profile = optionalProfile(body.profile);
         const sessionToken = body.profile && typeof body.profile === "object" ? optionalUserSessionToken((body.profile as PayloadRecord).userSessionToken) : undefined;
-        const { room, player } = await game.createRoom(nickname, profile, sessionToken);
-        bind(socket.id, room.id, player.id, "player");
+        const { room, player } = await game.createRoom(nickname, profile, sessionToken, privatePrincipal(body));
+        await bind(socket.id, room.id, player.id, "player");
         socket.join(room.id);
         socket.join(`member:${player.id}`);
         emitSession(socket, room.id, player.id, "player", player.sessionToken!);
-        socket.emit("room_state", game.getPublicRoomState(room, player.id, "player"));
+        emitRoom(socket, game.getPublicRoomState(room, player.id, "player"), true);
         await broadcastRoomSummaries();
       } catch (error) {
-        fail(socket, error);
+        fail(socket, error, { code: 'CREATE_ROOM_FAILED', action: 'create_room' });
       }
     });
 
@@ -627,8 +854,8 @@ async function bootstrap(): Promise<void> {
 
         if (roomSessionToken) {
           try {
-            const restored = await game.reconnectRoom(roomId, roomSessionToken);
-            bind(socket.id, restored.room.id, restored.participantId, restored.participantType);
+            const restored = await game.reconnectRoom(roomId, roomSessionToken, privatePrincipal(body));
+            await bind(socket.id, restored.room.id, restored.participantId, restored.participantType);
             socket.join(restored.room.id);
             socket.join(`member:${restored.participantId}`);
             emitSession(socket, restored.room.id, restored.participantId, restored.participantType, roomSessionToken);
@@ -637,14 +864,15 @@ async function bootstrap(): Promise<void> {
           } catch { /* fallback to normal join */ }
         }
 
-        const { room, player } = await game.joinRoom(roomId, nickname, profile, userSessionToken);
-        bind(socket.id, room.id, player.id, "player");
+        const { room, player } = await game.joinRoom(roomId, nickname, profile, userSessionToken, privatePrincipal(body));
+        await bind(socket.id, room.id, player.id, "player");
         socket.join(room.id);
         socket.join(`member:${player.id}`);
         emitSession(socket, room.id, player.id, "player", player.sessionToken!);
         await sendRoomState(room.id);
       } catch (error) {
-        fail(socket, error);
+        const roomId = typeof payload?.roomId === 'string' ? payload.roomId : undefined;
+        fail(socket, error, { roomId, code: 'JOIN_FAILED', action: 'join_room' });
       }
     });
 
@@ -657,26 +885,15 @@ async function bootstrap(): Promise<void> {
         const userSessionToken = body.profile && typeof body.profile === "object" ? optionalUserSessionToken((body.profile as PayloadRecord).userSessionToken) : undefined;
         const roomSessionToken = typeof body.sessionToken === "string" ? body.sessionToken : undefined;
 
-        if (roomSessionToken) {
-          try {
-            const restored = await game.reconnectRoom(roomId, roomSessionToken);
-            bind(socket.id, restored.room.id, restored.participantId, restored.participantType);
-            socket.join(restored.room.id);
-            socket.join(`member:${restored.participantId}`);
-            emitSession(socket, restored.room.id, restored.participantId, restored.participantType, roomSessionToken);
-            await sendRoomState(restored.room.id);
-            return;
-          } catch { /* fallback to normal join */ }
-        }
-
-        const { room, spectator } = await game.joinSpectator(roomId, nickname, profile, userSessionToken);
-        bind(socket.id, room.id, spectator.id, "spectator");
+        const { room, spectator } = await game.joinSpectator(roomId, nickname, profile, userSessionToken, privatePrincipal(body));
+        await bind(socket.id, room.id, spectator.id, "spectator");
         socket.join(room.id);
         socket.join(`member:${spectator.id}`);
         emitSession(socket, room.id, spectator.id, "spectator", spectator.sessionToken!);
         await sendRoomState(room.id);
       } catch (error) {
-        fail(socket, error);
+        const roomId = typeof payload?.roomId === 'string' ? payload.roomId : undefined;
+        fail(socket, error, { roomId, code: 'JOIN_FAILED', action: 'join_spectator' });
       }
     });
 
@@ -685,14 +902,14 @@ async function bootstrap(): Promise<void> {
         const body = asObject(payload);
         const roomId = requireString(body, "roomId");
         const sessionToken = requireString(body, "sessionToken");
-        const { room, participantId, participantType } = await game.reconnectRoom(roomId, sessionToken);
-        bind(socket.id, room.id, participantId, participantType);
+        const { room, participantId, participantType } = await game.reconnectRoom(roomId, sessionToken, privatePrincipal(body));
+        await bind(socket.id, room.id, participantId, participantType);
         socket.join(room.id);
         socket.join(`member:${participantId}`);
         emitSession(socket, room.id, participantId, participantType, sessionToken);
         await sendRoomState(room.id);
       } catch (error) {
-        fail(socket, error);
+        socket.emit('error_message',{message:error instanceof Error?error.message:'Recovery failed',code:'ROOM_RECOVERY_FAILED',roomId:payload?.roomId});
       }
     });
 
@@ -711,6 +928,25 @@ async function bootstrap(): Promise<void> {
       } catch (error) {
         fail(socket, error);
       }
+    });
+
+    socket.on('manage_member',async(payload,reply)=>{
+      try{
+        checkSocketRate(socket.id,'manage_member',12,10_000);
+        const body=asObject(payload),roomId=requireString(body,'roomId'),targetId=requireString(body,'targetId');
+        const session=requireSession(socket.id,roomId);
+        if(session.participantType!=='player')throw new Error('只有房主可以管理成员');
+        if(!['team','role','remove'].includes(String(body.kind)))throw new Error('管理操作无效');
+        const kind=body.kind as 'team'|'role'|'remove';
+        if(kind==='team'&&body.team!==null&&body.team!=='red'&&body.team!=='blue')throw new Error('队伍无效');
+        const room=await game.manageMember(roomId,session.participantId,targetId,{kind,...(kind==='team'?{team:optionalTeam(body.team)}:{}),...(kind==='role'?{role:requirePlayerRole(body.role)}:{})});
+        if(kind==='remove')for(const [id,bound] of socketSessions){
+          if(bound.roomId!==roomId||bound.participantId!==targetId)continue;
+          socketSessions.delete(id);const client=io.sockets.sockets.get(id);
+          client?.leave(roomId);client?.leave(`member:${targetId}`);client?.emit('room_closed',{roomId,reason:'你已被房主移出房间；原席位恢复凭证失效'});
+        }
+        await sendRoomState(roomId);acknowledge(reply,{ok:true,roomId,roomVersion:room.updatedAt});
+      }catch(error){acknowledge(reply,{ok:false,message:error instanceof Error?error.message:'成员管理失败'});fail(socket,error);}
     });
 
     socket.on("set_role", async (payload) => {
@@ -736,14 +972,14 @@ async function bootstrap(): Promise<void> {
         if (session.participantType !== "player") {
           throw new Error("旁观者不能随机分队");
         }
-        const room = await game.randomizeTeams(roomId, session.participantId);
+        const room = await game.randomizeTeams(roomId, session.participantId, payload.mode);
         await sendRoomState(room.id);
       } catch (error) {
         fail(socket, error);
       }
     });
 
-    socket.on("update_room_settings", async (payload) => {
+    socket.on("update_room_settings", async (payload, reply) => {
       try {
         const body = parseUpdateRoomSettingsPayload(payload);
         const session = requireSession(socket.id, body.roomId);
@@ -752,7 +988,8 @@ async function bootstrap(): Promise<void> {
         }
         const room = await game.updateRoomSettings(body.roomId, session.participantId, body);
         await sendRoomState(room.id);
-      } catch (error) {
+      acknowledge(reply, {ok:true});
+      } catch (error) { acknowledge(reply, {ok:false,message:error instanceof Error?error.message:'配置未保存'});
         fail(socket, error);
       }
     });
@@ -815,6 +1052,26 @@ async function bootstrap(): Promise<void> {
       }
     });
 
+    socket.on("host_takeover", async (payload, reply) => {
+      try {
+        checkSocketRate(socket.id, "host_takeover", 6, 10_000);
+        const body = asObject(payload);
+        const roomId = requireString(body, "roomId");
+        const kind = requireString(body, "kind");
+        if (!['request', 'approve', 'reject', 'cancel'].includes(kind)) throw new Error('接任操作无效');
+        const session = requireSession(socket.id, roomId);
+        if (session.participantType !== "player") throw new Error("旁观者不能参与社长接任");
+        const room = await game.hostTakeover(roomId, session.participantId, kind as 'request' | 'approve' | 'reject' | 'cancel');
+        await sendRoomState(room.id);
+        acknowledge(reply, { ok: true, roomId: room.id, roomVersion: room.updatedAt, turnVersion: turnVersion(room) });
+      } catch (error) {
+        const roomId = typeof payload?.roomId === 'string' ? payload.roomId : undefined;
+        await resync(socket);
+        acknowledge(reply, { ok: false, message: error instanceof Error ? error.message : '接任未完成' });
+        fail(socket, error, { roomId, code: 'HOST_TAKEOVER_FAILED', action: 'host_takeover' });
+      }
+    });
+
     socket.on("disband_room", async (payload) => {
       try {
         const roomId = requireRoomId(payload);
@@ -842,7 +1099,7 @@ async function bootstrap(): Promise<void> {
         if (session.participantType !== "player") {
           throw new Error("旁观者不能结束对局");
         }
-        const room = await game.forceEndGame(roomId, session.participantId);
+        const room = await game.forceEndGame(roomId, session.participantId,payload.mode??'abort');
         if (room.phase === "finished") {
           await game.ensureReplay(room.id);
         }
@@ -852,58 +1109,76 @@ async function bootstrap(): Promise<void> {
       }
     });
 
-    socket.on("submit_clue", async (payload) => {
+    socket.on("submit_clue", async (payload, reply) => {
       try {
         checkSocketRate(socket.id, "submit_clue", 3, 10_000);
         const body = asObject(payload);
         const roomId = requireString(body, "roomId");
         const word = requireString(body, "word");
         const count = requireNumber(body, "count");
+        const requestId = typeof body.requestId === 'string' ? body.requestId : undefined;
         const session = requireSession(socket.id, roomId);
         if (session.participantType !== "player") {
           throw new Error("旁观者不能发提示");
         }
-        const room = await game.submitClue(roomId, session.participantId, word, count);
+        const room = await game.submitClue(roomId, session.participantId, word, count, requestId);
+        const duplicate = game.takeDuplicateRequest(room.id, requestId);
         await sendRoomState(room.id);
+        acknowledge(reply, { ok: true, duplicate, roomId: room.id, roomVersion: room.updatedAt, turnVersion: turnVersion(room) });
       } catch (error) {
-        fail(socket, error);
+        const roomId = typeof payload?.roomId === 'string' ? payload.roomId : undefined;
+        await resync(socket);
+        acknowledge(reply, { ok: false, message: error instanceof Error ? error.message : '提示未提交' });
+        fail(socket, error, { roomId, code: 'SUBMIT_CLUE_FAILED', action: 'submit_clue' });
       }
     });
 
-    socket.on("guess_card", async (payload) => {
+    socket.on("guess_card", async (payload, reply) => {
       try {
         checkSocketRate(socket.id, "guess_card", 8, 5_000);
         const body = asObject(payload);
         const roomId = requireString(body, "roomId");
         const cardId = requireString(body, "cardId");
+        const requestId = typeof body.requestId === 'string' ? body.requestId : undefined;
         const session = requireSession(socket.id, roomId);
         if (session.participantType !== "player") {
           throw new Error("旁观者不能猜词");
         }
-        const room = await game.guessCard(roomId, session.participantId, cardId);
+        const room = await game.guessCard(roomId, session.participantId, cardId, requestId);
+        const duplicate = game.takeDuplicateRequest(room.id, requestId);
         if (room.phase === "finished") {
           await game.ensureReplay(room.id);
         }
         await sendRoomState(room.id);
         await emitRoundHighlights(room.id);
+        acknowledge(reply, { ok: true, duplicate, roomId: room.id, roomVersion: room.updatedAt, turnVersion: turnVersion(room) });
       } catch (error) {
-        fail(socket, error);
+        const roomId = typeof payload?.roomId === 'string' ? payload.roomId : undefined;
+        await resync(socket);
+        acknowledge(reply, { ok: false, message: error instanceof Error ? error.message : '猜牌未完成' });
+        fail(socket, error, { roomId, code: 'GUESS_CARD_FAILED', action: 'guess_card' });
       }
     });
 
-    socket.on("end_turn", async (payload) => {
+    socket.on("end_turn", async (payload, reply) => {
       try {
         checkSocketRate(socket.id, "end_turn", 3, 10_000);
         const roomId = requireRoomId(payload);
+        const requestId = typeof payload?.requestId === 'string' ? payload.requestId : undefined;
         const session = requireSession(socket.id, roomId);
         if (session.participantType !== "player") {
           throw new Error("旁观者不能结束回合");
         }
-        const room = await game.endTurn(roomId, session.participantId);
+        const room = await game.endTurn(roomId, session.participantId, requestId);
+        const duplicate = game.takeDuplicateRequest(room.id, requestId);
         await sendRoomState(room.id);
         await emitRoundHighlights(room.id);
+        acknowledge(reply, { ok: true, duplicate, roomId: room.id, roomVersion: room.updatedAt, turnVersion: turnVersion(room) });
       } catch (error) {
-        fail(socket, error);
+        const roomId = typeof payload?.roomId === 'string' ? payload.roomId : undefined;
+        await resync(socket);
+        acknowledge(reply, { ok: false, message: error instanceof Error ? error.message : '结束回合未完成' });
+        fail(socket, error, { roomId, code: 'END_TURN_FAILED', action: 'end_turn' });
       }
     });
 
@@ -918,14 +1193,14 @@ async function bootstrap(): Promise<void> {
       }
     });
 
-    socket.on("send_chat_message", async (payload) => {
+    socket.on("send_chat_message", async (payload, reply) => {
       try {
         checkSocketRate(socket.id, "send_chat_message", 5, 5_000);
         const body = asObject(payload);
         const roomId = requireString(body, "roomId");
         const text = requireString(body, "text");
         const session = requireSession(socket.id, roomId);
-        const room = await game.sendChatMessage(roomId, session.participantId, session.participantType, text);
+        const room = await game.sendChatMessage(roomId, session.participantId, session.participantType, text, body.requestId === undefined ? undefined : requireString(body, "requestId"));
         await sendRoomState(room.id);
         if (session.participantType === "spectator") {
           const sender =
@@ -940,7 +1215,9 @@ async function bootstrap(): Promise<void> {
             createdAt: Date.now()
           });
         }
+        acknowledge(reply, {ok:true});
       } catch (error) {
+        acknowledge(reply, {ok:false,message:error instanceof Error?error.message:"消息发送失败"});
         fail(socket, error);
       }
     });
@@ -1024,6 +1301,7 @@ async function bootstrap(): Promise<void> {
           if (!storedSession || storedSession.roomId !== roomId) {
             throw new Error("会话不存在");
           }
+          await game.reconnectRoom(roomId,sessionToken,privatePrincipal(body));
           participantId = storedSession.participantId;
           participantType = storedSession.participantType;
         } else {
@@ -1035,11 +1313,12 @@ async function bootstrap(): Promise<void> {
 
         const room = isLobby
           ? await game.leaveRoom(roomId, participantId, participantType)
-          : await game.markDisconnected(roomId, participantId, participantType);
+          : await game.markDisconnected(roomId, participantId, participantType,()=>![...socketSessions.entries()].some(([id,s])=>id!==socket.id&&s.roomId===roomId&&s.participantId===participantId));
 
-        if (boundSession) socketSessions.delete(socket.id);
+        if (boundSession && socketSessions.get(socket.id) === boundSession) socketSessions.delete(socket.id);
         socket.leave(roomId);
         socket.leave(`member:${participantId}`);
+        if(isLobby)for(const [id,bound] of socketSessions){if(bound.roomId===roomId&&bound.participantId===participantId){socketSessions.delete(id);const client=io.sockets.sockets.get(id);client?.leave(roomId);client?.leave(`member:${participantId}`);client?.emit('room_closed',{roomId,reason:'已退出房间'});}}
         if (room) {
           await sendRoomState(room.id);
         } else {
@@ -1062,7 +1341,7 @@ async function bootstrap(): Promise<void> {
         if (room.revealGuessState) {
           state.revealGuessPublic = RevealGuess.sanitizeRevealGuessState(room, session.participantId, session.participantType) ?? undefined;
         }
-        socket.emit("room_state", state);
+        emitRoom(socket, state, true);
       } catch (error) {
         fail(socket, error);
       }
@@ -1086,6 +1365,7 @@ async function bootstrap(): Promise<void> {
 
     socket.on("create_reveal_guess_room", async (payload) => {
       try {
+        maybeFailCreate();
         const body = asObject(payload);
         const nickname = requireString(body, "nickname");
         const profile = optionalProfile(body.profile);
@@ -1099,7 +1379,7 @@ async function bootstrap(): Promise<void> {
           ? asObject(body.initialPuzzle)
           : null;
 
-        const { room, player } = await game.createRoom(nickname, profile, sessionToken);
+        const { room, player } = await game.createRoom(nickname, profile, sessionToken,body.identityKey===undefined?undefined:privatePrincipal(body));
         RevealGuess.initRevealGuessState(room, settings);
         if (initialPuzzle) {
           const imageUrl = await revealImages.normalizeImageUrl(requireString(initialPuzzle, "imageUrl"));
@@ -1110,16 +1390,16 @@ async function bootstrap(): Promise<void> {
         }
         await store.setRoom(room);
 
-        bind(socket.id, room.id, player.id, "player");
+        await bind(socket.id, room.id, player.id, "player");
         socket.join(room.id);
         socket.join(`member:${player.id}`);
         emitSession(socket, room.id, player.id, "player", player.sessionToken!);
         const roomStatePayload = game.getPublicRoomState(room, player.id, "player");
         roomStatePayload.revealGuessPublic = RevealGuess.sanitizeRevealGuessState(room, player.id, "player") ?? undefined;
-        socket.emit("room_state", roomStatePayload);
+        emitRoom(socket, roomStatePayload, true);
         await broadcastRoomSummaries();
       } catch (error) {
-        fail(socket, error);
+        fail(socket, error, { code: 'CREATE_ROOM_FAILED', action: 'create_reveal_guess_room' });
       }
     });
 
@@ -1154,12 +1434,110 @@ async function bootstrap(): Promise<void> {
         }
         const room = await game.getRoom(roomId);
         if (!room) throw new Error("房间不存在");
+        const judgeId = room.judgePlayerId || room.hostPlayerId;
+        if (session.participantId !== judgeId) {
+          throw new Error("只有裁判或房主可以添加题目");
+        }
         RevealGuess.addPuzzle(room, { imageUrl, answer, aliases, hints });
         await store.setRoom(room);
         await sendRoomState(room.id);
       } catch (error) {
         fail(socket, error);
       }
+    });
+
+    socket.on("reveal_guess_add_puzzles", async (payload) => {
+      try {
+        const body = asObject(payload);
+        const roomId = requireString(body, "roomId");
+        const puzzles = Array.isArray(body.puzzles) ? body.puzzles : [];
+        if (!puzzles.length) throw new Error("puzzles 不能为空");
+
+        const session = requireSession(socket.id, roomId);
+        if (session.participantType !== "player") throw new Error("旁观者不能添加题目");
+        const room = await game.getRoom(roomId);
+        if (!room) throw new Error("房间不存在");
+        const judgeId = room.judgePlayerId || room.hostPlayerId;
+        if (session.participantId !== judgeId) throw new Error("只有裁判或房主可以添加题目");
+
+        for (const p of puzzles) {
+          const imageUrl = requireString(p, "imageUrl");
+          const answer = requireString(p, "answer");
+          const aliases = optionalStringArray(p.aliases);
+          const hints = optionalStringArray(p.hints);
+          if (imageUrl.startsWith("data:image/")) {
+            if (imageUrl.length > 3_200_000) throw new Error("图片过大");
+          } else if (!imageUrl.startsWith("http://") && !imageUrl.startsWith("https://")) {
+            throw new Error("图片 URL 无效");
+          }
+          RevealGuess.addPuzzle(room, { imageUrl, answer, aliases, hints });
+        }
+        await store.setRoom(room);
+        await sendRoomState(room.id);
+      } catch (error) {
+        fail(socket, error);
+      }
+    });
+
+    socket.on("reveal_guess_update_puzzle", async (payload) => {
+      try {
+        const body = asObject(payload);
+        const roomId = requireString(body, "roomId");
+        const index = requireNumber(body, "index");
+        const session = requireSession(socket.id, roomId);
+        if (session.participantType !== "player") throw new Error("旁观者不能编辑题目");
+        const room = await game.getRoom(roomId);
+        if (!room) throw new Error("房间不存在");
+        const judgeId = room.judgePlayerId || room.hostPlayerId;
+        if (session.participantId !== judgeId) throw new Error("只有裁判或房主可以编辑题目");
+        const data: { imageUrl?: string; answer?: string; aliases?: string[]; hints?: string[] } = {};
+        if (body.imageUrl !== undefined) {
+          const u = requireString(body, "imageUrl");
+          if (u.startsWith("data:image/") && u.length > 3_200_000) throw new Error("图片过大");
+          data.imageUrl = u;
+        }
+        if (body.answer !== undefined) data.answer = requireString(body, "answer");
+        if (body.aliases !== undefined) data.aliases = optionalStringArray(body.aliases);
+        if (body.hints !== undefined) data.hints = optionalStringArray(body.hints);
+        RevealGuess.updatePuzzle(room, index, data);
+        await store.setRoom(room);
+        await sendRoomState(room.id);
+      } catch (error) { fail(socket, error); }
+    });
+
+    socket.on("reveal_guess_remove_puzzle", async (payload) => {
+      try {
+        const body = asObject(payload);
+        const roomId = requireString(body, "roomId");
+        const index = requireNumber(body, "index");
+        const session = requireSession(socket.id, roomId);
+        if (session.participantType !== "player") throw new Error("旁观者不能删除题目");
+        const room = await game.getRoom(roomId);
+        if (!room) throw new Error("房间不存在");
+        const judgeId = room.judgePlayerId || room.hostPlayerId;
+        if (session.participantId !== judgeId) throw new Error("只有裁判或房主可以删除题目");
+        RevealGuess.removePuzzle(room, index);
+        await store.setRoom(room);
+        await sendRoomState(room.id);
+      } catch (error) { fail(socket, error); }
+    });
+
+    socket.on("reveal_guess_reorder_puzzle", async (payload) => {
+      try {
+        const body = asObject(payload);
+        const roomId = requireString(body, "roomId");
+        const fromIndex = requireNumber(body, "fromIndex");
+        const toIndex = requireNumber(body, "toIndex");
+        const session = requireSession(socket.id, roomId);
+        if (session.participantType !== "player") throw new Error("旁观者不能调整顺序");
+        const room = await game.getRoom(roomId);
+        if (!room) throw new Error("房间不存在");
+        const judgeId = room.judgePlayerId || room.hostPlayerId;
+        if (session.participantId !== judgeId) throw new Error("只有裁判或房主可以调整顺序");
+        RevealGuess.reorderPuzzles(room, fromIndex, toIndex);
+        await store.setRoom(room);
+        await sendRoomState(room.id);
+      } catch (error) { fail(socket, error); }
     });
 
     socket.on("reveal_guess_start", async (payload) => {
@@ -1432,7 +1810,7 @@ async function bootstrap(): Promise<void> {
       if (!session) {
         return;
       }
-      const room = await game.markDisconnected(session.roomId, session.participantId, session.participantType);
+      const room = await game.markDisconnected(session.roomId, session.participantId, session.participantType, () => ![...socketSessions.values()].some(s => s.roomId === session.roomId && s.participantId === session.participantId));
       if (room) {
         await sendRoomState(room.id);
       } else {

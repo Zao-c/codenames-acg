@@ -1,16 +1,23 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useNavigate } from 'react-router-dom';
+import { MatchNotifications, type NotificationScope } from '../lib/match-notifications';
+import { ClueRequestLifecycle } from '../lib/pending-clue';
 
 function genId(): string {
   if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
   return "id-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10);
 }
 import {
+  applyRoomDelta,
+  type RoomSnapshot,
+  type RoomDelta,
   BOARD_MODE_CONFIG,
   MAX_CLUE_COUNT,
   MIN_CLUE_COUNT,
   PLAYER_ROLE_LABELS,
   TEAM_LABELS,
   wordPackSummaries,
+  roomTurnKey,
   type BoardMode,
   type ScoringMode,
   type CandidateEntry,
@@ -44,7 +51,8 @@ import {
 } from "@acg-codenames/shared";
 import { listPublicWordPacks, getPublicWordPackDetail, listPublicImagePacks, getPublicImagePackDetail, loginNamedUser, logoutNamedUser as apiLogoutNamedUser, updateNamedUser } from "../lib/api";
 import { getSocket } from "../lib/socket";
-import { clearIdentity, clearSession, loadIdentity, loadRecentUsernames, loadSession, saveIdentity, saveSession, loadRecoverableSessions, saveRecoverableSessions, removeRecoverableSession, type LocalIdentity } from "../lib/storage";
+import { privateIdentityKey, activatePrivateIdentity } from '../lib/private-identity';
+import { clearIdentity, clearSession, loadIdentity, loadRecentUsernames, loadSession, saveIdentity, saveSession, loadRecoverableSessions, saveRecoverableSessions, removeRecoverableSession, invalidateRoomSession, roomInvalidationKey, type LocalIdentity } from "../lib/storage";
 import { copyText } from "../lib/clipboard";
 import {
   defaultExportFilters,
@@ -132,7 +140,7 @@ async function imageFileToAvatarDataUrl(file: File): Promise<string> {
   return canvas.toDataURL("image/webp", 0.9);
 }
 
-function parseCustomWordFile(file: File): Promise<ImportedWordPackFile> {
+export function parseCustomWordFile(file: File): Promise<ImportedWordPackFile> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
@@ -184,7 +192,7 @@ function applyCandidateAutoReview(pack: CandidatePack): CandidatePack {
   };
 }
 
-function autoExportCandidatePack(pack: CandidatePack): SavedWordPack {
+export function autoExportCandidatePack(pack: CandidatePack): SavedWordPack {
   return exportPlayablePack(applyCandidateAutoReview(pack), defaultExportFilters);
 }
 
@@ -280,7 +288,8 @@ export interface GameContextType {
   handleNamedLogin: (usernameOverride?: string) => Promise<void>;
   continueAsGuest: () => void;
   handleAvatarUpload: (file: File | null) => Promise<void>;
-  createRoom: () => void;
+  updateTitle: (title: string | null) => Promise<void>;
+  createRoom: (defaults?: boolean, variant?: 'classic'|'anime') => void;
   createRevealGuessRoom: (settings?: Partial<RevealGuessSettings>, initialPuzzle?: { imageUrl: string; answer: string; aliases?: string[]; hints?: string[] }) => void;
   joinByRoomCode: (asSpectator: boolean) => void;
   joinSpecificRoom: (roomId: string, asSpectator: boolean) => void;
@@ -330,7 +339,7 @@ export interface GameContextType {
 
   chooseTeam: (team: Team | null) => void;
   chooseRole: (role: "spymaster" | "operative") => void;
-  randomizeTeams: () => void;
+  randomizeTeams: (mode?: 'all'|'keep-captains') => void;
   updateBoardMode: (boardMode: BoardMode) => void;
   updateScoringMode: (mode: ScoringMode) => void;
   updateBuiltinPack: (wordPackId: string) => void;
@@ -347,9 +356,18 @@ export interface GameContextType {
   cancelQueueJoin: () => void;
   debugFillRoom: () => void;
   submitClue: () => void;
+  cluePending: boolean;
+  clueSyncing: boolean;
+  retryClue: () => void;
   guessCard: (cardId: string) => void;
   endTurn: () => void;
   resumeTimer: () => void;
+  hostTakeover: (kind: 'request'|'approve'|'reject'|'cancel') => void;
+  syncRoomState: () => void;
+  joinError: string;
+  clearJoinError: () => void;
+  lostRoom: { roomId: string; message: string } | null;
+  actionStatus: string;
   sendChatMessage: () => void;
   sendQuickPhrase: (text: string) => void;
   sendReaction: (reaction: ChatReaction, targetParticipantId: string, targetParticipantType: ParticipantType) => void;
@@ -380,6 +398,11 @@ export interface GameContextType {
   mobileRoomTab: "board" | "players" | "chat";
   setMobileRoomTab: (v: "board" | "players" | "chat") => void;
   jumpToLatest: boolean;
+  chatUnread: number;
+  battleUnread: number;
+  chatPending: boolean;
+  chatError: string;
+  scrollBattleToBottom: () => void;
   chatListRef: React.RefObject<HTMLDivElement | null>;
   battleListRef: React.RefObject<HTMLDivElement | null>;
   handleChatScroll: () => void;
@@ -391,7 +414,7 @@ export interface GameContextType {
   revealingCardIds: Set<string>;
   maskSpymasterHints: boolean;
   setMaskSpymasterHints: (v: boolean) => void;
-  showSakura: boolean;
+
   globalReaction: import("@acg-codenames/shared").ReactionEffectPayload | null;
   reactionQueue: import("@acg-codenames/shared").ReactionEffectPayload[];
   collapsedSections: Set<string>;
@@ -418,8 +441,9 @@ export function useGame(): GameContextType {
 }
 
 export function GameProvider({ children }: { children: ReactNode }) {
+  const navigate = useNavigate();
   const socket = useMemo(() => getSocket(), []);
-  const [identity, _setIdentity] = useState<LocalIdentity | null>(loadIdentity());
+  const [identity, _setIdentity] = useState<LocalIdentity | null>(()=>{const value=loadIdentity();if(value)activatePrivateIdentity(`${value.mode}:${value.username||value.nickname}`);return value;});
   const [recentUsers, setRecentUsers] = useState<string[]>(loadRecentUsernames());
   const [namedAccount, setNamedAccount] = useState<NamedUserAccount | null>(null);
   const [namedUsernameInput, setNamedUsernameInput] = useState(loadIdentity()?.mode === "named" ? loadIdentity()?.username ?? "" : "");
@@ -430,6 +454,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [createBoardMode, _setCreateBoardModeRaw] = useState<BoardMode>("5x5");
   const NEUTRAL_COUNT_OPTIONS: Record<BoardMode, readonly number[]> = {
     "5x5": [3, 5, 7, 9, 11],
+    "6x6": [10],
     "7x7": [7, 9, 11, 13, 15, 17, 19],
     "9x9": [15, 19, 21, 25]
   };
@@ -456,13 +481,27 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [publicImagePacks, setPublicImagePacks] = useState<PublicImagePackSummary[]>([]);
   const [roomCode, setRoomCode] = useState("");
   const [session, setSession] = useState<ClientSession | null>(loadSession());
+  const notificationScope = useRef<NotificationScope | null>(null);
   const activeRoomIdRef = useRef<string | null>(null);
   const freshSessionRef = useRef(false);
+  const navigateAfterSession = useRef(false);
+  const recoveryAttempt = useRef<{roomId:string;retry:boolean}|null>(null);
   const [room, setRoom] = useState<PublicRoomState | null>(null);
   const [roomSummaries, setRoomSummaries] = useState<RoomSummary[]>([]);
   const [error, setError] = useState("");
+  const [joinError, setJoinError] = useState("");
+  const [lostRoom, setLostRoom] = useState<{ roomId: string; message: string } | null>(null);
+  const [actionStatus, setActionStatus] = useState("");
   const [connectionState, setConnectionState] = useState<ConnectionState>("idle");
-  const [clueWord, setClueWord] = useState("");
+  const clueDraftRevisionRef = useRef(0);
+  const [clueWord, setClueWordRaw] = useState("");
+  const [cluePending, setCluePending] = useState(false);
+  const [clueSyncing, setClueSyncing] = useState(false);
+  const setClueWord = (value: string) => {
+    clueDraftRevisionRef.current += 1;
+    setClueWordRaw(value);
+    clearActionError('clue');
+  };
   const [clueCountInput, setClueCountInputRaw] = useState("2");
   const [chatText, setChatText] = useState("");
   const [danmakuQueue, setDanmakuQueue] = useState<DanmakuMessage[]>([]);
@@ -486,9 +525,26 @@ export function GameProvider({ children }: { children: ReactNode }) {
   soundEnabledRef.current = soundEnabled;
   const setClueCountInput = (value: string) => {
     if (/^\d*$/.test(value)) {
+      clueDraftRevisionRef.current += 1;
       setClueCountInputRaw(value);
-      setError("");
+      if (scopedErrorRef.current?.scope === 'clue') { scopedErrorRef.current = null; setError(''); }
     }
+  };
+  const setActionError = (scope: 'clue' | 'guess' | 'endTurn', message: string) => {
+    scopedErrorRef.current = { scope, message };
+    setError(message);
+  };
+  const clearActionError = (scope: 'clue' | 'guess' | 'endTurn') => {
+    if (scopedErrorRef.current?.scope === scope) {
+      scopedErrorRef.current = null;
+      setError('');
+    }
+  };
+  const releaseCreateAttempt = () => {
+    createAttemptRef.current = null;
+    clearTimeout(createTimerRef.current);
+    createTimerRef.current = undefined;
+    navigateAfterSession.current = false;
   };
   const handleSetSoundEnabled = (v: boolean) => {
     setSoundEnabledRaw(v);
@@ -505,16 +561,55 @@ export function GameProvider({ children }: { children: ReactNode }) {
     try { localStorage.setItem("showDanmaku", v ? "on" : "off"); } catch {}
   };
   const [mobileRoomTab, setMobileRoomTab] = useState<"board" | "players" | "chat">("board");
-  const [sideTab, setSideTab] = useState<SideTab>("chat");
-  const [jumpToLatest, setJumpToLatest] = useState(false);
+  const [sideTab, setSideTab] = useState<SideTab>("battle");
+  const [chatUnread,setChatUnread]=useState(0),[battleUnread,setBattleUnread]=useState(0);
+  const jumpToLatest=chatUnread>0;
+  const [chatPending,setChatPending]=useState(false),[chatError,setChatError]=useState('');
+  const joinLockRef=useRef(false),joinTimerRef=useRef<ReturnType<typeof setTimeout>|undefined>(undefined);
+  const releaseJoin=()=>{joinLockRef.current=false;clearTimeout(joinTimerRef.current);};
+  const scrollPositions=useRef({chat:0,battle:0});
+  const seenMessageIds=useRef<{roomId?:string;ids:Set<string>}>({ids:new Set()});
   const [revealBanner, setRevealBanner] = useState<RevealEvent | null>(null);
   const [reactionEffects, setReactionEffects] = useState<Record<string, ChatReaction>>({});
   const [pendingGuess, setPendingGuess] = useState<string | null>(null);
   const guessLockRef = useRef(false);
   const endTurnLockRef = useRef(false);
+  const clueLifecycleRef = useRef<ClueRequestLifecycle | null>(null);
+  const guessActionRef = useRef<{ requestId: string; cardId: string; turnKey: string; matchId?: string } | null>(null);
+  const endTurnActionRef = useRef<{ requestId: string; turnKey: string; matchId?: string } | null>(null);
+  const scopedErrorRef = useRef<{ scope: 'clue' | 'guess' | 'endTurn'; message: string } | null>(null);
+  const createAttemptRef = useRef<{ previousRoomId?: string; previousPhase?: string; previousToken?: string } | null>(null);
+  const createTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const guessUnlockTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const endTurnUnlockTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const joinAttemptRef = useRef<{ roomId: string; spectator: boolean; previousRoomId?: string; previousPhase?: string; previousToken?: string } | null>(null);
+  if (!clueLifecycleRef.current) clueLifecycleRef.current = new ClueRequestLifecycle((event, request, message) => {
+    setCluePending(event === 'pending' || event === 'syncing');
+    setClueSyncing(event === 'syncing');
+    if (event === 'pending') {
+      clearActionError('clue');
+      setActionStatus('正在提交提示…');
+    } else if (event === 'syncing') {
+      setActionStatus('提示尚未确认，正在同步；输入已保留，请勿重复提交。');
+      if (activeRoomIdRef.current === request.roomId) socket.emit('sync_room_state', { roomId: request.roomId });
+    } else {
+      setActionStatus('');
+      if (event === 'rejected') setActionError('clue', `提示未提交：${message ?? '服务器拒绝'}。输入已保留。`);
+      else {
+        clearActionError('clue');
+        if (event === 'accepted' && clueDraftRevisionRef.current === request.draftRevision) {
+          setClueWordRaw('');
+          setClueCountInputRaw('2');
+        }
+      }
+    }
+  });
+  useEffect(() => () => clueLifecycleRef.current?.cancel(), []);
+  useEffect(() => {
+    if (clueLifecycleRef.current?.pending?.roomId !== session?.roomId) clueLifecycleRef.current?.cancel();
+  }, [session?.roomId]);
   const [revealingCardIds, setRevealingCardIds] = useState<Set<string>>(new Set());
   const [maskSpymasterHints, setMaskSpymasterHints] = useState(false);
-  const [showSakura, setShowSakura] = useState(false);
   const [globalReaction, setGlobalReaction] = useState<import("@acg-codenames/shared").ReactionEffectPayload | null>(null);
   const [reactionQueue, setReactionQueue] = useState<import("@acg-codenames/shared").ReactionEffectPayload[]>([]);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set(["待分队"]));
@@ -527,6 +622,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const prevCanSubmitClueRef = useRef(false);
   const pendingCreateConfigRef = useRef<{
     boardMode: BoardMode;
+    variant?: 'classic'|'anime';
     builtinWordPackId?: string;
     customWordPack?: { name: string; entries: string[] };
     scoringMode?: ScoringMode;
@@ -555,8 +651,15 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const boardColumns = room ? BOARD_MODE_CONFIG[room.settings.boardMode].columns : 5;
 
   function persistIdentity(nextIdentity: LocalIdentity): void {
+    const previous=loadIdentity();
+    const owner=(i:LocalIdentity|null)=>i?`${i.mode}:${i.username||i.nickname}`:'';
+    if(owner(previous)!==owner(nextIdentity)) {
+      socket.disconnect(); setRoom(null); setSession(null); setDidReconnect(false); activeRoomIdRef.current=null;
+    }
+    activatePrivateIdentity(owner(nextIdentity));
     _setIdentity(nextIdentity);
     saveIdentity(nextIdentity);
+    if(owner(previous)!==owner(nextIdentity)){setSession(loadSession());socket.connect();}
     setRecentUsers(loadRecentUsernames());
   }
 
@@ -569,45 +672,195 @@ export function GameProvider({ children }: { children: ReactNode }) {
     persistIdentity(v);
   }
 
+  useEffect(()=>{
+    const changed=()=>{socket.disconnect();setRoom(null);activeRoomIdRef.current=null;setDidReconnect(false);_setIdentity(loadIdentity());setSession(loadSession());socket.connect();};
+    const storage=(e:StorageEvent)=>{
+      if(e.key==='acg-codenames-identity'||e.key==='cipai.private-identity.v1')changed();
+      if(e.key===roomInvalidationKey()&&e.newValue){
+        try {
+          const {roomId}=JSON.parse(e.newValue);
+          if(typeof roomId==='string'&&activeRoomIdRef.current===roomId){
+            setSession(null);setRoom(null);activeRoomIdRef.current=null;
+            setConnectionState('idle');setDidReconnect(false);setRevealBanner(null);
+          }
+        } catch { /* Ignore malformed external storage notifications. */ }
+      }
+    };
+    window.addEventListener('storage',storage);window.addEventListener('private-identity-changed',changed);
+    return()=>{window.removeEventListener('storage',storage);window.removeEventListener('private-identity-changed',changed);};
+  },[socket]);
+
   // ─── socket event listeners ───────────────────────────
   useEffect(() => {
     function onSession(p: ClientSession) {
-      setSession(p); saveSession(p); setConnectionState("ready"); setError(""); activeRoomIdRef.current = p.roomId; freshSessionRef.current = true;
+      if (activeRoomIdRef.current && activeRoomIdRef.current !== p.roomId) {
+        clueLifecycleRef.current?.cancel();
+        scopedErrorRef.current = null;
+      }
+      const attempt=joinAttemptRef.current;
+      const created=createAttemptRef.current;
+      releaseJoin();
+      clearTimeout(createTimerRef.current);
+      createTimerRef.current=undefined;
+      createAttemptRef.current=null;
+      joinAttemptRef.current=null;
+      recoveryAttempt.current=null;
+      setJoinError('');setLostRoom(null);
+      setSession(p); saveSession(p); setConnectionState("ready"); if (!scopedErrorRef.current) setError(""); activeRoomIdRef.current = p.roomId; freshSessionRef.current = true;
+      const previous = attempt ?? created;
+      if(previous&&previous.previousRoomId&&previous.previousRoomId!==p.roomId&&previous.previousPhase==='lobby'&&previous.previousToken){
+        // The new seat is confirmed; explicitly release the old lobby seat without risking rollback.
+        socket.emit('leave_room',{roomId:previous.previousRoomId,sessionToken:previous.previousToken,identityKey:privateIdentityKey()});
+        removeRecoverableSession(previous.previousRoomId);
+      }
       const recoverable = loadRecoverableSessions();
       recoverable[p.roomId] = { sessionToken: p.sessionToken, participantType: p.participantType, savedAt: Date.now() };
       saveRecoverableSessions(recoverable);
+      if(navigateAfterSession.current){navigateAfterSession.current=false;navigate(`/room/${p.roomId}`);}
     }
-    function onRoomState(p: PublicRoomState) { if (!loadSession() || p.id !== activeRoomIdRef.current) return; setRoom(p); setConnectionState("ready"); setError(""); setPendingGuess(null); guessLockRef.current = false; endTurnLockRef.current = false; }
+    let wireState: RoomSnapshot | null = null;
+    function onDelta(delta: RoomDelta) {
+      if (delta.roomId !== activeRoomIdRef.current) return;
+      const next = applyRoomDelta(wireState, delta);
+      if (next) onRoomState(next);
+      else { wireState = null; socket.emit("sync_room_state", {roomId: delta.roomId}); }
+    }
+    function onRoomState(p: RoomSnapshot) {
+      if (!loadSession() || p.id !== activeRoomIdRef.current) return;
+      wireState = p;
+      if(p.phase==='playing'&&notificationScope.current?.matchId!==p.matchId)setSideTab('battle');
+      notificationScope.current = p.matchId ? {roomId:p.id,matchId:p.matchId,roundNumber:p.roundNumber,latestTurn:p.clueRecords?.length??0} : null;
+      setRoom(p); setConnectionState("ready"); setLostRoom(null);
+      // Only a local action-scoped error survives unrelated room broadcasts.
+      if (!scopedErrorRef.current) setError("");
+      const pendingGuessAction = guessActionRef.current;
+      if (pendingGuessAction) {
+        const targetRevealed = p.board.some(card => card.id === pendingGuessAction.cardId && card.revealed);
+        const turnChanged = roomTurnKey(p) !== pendingGuessAction.turnKey || p.phase !== 'playing' || (!!pendingGuessAction.matchId && p.matchId !== pendingGuessAction.matchId);
+        if (targetRevealed || turnChanged) {
+          guessActionRef.current = null;
+          guessLockRef.current = false;
+          setPendingGuess(null);
+          clearTimeout(guessUnlockTimerRef.current);
+        }
+      }
+      const pendingEndTurn = endTurnActionRef.current;
+      if (pendingEndTurn) {
+        const turnChanged = roomTurnKey(p) !== pendingEndTurn.turnKey || p.phase !== 'playing' || (!!pendingEndTurn.matchId && p.matchId !== pendingEndTurn.matchId);
+        if (turnChanged) {
+          endTurnActionRef.current = null;
+          endTurnLockRef.current = false;
+          clearTimeout(endTurnUnlockTimerRef.current);
+        }
+      }
+      clueLifecycleRef.current?.observe(p);
+    }
     function onRoomSummaries(p: RoomSummary[]) { setRoomSummaries(p); }
-    function onError(p: { message: string }) {
-      if (p.message.includes("重连凭证") || p.message.includes("房间不存在")) {
-        const currentRoomId = session?.roomId ?? activeRoomIdRef.current;
-        if (currentRoomId) removeRecoverableSession(currentRoomId);
-        clearSession();
-        setSession(null);
-        setRoom(null);
-        setConnectionState("idle");
-        setDidReconnect(false);
-        setRevealBanner(null);
-        setError("房间已过期，已返回首页");
-        activeRoomIdRef.current = null;
+    function onAnalysisState(p: { roomId: string; analysis: import('@acg-codenames/shared').AnalysisPermissions }) {
+      setRoom(current => current?.id === p.roomId && current.matchId === p.analysis.matchId ? { ...current, analysis: p.analysis } : current);
+    }
+    function onError(p: { message: string; code?:string; roomId?:string; action?:string }) {
+      // submit_clue has a correlated ACK. Its legacy error broadcast has no
+      // requestId, so it must not overwrite this or a later action's feedback.
+      if (p.action === 'submit_clue') return;
+      const attempt=joinAttemptRef.current;
+      // Tabs may own different live rooms while sharing one persisted "last room".
+      const activeId=activeRoomIdRef.current??session?.roomId??loadSession()?.roomId??undefined;
+      if(p.action==='create_room'||p.action==='create_reveal_guess_room'){
+        releaseCreateAttempt();
+        pendingCreateConfigRef.current=null;
+        setConnectionState(activeId?'ready':'idle');
+        const message=`创建新房间失败：${p.message}${activeId?'。你仍留在原房间。':'。'}`;
+        if(activeId) setError(message); else setJoinError(message);
         return;
       }
-      setError(p.message); setConnectionState("ready"); setPendingGuess(null); guessLockRef.current = false; endTurnLockRef.current = false;
+      // A failed attempt to enter another room must never tear down the room we are still in.
+      if(p.action==='join_room'||p.action==='join_spectator'||(attempt&&attempt.roomId===(p.roomId??attempt.roomId))){
+        releaseJoin();joinAttemptRef.current=null;
+        const target=p.roomId??attempt?.roomId;
+        if(target&&p.message.includes('房间不存在')){
+          invalidateRoomSession(target);
+          if(target===activeId){setSession(null);setRoom(null);activeRoomIdRef.current=null;setDidReconnect(false);}
+        }
+        setJoinError(target?`无法加入房间 ${target}：${p.message}。${activeId?'你仍留在原房间。':'可返回大厅重试。'}`:`无法加入房间：${p.message}`);
+        setConnectionState(activeRoomIdRef.current?'ready':'idle');
+        if(activeId&&activeId!==target)setError('');
+        return;
+      }
+      releaseJoin();
+      if(p.code==='ROOM_RECOVERY_FAILED') {
+        const id=p.roomId??recoveryAttempt.current?.roomId;
+        // A late recovery failure for room A must never disturb a successfully joined room B.
+        if(id&&activeId&&id!==activeId){
+          removeRecoverableSession(id);
+          if(recoveryAttempt.current?.roomId===id)recoveryAttempt.current=null;
+          return;
+        }
+        const recoveringCurrent=!!id&&id===activeId;
+        if(id)invalidateRoomSession(id);
+        const wasInGame=recoveringCurrent&&(room?.phase==='playing'||room?.phase==='finished');
+        if(recoveringCurrent){
+          clearSession(id);setSession(null);setRoom(null);activeRoomIdRef.current=null;setDidReconnect(false);
+        }
+        const attemptRef=recoveryAttempt.current;recoveryAttempt.current=null;
+        if(id&&attemptRef?.retry&&!p.message.includes('身份')&&!p.message.includes('房间不存在')) {
+          const ji=buildJoinProfile();
+          if(ji){socket.emit('join_room',{roomId:id,identityKey:privateIdentityKey(),nickname:ji.nickname,profile:{accountType:ji.profile.mode,username:ji.profile.mode==='named'?ji.profile.username:null,avatarUrl:ji.profile.avatarUrl,userSessionToken:ji.profile.userSessionToken}});return;}
+        }
+        setConnectionState('idle');
+        if(wasInGame){setLostRoom({roomId:id!,message:`房间 ${id} 已结束或已无法恢复：${p.message}`});setError('');return;}
+        if(id&&!activeId){setJoinError(`邀请的房间 ${id} 已失效：${p.message}`);return;}
+        setError('');
+        return;
+      }
+      if (p.message.includes("重连凭证") || p.message.includes("房间不存在")) {
+        const currentRoomId = activeId;
+        if (!currentRoomId) {
+          // Background cleanup on the lobby page must stay silent.
+          if(p.roomId)removeRecoverableSession(p.roomId);
+          setError('');return;
+        }
+        if(p.roomId&&p.roomId!==currentRoomId){invalidateRoomSession(p.roomId);setError('');return;}
+        invalidateRoomSession(currentRoomId);
+        const wasInGame=room?.phase==='playing'||room?.phase==='finished';
+        clearSession(currentRoomId);setSession(null);setRoom(null);setConnectionState("idle");setDidReconnect(false);setRevealBanner(null);
+        activeRoomIdRef.current = null;
+        if(wasInGame){setLostRoom({roomId:currentRoomId,message:'当前房间已结束或已解散，本局无法继续。'});setError('');}
+        else setJoinError(`房间 ${currentRoomId} 已失效：${p.message}`);
+        return;
+      }
+      setError(p.message); setConnectionState("ready");
     }
     function onRoomClosed(p: { roomId: string; reason: string }) {
-      if (p.roomId !== session?.roomId) return;
-      clearSession(); setSession(null); setRoom(null); setConnectionState("idle"); setDidReconnect(false); setRevealBanner(null); setError(p.reason); activeRoomIdRef.current = null;
+      invalidateRoomSession(p.roomId);
+      if (p.roomId !== activeRoomIdRef.current) return;
+      clueLifecycleRef.current?.cancel();
+      setSession(null); setRoom(null); setConnectionState("idle"); setDidReconnect(false); setRevealBanner(null); setError(p.reason); activeRoomIdRef.current = null;
     }
+    const onConnect=()=>{wireState=null;socket.emit("enable_room_deltas");if(!loadSession()&&!joinLockRef.current)setConnectionState('idle');};
+    socket.on('connect',onConnect);
     socket.on("session", onSession);
     socket.on("room_state", onRoomState);
+    socket.on("room_state_delta", onDelta);
+    socket.emit("enable_room_deltas");
+    socket.on('analysis_state', onAnalysisState);
     socket.on("room_summaries", onRoomSummaries);
     socket.on("error_message", onError);
     socket.on("room_closed", onRoomClosed);
-    socket.io.on("reconnect", () => { if (session) { setConnectionState("connecting"); socket.emit("reconnect_room", { roomId: session.roomId, sessionToken: session.sessionToken }); } });
+    socket.io.on("reconnect", () => { if (session) { setConnectionState("connecting"); recoveryAttempt.current={roomId:session.roomId,retry:true};socket.emit("reconnect_room", { roomId: session.roomId, sessionToken: session.sessionToken,identityKey:privateIdentityKey() }); } });
     socket.on("disconnect", () => setConnectionState("connecting"));
-    return () => { socket.off("session", onSession); socket.off("room_state", onRoomState); socket.off("room_summaries", onRoomSummaries); socket.off("error_message", onError); socket.off("room_closed", onRoomClosed); socket.io.off("reconnect"); socket.off("disconnect"); };
+    return () => { socket.off('connect',onConnect);socket.off('analysis_state', onAnalysisState); socket.off("session", onSession); socket.off("room_state", onRoomState); socket.off("room_state_delta", onDelta); socket.off("room_summaries", onRoomSummaries); socket.off("error_message", onError); socket.off("room_closed", onRoomClosed); socket.io.off("reconnect"); socket.off("disconnect"); };
   }, [session?.roomId, socket]);
+
+  useEffect(() => {
+    function onVisible() {
+      if (document.visibilityState === 'visible' && activeRoomIdRef.current) {
+        socket.emit('sync_room_state', { roomId: activeRoomIdRef.current });
+      }
+    }
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [socket]);
 
   useEffect(() => {
     setDanmakuQueue([]);
@@ -651,22 +904,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
     gameKey: null
   });
 
-  useEffect(() => {
-    function onRoundHighlight(p: RoundHighlight) {
-      setRoundHighlights((prev) => [...prev, p]);
-      setHighlightToast(p);
-      if (highlightToastTimerRef.current !== null) window.clearTimeout(highlightToastTimerRef.current);
-      highlightToastTimerRef.current = window.setTimeout(() => setHighlightToast(null), 3500);
-    }
-    socket.on("round_highlight", onRoundHighlight);
-    return () => { socket.off("round_highlight", onRoundHighlight); };
-  }, [socket]);
-
   const [roundAchievements, setRoundAchievements] = useState<AchievementUnlockPayload[]>([]);
   const [achievementToast, setAchievementToast] = useState<AchievementUnlockPayload | null>(null);
   const achievementToastTimerRef = useRef<number | null>(null);
+  const enqueueReveal = useRef<(value: RevealEvent) => void>(() => {});
 
   const clearRoundUiCache = useCallback(() => {
+    setRevealBanner(null);
     setRoundHighlights([]);
     setRoundAchievements([]);
     setHighlightToast(null);
@@ -700,14 +944,38 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }, [clearRoundUiCache, room, session?.roomId]);
 
   useEffect(() => {
-    function onAchievementUnlock(p: AchievementUnlockPayload) {
-      setRoundAchievements((prev) => [...prev, p]);
-      setAchievementToast(p);
-      if (achievementToastTimerRef.current !== null) window.clearTimeout(achievementToastTimerRef.current);
-      achievementToastTimerRef.current = window.setTimeout(() => setAchievementToast(null), 3500);
-    }
-    socket.on("achievement_unlock", onAchievementUnlock);
-    return () => { socket.off("achievement_unlock", onAchievementUnlock); };
+    const gate = new MatchNotifications();
+    type Notice = {kind:'highlight'; value:RoundHighlight} | {kind:'achievement'; value:AchievementUnlockPayload} | {kind:'reveal';value:RevealEvent & {roomId:string;matchId:string;roundIndex:number}};
+    const queue: Notice[] = [];
+    let timer: number | undefined;
+    const display = () => {
+      queue.sort((a,b)=>({reveal:0,highlight:1,achievement:2}[a.kind]-{reveal:0,highlight:1,achievement:2}[b.kind]));
+      const next = queue.shift();
+      setHighlightToast(null); setAchievementToast(null); setRevealBanner(null);
+      if (!next) {timer=undefined;return;}
+      const p=next.value, scope=notificationScope.current;
+      if (!scope || p.roomId!==scope.roomId || p.matchId!==scope.matchId || next.kind!=='reveal'&&(p.roundIndex??0)<scope.latestTurn) {display();return;}
+      if(next.kind==='highlight')setHighlightToast(next.value);else if(next.kind==='achievement')setAchievementToast(next.value);else setRevealBanner(next.value);
+      timer=window.setTimeout(display,next.kind==='reveal'?2200:1600);
+    };
+    const receive=(notice:Exclude<Notice,{kind:"reveal"}>)=>{
+      if(notice.value.roomId!==activeRoomIdRef.current)return;
+      const result=gate.receive(notice.kind,notice.value,notificationScope.current);
+      if(!result)return;
+      if(notice.kind==='highlight')setRoundHighlights(prev=>[...prev,notice.value]);
+      else setRoundAchievements(prev=>[...prev,notice.value]);
+      if(result.toast){queue.push(notice);if(timer===undefined)timer=window.setTimeout(display,100);}
+    };
+    const highlight=(value:RoundHighlight)=>receive({kind:'highlight',value});
+    const achievement=(value:AchievementUnlockPayload)=>receive({kind:'achievement',value});
+    enqueueReveal.current=value=>{
+      const scope=notificationScope.current;if(!scope)return;
+      if(!gate.receive('reveal',{id:value.id,...scope,roundIndex:scope.latestTurn},scope))return;
+      queue.push({kind:'reveal',value:{...value,roomId:scope.roomId,matchId:scope.matchId,roundIndex:scope.latestTurn}});
+      if(timer===undefined)timer=window.setTimeout(display,100);
+    };
+    socket.on('round_highlight',highlight);socket.on('achievement_unlock',achievement);
+    return()=>{enqueueReveal.current=()=>{};window.clearTimeout(timer);socket.off('round_highlight',highlight);socket.off('achievement_unlock',achievement);};
   }, [socket]);
 
   useEffect(() => {
@@ -718,7 +986,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
     setDidReconnect(true);
     setConnectionState("connecting");
-    socket.emit("reconnect_room", { roomId: session.roomId, sessionToken: session.sessionToken });
+    recoveryAttempt.current={roomId:session.roomId,retry:true};
+    socket.emit("reconnect_room", { roomId: session.roomId, sessionToken: session.sessionToken,identityKey:privateIdentityKey() });
   }, [didReconnect, room, session, socket]);
 
   useEffect(() => {
@@ -727,13 +996,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (!hostPlayer?.isHost || room.phase !== "lobby") return;
     const pending = pendingCreateConfigRef.current;
     pendingCreateConfigRef.current = null;
+    if (pending.variant === 'anime') { socket.emit('plan_action',{roomId:session.roomId,kind:'configure',variant:'anime',boardMode:pending.boardMode}); return; }
     socket.emit("update_room_settings", { roomId: session.roomId, boardMode: pending.boardMode, builtinWordPackId: pending.builtinWordPackId, customWordPack: pending.customWordPack, scoringMode: pending.scoringMode, timerMode: pending.timerMode, timerClueSeconds: pending.timerClueSeconds, timerGuessSeconds: pending.timerGuessSeconds, neutralCount: pending.neutralCount, flipMode: pending.flipMode });
   }, [room, session, socket]);
   useEffect(() => { setTransferHostTargetId((cur) => { if (cur && hostTransferCandidates.some((p) => p.id === cur)) return cur; return hostTransferCandidates[0]?.id ?? ""; }); }, [hostTransferCandidates]);
   useEffect(() => {
     const reveal = room?.lastReveal; if (!reveal || reveal.id === lastRevealIdRef.current) return;
     lastRevealIdRef.current = reveal.id;
-    setRevealBanner(reveal); setRevealingCardIds((prev) => new Set(prev).add(reveal.cardId)); setPendingGuess(null); guessLockRef.current = false;
+    enqueueReveal.current(reveal); setRevealingCardIds((prev) => new Set(prev).add(reveal.cardId));
     if (soundEnabledRef.current) {
       if (reveal.outcome === "own-hit") playOwnHit(); else if (reveal.outcome === "opponent-hit") playOpponentHit(); else if (reveal.outcome === "neutral-hit") playNeutralHit(); else if (reveal.outcome === "assassin-hit") playAssassinHit();
     }
@@ -742,24 +1012,39 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }, [room?.lastReveal]);
   useEffect(() => {
     if (!pendingGuess || !room) return;
+    const action = guessActionRef.current;
+    if (!action) return;
     const guessed = room.board.find((c) => c.id === pendingGuess);
-    if (guessed?.revealed || room.phase !== "playing" || !viewer?.canGuess) { setPendingGuess(null); guessLockRef.current = false; }
-  }, [pendingGuess, room, viewer?.canGuess]);
+    const turnChanged = roomTurnKey(room) !== action.turnKey || room.phase !== 'playing';
+    if (guessed?.revealed || turnChanged) {
+      guessActionRef.current = null;
+      setPendingGuess(null);
+      guessLockRef.current = false;
+      clearTimeout(guessUnlockTimerRef.current);
+    }
+  }, [pendingGuess, room]);
   useEffect(() => {
-    if (room?.phase === "finished" && room.winner) { if (soundEnabledRef.current) playVictory(); setShowSakura(true); const t = window.setTimeout(() => setShowSakura(false), 8000); return () => window.clearTimeout(t); }
-    setShowSakura(false);
+    if (room?.phase === "finished" && room.winner && soundEnabledRef.current) playVictory();
   }, [room?.phase, room?.winner]);
   useEffect(() => { if (room?.phase === "playing" && room.roundNumber && soundEnabledRef.current) playGameStart(); }, [room?.phase, room?.roundNumber]);
   useEffect(() => {
-    if (sideTab !== "chat") return;
-    const list = chatListRef.current; if (!list || !stickToChatBottomRef.current) return;
-    list.scrollTop = list.scrollHeight; setJumpToLatest(false);
-  }, [room?.messages, sideTab]);
-  useEffect(() => {
-    if (sideTab !== "battle") return;
-    const list = battleListRef.current; if (!list || !stickToBattleBottomRef.current) return;
-    list.scrollTop = list.scrollHeight; setJumpToLatest(false);
-  }, [room?.messages, sideTab]);
+    if(!room)return;
+    const previous=seenMessageIds.current;
+    const sameRoom=previous.roomId===room.id;
+    const incoming=sameRoom?room.messages.filter(m=>!previous.ids.has(m.id)):[];
+    seenMessageIds.current={roomId:room.id,ids:new Set(room.messages.map(m=>m.id))};
+    if(!sameRoom){scrollPositions.current={chat:0,battle:0};stickToChatBottomRef.current=true;stickToBattleBottomRef.current=true;setChatUnread(0);setBattleUnread(0);}
+    for(const kind of ['chat','battle'] as const){
+      const list=kind==='chat'?chatListRef.current:battleListRef.current;
+      const stick=kind==='chat'?stickToChatBottomRef:stickToBattleBottomRef;
+      const setUnread=kind==='chat'?setChatUnread:setBattleUnread;
+      const count=incoming.filter(m=>kind==='battle'?m.type==='system':m.type==='chat'||m.type==='reaction').length;
+      if(sideTab===kind&&list&&list.getClientRects().length){
+        list.scrollTop=stick.current?list.scrollHeight:scrollPositions.current[kind];
+        if(stick.current)setUnread(0);else if(count)setUnread(n=>n+count);
+      }else if(count)setUnread(n=>n+count);
+    }
+  }, [room?.messages,room?.id,sideTab,mobileRoomTab]);
   useEffect(() => {
     const handler = () => { if (document.visibilityState === "visible" && session) socket.emit("sync_room_state", { roomId: session.roomId }); };
     document.addEventListener("visibilitychange", handler); return () => document.removeEventListener("visibilitychange", handler);
@@ -782,7 +1067,22 @@ export function GameProvider({ children }: { children: ReactNode }) {
   // ─── named user loading ───────────────────────────
   useEffect(() => {
     if (!identity || identity.mode !== "named") { setNamedAccount(null); return; }
-    void loginNamedUser({ username: identity.username }).then((account) => {
+    const username = typeof identity.username === "string" ? identity.username.trim() : "";
+    if (!username) {
+      // Corrupted local identity (e.g. written before response validation was added):
+      // clear it instead of retrying username-less logins (server replies "username 参数无效").
+      clearIdentity(); _setIdentity(null); setNamedAccount(null);
+      setError("本地登录信息已失效，请重新登录");
+      return;
+    }
+    // A successful interactive login already supplied this account and session.
+    // Do not log in twice and consume the shared login rate budget on every entry.
+    if (namedAccount?.username === username && identity.userSessionToken) return;
+    void loginNamedUser({ username }).then((account) => {
+      if(loadIdentity()?.username!==username)return;
+      if (!account || typeof account.username !== "string" || !account.username.trim()) {
+        throw new Error("登录响应无效，请重试");
+      }
       setNamedAccount(account);
       const ni: LocalIdentity = { mode: "named", username: account.username, nickname: account.username, avatarUrl: account.avatarUrl, userSessionToken: account.sessionToken };
       _setIdentity(ni); saveIdentity(ni); setRecentUsers(loadRecentUsernames());
@@ -796,6 +1096,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (!username) { setError("请输入用户名"); return; }
     try {
       const account = await loginNamedUser({ username });
+      if (!account || typeof account.username !== "string" || !account.username.trim()) {
+        throw new Error("登录响应无效，请重试");
+      }
       setNamedAccount(account);
       persistIdentity({ mode: "named", username: account.username, nickname: account.username, avatarUrl: account.avatarUrl, userSessionToken: account.sessionToken });
       setNamedUsernameInput(account.username); setError("");
@@ -809,11 +1112,24 @@ export function GameProvider({ children }: { children: ReactNode }) {
     persistIdentity({ mode: "guest", username: "", nickname, avatarUrl: null }); setError("");
   }
 
+  async function updateTitle(title: string | null) {
+    if (identity?.mode === 'named' && namedAccount) {
+      const updated = await updateNamedUser(namedAccount.username, requireNamedUserSessionToken(identity), { title });
+      setNamedAccount(updated);
+      return;
+    }
+    const key = `cipai.title:${privateIdentityKey()}`;
+    if (title) localStorage.setItem(key, title); else localStorage.removeItem(key);
+  }
+
   async function handleAvatarUpload(file: File | null) {
     if (!namedAccount || !file) return;
     try {
       const avatarUrl = await imageFileToAvatarDataUrl(file);
       const updated = await updateNamedUser(namedAccount.username, requireNamedUserSessionToken(identity), { avatarUrl });
+      if (!updated || typeof updated.username !== "string" || !updated.username.trim()) {
+        throw new Error("更新响应无效，请重试");
+      }
       setNamedAccount(updated);
       persistIdentity({ mode: "named", username: updated.username, nickname: updated.username, avatarUrl: updated.avatarUrl, userSessionToken: requireNamedUserSessionToken(identity) });
       setError("");
@@ -979,9 +1295,28 @@ export function GameProvider({ children }: { children: ReactNode }) {
       : { nickname: effectiveIdentity.nickname, profile: effectiveIdentity };
   }
 
-  function createRoom() {
+  function beginCreateRoom(emit: () => void, pendingConfig: typeof pendingCreateConfigRef.current) {
+    const stored = session?.roomId===activeRoomIdRef.current?session:loadSession();
+    createAttemptRef.current = { previousRoomId: stored?.roomId, previousPhase: room?.phase, previousToken: stored?.sessionToken };
+    pendingCreateConfigRef.current = pendingConfig;
+    navigateAfterSession.current = true;
+    setConnectionState("connecting"); setError(""); setJoinError(""); setLostRoom(null);
+    clearTimeout(createTimerRef.current);
+    createTimerRef.current = setTimeout(() => {
+      const active = loadSession()?.roomId ?? activeRoomIdRef.current;
+      createAttemptRef.current = null;
+      pendingCreateConfigRef.current = null;
+      navigateAfterSession.current = false;
+      setConnectionState(active ? "ready" : "idle");
+      setError(`创建房间未确认：请检查网络后重试。${active ? '你仍留在原房间。' : ''}`);
+    }, 12000);
+    emit();
+  }
+
+  function createRoom(defaults = false, variant: 'classic'|'anime' = 'classic') {
     const ji = buildJoinProfile(); if (!ji) return;
-    if (packSource === "public" && selectedPublicPack) {
+
+    if (!defaults && packSource === "public" && selectedPublicPack) {
       setError("正在加载题库详情...");
       fetchPublicPackDetail(selectedPublicPack.publicId).then((pack) => {
         if (!pack) return;
@@ -989,30 +1324,26 @@ export function GameProvider({ children }: { children: ReactNode }) {
       });
       return;
     }
-    clearSession(); setSession(null); setRoom(null); activeRoomIdRef.current = null;
-    const pending: { boardMode: BoardMode; builtinWordPackId?: string; customWordPack?: { name: string; entries: string[] }; scoringMode?: ScoringMode; timerMode?: import("@acg-codenames/shared").TimerMode; timerClueSeconds?: number; timerGuessSeconds?: number; neutralCount?: number | null; flipMode?: import("@acg-codenames/shared").FlipMode } = { boardMode: createBoardMode, scoringMode, timerMode: createTimerMode, timerClueSeconds: createTimerClueSeconds, timerGuessSeconds: createTimerGuessSeconds, neutralCount: createNeutralCount === 0 ? null : createNeutralCount, flipMode: createFlipMode }; 
+    if(session){if(!window.confirm('创建新房间将切换到新房间；失败会保留当前房间，继续？'))return;}
+    const pending: { boardMode: BoardMode; builtinWordPackId?: string; customWordPack?: { name: string; entries: string[] }; scoringMode?: ScoringMode; timerMode?: import("@acg-codenames/shared").TimerMode; timerClueSeconds?: number; timerGuessSeconds?: number; neutralCount?: number | null; flipMode?: import("@acg-codenames/shared").FlipMode } = { boardMode: createBoardMode, scoringMode, timerMode: createTimerMode, timerClueSeconds: createTimerClueSeconds, timerGuessSeconds: createTimerGuessSeconds, neutralCount: createNeutralCount === 0 ? null : createNeutralCount, flipMode: createFlipMode };
     if (packSource === "builtin") pending.builtinWordPackId = selectedBuiltinPackId;
     else if (selectedAccountPack) pending.customWordPack = { name: selectedAccountPack.name, entries: selectedAccountPack.entries };
-    pendingCreateConfigRef.current = pending;
-    setConnectionState("connecting"); setError("");
-    socket.emit("create_room", { nickname: ji.nickname, profile: { accountType: ji.profile.mode, username: ji.profile.mode === "named" ? ji.profile.username : null, avatarUrl: ji.profile.avatarUrl, userSessionToken: ji.profile.mode === "named" ? ji.profile.userSessionToken : undefined } });
+    beginCreateRoom(() => socket.emit("create_room", { identityKey: privateIdentityKey(), nickname: ji.nickname, profile: { accountType: ji.profile.mode, username: ji.profile.mode === "named" ? ji.profile.username : null, avatarUrl: ji.profile.avatarUrl, userSessionToken: ji.profile.mode === "named" ? ji.profile.userSessionToken : undefined } }), variant === 'anime' ? { boardMode: '5x5', variant } : defaults ? null : pending);
   }
 
   function createRoomWithEntries(packName: string, packEntries: string[]) {
     const ji = buildJoinProfile(); if (!ji) return;
-    clearSession(); setSession(null); setRoom(null); activeRoomIdRef.current = null;
-    const pending: { boardMode: BoardMode; builtinWordPackId?: string; customWordPack?: { name: string; entries: string[] }; scoringMode?: ScoringMode; timerMode?: import("@acg-codenames/shared").TimerMode; timerClueSeconds?: number; timerGuessSeconds?: number; neutralCount?: number | null; flipMode?: import("@acg-codenames/shared").FlipMode } = { boardMode: createBoardMode, scoringMode, timerMode: createTimerMode, timerClueSeconds: createTimerClueSeconds, timerGuessSeconds: createTimerGuessSeconds, neutralCount: createNeutralCount === 0 ? null : createNeutralCount, flipMode: createFlipMode }; 
+    if(session){if(!window.confirm('创建新房间将切换到新房间；失败会保留当前房间，继续？'))return;}
+    const pending: { boardMode: BoardMode; builtinWordPackId?: string; customWordPack?: { name: string; entries: string[] }; scoringMode?: ScoringMode; timerMode?: import("@acg-codenames/shared").TimerMode; timerClueSeconds?: number; timerGuessSeconds?: number; neutralCount?: number | null; flipMode?: import("@acg-codenames/shared").FlipMode } = { boardMode: createBoardMode, scoringMode, timerMode: createTimerMode, timerClueSeconds: createTimerClueSeconds, timerGuessSeconds: createTimerGuessSeconds, neutralCount: createNeutralCount === 0 ? null : createNeutralCount, flipMode: createFlipMode };
     pending.customWordPack = { name: packName, entries: packEntries };
-    pendingCreateConfigRef.current = pending;
-    setConnectionState("connecting"); setError("");
-    socket.emit("create_room", { nickname: ji.nickname, profile: { accountType: ji.profile.mode, username: ji.profile.mode === "named" ? ji.profile.username : null, avatarUrl: ji.profile.avatarUrl, userSessionToken: ji.profile.mode === "named" ? ji.profile.userSessionToken : undefined } });
+    beginCreateRoom(() => socket.emit("create_room", { identityKey: privateIdentityKey(), nickname: ji.nickname, profile: { accountType: ji.profile.mode, username: ji.profile.mode === "named" ? ji.profile.username : null, avatarUrl: ji.profile.avatarUrl, userSessionToken: ji.profile.mode === "named" ? ji.profile.userSessionToken : undefined } }), pending);
   }
 
   function createRevealGuessRoom(settings?: Partial<RevealGuessSettings>, initialPuzzle?: { imageUrl: string; answer: string; aliases?: string[]; hints?: string[] }) {
     const ji = buildJoinProfile(); if (!ji) return;
-    clearSession(); setSession(null); setRoom(null); activeRoomIdRef.current = null;
-    setConnectionState("connecting"); setError("");
-    socket.emit("create_reveal_guess_room", {
+    if(session){if(!window.confirm('创建新房间将切换到新房间；失败会保留当前房间，继续？'))return;}
+    beginCreateRoom(() => socket.emit("create_reveal_guess_room", {
+      identityKey:privateIdentityKey(),
       nickname: ji.nickname,
       profile: {
         accountType: ji.profile.mode,
@@ -1022,27 +1353,39 @@ export function GameProvider({ children }: { children: ReactNode }) {
       },
       settings,
       initialPuzzle
-    });
+    }), null);
   }
 
   function joinSpecificRoom(roomId: string, asSpectator: boolean) {
+    if(joinLockRef.current)return;
+    const target=normalizeRoomCode(roomId);
     const ji = buildJoinProfile(); if (!ji) return;
-    setConnectionState("connecting"); setError("");
-
-    const storedSession = loadSession();
-    if (storedSession && storedSession.roomId === roomId) {
-      socket.emit("reconnect_room", { roomId, sessionToken: storedSession.sessionToken });
+    const storedSession=session?.roomId===activeRoomIdRef.current?session:loadSession();
+    const enteringPlayerSeat=storedSession?.roomId===target&&storedSession.participantType==='spectator'&&!asSpectator;
+    if(storedSession&&storedSession.roomId===target&&!enteringPlayerSeat){
+      // Returning to the seat we already own must not create a duplicate player.
+      setConnectionState("connecting");setError("");setJoinError("");
+      recoveryAttempt.current={roomId:target,retry:false};
+      navigateAfterSession.current=true;
+      socket.emit('reconnect_room',{roomId:target,sessionToken:storedSession.sessionToken,identityKey:privateIdentityKey()});
       return;
     }
-
-    const recoverable = loadRecoverableSessions();
-    const saved = recoverable[roomId];
-    if (saved?.sessionToken) {
-      socket.emit("reconnect_room", { roomId, sessionToken: saved.sessionToken });
-      return;
-    }
-
-    const payload = { roomId, nickname: ji.nickname, profile: { accountType: ji.profile.mode, username: ji.profile.mode === "named" ? ji.profile.username : null, avatarUrl: ji.profile.avatarUrl, userSessionToken: ji.profile.mode === "named" ? ji.profile.userSessionToken : undefined }, sessionToken: saved?.sessionToken ?? undefined };
+    const previousRoomId=storedSession?.roomId;
+    joinAttemptRef.current={roomId:target,spectator:asSpectator,previousRoomId,previousPhase:room?.phase,previousToken:storedSession?.sessionToken};
+    setConnectionState("connecting"); setError(""); setJoinError(""); setLostRoom(null);
+    joinLockRef.current=true;
+    clearTimeout(joinTimerRef.current);
+    joinTimerRef.current=setTimeout(()=>{
+      releaseJoin();joinAttemptRef.current=null;navigateAfterSession.current=false;
+      setConnectionState(activeRoomIdRef.current?'ready':'idle');
+      setJoinError(`加入房间 ${target} 超时，请检查网络或房号。${activeRoomIdRef.current?'你仍留在原房间，可稍后重试。':'可返回大厅重试。'}`);
+    },12000);
+    navigateAfterSession.current=true;
+    const saved=loadRecoverableSessions()[target];
+    const token=storedSession?.roomId===target?storedSession.sessionToken:saved?.sessionToken;
+    if(!asSpectator&&token&&!enteringPlayerSeat){recoveryAttempt.current={roomId:target,retry:false};socket.emit('reconnect_room',{roomId:target,sessionToken:token,identityKey:privateIdentityKey()});return;}
+    recoveryAttempt.current=null;
+    const payload = { identityKey: privateIdentityKey(), roomId: target, nickname: ji.nickname, profile: { accountType: ji.profile.mode, username: ji.profile.mode === "named" ? ji.profile.username : null, avatarUrl: ji.profile.avatarUrl, userSessionToken: ji.profile.mode === "named" ? ji.profile.userSessionToken : undefined }, sessionToken: undefined };
     if (asSpectator) socket.emit("join_spectator", payload);
     else socket.emit("join_room", payload);
   }
@@ -1056,7 +1399,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   // ─── room actions ──────────────────────────────────
   function chooseTeam(team: Team | null) { if (session) socket.emit("set_team", { roomId: session.roomId, team }); }
   function chooseRole(role: "spymaster" | "operative") { if (session) socket.emit("set_role", { roomId: session.roomId, role }); }
-  function randomizeTeams() { if (session) socket.emit("randomize_teams", { roomId: session.roomId }); }
+  function randomizeTeams(mode: 'all'|'keep-captains' = 'all') { if (session) socket.emit('randomize_teams', { roomId: session.roomId, mode }); }
   function updateBoardMode(boardMode: BoardMode) { if (session) socket.emit("update_room_settings", { roomId: session.roomId, boardMode }); }
   function updateScoringMode(mode: ScoringMode) { if (session) socket.emit("update_room_settings", { roomId: session.roomId, scoringMode: mode }); }
   function updateBuiltinPack(wordPackId: string) { if (session) socket.emit("update_room_settings", { roomId: session.roomId, builtinWordPackId: wordPackId }); }
@@ -1091,44 +1434,112 @@ export function GameProvider({ children }: { children: ReactNode }) {
   function cancelQueueJoin() { if (session) socket.emit("cancel_queue_join", { roomId: session.roomId }); }
   function debugFillRoom() { if (session) socket.emit("debug_fill_room", { roomId: session.roomId }); }
   function submitClue() {
-    if (!session || !viewer?.canSubmitClue || !clueWord.trim()) return;
+    if (!session || !room || room.id !== session.roomId || activeRoomIdRef.current !== room.id || connectionState !== 'ready' || !viewer?.canSubmitClue || !clueWord.trim() || clueLifecycleRef.current?.pending) return;
     const count = Number(clueCountInput);
     if (!Number.isInteger(count) || count < MIN_CLUE_COUNT || count > MAX_CLUE_COUNT) {
-      setError(`提示数量无效，请输入 ${MIN_CLUE_COUNT}-${MAX_CLUE_COUNT} 的整数`);
+      setActionError('clue', `提示数量无效，请输入 ${MIN_CLUE_COUNT}-${MAX_CLUE_COUNT} 的整数`);
       return;
     }
-    socket.emit("submit_clue", { roomId: session.roomId, word: clueWord.trim(), count });
+    const word=clueWord.trim(), requestId=genId();
+    const started = clueLifecycleRef.current!.start({
+      requestId, roomId:room.id, matchId:room.matchId, roundNumber:room.roundNumber,
+      turnVersion:roomTurnKey(room), roomVersion:room.updatedAt, team:room.currentTeam,
+      giverPlayerId:session.participantId, recordCount:room.clueRecords?.length ?? 0,
+      word, count, draftRevision:clueDraftRevisionRef.current
+    });
+    if (!started) return;
+    socket.emit("submit_clue", { roomId: session.roomId, word, count, requestId }, result => {
+      if (activeRoomIdRef.current !== session.roomId) return;
+      clueLifecycleRef.current?.acknowledge(requestId, result);
+    });
     if (soundEnabled) playSubmitClue();
-    setClueWord("");
-    setClueCountInput("2");
   }
-  function guessCard(cardId: string) { if (!session || !viewer?.canGuess || guessLockRef.current) return; guessLockRef.current = true; setPendingGuess(cardId); socket.emit("guess_card", { roomId: session.roomId, cardId }); }
-  function endTurn() { if (session && !endTurnLockRef.current) { endTurnLockRef.current = true; socket.emit("end_turn", { roomId: session.roomId }); if (soundEnabled) playEndTurn(); } }
+  function retryClue() {
+    if (connectionState !== 'ready' || clueLifecycleRef.current?.pending?.roomId !== activeRoomIdRef.current) return;
+    const request = clueLifecycleRef.current?.retry();
+    if (!request) return;
+    // Reuse the exact requestId and payload. Server idempotency makes this safe
+    // even if the original action was accepted but every confirmation was lost.
+    socket.emit('submit_clue', {roomId:request.roomId,requestId:request.requestId,word:request.word,count:request.count}, result => {
+      if (activeRoomIdRef.current === request.roomId) clueLifecycleRef.current?.acknowledge(request.requestId, result);
+    });
+  }
+  function guessCard(cardId: string) {
+    if (!session || !viewer?.canGuess || guessLockRef.current) return;
+    const requestId=genId();
+    const turnKey=room?roomTurnKey(room):'';
+    guessActionRef.current={requestId,cardId,turnKey,matchId:room?.matchId};
+    guessLockRef.current = true; setPendingGuess(cardId); clearActionError('guess');
+    let settled=false;
+    const timer=setTimeout(()=>{
+      if(settled)return;settled=true;guessActionRef.current=null;guessLockRef.current=false;setPendingGuess(null);
+      setActionError('guess','猜牌未确认：已同步最新棋盘，请确认后再操作，重复点击不会重复翻牌。');
+      socket.emit('sync_room_state',{roomId:session.roomId});
+    },9000);
+    guessUnlockTimerRef.current=timer;
+    socket.emit("guess_card", { roomId: session.roomId, cardId, requestId }, result => {
+      if(settled)return;settled=true;clearTimeout(timer);
+      if(!result?.ok){
+        guessActionRef.current=null;guessLockRef.current=false;setPendingGuess(null);
+        setActionError('guess',`猜牌未完成：${result?.message??'服务器拒绝'}`);
+        return;
+      }
+      guessActionRef.current=null;guessLockRef.current=false;setPendingGuess(null);clearActionError('guess');
+    });
+  }
+  function endTurn() {
+    if (!session || !viewer?.canEndTurn || endTurnLockRef.current) return;
+    const requestId=genId();
+    endTurnActionRef.current={requestId,turnKey:room?roomTurnKey(room):'',matchId:room?.matchId};
+    endTurnLockRef.current = true; setActionStatus('正在结束回合…'); clearActionError('endTurn');
+    let settled=false;
+    const timer=setTimeout(()=>{
+      if(settled)return;settled=true;endTurnActionRef.current=null;endTurnLockRef.current=false;setActionStatus('');
+      setActionError('endTurn','结束回合未确认：已同步最新局面。');
+      socket.emit('sync_room_state',{roomId:session.roomId});
+    },9000);
+    endTurnUnlockTimerRef.current=timer;
+    socket.emit('end_turn',{roomId:session.roomId,requestId},result=>{
+      if(settled)return;settled=true;clearTimeout(timer);endTurnActionRef.current=null;endTurnLockRef.current=false;setActionStatus('');
+      if(!result?.ok)setActionError('endTurn',`结束回合未完成：${result?.message??'服务器拒绝'}`);
+      else { clearActionError('endTurn'); if (soundEnabled) playEndTurn(); }
+    });
+  }
+  function hostTakeover(kind: 'request'|'approve'|'reject'|'cancel') {
+    if(!session)return;
+    socket.emit('host_takeover',{roomId:session.roomId,kind},result=>{
+      if(!result?.ok)setError(result?.message??'社长接任未完成');
+      else setError('');
+    });
+  }
+  function syncRoomState() {
+    if(session)socket.emit('sync_room_state',{roomId:session.roomId});
+  }
   function resumeTimerFunc() { if (session) { socket.emit("resume_timer", { roomId: session.roomId }); } }
   const chatSendLockRef = useRef(false);
-  const lastQuickPhraseRef = useRef({ text: "", time: 0 });
-  function sendChatMessage() {
-    if (!session || !chatText.trim() || chatSendLockRef.current) return;
-    chatSendLockRef.current = true;
-    socket.emit("send_chat_message", { roomId: session.roomId, text: chatText.trim() });
-    setChatText("");
-    window.setTimeout(() => { chatSendLockRef.current = false; }, 500);
+  const chatRetryRef = useRef<{text:string;requestId:string}|null>(null);
+  function sendText(text:string) {
+    if (!session || !text.trim() || chatSendLockRef.current) return;
+    if(!socket.connected){setChatError('连接已断开，恢复后可重试。');return;}
+    chatSendLockRef.current=true;setChatPending(true);setChatError('');
+    const attempt=chatRetryRef.current?.text===text?chatRetryRef.current:{text,requestId:genId()};
+    chatRetryRef.current=attempt;
+    const timer=setTimeout(()=>{chatSendLockRef.current=false;setChatPending(false);setChatError('发送未确认，请重试；同一条消息不会重复发送。');},8000);
+    socket.emit('send_chat_message',{roomId:session.roomId,text,requestId:attempt.requestId},result=>{
+      clearTimeout(timer);chatSendLockRef.current=false;setChatPending(false);
+      if(!result.ok){setChatError(result.message??'发送失败，请重试。');return;}
+      chatRetryRef.current=null;setChatError('');setChatText(current=>current.trim()===text?'':current);
+    });
   }
-  function sendQuickPhrase(text: string) {
-    if (!session || chatSendLockRef.current) return;
-    const now = Date.now();
-    if (text === lastQuickPhraseRef.current.text && now - lastQuickPhraseRef.current.time < 500) return;
-    lastQuickPhraseRef.current = { text, time: now };
-    chatSendLockRef.current = true;
-    socket.emit("send_chat_message", { roomId: session.roomId, text });
-    window.setTimeout(() => { chatSendLockRef.current = false; }, 500);
-  }
+  function sendChatMessage(){sendText(chatText.trim());}
+  function sendQuickPhrase(text:string){sendText(text);}
   function sendReaction(reaction: ChatReaction, targetParticipantId: string, targetParticipantType: ParticipantType) {
     if (!session) return;
     socket.emit("send_reaction", { roomId: session.roomId, reaction, targetParticipantId, targetParticipantType });
     if (soundEnabledRef.current) playClick();
   }
   function leaveRoom() {
+    clueLifecycleRef.current?.cancel();
     if (session) {
       const isPlaying = room?.phase === "playing" || room?.phase === "finished";
       if (isPlaying) {
@@ -1142,12 +1553,16 @@ export function GameProvider({ children }: { children: ReactNode }) {
       } else {
         removeRecoverableSession(session.roomId);
       }
-      socket.emit("leave_room", { roomId: session.roomId, sessionToken: session.sessionToken });
+      socket.emit("leave_room", { roomId: session.roomId, sessionToken: session.sessionToken,identityKey:privateIdentityKey() });
     }
-    clearSession(); setSession(null); setRoom(null); setConnectionState("idle"); setDidReconnect(false); setRevealBanner(null); setDanmakuQueue([]); setRoundHighlights([]); setRoundAchievements([]); setHighlightToast(null); setAchievementToast(null); setError(""); activeRoomIdRef.current = null;
+    if(session)clearSession(session.roomId);
+    setSession(null); setRoom(null); setConnectionState("idle"); setDidReconnect(false); setRevealBanner(null); setDanmakuQueue([]); setRoundHighlights([]); setRoundAchievements([]); setHighlightToast(null); setAchievementToast(null); setError(""); setJoinError(""); setLostRoom(null); setActionStatus(""); activeRoomIdRef.current = null;
+    clueLifecycleRef.current?.cancel();guessActionRef.current=null;endTurnActionRef.current=null;guessLockRef.current=false;endTurnLockRef.current=false;setPendingGuess(null);scopedErrorRef.current=null;
+    clearTimeout(guessUnlockTimerRef.current);clearTimeout(endTurnUnlockTimerRef.current);
   }
   function logoutNamedUser() {
     const prevIdentity = identity;
+    socket.disconnect();socket.connect();
     clearIdentity();
     _setIdentity(null);
     setNamedAccount(null);
@@ -1182,9 +1597,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setError("复制失败，请手动复制: " + inviteText);
     }
   }
-  function handleChatScroll() { const list = chatListRef.current; if (!list) return; const nearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 24; stickToChatBottomRef.current = nearBottom; setJumpToLatest(!nearBottom); }
-  function handleBattleScroll() { const list = battleListRef.current; if (!list) return; const nearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 24; stickToBattleBottomRef.current = nearBottom; setJumpToLatest(!nearBottom); }
-  function scrollChatToBottom() { const list = chatListRef.current; if (!list) return; list.scrollTop = list.scrollHeight; stickToChatBottomRef.current = true; setJumpToLatest(false); }
+  function handleChatScroll() { const list=chatListRef.current;if(!list)return;const near=list.scrollHeight-list.scrollTop-list.clientHeight<24;stickToChatBottomRef.current=near;scrollPositions.current.chat=list.scrollTop;if(near)setChatUnread(0); }
+  function handleBattleScroll() { const list=battleListRef.current;if(!list)return;const near=list.scrollHeight-list.scrollTop-list.clientHeight<24;stickToBattleBottomRef.current=near;scrollPositions.current.battle=list.scrollTop;if(near)setBattleUnread(0); }
+  function scrollChatToBottom() {const list=chatListRef.current;if(!list)return;list.scrollTop=list.scrollHeight;stickToChatBottomRef.current=true;scrollPositions.current.chat=list.scrollTop;setChatUnread(0);}
+  function scrollBattleToBottom() {const list=battleListRef.current;if(!list)return;list.scrollTop=list.scrollHeight;stickToBattleBottomRef.current=true;scrollPositions.current.battle=list.scrollTop;setBattleUnread(0);}
   function toggleSection(title: string) { setCollapsedSections((prev) => { const next = new Set(prev); next.has(title) ? next.delete(title) : next.add(title); return next; }); }
   function renderHint(): string {
     if (!room) return effectiveIdentity ? "先建密令房，或从大厅加入。" : "先用用户名登录，或直接以游客身份进入。";
@@ -1208,7 +1624,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     selectedAccountPackId, setSelectedAccountPackId,
     selectedPublicPackId, setSelectedPublicPackId,
     accountPacks, selectedAccountPack, selectedPublicPack,
-    handleNamedLogin, continueAsGuest, handleAvatarUpload,
+    handleNamedLogin, continueAsGuest, handleAvatarUpload, updateTitle,
     createRoom, joinByRoomCode, joinSpecificRoom, leaveRoom, logoutNamedUser,
     createRevealGuessRoom,
     refreshPublicPacks, fetchPublicPackDetail, addAccountPack, importAccountPack, editAccountPack, removeAccountPack, toggleAccountPackPublic, chooseAccountPackForCreate,
@@ -1223,19 +1639,19 @@ export function GameProvider({ children }: { children: ReactNode }) {
     uploadRoomPack, useAccountPackForRoom, usePublicPackForRoom,
     startGame, restartGame, returnToLobby, transferHost, disbandRoom, forceEndGame,
     queueForNextRound, cancelQueueJoin, debugFillRoom,
-    submitClue, guessCard, endTurn, resumeTimer: resumeTimerFunc, sendChatMessage, sendQuickPhrase, sendReaction, copyLink,
+    submitClue, cluePending, clueSyncing, retryClue, guessCard, endTurn, resumeTimer: resumeTimerFunc, hostTakeover, syncRoomState, joinError, clearJoinError: () => setJoinError(''), lostRoom, actionStatus, sendChatMessage, sendQuickPhrase, sendReaction, copyLink,
     clueWord, setClueWord, clueCountInput, setClueCountInput,
     chatText, setChatText, danmakuQueue, showDanmaku: showDanmakuRaw, setShowDanmaku,
     roundHighlights, roundAchievements, highlightToast, achievementToast,
     copied, focusMode, setFocusMode,
     enterFocusMode, exitFocusMode,
     soundEnabled, setSoundEnabled: handleSetSoundEnabled,
-    sideTab, setSideTab, jumpToLatest,
+    sideTab, setSideTab, jumpToLatest, chatUnread, battleUnread, chatPending, chatError, scrollBattleToBottom,
     mobileRoomTab, setMobileRoomTab,
     chatListRef, battleListRef, handleChatScroll, handleBattleScroll, scrollChatToBottom,
     revealBanner, reactionEffects, pendingGuess, revealingCardIds,
     maskSpymasterHints, setMaskSpymasterHints,
-    showSakura, globalReaction, reactionQueue,
+    globalReaction, reactionQueue,
     collapsedSections, setCollapsedSections, toggleSection,
     canSeeHiddenRoles, showSpymasterHints, stickToChatBottomRef, stickToBattleBottomRef, isDebugController,
     renderHint, boardModes, ROOM_ID_LENGTH, makePublicPackKey,

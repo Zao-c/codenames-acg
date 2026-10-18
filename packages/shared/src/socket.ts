@@ -1,3 +1,5 @@
+import type { PlanAction } from "./anime.js";
+import type { AnalysisAction, AnalysisPermissions, PredictionAction } from './analysis.js';
 import type {
   AchievementUnlockPayload,
   AdjustRevealScorePayload,
@@ -55,7 +57,20 @@ import type {
   WaivePriorityGuessPayload,
 } from "./types.js";
 
+export type ActionReply = {
+  ok: boolean;
+  message?: string;
+  duplicate?: boolean;
+  roomId?: string;
+  roomVersion?: number;
+  turnVersion?: string;
+};
 export interface ClientToServerEvents {
+  manage_member: (payload: { roomId: string; targetId: string; kind: 'team'|'role'|'remove'; team?: 'red'|'blue'|null; role?: 'spymaster'|'operative' }, reply?: (result: ActionReply) => void) => void;
+  enable_room_deltas: () => void;
+  analysis_action: (payload: AnalysisAction, reply?: (result: ActionReply) => void) => void;
+  prediction_action: (payload: PredictionAction) => void;
+  plan_action: (payload: PlanAction, reply?: (result: ActionReply) => void) => void;
   create_room: (payload: CreateRoomPayload) => void;
   join_room: (payload: JoinRoomPayload) => void;
   join_spectator: (payload: JoinSpectatorPayload) => void;
@@ -63,26 +78,31 @@ export interface ClientToServerEvents {
   set_team: (payload: SetTeamPayload) => void;
   set_role: (payload: SetRolePayload) => void;
   randomize_teams: (payload: RandomizeTeamsPayload) => void;
-  update_room_settings: (payload: UpdateRoomSettingsPayload) => void;
+  update_room_settings: (payload: UpdateRoomSettingsPayload, reply?: (result: ActionReply) => void) => void;
   start_game: (payload: StartGamePayload) => void;
   restart_game: (payload: RestartGamePayload) => void;
   return_to_lobby: (payload: ReturnToLobbyPayload) => void;
   transfer_host: (payload: TransferHostPayload) => void;
+  host_takeover: (payload: import('./types.js').HostTakeoverPayload, reply?: (result: ActionReply) => void) => void;
   disband_room: (payload: DisbandRoomPayload) => void;
-  force_end_game: (payload: { roomId: string }) => void;
-  submit_clue: (payload: SubmitCluePayload) => void;
-  guess_card: (payload: GuessCardPayload) => void;
-  end_turn: (payload: EndTurnPayload) => void;
+    force_end_game: (payload: { roomId: string; mode?: 'abort'|'surrender' }) => void;
+  submit_clue: (payload: SubmitCluePayload, reply?: (result: ActionReply) => void) => void;
+  guess_card: (payload: GuessCardPayload, reply?: (result: ActionReply) => void) => void;
+  end_turn: (payload: EndTurnPayload, reply?: (result: ActionReply) => void) => void;
   resume_timer: (payload: { roomId: string }) => void;
   leave_room: (payload: LeaveRoomPayload) => void;
   sync_room_state: (payload: SyncRoomStatePayload) => void;
   debug_fill_room: (payload: DebugFillRoomPayload) => void;
-  send_chat_message: (payload: SendChatMessagePayload) => void;
+  send_chat_message: (payload: SendChatMessagePayload, reply?: (result: ActionReply) => void) => void;
   send_reaction: (payload: SendReactionPayload) => void;
   queue_for_next_round: (payload: QueueForNextRoundPayload) => void;
   cancel_queue_join: (payload: CancelQueueJoinPayload) => void;
   create_reveal_guess_room: (payload: CreateRevealGuessRoomPayload) => void;
   reveal_guess_add_puzzle: (payload: CreateRevealPuzzlePayload) => void;
+  reveal_guess_add_puzzles: (payload: { roomId: string; puzzles: Array<{ imageUrl: string; answer: string; aliases?: string[]; hints?: string[] }> }) => void;
+  reveal_guess_update_puzzle: (payload: { roomId: string; index: number; imageUrl?: string; answer?: string; aliases?: string[]; hints?: string[] }) => void;
+  reveal_guess_remove_puzzle: (payload: { roomId: string; index: number }) => void;
+  reveal_guess_reorder_puzzle: (payload: { roomId: string; fromIndex: number; toIndex: number }) => void;
   reveal_guess_start: (payload: StartRevealGamePayload) => void;
   end_reveal_game: (payload: EndRevealGamePayload) => void;
   reveal_guess_reveal_cell: (payload: RevealCellPayload) => void;
@@ -115,7 +135,9 @@ export interface ReactionEffectPayload {
 }
 
 export interface ServerToClientEvents {
-  room_state: (payload: PublicRoomState) => void;
+  analysis_state: (payload: { roomId: string; analysis: AnalysisPermissions }) => void;
+  room_state: (payload: import("./room-transport.js").RoomSnapshot) => void;
+  room_state_delta: (payload: import("./room-transport.js").RoomDelta) => void;
   session: (payload: ClientSession) => void;
   room_summaries: (payload: RoomSummary[]) => void;
   error_message: (payload: ErrorMessagePayload) => void;

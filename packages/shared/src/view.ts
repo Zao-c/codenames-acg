@@ -1,4 +1,5 @@
-import { MAX_PLAYERS, MIN_PLAYERS_TO_START, TEAM_LABELS } from "./constants.js";
+import { BOARD_MODE_CONFIG, MAX_PLAYERS, MIN_PLAYERS_TO_START, TEAM_LABELS } from "./constants.js";
+import { analysisPermissions } from "./analysis-view.js";
 import { toWordPackSummary } from "./words.js";
 import type {
   PublicCard,
@@ -24,8 +25,9 @@ function buildViewerState(room: Room, viewer: ViewerIdentity): ViewerState | nul
   const isPlayer = viewer.participantType === "player";
   const isSpectator = viewer.participantType === "spectator";
   const isCodenamesMode = room.settings.ruleSet !== "reveal-guess";
-  const canEditRoom = viewer.isHost === true && room.phase === "lobby" && isPlayer;
-  const canStartGame = canEditRoom;
+  const locked = !!room.nextPlan?.lockedPlayerIds || room.nextPlan?.stage === "sealed";
+  const canEditRoom = viewer.isHost === true && room.phase === "lobby" && !room.countdown && !locked && isPlayer;
+  const canStartGame = viewer.isHost === true && isPlayer && room.phase === "lobby" && !room.countdown && (!room.nextPlan || room.nextPlan.variant === "classic" || room.nextPlan.stage === "sealed");
   const canRestartGame = viewer.isHost === true && room.phase === "finished" && isPlayer;
   const canReturnToLobby = viewer.isHost === true && room.phase !== "lobby" && isPlayer;
   const canTransferHost = viewer.isHost === true && isPlayer && room.players.some((player) => !player.isBot && player.id !== viewer.participantId);
@@ -42,6 +44,7 @@ function buildViewerState(room: Room, viewer: ViewerIdentity): ViewerState | nul
     !room.clue &&
     (viewer.isDebugController === true || (viewer.team === room.currentTeam && viewer.role === "spymaster"));
   const canGuess =
+    !room.exposedPlayerIds?.includes(viewer.participantId) &&
     isCodenamesMode &&
     isPlayer &&
     room.phase === "playing" &&
@@ -53,7 +56,7 @@ function buildViewerState(room: Room, viewer: ViewerIdentity): ViewerState | nul
     room.phase === "playing" &&
     !!room.clue &&
     (viewer.isDebugController === true || viewer.team === room.currentTeam);
-  const canQueueForNextRound = isSpectator && room.phase !== "lobby" && room.players.length < MAX_PLAYERS;
+  const canQueueForNextRound = isSpectator && (room.phase !== "lobby" || locked) && room.players.length < MAX_PLAYERS;
   const canCancelQueue = isSpectator && viewer.isQueuedForNextRound === true;
   const canResumeTimer = viewer.isHost === true && room.timerPaused === true && isPlayer;
   const targetTeam = isCodenamesMode && room.phase === "playing" ? room.currentTeam : null;
@@ -139,7 +142,9 @@ export function buildRoomSummary(room: Room): RoomSummary {
   return {
     id: room.id,
     phase: room.phase,
-    boardMode: room.settings.boardMode,
+    boardMode: room.phase === 'lobby' ? room.nextPlan?.settings.boardMode ?? room.settings.boardMode : room.settings.boardMode,
+    variant: room.phase === 'lobby' ? room.nextPlan?.variant ?? room.settings.variant : room.settings.variant,
+    poolName: room.phase === 'lobby' && room.nextPlan ? (room.nextPlan.variant === 'anime' ? room.nextPlan.poolName : room.nextPlan.wordPack.name) : room.settings.variant === 'anime' ? room.wordPack.name : undefined,
     gameMode: room.settings.ruleSet,
     roundNumber: room.roundNumber,
     wordPackSummary: toWordPackSummary(room.wordPack),
@@ -149,9 +154,9 @@ export function buildRoomSummary(room: Room): RoomSummary {
     hostNickname: host?.nickname ?? "房主",
     hostProfile: host?.profile ?? { accountType: "guest", username: null, avatarUrl: null },
     hasOpenSlots: room.players.length < MAX_PLAYERS,
-    canJoinDirectly: room.phase === "lobby" && room.players.length < MAX_PLAYERS,
+    canJoinDirectly: room.phase !== "playing" && !room.countdown && !room.nextPlan?.lockedPlayerIds && room.players.length < MAX_PLAYERS,
     canSpectate: true,
-    canQueueForNextRound: room.phase !== "lobby" && room.players.length < MAX_PLAYERS,
+    canQueueForNextRound: (room.phase !== "lobby" || !!room.nextPlan?.lockedPlayerIds) && room.players.length < MAX_PLAYERS,
     createdAt: room.createdAt,
     updatedAt: room.updatedAt,
     lastEvent: room.lastEvent,
@@ -172,6 +177,7 @@ export function sanitizeRoom(room: Room, viewer: ViewerIdentity = {}): PublicRoo
     return {
       id: card.id,
       wordId: card.wordId,
+      anime: card.anime,
       word: canSeeWord ? card.word : "",
       role: revealAll || card.revealed ? card.role : undefined,
       revealed: card.revealed,
@@ -179,9 +185,62 @@ export function sanitizeRoom(room: Room, viewer: ViewerIdentity = {}): PublicRoo
     };
   });
   const roundHighlights = sanitizeRoundHighlightsForPhase(room.roundHighlights, room.phase);
+  const plan = room.nextPlan;
+  const myTeam = viewer.participantType === 'player' && room.players.some(p => p.id === viewer.participantId)
+    ? (['red','blue'] as const).find(team => plan?.captains[team] === viewer.participantId) : undefined;
+  // Both authorized captains see official draft claims; operatives/spectators see only the static pool.
+  const captainClaims = myTeam && plan && plan.stage !== 'sealed'
+    ? plan.claims
+    : undefined;
+  const host = room.players.find(p => p.id === room.hostPlayerId);
+  const onlinePlayers = room.players.filter(p => !p.isBot && p.connected);
+  const takeover = room.hostTakeover;
+  const eligibleVoters = onlinePlayers.filter(p => p.id !== room.hostPlayerId && p.id !== takeover?.candidateId);
+  const required = eligibleVoters.length ? Math.floor(eligibleVoters.length / 2) + 1 : 0;
+  const publicHostTakeover = takeover ? {
+    candidateId: takeover.candidateId,
+    candidateNickname: room.players.find(p => p.id === takeover.candidateId)?.nickname ?? '成员',
+    requestedAt: takeover.requestedAt,
+    approvals: takeover.approvals.length,
+    rejections: takeover.rejections.length,
+    required,
+    voters: takeover.approvals,
+    eligibleVoters: eligibleVoters.map(p => p.id),
+    canApprove: viewer.participantType === 'player' && !!viewer.participantId && eligibleVoters.some(p => p.id === viewer.participantId) && !takeover.approvals.includes(viewer.participantId) && !takeover.rejections.includes(viewer.participantId),
+    expiresAt: takeover.requestedAt + 120_000
+  } : undefined;
+  const publicSelectedWorkIds = plan && plan.stage === 'draft'
+    ? Object.entries(plan.claims).filter(([, claim]) => claim.kind === 'manual').map(([id]) => Number(id)).sort((a, b) => a - b)
+    : undefined;
+  const nextPlan = plan ? {
+    randomSwapCompleted: !!plan.randomSwap,
+    poolSummary: {
+      source: plan.pool.length, series: new Set(plan.pool.map(w => w.seriesId)).size,
+      excluded: plan.settings.animeSeriesRotation === true ? new Set(plan.pool.filter(w => room.seriesHistory?.[w.seriesId] !== undefined).map(w => w.seriesId)).size : 0,
+      available: new Set(plan.pool.filter(w => plan.settings.animeSeriesRotation !== true || room.seriesHistory?.[w.seriesId] === undefined).map(w => w.seriesId)).size,
+      required: BOARD_MODE_CONFIG[plan.settings.boardMode].size,
+    },
+    id: plan.id, version: plan.version, variant: plan.variant, settings: plan.settings,
+    wordPackName: plan.wordPack.name, poolName: plan.poolName, sourcePool: plan.sourcePool, poolIds: plan.pool.map(w => w.id), publicSelectedWorkIds, candidates: plan.candidates,
+    startingTeam: plan.startingTeam, stage: plan.stage, captains: plan.captains, endsAt: plan.endsAt,
+    myTeam, myBookmarks: myTeam ? plan.bookmarks[viewer.participantId!] ?? [] : undefined,
+    captainView: captainClaims ? { claims: captainClaims, ready: plan.ready, done: plan.done } : undefined,
+  } : undefined;
 
   return {
     id: room.id,
+    animeEnabled: room.animeEnabled,
+    analysis: analysisPermissions(room, viewer),
+    nextPlan,
+    hostOnline: host ? host.connected !== false : false,
+    hostOfflineSince: room.hostOfflineSince,
+    hostTakeover: publicHostTakeover,
+    interferenceReview: room.endReason === "normal" && room.phase === "finished" && room.draftReview && room.draftReview.matchId === room.matchId && room.draftReview.participantIds.includes(viewer.participantId ?? "") ? room.draftReview.interference : undefined,
+    matchId: room.matchId,
+    gameStartedAt: room.gameStartedAt,
+    endReason: room.endReason,
+    replayHistory: room.replayHistory,
+    countdown: room.countdown,
     phase: room.phase,
     gameMode: room.settings.ruleSet,
     players,
@@ -233,3 +292,4 @@ export function sanitizeRoundHighlightsForPhase(
   if (phase === "finished") return highlights;
   return highlights.map((highlight) => ({ ...highlight, missedCards: [] }));
 }
+

@@ -1,99 +1,43 @@
-import { useNavigate } from "react-router-dom";
+import { getHomeCovers } from '../lib/api';
+import { Cover } from '../components/Cover';
+import { loadRecoverableSessions } from '../lib/storage';
+import { useEffect, useRef, useState } from "react";
+import { MAX_PLAYERS, type AnimeWork } from "@acg-codenames/shared";
+import { Dialog, Icon } from "../components/UI";
+import { AvatarBadge } from "../components/AvatarBadge";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useGame } from "../context/GameContext";
 
 export function HomePage() {
-  const {
-    effectiveIdentity,
-    roomSummaries, joinByRoomCode, joinSpecificRoom,
-    roomCode, setRoomCode, error, setError
-  } = useGame();
+  const g = useGame();
   const navigate = useNavigate();
-
-  const requireAuth = (fn: () => void) => {
-    if (!effectiveIdentity) {
-      setError("请先登录");
-      navigate("/login");
-      return;
-    }
-    fn();
-  };
-
-  return (
-    <>
-      <section className="hero home-hero">
-        <p className="eyebrow">ACG 猜词推理派对 ( •̀ ω •́ )✧</p>
-        <h1 className="hero-title">词牌结社</h1>
-        {effectiveIdentity ? (
-          <p className="hero-copy">你好，{effectiveIdentity.nickname}</p>
-        ) : null}
-      </section>
-
-      <div className="home-action-grid">
-        <div className="lobby-card">
-          <h3>创建房间</h3>
-          <p>选择词牌与棋盘，邀请朋友加入</p>
-          <button className="primary-button" onClick={() => requireAuth(() => navigate("/create"))}>创建房间</button>
-        </div>
-        <div className="lobby-card">
-          <h3>加入房间</h3>
-          <p>输入 6 位房间号，加入朋友的游戏</p>
-          <div className="room-code-input">
-            <input
-              value={roomCode}
-              onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
-              placeholder="输入房号"
-              maxLength={6}
-            />
-            <button className="primary-button" onClick={() => requireAuth(() => joinByRoomCode(false))} disabled={roomCode.length < 6}>加入</button>
-          </div>
-          <button onClick={() => requireAuth(() => joinByRoomCode(true))} disabled={roomCode.length < 6} className="lobby-spectate-btn">旁观</button>
-        </div>
+  const [params,setParams] = useSearchParams();
+  const [creating,setCreating] = useState(params.has('create'));
+  const [mode,setMode] = useState<'classic'|'anime'|'reveal'>(params.get('variant')==='anime'?'anime':'classic');
+  const [filter,setFilter] = useState<'all'|'waiting'|'playing'>('all');
+  const codeInput = useRef<HTMLInputElement>(null);
+  const [covers,setCovers] = useState<Pick<AnimeWork,'id'|'title'|'fullTitle'|'cover'>[]>([]);
+  const [coverIds,setCoverIds] = useState<number[]>([]);
+  useEffect(()=>{if(params.has('create')){setCreating(true);if(params.get('variant')==='anime')setMode('anime');}},[params]);
+  useEffect(()=>{let live=true;getHomeCovers().then(data=>{if(live){setCovers(data.works);setCoverIds(data.works.slice(0,4).map(w=>w.id));}}).catch(()=>{});return()=>{live=false;};},[]);
+  const requireAuth = (fn:()=>void) => {if(!g.effectiveIdentity){g.setError('请先登录');navigate(`/login?next=${encodeURIComponent(g.roomCode.length===6?`/room/${g.roomCode}?join=1`:'/?create=1')}`);return;}fn();};
+  const closeCreate = () => {setCreating(false);if(params.has('create'))setParams({}, {replace:true});};
+  const mine=(id:string)=>g.session?.roomId===id||!!loadRecoverableSessions()[id];
+  const rooms = [...g.roomSummaries].filter(r=>filter==='all'||(filter==='waiting'?r.phase==='lobby'&&r.canJoinDirectly:r.phase==='playing')).sort((a,b)=>Number(b.phase==='lobby'&&b.canJoinDirectly)-Number(a.phase==='lobby'&&a.canJoinDirectly)||b.updatedAt-a.updatedAt);
+  return <div className="home-screen lobby-v2">
+    <section className="home-intro">
+      <div className="home-welcome"><p className="eyebrow">ACG · 和朋友一起玩</p><h1>找同好，<br/>开一局。</h1><p>选择熟悉的作品，交换线索与默契。建个房间邀请朋友，或加入正在等待的队伍。</p>
+        <div className="home-welcome-actions"><button className="primary-button" onClick={()=>requireAuth(()=>setCreating(true))}>＋ 创建房间</button><button onClick={()=>{codeInput.current?.scrollIntoView({block:'center',behavior:'smooth'});codeInput.current?.focus({preventScroll:true});}}>加入好友的房间 ↗</button></div>
+        <div className="home-welcome-meta"><span>经典词牌</span><span>动画组牌</span><span>揭幕猜番</span></div>
       </div>
-
-      <section className="panel panel-light public-room-panel">
-        <div className="panel-heading">
-          <h2>公开房间</h2>
-          <span className="soft-chip">{roomSummaries.length} 个</span>
-        </div>
-        {roomSummaries.length === 0 ? (
-          <p className="empty-text">暂无公开房间，来创建第一个吧 (＞﹏＜)</p>
-        ) : (
-          <div className="room-list">
-            {roomSummaries.map((summary) => (
-              <div className="room-list-item" key={summary.id}>
-                <div className="room-list-main">
-                  <div className="room-list-title">
-                    <strong>{summary.id}</strong>
-                    <span className="soft-chip">{summary.phase === "playing" ? "进行中" : summary.phase === "lobby" ? "准备中" : "已结束"}</span>
-                    <span className="soft-chip">{summary.boardMode}</span>
-                    <span className="soft-chip">{summary.wordPackSummary.name}</span>
-                  </div>
-                  <div className="room-list-meta">
-                    <span>社长 {summary.hostNickname}</span>
-                    <span>玩家 {summary.playerCount}</span>
-                    <span>旁观 {summary.spectatorCount}</span>
-                  </div>
-                  <p className="panel-subtle">{summary.lastEvent}</p>
-                </div>
-                <div className="room-list-actions">
-                  {summary.phase === "finished" ? (
-                    <button onClick={() => requireAuth(() => {
-                      if (summary.replayId) navigate(`/replay/${summary.replayId}`);
-                      else joinSpecificRoom(summary.id, true);
-                    })}>查看复盘</button>
-                  ) : summary.canJoinDirectly ? (
-                    <button onClick={() => requireAuth(() => joinSpecificRoom(summary.id, false))}>加入</button>
-                  ) : (
-                    <button onClick={() => requireAuth(() => joinSpecificRoom(summary.id, true))}>旁观</button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      {error ? <p className="error-text">{error}</p> : null}
-    </>
-  );
+      {!!coverIds.length&&<div className="home-feature" aria-label="动画目录精选"><div className="feature-covers">{coverIds.map(id=>covers.find(w=>w.id===id)).filter((w):w is Pick<AnimeWork,'id'|'title'|'fullTitle'|'cover'>=>!!w).map(w=><figure className="feature-cover" key={w.id}><Cover work={w}/><span>{w.title}</span></figure>)}</div><div className="feature-caption">想玩的作品，成为共同的词牌</div></div>}
+    </section>
+    <section className="join-inline" aria-label="通过房号加入"><div className="join-copy"><strong>已有房号？</strong><span>输入六位房号，直接加入朋友的局</span></div><form className="join-form" onSubmit={e=>{e.preventDefault();requireAuth(()=>g.joinByRoomCode(false));}}><input ref={codeInput} value={g.roomCode} onChange={e=>g.setRoomCode(e.target.value.toUpperCase())} aria-label="房间号" placeholder="输入 6 位房号" maxLength={6} autoComplete="off" spellCheck={false}/><button type="submit" className="primary-button" disabled={g.roomCode.length!==6}>加入房间 →</button><button type="button" disabled={g.roomCode.length!==6} onClick={()=>requireAuth(()=>g.joinByRoomCode(true))}>旁观</button></form></section>
+    <section className="public-lobby"><div className="public-heading"><div><p className="eyebrow">DISCOVER / PUBLIC ROOMS</p><h2>公开房间 <span className="public-count">{rooms.length} 间</span></h2><p className="hint-text">找到还差队友的房间，或旁观进行中的对局。</p></div><div className="public-filter" role="group" aria-label="筛选公开房间">{(['all','waiting','playing'] as const).map((f,i)=><button key={f} className={filter===f?'active':''} aria-pressed={filter===f} onClick={()=>setFilter(f)}>{['全部','可加入','进行中'][i]}</button>)}</div></div>
+      <div className="home-room-grid">{rooms.map(r=>{const reveal=r.gameMode==='reveal-guess';const title=reveal?'揭幕猜番':r.variant==='anime'?'动画组牌':'经典词牌';return <article className="home-room" key={r.id} data-room-id={r.id}><div className="home-room-top"><div className="home-room-name"><span className="home-room-ico"><Icon name={reveal?'cards':r.variant==='anime'?'book':'chat'}/></span><div><strong>{title}</strong><small>房间 {r.id}</small></div></div><span className={`home-room-state ${r.phase==='lobby'&&r.canJoinDirectly?'waiting':'playing'}`}>{r.phase==='playing'?'进行中':r.phase==='finished'?'已结束':r.canJoinDirectly?'等待加入':'准备中'}</span></div><div className="home-room-metas">{!reveal&&<span className="tag">{r.boardMode.replace('x','×')} 棋盘</span>}<span className="tag">{reveal?'揭开画面，猜出作品':r.poolName||r.wordPackSummary.name}</span><span className="tag">{r.spectatorCount} 人旁观</span></div><div className="home-room-bottom"><div className="home-room-owner"><AvatarBadge avatarUrl={r.hostProfile.avatarUrl} fallback={r.hostNickname} size="small"/><span>{r.hostNickname}<br/><em>{r.playerCount} / {MAX_PLAYERS}</em> 玩家</span></div><button className={`home-room-btn ${r.phase==='lobby'&&r.canJoinDirectly?'primary-button':''}`} onClick={()=>requireAuth(()=>{if(mine(r.id))g.joinSpecificRoom(r.id,false);else if(r.phase==='finished'&&r.replayId)navigate(`/replay/${r.replayId}`);else g.joinSpecificRoom(r.id,!r.canJoinDirectly);})}>{mine(r.id)?'返回房间':r.phase==='finished'&&r.replayId?'查看复盘':r.canJoinDirectly?'加入房间':'旁观'}</button></div></article>;})}</div>
+      {!rooms.length&&<div className="home-room-empty">{g.roomSummaries.length?'当前没有符合条件的房间。':'还没有人开局。创建一个房间，邀请朋友一起加入。'}</div>}
+    </section>
+    {(g.joinError||g.error)&&<div className="home-notice" role="alert"><span>{g.joinError||g.error}</span><button onClick={()=>{g.setError('');g.clearJoinError();}}>知道了</button></div>}
+    {creating&&<Dialog title="创建一间房间" close={closeCreate}><p className="hint-text">先选玩法，其余设置进入准备大厅后统一调整。</p><div className="create-option-list" role="group" aria-label="选择游戏玩法">{(['classic','anime','reveal'] as const).map((m,i)=><button key={m} aria-label={['经典词牌','动画组牌','揭幕猜番'][i]} className={`create-choice ${mode===m?'active':''}`} aria-pressed={mode===m} onClick={()=>setMode(m)}><span className="create-choice-icon"><Icon name={i===0?'chat':i===1?'book':'cards'}/></span><span><strong>{['经典词牌','动画组牌','揭幕猜番'][i]}</strong><small>{['队长给出线索，队员联想猜词','从真实动画作品池挑选牌面','揭开画面猜作品，使用专用准备流程'][i]}</small></span><span className="check">✓</span></button>)}</div><div className="v2-dialog-actions"><button onClick={closeCreate}>取消</button><button className="primary-button" onClick={()=>requireAuth(()=>{closeCreate();if(mode==='reveal')g.createRevealGuessRoom();else g.createRoom(true,mode);})}>创建房间 →</button></div><button className="v2-text-button" onClick={()=>{closeCreate();navigate('/create');}}>高级建房：预设文字题库或揭幕题目</button></Dialog>}
+  </div>;
 }

@@ -1,24 +1,27 @@
 import { createClient } from "redis";
-import { PLAYER_RECONNECT_TTL_SECONDS, ROOM_TTL_SECONDS, ROOM_TTL_LOBBY_IDLE_SECONDS, ROOM_TTL_FINISHED_SECONDS, ROOM_TTL_EMPTY_SECONDS, type GameReplay, type Room } from "@acg-codenames/shared";
+import { PLAYER_RECONNECT_TTL_SECONDS, ROOM_TTL_SECONDS, ROOM_TTL_LOBBY_IDLE_SECONDS, ROOM_TTL_FINISHED_SECONDS, ROOM_TTL_EMPTY_SECONDS, RG_ROOM_TTL_SETUP_SECONDS, RG_ROOM_TTL_ACTIVE_SECONDS, RG_ROOM_TTL_FINISHED_SECONDS, type GameReplay, type Room } from "@acg-codenames/shared";
 import type { ReplayStore, RoomSession, RoomStore } from "./types.js";
 
 export const REPLAY_TTL_SECONDS = 7 * 24 * 60 * 60;
 
-function computeRoomTTL(room: Room): number {
+export function computeRoomTTL(room: Room): number {
   const humanPlayers = room.players.filter((p) => !p.isBot);
-  if (humanPlayers.length === 0) return ROOM_TTL_EMPTY_SECONDS;
-  if (room.phase === "lobby") return ROOM_TTL_LOBBY_IDLE_SECONDS;
+  if (humanPlayers.length === 0 && room.spectators.length === 0) return ROOM_TTL_EMPTY_SECONDS;
+  if (room.nextPlan && room.nextPlan.stage !== "planning") return ROOM_TTL_SECONDS;
   if (room.phase === "finished") return ROOM_TTL_FINISHED_SECONDS;
+  if (room.phase === "lobby") {
+    if (room.revealGuessState) return RG_ROOM_TTL_SETUP_SECONDS;
+    return ROOM_TTL_LOBBY_IDLE_SECONDS;
+  }
+  if (room.revealGuessState) {
+    return RG_ROOM_TTL_ACTIVE_SECONDS;
+  }
   return ROOM_TTL_SECONDS;
 }
 
 function isStaleRoom(room: Room): boolean {
   const idleMs = Date.now() - room.updatedAt;
-  const humanPlayers = room.players.filter((p) => !p.isBot);
-  if (humanPlayers.length === 0) return idleMs > ROOM_TTL_EMPTY_SECONDS * 1000;
-  if (room.phase === "lobby") return idleMs > ROOM_TTL_LOBBY_IDLE_SECONDS * 1000;
-  if (room.phase === "finished") return idleMs > ROOM_TTL_FINISHED_SECONDS * 1000;
-  return idleMs > ROOM_TTL_SECONDS * 1000;
+  return idleMs > computeRoomTTL(room) * 1000;
 }
 
 class MemoryRoomStore implements RoomStore, ReplayStore {

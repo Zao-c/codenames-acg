@@ -1,232 +1,508 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { useGame } from "../context/GameContext";
-import type { SavedImagePack, PublicImagePackSummary, ImagePackEntry } from "@acg-codenames/shared";
+import type { SavedImagePack, PublicImagePack, PublicImagePackSummary, ImagePackEntry } from "@acg-codenames/shared";
+
+function ThumbnailPuzzle({ entries, maxThumbs = 4 }: { entries: ImagePackEntry[]; maxThumbs?: number }) {
+  const [failedSet, setFailedSet] = useState<Set<number>>(new Set());
+
+  if (entries.length === 0) {
+    return (
+      <div className="image-pack-thumbs-placeholder">
+        <span>暂无图片</span>
+      </div>
+    );
+  }
+
+  const show = entries.slice(0, maxThumbs);
+  const gridCols = show.length <= 2 ? 1 : 2;
+  const gridRows = show.length === 1 ? 1 : 2;
+
+  return (
+    <div
+      className="image-pack-thumbs"
+      style={{
+        gridTemplateColumns: `repeat(${gridCols}, 1fr)`,
+        gridTemplateRows: `repeat(${gridRows}, 1fr)`,
+      }}
+    >
+      {show.map((e, i) => {
+        if (failedSet.has(i)) {
+          return (
+            <div
+              key={i}
+              style={{
+                background: "rgba(148,163,184,0.10)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            />
+          );
+        }
+        return (
+          <img
+            key={i}
+            src={e.url}
+            alt={e.label || `图 ${i + 1}`}
+            onError={() => setFailedSet((prev) => new Set(prev).add(i))}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function ImageEntryGrid({ entries }: { entries: ImagePackEntry[] }) {
+  const [failedSet, setFailedSet] = useState<Set<number>>(new Set());
+
+  return (
+    <div className="image-entry-grid">
+      {entries.map((e, i) => (
+        <div className="image-entry-tile" key={i}>
+          {failedSet.has(i) ? (
+            <div className="image-entry-placeholder">加载失败</div>
+          ) : (
+            <img
+              src={e.url}
+              alt={e.label || `图 ${i + 1}`}
+              onError={() => setFailedSet((prev) => new Set(prev).add(i))}
+            />
+          )}
+          {e.label && <span className="image-entry-label">{e.label}</span>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+async function processFilesToImages(
+  files: FileList | File[]
+): Promise<{ url: string; label: string; error?: string }[]> {
+  const MAX_FILE_SIZE = 10 * 1024 * 1024;
+  const results: { url: string; label: string; error?: string }[] = [];
+
+  const list = Array.from(files);
+
+  for (const file of list) {
+    if (file.size > MAX_FILE_SIZE) {
+      results.push({ url: "", label: file.name.replace(/\.[^.]+$/, ""), error: `图片 "${file.name}" 超过 10MB 限制` });
+      continue;
+    }
+
+    try {
+      const dataUrl = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.readAsDataURL(file);
+      });
+
+      const img = new Image();
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error("图片加载失败"));
+        img.src = dataUrl;
+      });
+
+      const MAX = 640;
+      let w = img.naturalWidth, h = img.naturalHeight;
+      if (w > MAX || h > MAX) {
+        if (w > h) { h = Math.round(h * (MAX / w)); w = MAX; }
+        else { w = Math.round(w * (MAX / h)); h = MAX; }
+      }
+
+      const canvas = document.createElement("canvas");
+      canvas.width = w; canvas.height = h;
+      canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/webp", 0.6));
+      const finalUrl = blob
+        ? await new Promise<string>((resolve) => { const r = new FileReader(); r.onload = () => resolve(r.result as string); r.readAsDataURL(blob); })
+        : dataUrl;
+
+      results.push({ url: finalUrl, label: file.name.replace(/\.[^.]+$/, "") });
+    } catch {
+      results.push({ url: "", label: file.name.replace(/\.[^.]+$/, ""), error: `图片 "${file.name}" 加载失败` });
+    }
+  }
+
+  return results;
+}
 
 export function ImagePacksPage() {
   const g = useGame();
-  const navigate = (typeof window !== "undefined" ? () => () => {} : () => {});
+  const navigate = useNavigate();
   const [tab, setTab] = useState<"mine" | "public" | "upload">("mine");
-  const [detailModal, setDetailModal] = useState<{ pack: SavedImagePack | PublicImagePackSummary; isPublic: boolean } | null>(null);
+  const [search, setSearch] = useState("");
+  const [modalPack, setModalPack] = useState<SavedImagePack | PublicImagePackSummary | null>(null);
+
+  const [editingPack, setEditingPack] = useState<SavedImagePack | null>(null);
   const [editName, setEditName] = useState("");
-  const [editEntries, setEditEntries] = useState("");
+  const [editEntriesText, setEditEntriesText] = useState("");
 
-  // Upload
   const [upName, setUpName] = useState("");
-  const [upEntryText, setUpEntryText] = useState("");
   const [upImages, setUpImages] = useState<{ url: string; label: string }[]>([]);
+  const [uploadError, setUploadError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const parseEntries = useCallback((text: string): { url: string; label: string }[] => {
-    return text.split("\n").map(line => {
-      const m = line.match(/^(\S+)\s+(.*)$/);
-      return m ? { url: m[1], label: m[2] } : { url: line.trim(), label: "" };
-    }).filter(e => e.url);
-  }, []);
+  const filter = useCallback(
+    (name: string) => name.toLowerCase().includes(search.toLowerCase()),
+    [search]
+  );
+
+  const parseEntries = useCallback(
+    (text: string): { url: string; label: string }[] => {
+      return text
+        .split("\n")
+        .map((line) => {
+          const m = line.match(/^(\S+)\s+(.*)$/);
+          return m ? { url: m[1], label: m[2] } : { url: line.trim(), label: "" };
+        })
+        .filter((e) => e.url);
+    },
+    []
+  );
+
+  const handleFileUpload = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = e.target.files;
+      if (!files || files.length === 0) return;
+      setUploadError("");
+
+      const results = await processFilesToImages(files);
+
+      const errors = results.filter((r) => r.error).map((r) => r.error!).join("；");
+      const success = results.filter((r) => !r.error);
+
+      if (success.length > 0) {
+        setUpImages((prev) => [...prev, ...success]);
+      }
+      if (errors) {
+        setUploadError(errors);
+      }
+
+      e.target.value = "";
+    },
+    []
+  );
+
+  const handlePasteUrls = useCallback(() => {
+    const text = editEntriesText.trim();
+    if (!text) return;
+    const parsed = parseEntries(text);
+    if (parsed.length > 0) {
+      setUpImages((prev) => [...prev, ...parsed]);
+      setEditEntriesText("");
+    }
+  }, [editEntriesText, parseEntries]);
+
+  const handleCreateImagePack = useCallback(() => {
+    if (!upName.trim() || upImages.length === 0) return;
+    g.addAccountImagePack(upName.trim(), upImages);
+    setUpName("");
+    setUpImages([]);
+    setTab("mine");
+  }, [upName, upImages, g]);
+
+  const handleEditSave = useCallback(() => {
+    if (!editingPack || !editName.trim()) return;
+    const parsed = parseEntries(editEntriesText);
+    g.editAccountImagePack(editingPack.id, editName.trim(), parsed);
+    setEditingPack(null);
+    setModalPack(null);
+  }, [editingPack, editName, editEntriesText, g, parseEntries]);
+
+  const hasEntries = (p: SavedImagePack | PublicImagePackSummary): p is SavedImagePack => {
+    return "entries" in p && Array.isArray((p as SavedImagePack).entries);
+  };
+
+  const isMine = tab === "mine";
+  const packs = isMine ? g.accountImagePacks : g.publicImagePacks;
+  const title = isMine ? "我的图库" : "公共图库";
 
   return (
-    <section className="panel" style={{ maxWidth: 700, margin: "0 auto", padding: 16 }}>
-      <h2 style={{ marginBottom: 12 }}>图库</h2>
-      {g.error ? <p className="error-text" style={{ marginBottom: 8 }}>{g.error}</p> : null}
-      {!g.namedAccount ? (
-        <div style={{ padding: 16, textAlign: "center", background: "#fffbeb", borderRadius: 8, marginBottom: 12 }}>
-          <p style={{ margin: "0 0 4px", color: "#92400e" }}>请先在「我的」页面登录账号后再使用图库功能。</p>
+    <>
+      <section className="panel packs-tabs-panel">
+        <div className="panel-heading">
+          <h2>图库</h2>
         </div>
-      ) : null}
-
-      <div className="selection-grid" style={{ marginBottom: 14 }}>
-        <button className={tab === "mine" ? "selected" : ""} onClick={() => setTab("mine")}>我的图库</button>
-        <button className={tab === "public" ? "selected" : ""} onClick={() => setTab("public")}>公共图库</button>
-        <button className={tab === "upload" ? "selected" : ""} onClick={() => setTab("upload")}>上传</button>
-      </div>
-
-      {/* Mine */}
-      {tab === "mine" && (
-        <div>
-          {g.accountImagePacks.length === 0 ? (
-            <p style={{ color: "var(--muted)" }}>还没有图库，切换到「上传」页签创建第一个图库。</p>
-          ) : (
-            g.accountImagePacks.map(pack => (
-              <div key={pack.id} className="pack-select-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span>
-                  <strong>{pack.name}</strong>
-                  <span style={{ marginLeft: 8, color: "var(--muted)", fontSize: 13 }}>{pack.entries.length} 张图</span>
-                  {pack.isPublic ? <span className="rg-chip rg-chip-green" style={{ marginLeft: 6 }}>公开</span> : null}
-                </span>
-                <div style={{ display: "flex", gap: 4 }}>
-                  <button className="rg-btn-sm" onClick={() => {
-                    setEditName(pack.name);
-                    setEditEntries(pack.entries.map(e => `${e.url} ${e.label}`).join("\n"));
-                    setDetailModal({ pack, isPublic: false });
-                  }}>编辑</button>
-                  <button className="rg-btn-sm" onClick={() => g.toggleAccountImagePackPublic(pack.id)}>
-                    {pack.isPublic ? "取消公开" : "设为公开"}
-                  </button>
-                  <button className="rg-btn-sm" style={{ color: "var(--danger)", borderColor: "var(--danger)" }} onClick={() => { if (confirm("确定删除？")) g.removeAccountImagePack(pack.id); }}>
-                    删除
-                  </button>
-                </div>
-              </div>
-            ))
-          )}
+        <div className="selection-grid" style={{ marginBottom: 16 }}>
+          <button
+            className={tab === "mine" ? "selected" : ""}
+            onClick={() => { setTab("mine"); setSearch(""); }}
+          >
+            我的图库
+          </button>
+          <button
+            className={tab === "public" ? "selected" : ""}
+            onClick={() => { setTab("public"); setSearch(""); }}
+          >
+            公共图库
+          </button>
+          <button
+            className={tab === "upload" ? "selected" : ""}
+            onClick={() => setTab("upload")}
+          >
+            上传
+          </button>
         </div>
-      )}
 
-      {/* Public */}
-      {tab === "public" && (
-        <div>
-          {g.publicImagePacks.length === 0 ? (
-            <p style={{ color: "var(--muted)" }}>暂无公开图库。</p>
-          ) : (
-            g.publicImagePacks.map(p => (
-              <div key={p.publicId} className="pack-select-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span>
-                  <strong>{p.name}</strong>
-                  <span style={{ marginLeft: 8, color: "var(--muted)", fontSize: 13 }}>{p.entryCount} 张图</span>
-                  <span style={{ marginLeft: 8, color: "var(--muted)", fontSize: 12 }}>/ {p.ownerUsername}</span>
-                </span>
-                <button className="rg-btn-sm" onClick={async () => {
-                  const full = await g.fetchPublicImagePackDetail(p.publicId);
-                  if (full) setDetailModal({ pack: full, isPublic: true });
-                }}>详情</button>
-              </div>
-            ))
-          )}
-        </div>
-      )}
+        {tab !== "upload" && (
+          <div className="pack-search">
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="搜索图库..."
+            />
+          </div>
+        )}
+      </section>
 
-      {/* Upload */}
-      {tab === "upload" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {tab === "upload" ? (
+        <section className="panel upload-panel">
+          <div className="panel-heading">
+            <h2>{editingPack ? `编辑：${editingPack.name}` : "上传"}</h2>
+          </div>
+
           {!g.namedAccount ? (
-            <div style={{ padding: 24, textAlign: "center", background: "var(--surface-soft)", borderRadius: 8 }}>
+            <div style={{ padding: 24, textAlign: "center", background: "var(--surface-soft)", borderRadius: 12 }}>
               <p style={{ color: "var(--muted)", margin: "0 0 8px" }}>创建图库需要登录账号。</p>
               <a href="/login" style={{ color: "var(--accent-text)", fontWeight: 600 }}>前往登录</a>
             </div>
           ) : (
-          <>
-          <input value={upName} onChange={e => setUpName(e.target.value)} placeholder="图库名称" style={{ width: "100%" }} />
+            <div className="upload-form">
+              <label className="field">
+                <span>图库名称</span>
+                <input
+                  value={upName}
+                  onChange={(e) => setUpName(e.target.value)}
+                  placeholder="例如：经典 ACG 场景"
+                />
+              </label>
 
-          <label className="file-upload-btn" style={{ padding: "10px 20px", fontSize: 14, fontWeight: 600, background: "var(--accent-soft, #eef2ff)", color: "var(--accent-text, #1d4ed8)", width: "fit-content" }}>
-            上传图片（可多选）
-            <input type="file" accept="image/png,image/jpeg,image/webp" multiple onChange={async (e) => {
-              const files = e.target.files;
-              if (!files || files.length === 0) return;
-              const newImages: { url: string; label: string }[] = [];
-              for (let i = 0; i < files.length; i++) {
-                const file = files[i];
-                try {
-                  const dataUrl = await new Promise<string>((resolve) => {
-                    const reader = new FileReader();
-                    reader.onload = () => resolve(reader.result as string);
-                    reader.readAsDataURL(file);
-                  });
-                  const img = new Image();
-                  await new Promise<void>((resolve, reject) => {
-                    img.onload = () => resolve();
-                    img.onerror = () => reject(new Error(""));
-                    img.src = dataUrl;
-                  });
-                  const MAX = 640;
-                  let w = img.naturalWidth, h = img.naturalHeight;
-                  if (w > MAX || h > MAX) {
-                    if (w > h) { h = Math.round(h * (MAX / w)); w = MAX; }
-                    else { w = Math.round(w * (MAX / h)); h = MAX; }
-                  }
-                  const canvas = document.createElement("canvas");
-                  canvas.width = w; canvas.height = h;
-                  canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
-                  const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, "image/webp", 0.6));
-                  const finalUrl = blob
-                    ? await new Promise<string>(resolve => { const r = new FileReader(); r.onload = () => resolve(r.result as string); r.readAsDataURL(blob); })
-                    : dataUrl;
-                  newImages.push({ url: finalUrl, label: file.name.replace(/\.[^.]+$/, "") });
-                } catch { /* skip broken */ }
-              }
-              setUpImages(prev => [...prev, ...newImages]);
-              e.target.value = "";
-            }} style={{ display: "none" }} />
-          </label>
+              {g.error && <p className="error-text">{g.error}</p>}
+              {uploadError && <p className="error-text">{uploadError}</p>}
 
-          {/* Preview uploaded images */}
-          {upImages.length > 0 && (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(80px, 1fr))", gap: 6, maxHeight: 160, overflow: "auto" }}>
-              {upImages.map((img, i) => (
-                <div key={i} style={{ position: "relative" }}>
-                  <img src={img.url} alt={img.label} style={{ width: "100%", aspectRatio: "1", objectFit: "cover", borderRadius: 6, border: "1px solid var(--border)" }}
-                    onError={(ev) => { (ev.target as HTMLImageElement).style.display = "none"; }} />
-                  <button onClick={() => setUpImages(prev => prev.filter((_, j) => j !== i))}
-                    style={{ position: "absolute", top: 2, right: 2, background: "rgba(0,0,0,0.5)", color: "#fff", border: "none", borderRadius: "50%", width: 20, height: 20, fontSize: 12, cursor: "pointer", lineHeight: 1 }}>×</button>
-                  <span style={{ fontSize: 10, display: "block", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>{img.label}</span>
+              {upImages.length > 0 && (
+                <div className="upload-image-list">
+                  {upImages.map((img, i) => (
+                    <div className="upload-image-item" key={i}>
+                      <img
+                        src={img.url}
+                        alt={img.label}
+                        className="upload-image-thumb"
+                        onError={(ev) => {
+                          const el = ev.target as HTMLImageElement;
+                          el.style.display = "none";
+                          const placeholder = document.createElement("div");
+                          placeholder.className = "upload-image-thumb-placeholder";
+                          placeholder.innerHTML = "<span>加载失败</span>";
+                          el.parentElement?.insertBefore(placeholder, el);
+                        }}
+                      />
+                      <input
+                        value={img.label}
+                        onChange={(e) => {
+                          setUpImages((prev) =>
+                            prev.map((item, j) =>
+                              j === i ? { ...item, label: e.target.value } : item
+                            )
+                          );
+                        }}
+                        placeholder="图片标签"
+                      />
+                      <button
+                        className="upload-image-del"
+                        onClick={() =>
+                          setUpImages((prev) => prev.filter((_, j) => j !== i))
+                        }
+                      >
+                        删除
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
+
+              <div className="toolbar-inline">
+                <label className="primary-button" style={{ cursor: "pointer", padding: "10px 20px", fontSize: 14 }}>
+                  上传图片（可多选）
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    multiple
+                    onChange={handleFileUpload}
+                    style={{ display: "none" }}
+                  />
+                </label>
+              </div>
+
+              <label className="field">
+                <span>或手动粘贴 URL（每行：URL + 空格 + 描述）</span>
+                <textarea
+                  value={editEntriesText}
+                  onChange={(e) => setEditEntriesText(e.target.value)}
+                  placeholder="https://example.com/image.jpg 描述文字"
+                  rows={3}
+                />
+              </label>
+
+              {editEntriesText.trim() && (
+                <button onClick={handlePasteUrls} style={{ alignSelf: "flex-start" }}>
+                  添加 URL 图片
+                </button>
+              )}
+
+              <div className="toolbar-inline upload-actions">
+                <button
+                  className="primary-button"
+                  onClick={handleCreateImagePack}
+                  disabled={!upName.trim() || upImages.length === 0}
+                >
+                  创建图库
+                </button>
+                <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                  需要图库名称和至少 1 张图片
+                </span>
+              </div>
             </div>
           )}
+        </section>
+      ) : (
+        <section className="panel pack-list-panel">
+          <div className="panel-heading">
+            <h2>{title}</h2>
+            <span className="soft-chip">{packs.length} 个</span>
+          </div>
 
-          <textarea
-            value={upEntryText}
-            onChange={e => setUpEntryText(e.target.value)}
-            placeholder="或手动粘贴 URL，每行：URL + 空格 + 描述"
-            rows={3}
-            style={{ width: "100%" }}
-          />
-          <button className="primary-button" onClick={() => {
-            if (!upName.trim()) return;
-            const textEntries = parseEntries(upEntryText);
-            const all = [...upImages, ...textEntries];
-            g.addAccountImagePack(upName.trim(), all);
-            setUpName(""); setUpEntryText(""); setUpImages([]);
-            setTab("mine");
-          }} disabled={!upName.trim() || (upImages.length === 0 && !upEntryText.trim())}>创建图库</button>
-          <p style={{ fontSize: 12, color: "var(--muted)" }}>
-            点击「上传图片」选择本地文件，自动压缩为 WebP。也可手动粘贴 URL。
-          </p>
-          </>
+          {!g.namedAccount ? (
+            <p className="hint-text">请先在「我的」页面登录账号后再使用图库功能。</p>
+          ) : packs.length === 0 ? (
+            <p className="empty-text">
+              {isMine ? "还没有图库，切换到「上传」页签创建第一个图库。" : "暂无公开图库。"}
+            </p>
+          ) : (
+            <div className="pack-list">
+              {packs.filter((p) => filter(p.name)).map((pack) => {
+                const entries = hasEntries(pack) ? pack.entries : [];
+                return (
+                  <div className="pack-row image-pack-row" key={"publicId" in pack ? pack.publicId : pack.id}>
+                    <ThumbnailPuzzle entries={entries} />
+
+                    <div className="pack-row-info">
+                      <strong>{pack.name}</strong>
+                      <div className="pack-row-meta">
+                        {hasEntries(pack) ? pack.entries.length : pack.entryCount} 张图
+                        {"isPublic" in pack && pack.isPublic !== undefined ? (
+                          <span style={{ marginLeft: 8 }}>
+                            {pack.isPublic ? "公开" : "仅自己可用"}
+                          </span>
+                        ) : (
+                          <span style={{ marginLeft: 8 }}>公开</span>
+                        )}
+                        {!("entries" in pack) && "ownerUsername" in pack ? (
+                          <span style={{ marginLeft: 8 }}>/ {pack.ownerUsername}</span>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <div className="pack-row-actions">
+                      {isMine ? (
+                        <>
+                          <button onClick={() => navigate("/create")}>用于开房</button>
+                          <button
+                            onClick={() => setModalPack(pack as SavedImagePack)}
+                          >
+                            详情
+                          </button>
+                          <button
+                            onClick={() => {
+                              setEditingPack(pack as SavedImagePack);
+                              setEditName((pack as SavedImagePack).name);
+                              setEditEntriesText(
+                                (pack as SavedImagePack).entries
+                                  .map((e) => `${e.url} ${e.label}`)
+                                  .join("\n")
+                              );
+                              setTab("upload");
+                            }}
+                          >
+                            编辑
+                          </button>
+                          <button
+                            onClick={() =>
+                              g.toggleAccountImagePackPublic((pack as SavedImagePack).id)
+                            }
+                          >
+                            {(pack as SavedImagePack).isPublic ? "取消公开" : "设为公开"}
+                          </button>
+                          <button
+                            className="danger-button"
+                            onClick={() => {
+                              if (confirm("确定删除？"))
+                                g.removeAccountImagePack((pack as SavedImagePack).id);
+                            }}
+                          >
+                            删除
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button onClick={() => navigate("/create")}>用于开房</button>
+                          <button
+                            onClick={async () => {
+                              const full = await g.fetchPublicImagePackDetail(
+                                (pack as PublicImagePackSummary).publicId
+                              );
+                              if (full) setModalPack(full);
+                            }}
+                          >
+                            详情
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
-        </div>
+        </section>
       )}
 
-      {/* Detail / Edit Modal */}
-      {detailModal && (
-        <div style={{
-          position: "fixed", inset: 0, background: "rgba(0,0,0,0.3)", display: "flex",
-          alignItems: "center", justifyContent: "center", zIndex: 1000,
-        }} onClick={() => setDetailModal(null)}>
-          <div style={{
-            background: "var(--surface)", borderRadius: 12, padding: 16, maxWidth: 500, width: "90%",
-            maxHeight: "80vh", overflow: "auto",
-          }} onClick={e => e.stopPropagation()}>
-            <h3 style={{ marginTop: 0 }}>{detailModal.pack.name}</h3>
-            <p style={{ color: "var(--muted)", fontSize: 13 }}>{"entries" in detailModal.pack ? detailModal.pack.entries.length : detailModal.pack.entryCount} 张图</p>
-            {"entries" in detailModal.pack ? (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-                {detailModal.pack.entries.map((e: ImagePackEntry, i: number) => (
-                  <div key={i} style={{ textAlign: "center" }}>
-                    <img src={e.url} alt={e.label || `图 ${i + 1}`}
-                      style={{ width: "100%", aspectRatio: "4/3", objectFit: "cover", borderRadius: 6, border: "1px solid var(--border)" }}
-                      onError={(ev) => { (ev.target as HTMLImageElement).style.display = "none"; }} />
-                    {e.label && <span style={{ fontSize: 10, display: "block" }}>{e.label}</span>}
-                  </div>
-                ))}
-              </div>
+      {g.error && tab !== "upload" ? (
+        <p className="error-text">{g.error}</p>
+      ) : null}
+
+      {/* Detail Modal */}
+      {modalPack && !editingPack && (
+        <div
+          className="pack-modal-overlay"
+          onClick={() => setModalPack(null)}
+        >
+          <div className="pack-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>{modalPack.name}</h3>
+            <p className="hint-text">
+              {hasEntries(modalPack)
+                ? `${(modalPack as SavedImagePack).entries.length} 张图`
+                : `${(modalPack as PublicImagePackSummary).entryCount} 张图`}
+              {"ownerUsername" in modalPack
+                ? ` / ${(modalPack as PublicImagePackSummary).ownerUsername}`
+                : ""}
+            </p>
+
+            {hasEntries(modalPack) && (modalPack as SavedImagePack).entries.length > 0 ? (
+              <ImageEntryGrid entries={(modalPack as SavedImagePack).entries} />
             ) : null}
 
-            {!detailModal.isPublic && (
-              <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 6 }}>
-                <strong style={{ fontSize: 13 }}>编辑</strong>
-                <input value={editName} onChange={e => setEditName(e.target.value)} placeholder="名称" style={{ width: "100%" }} />
-                <textarea value={editEntries} onChange={e => setEditEntries(e.target.value)} rows={5} style={{ width: "100%" }}
-                  placeholder="URL + 空格 + 描述，每行一个" />
-                <button className="primary-button" onClick={() => {
-                  if (!(detailModal.pack as SavedImagePack).id) return;
-                  g.editAccountImagePack((detailModal.pack as SavedImagePack).id, editName, parseEntries(editEntries));
-                  setDetailModal(null);
-                }}>保存</button>
-              </div>
-            )}
-
-            <button onClick={() => setDetailModal(null)} style={{ marginTop: 8 }}>关闭</button>
+            <div className="pack-modal-actions">
+              <button className="primary-button" onClick={() => setModalPack(null)}>
+                关闭
+              </button>
+            </div>
           </div>
         </div>
       )}
-    </section>
+    </>
   );
 }

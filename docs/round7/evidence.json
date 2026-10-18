@@ -1,0 +1,263 @@
+{
+  "baseCommit": "3008f050d542268b0a8710b44f23bfc85017ef4e",
+  "applicationCommit": "03cecbc671396c3eb94b1aae22c2a3241e144886",
+  "checks": [
+    {
+      "command": "npm run typecheck",
+      "passed": true,
+      "code": 0
+    },
+    {
+      "command": "npm run test:rules",
+      "passed": true,
+      "code": 0
+    },
+    {
+      "command": "npm run build",
+      "passed": true,
+      "code": 0
+    },
+    {
+      "command": "npm run test:round5:local",
+      "passed": true,
+      "code": 0
+    },
+    {
+      "command": "npm run test:e2e:local",
+      "passed": true,
+      "code": 0
+    },
+    {
+      "command": "npm run test:stability:local",
+      "passed": true,
+      "code": 0
+    },
+    {
+      "command": "npm run test:mixed:local",
+      "passed": true,
+      "code": 0
+    },
+    {
+      "command": "npm run test:lobby:local",
+      "passed": true,
+      "code": 0
+    },
+    {
+      "command": "npm run test:phase2:local",
+      "passed": true,
+      "code": 0
+    },
+    {
+      "command": "npm run test:browser:local",
+      "passed": true,
+      "code": 0
+    },
+    {
+      "command": "npm run test:bangumi:local",
+      "passed": true,
+      "code": 0
+    },
+    {
+      "command": "npm run test:concentrated:local",
+      "passed": true,
+      "code": 0
+    },
+    {
+      "command": "npm run test:round6:local",
+      "passed": true,
+      "code": 0
+    },
+    {
+      "command": "npm run test:round6:roles:local",
+      "passed": true,
+      "code": 0
+    },
+    {
+      "command": "npm run test:round7:ui:local",
+      "passed": true,
+      "code": 0
+    },
+    {
+      "command": "npm run test:round7:faults:local",
+      "passed": true,
+      "code": 0
+    },
+    {
+      "command": "npm run test:round7:load",
+      "passed": true,
+      "code": 0
+    }
+  ],
+  "beforeScreenshotCount": 156,
+  "afterScreenshotCount": 174,
+  "selectedScreenshots": [
+    {
+      "file": "screenshots/before-board-6x6-red-captain-1440-dark.png",
+      "sha256": "e8d2b48b0f6a3c08c446825cb6eb7bb9b774f154094765deeeb5f428798f0b5f",
+      "stage": "before"
+    },
+    {
+      "file": "screenshots/after-board-6x6-red-captain-1440-dark.png",
+      "sha256": "f40b1a12815b2dcb84fdcc412c6204914bd4da266b8612e435ac7c8d80c01f95",
+      "stage": "after"
+    },
+    {
+      "file": "screenshots/before-lobby-4-1440-dark.png",
+      "sha256": "53dbc240a2236513f3662a747572440948751878fc5fcc9e666a4e9fe994d961",
+      "stage": "before"
+    },
+    {
+      "file": "screenshots/after-lobby-4-1440-dark.png",
+      "sha256": "abc397faf285a69dcae9a26a7ac87d16827d151c7c2c05a89750d499ae77c4bd",
+      "stage": "after"
+    },
+    {
+      "file": "screenshots/after-board-6x6-red-captain-390-dark.png",
+      "sha256": "6a84773f08d37fcdabfe3781fbeaed7e4b6f8fe1b24776619d0899e97028e4d8",
+      "stage": "after"
+    },
+    {
+      "file": "screenshots/after-draft-6-console-390-dark.png",
+      "sha256": "73bb174f63d4f9e8a1826c7ab92981e7da7af0d3f91a4d9e8232926b93e1445f",
+      "stage": "after"
+    },
+    {
+      "file": "screenshots/after-clue-5x5-red-1440-light.png",
+      "sha256": "0f154237181364d4c0c4879e7cdb10ae854b4b9e54ab40880b2c5f7679105c1d",
+      "stage": "after"
+    },
+    {
+      "file": "screenshots/after-clue-5x5-blue-1440-dark.png",
+      "sha256": "ae003119296f6c6ce25e6916e5eaab172659def7a092834b98627c0a4ccaa1da",
+      "stage": "after"
+    }
+  ],
+  "boardComparison": [
+    {
+      "board": "5x5",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "before": {
+        "x": 271,
+        "y": 459.234375,
+        "width": 854,
+        "height": 357
+      },
+      "after": {
+        "x": 361,
+        "y": 421.234375,
+        "width": 658,
+        "height": 274.703125
+      },
+      "beforeCardRatio": 2.5290865384615384,
+      "afterCardRatio": 2.5296134663341645
+    },
+    {
+      "board": "5x5",
+      "viewport": {
+        "width": 900,
+        "height": 1024
+      },
+      "before": {
+        "x": 209,
+        "y": 459.234375,
+        "width": 658,
+        "height": 460.28125
+      },
+      "after": {
+        "x": 207,
+        "y": 421.234375,
+        "width": 658,
+        "height": 457.828125
+      },
+      "beforeCardRatio": 1.4615103976650858,
+      "afterCardRatio": 1.461635446685879
+    },
+    {
+      "board": "5x5",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "before": {
+        "x": 21,
+        "y": 385.828125,
+        "width": 348,
+        "height": 320
+      },
+      "after": {
+        "x": 21,
+        "y": 385.828125,
+        "width": 348,
+        "height": 320
+      },
+      "beforeCardRatio": 1.0932291666666667,
+      "afterCardRatio": 1.0932291666666667
+    },
+    {
+      "board": "6x6",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "before": {
+        "x": 271,
+        "y": 459.234375,
+        "width": 854,
+        "height": 429
+      },
+      "after": {
+        "x": 361,
+        "y": 421.234375,
+        "width": 658,
+        "height": 329.9375
+      },
+      "beforeCardRatio": 2.0896634615384615,
+      "afterCardRatio": 2.090031152647975
+    },
+    {
+      "board": "6x6",
+      "viewport": {
+        "width": 900,
+        "height": 1024
+      },
+      "before": {
+        "x": 209,
+        "y": 459.234375,
+        "width": 658,
+        "height": 552.9375
+      },
+      "after": {
+        "x": 207,
+        "y": 421.234375,
+        "width": 658,
+        "height": 551.28125
+      },
+      "beforeCardRatio": 1.2043049981758482,
+      "afterCardRatio": 1.2044883303411131
+    },
+    {
+      "board": "6x6",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "before": {
+        "x": 21,
+        "y": 385.828125,
+        "width": 348,
+        "height": 384
+      },
+      "after": {
+        "x": 21,
+        "y": 385.828125,
+        "width": 348,
+        "height": 384
+      },
+      "beforeCardRatio": 0.9,
+      "afterCardRatio": 0.9
+    }
+  ]
+}

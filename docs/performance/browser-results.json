@@ -1,0 +1,67 @@
+{
+  "passed": true,
+  "checks": [
+    "8 browser contexts with avatars; 2 mobile viewports at 120ms, 1Mbps and CPU 4x; no full catalog for non-hosts",
+    "Original image succeeds after 61 seconds while backup responds 503; no refresh needed",
+    "Eight views receive every state update; private bookmarks do not appear in operative views"
+  ],
+  "catalogRequests": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "bookmarkObservationMs": [
+    754,
+    224,
+    216,
+    215,
+    323,
+    216,
+    331,
+    231,
+    311,
+    218,
+    108,
+    326
+  ],
+  "scope": "Image CDN payloads except the 61s failure case are deterministic fixtures; this is not a 3-hour internet soak.",
+  "longTasks": [
+    {
+      "count": 5,
+      "maxMs": 149
+    },
+    {
+      "count": 2,
+      "maxMs": 143
+    },
+    {
+      "count": 5,
+      "maxMs": 144
+    },
+    {
+      "count": 2,
+      "maxMs": 140
+    },
+    {
+      "count": 4,
+      "maxMs": 150
+    },
+    {
+      "count": 2,
+      "maxMs": 138
+    },
+    {
+      "count": 95,
+      "maxMs": 1395
+    },
+    {
+      "count": 10,
+      "maxMs": 805
+    }
+  ]
+}

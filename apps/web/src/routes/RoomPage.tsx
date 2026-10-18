@@ -1,16 +1,55 @@
+import { RecentClues } from '../components/RecentClues';
+import { Dialog } from '../components/UI';
+import { RoomIdentity } from '../components/RoomIdentity';
+import { ChatMessages, BattleEvents } from '../components/Conversation';
+import { CompactMembers, MatchManagement, MatchResult } from '../components/MatchSummary';
+import { PreparationLobby } from '../components/PreparationLobby';
+import { AnimeBoard, NextMatchPanel, StartCountdown } from "../components/AnimePlay";
 import { useCallback, useEffect, useState, useMemo, useRef, type KeyboardEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { copyText } from "../lib/clipboard";
 import {
   TEAM_LABELS, PLAYER_ROLE_LABELS,
   wordPackSummaries, type ChatReaction, type ParticipantType,
-  type PublicPlayer, type PublicSpectator, type ChatMessage,
+  type PublicPlayer, type PublicSpectator,
   type RevealOutcome, type PublicCard, type Team, type BoardMode, type DanmakuMessage
 } from "@acg-codenames/shared";
 import { useGame, isPlayer, getRoomStageLabel, getSelfSummary, queuedForSpectator, roleLabelShort } from "../context/GameContext";
 import { AvatarBadge } from "../components/AvatarBadge";
-import { SakuraParticles } from "../lib/SakuraParticles";
+import { PrivateReview } from '../components/PrivateReview';
+
 import { RevealGuessRoom } from "../components/reveal-guess/RevealGuessRoom";
+
+function useNow(interval = 1000) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), interval); return () => window.clearInterval(timer); }, [interval]);
+  return now;
+}
+
+function RoomStabilityBanner() {
+  const g = useGame();
+  const room = g.room;
+  const now = useNow(1000);
+  if (!room) return null;
+  const takeover = room.hostTakeover;
+  const offlineSeconds = room.hostOfflineSince ? Math.max(0, Math.floor(((room.serverNow - room.hostOfflineSince) + (now - Date.now())) / 1000)) : null;
+  const graceRemaining = room.hostTakeoverAvailableAt ? Math.max(0, Math.ceil((room.hostTakeoverAvailableAt - room.serverNow - (now - Date.now())) / 1000)) : 0;
+  const canRequest = !room.hostOnline && room.viewer?.participantType === 'player' && !takeover && graceRemaining <= 0;
+  return <>
+    {g.lostRoom && <div className="stability-banner danger" role="alert"><strong>房间已断开</strong><p>{g.lostRoom.message}</p><button onClick={() => { g.setError(''); location.assign('/'); }}>返回大厅</button></div>}
+    {g.joinError && <div className="stability-banner" role="status"><strong>入房未完成</strong><p>{g.joinError}</p></div>}
+    {!room.hostOnline && <div className="stability-banner" role="status">
+      <strong>社长当前离线</strong>
+      <p>{offlineSeconds !== null ? `已离线约 ${offlineSeconds} 秒。` : ''}{graceRemaining > 0 ? `安全接任宽限期还有 ${graceRemaining} 秒。` : '宽限期已结束，在线正式玩家可以发起接任；接任只移交房间管理权，不会获得队长秘密或私人图谱。'}</p>
+      {takeover ? <div className="stability-actions">
+        <span>{takeover.candidateNickname} 申请接任 · 已确认 {takeover.approvals}/{takeover.required}{takeover.rejections ? ` · 反对 ${takeover.rejections}` : ''}</span>
+        {takeover.canApprove && <><button className="primary-button" onClick={() => g.hostTakeover('approve')}>同意接任</button><button onClick={() => g.hostTakeover('reject')}>拒绝</button></>}
+        {takeover.candidateId === room.viewer?.participantId && <button onClick={() => g.hostTakeover('cancel')}>撤回请求</button>}
+      </div> : canRequest ? <div className="stability-actions"><button className="primary-button" onClick={() => g.hostTakeover('request')}>发起社长接任</button><span className="hint-text">需其他在线正式玩家多数确认；仅你一人在线时宽限期后直接接任。</span></div> : null}
+    </div>}
+    {g.actionStatus && <p className="stability-status" role="status">{g.actionStatus}{g.clueSyncing&&<button onClick={g.retryClue} disabled={g.connectionState!=='ready'}>重新确认本次提示</button>}</p>}
+  </>;
+}
 
 export function RoomPage() {
   const { roomId } = useParams<{ roomId: string }>();
@@ -60,7 +99,7 @@ export function RoomPage() {
     roundHighlights, roundAchievements, highlightToast, achievementToast,
     jumpToLatest, chatListRef, handleChatScroll, scrollChatToBottom,
     revealBanner, reactionEffects, pendingGuess, revealingCardIds,
-    maskSpymasterHints, setMaskSpymasterHints, showSakura, reactionQueue,
+    maskSpymasterHints, setMaskSpymasterHints, reactionQueue,
     collapsedSections, toggleSection,
     canSeeHiddenRoles, showSpymasterHints, isDebugController,
     viewer, self, boardColumns, isLobby, isFinished,
@@ -69,7 +108,7 @@ export function RoomPage() {
     uploadRoomPack, useAccountPackForRoom, usePublicPackForRoom,
     startGame, restartGame, returnToLobby, transferHost, disbandRoom, forceEndGame,
     queueForNextRound, cancelQueueJoin, debugFillRoom,
-    submitClue, guessCard, endTurn, sendChatMessage, sendQuickPhrase, sendReaction, copyLink, leaveRoom,
+    submitClue, guessCard, endTurn, sendChatMessage, sendReaction, copyLink, leaveRoom,
     transferHostTargetId, setTransferHostTargetId, hostTransferCandidates,
     accountPacks, publicPacks, makePublicPackKey,
   } = g;
@@ -82,12 +121,15 @@ export function RoomPage() {
     }
   }, [room?.id, roomId, navigate]);
 
+  useEffect(() => { g.setMobileRoomTab("board"); window.scrollTo(0,0); }, [room?.phase]);
+
   if (!room) {
     return (
       <section className="panel">
         <div className="panel-heading">
           <h2>{connectionState === "connecting" ? "正在连接房间..." : "等待进入房间"}</h2>
         </div>
+        {g.lostRoom ? <p className="error-text" role="alert">{g.lostRoom.message}</p> : null}
         {error ? <p className="error-text">{error}</p> : null}
         <button className="primary-button" onClick={navigateHome}>返回首页</button>
       </section>
@@ -98,6 +140,11 @@ export function RoomPage() {
     return <RevealGuessRoom />;
   }
 
+  if (isLobby && room.nextPlan?.stage !== 'draft') return <><RoomStabilityBanner/><PreparationLobby room={room}/></>;
+  if(isLobby&&room.nextPlan?.stage==='draft')return <section className={`room-layout room-layout-lobby room-preparing-anime draft-room-shell mobile-view-${g.mobileRoomTab}`}><RoomStabilityBanner/><header className="room-bar"><div><strong className="room-code">{room.id}</strong><span className={`self-identity-anchor team-${room.viewer?.team??'spectator'}`}>{room.viewer?.participantType==='spectator'?'旁观者':room.viewer?.team?`我的队伍：${TEAM_LABELS[room.viewer.team]} · ${room.viewer.role==='spymaster'?'队长':'队员'}`:'待分队'}</span><p className="hint-text">动画组牌 · {room.nextPlan.settings.boardMode}</p></div><div className="bar-actions"><button onClick={()=>void copyLink()}>{copied?'已复制':'邀请好友'}</button>{viewer?.isHost&&<><button onClick={()=>{if(window.confirm('取消本次准备并保留配置？'))g.socket.emit('plan_action',{roomId:room.id,kind:'cancel',version:room.nextPlan?.version});}}>取消本次准备</button><MatchManagement/></>}</div></header><RoomIdentity room={room}/><PrivateReview room={room}/><NextMatchPanel room={room}/><aside className="lobby-people"><CompactMembers room={room}/></aside><aside className="room-right-col lobby-chat"><SideTabPanel g={g} room={room} session={session}/></aside>{error&&<p className="error-text" role="alert">{error}</p>}</section>;
+
+  if(isFinished)return <><MatchNotice g={g}/><MatchResult room={room}/></>;
+
   const phaseClass =
     focusMode ? "room-layout-focus"
     : isLobby ? "room-layout-lobby"
@@ -105,14 +152,15 @@ export function RoomPage() {
     : "room-layout-playing";
 
   return (
-    <section className={`room-layout ${phaseClass}`} key={room.id}>
-      <SakuraParticles active={showSakura} />
+    <section className={`room-layout ${phaseClass} mobile-view-${g.mobileRoomTab} ${room.nextPlan?.variant === "anime" && ["guide","draft","sealed"].includes(room.nextPlan.stage) && isLobby ? "room-preparing-anime" : ""}`} key={room.id}>
+
       {reactionQueue.map((reaction) => (
         <ReactionBanner key={reaction.id} reaction={reaction} />
       ))}
       {showDanmaku ? <DanmakuLayer items={danmakuQueue} /> : null}
-      {highlightToast ? <RoundHighlightToast highlight={highlightToast} /> : null}
-      {achievementToast ? <AchievementToast achievement={achievementToast} /> : null}
+      <MatchNotice g={g}/>
+      <RoomStabilityBanner />
+      <RoomIdentity room={room}/>
 
       {focusMode ? (
         <FocusBar room={room} viewer={viewer} onExitFocus={exitFocusMode} g={g} />
@@ -120,8 +168,8 @@ export function RoomPage() {
         <header className="room-bar room-bar-clean">
           <div className="room-bar-main room-bar-stack">
             <div className="room-title-stack">
-              <strong className="room-code">{room.id}</strong>
-              <p className="room-subtitle">{room.wordPackSummary.name}</p>
+              <strong className="room-code">{room.id}</strong><span className={`self-identity-anchor team-${room.viewer?.team??'spectator'}`}>{room.viewer?.participantType==='spectator'?'旁观者':room.viewer?.team?`我的队伍：${TEAM_LABELS[room.viewer.team]} · ${room.viewer.role==='spymaster'?'队长':'队员'}`:'待分队'}</span>
+              <p className="room-subtitle">{isLobby && room.nextPlan?.variant === "anime" ? room.nextPlan.poolName : room.wordPackSummary.name}</p>
             </div>
             <div className="status-strip">
               <span className="status-pill emphasis">{getRoomStageLabel(room, connectionState)}</span>
@@ -138,7 +186,7 @@ export function RoomPage() {
               {viewer?.canResumeTimer ? (
                 <button className="primary-button" onClick={g.resumeTimer} style={{ marginLeft: 4, padding: "3px 10px", fontSize: 12 }}>▶ 继续</button>
               ) : null}
-              <span className="status-pill soft-chip">{room.settings.boardMode} · 第 {room.roundNumber} 局</span>
+              <span className="status-pill soft-chip">{isLobby ? room.nextPlan?.settings.boardMode ?? room.settings.boardMode : room.settings.boardMode} · 第 {room.roundNumber} 局</span>
             </div>
           </div>
           <div className="bar-actions">
@@ -146,7 +194,7 @@ export function RoomPage() {
               <>
                 <button onClick={enterFocusMode}>专注模式</button>
                 {viewer?.isHost ? (
-                  <button onClick={() => { if (window.confirm("确定要强制结束当前对局吗？当前队伍视为认输。")) { g.forceEndGame(); } }}>结束对局</button>
+                  <MatchManagement/>
                 ) : null}
               </>
             ) : null}
@@ -155,143 +203,34 @@ export function RoomPage() {
         </header>
       )}
 
-      {isLobby && !focusMode ? (
-        <>
-          <SeatPanel self={self} room={room} viewer={viewer} g={g} reactionEffects={reactionEffects} />
-          <MembersPanel room={room} selfId={session?.participantId} collapsedSections={collapsedSections} toggleSection={toggleSection} reactionEffects={reactionEffects} sendReaction={sendReaction} />
-          {viewer?.participantType === "player" ? (
-            <LobbySettings room={room} viewer={viewer} self={self} g={g} accountPacks={accountPacks} publicPacks={publicPacks} makePublicPackKey={makePublicPackKey} />
-          ) : null}
-          {viewer?.canDisbandRoom ? (
-            <HostControls viewer={viewer} returnToLobby={returnToLobby} transferHost={transferHost} disbandRoom={disbandRoom} hostTransferCandidates={hostTransferCandidates} transferHostTargetId={transferHostTargetId} setTransferHostTargetId={setTransferHostTargetId} />
-          ) : null}
-          <SideTabPanel g={g} room={room} session={session} />
-        </>
-      ) : null}
+      <StartCountdown room={room} />
+      {(room.animeEnabled || room.nextPlan) && <NextMatchPanel room={room} />}
+
+      {isLobby && !focusMode ? <>
+        <button className="mobile-lobby-roster" onClick={()=>g.setMobileRoomTab("players")}>红队 {room.players.filter(p=>p.team==="red").length} 人 · 蓝队 {room.players.filter(p=>p.team==="blue").length} 人 <span>选择队伍与席位 →</span></button>
+        <div className="lobby-people"><SeatPanel self={self} room={room} viewer={viewer} g={g} reactionEffects={reactionEffects}/><MembersPanel room={room} selfId={session?.participantId} collapsedSections={collapsedSections} toggleSection={toggleSection} reactionEffects={reactionEffects} sendReaction={sendReaction}/>
+          {viewer?.canDisbandRoom && <details className="room-management"><summary>房主管理</summary><HostControls viewer={viewer} returnToLobby={returnToLobby} transferHost={transferHost} disbandRoom={disbandRoom} hostTransferCandidates={hostTransferCandidates} transferHostTargetId={transferHostTargetId} setTransferHostTargetId={setTransferHostTargetId}/></details>}
+        </div>
+        {viewer?.participantType === "player" && room.nextPlan?.variant !== "anime" && <div className="lobby-classic-settings"><LobbySettings room={room} viewer={viewer} self={self} g={g} accountPacks={accountPacks} publicPacks={publicPacks} makePublicPackKey={makePublicPackKey}/></div>}
+        <aside className="room-right-col lobby-chat"><SideTabPanel g={g} room={room} session={session}/></aside>
+      </> : null}
 
       {!isLobby && !focusMode ? (
         <>
           {isFinished ? null : (
             <aside className="room-left-col">
-              <SeatPanel self={self} room={room} viewer={viewer} g={g} reactionEffects={reactionEffects} />
-              <MembersPanel room={room} selfId={session?.participantId} collapsedSections={collapsedSections} toggleSection={toggleSection} reactionEffects={reactionEffects} sendReaction={sendReaction} />
-              {viewer?.canDisbandRoom ? (
-                <div className="panel" style={{ marginTop: 12, padding: 16 }}>
-                  <button className="danger-button" onClick={disbandRoom} style={{ width: "100%" }}>解散房间</button>
-                </div>
-              ) : null}
+              <MatchStatus room={room}/>
+              <RecentClues room={room}/>
+              <CompactMembers room={room}/>
             </aside>
           )}
 
-          <div className="room-center-col">
-            {!isFinished && revealBanner ? <RevealBanner reveal={revealBanner} /> : null}
+          <div className={`room-center-col ${isFinished ? "result-workspace" : ""}`}>
+            {!isFinished && <div className="mobile-match-status"><MatchStatus room={room}/></div>}
 
-            {isFinished ? (
-              <>
-                <section className={`result-banner ${room.winner ? `winner-${room.winner}` : ""}`}>
-                  <h2>{room.winner ? `${TEAM_LABELS[room.winner]}胜利！( •̀ ω •́ )✧` : "对局结束"}</h2>
-                  <p className="hint-text">{room.lastEvent}</p>
-                  <div className="result-score" style={{ marginTop: 12 }}>
-                    <span className="score-chip red-chip">红队 {room.scores.red}</span>
-                    <span className="score-chip blue-chip">蓝队 {room.scores.blue}</span>
-                  </div>
-                  <div className="result-actions" style={{ marginTop: 12, display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
-                    {viewer?.canRestartGame ? <button className="primary-button" onClick={restartGame}>再来一局</button> : null}
-                    {viewer?.canReturnToLobby ? <button onClick={returnToLobby}>回到准备房间</button> : null}
-                  </div>
-                </section>
 
-                {room.replayId ? (
-                  <section className="replay-entry-bar" style={{ marginTop: 16, display: "flex", gap: 10, alignItems: "center", justifyContent: "center", flexWrap: "wrap" }}>
-                    <span className="hint-text" style={{ margin: 0 }}>本局复盘已生成</span>
-                    <button className="primary-button" onClick={() => navigate(`/replay/${room.replayId}`)}>查看复盘</button>
-                    <CopyReplayLink replayId={room.replayId} />
-                  </section>
-                ) : (
-                  <section className="replay-entry-bar" style={{ marginTop: 16, display: "flex", gap: 10, alignItems: "center", justifyContent: "center", flexWrap: "wrap", opacity: 0.6 }}>
-                    <span className="hint-text" style={{ margin: 0 }}>复盘生成中...</span>
-                  </section>
-                )}
-
-                {room.achievements && room.achievements.length > 0 ? (
-                  <section className="panel achievements-panel" style={{ marginTop: 16 }}>
-                    <div className="panel-heading"><h2>本局称号</h2></div>
-                    <div className="achievements-list">
-                      {room.achievements.map((a) => (
-                        <div key={a.id} className={`achievement-card achievement-${a.tier}`}>
-                          <div className="achievement-header">
-                            <span className="achievement-tier">{a.tier === "positive" ? "🏆" : a.tier === "funny" ? "💀" : "🌟"}</span>
-                            <strong>{a.title}</strong>
-                          </div>
-                          <span className="achievement-name">{a.nickname}</span>
-                          <p className="achievement-desc">{a.description}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </section>
-                ) : null}
-
-                {room.clueRecords && room.clueRecords.length > 0 ? (
-                  <section className="panel" style={{ marginTop: 16 }}>
-                    <div className="panel-heading"><h2>回合历史</h2></div>
-                    <div className="round-history">
-                      {room.clueRecords.map((cr, i) => (
-                        <div key={i} className={`round-block ${cr.team === "red" ? "round-block-red" : "round-block-blue"}`}>
-                          <div className="round-clue">
-                            <span className="round-num">#{i + 1}</span>
-                            <strong>{cr.giverNickname}</strong>
-                            <span>提示：{cr.word} {cr.count}</span>
-                          </div>
-                          {cr.guesses.length === 0 ? (
-                            <p className="hint-text" style={{ margin: "2px 0 0 32px" }}>未选择词牌</p>
-                          ) : null}
-                          <div className="round-guesses">
-                            {cr.guesses.map((g, j) => (
-                              <div key={j} className={`round-guess round-guess-${g.cardRole}`}>
-                                <strong>{g.nickname}</strong>
-                                <span>「{g.cardWord}」{g.isOwnHit ? "命中" : "错误"} · {g.cardRole === "red" ? "红方" : g.cardRole === "blue" ? "蓝方" : g.cardRole === "neutral" ? "中立" : "刺客"}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </section>
-                ) : null}
-
-                {room.roundHighlights && room.roundHighlights.length > 0 ? (
-                  <section className="panel round-highlight-section" style={{ marginTop: 16 }}>
-                    <div className="panel-heading"><h2>高光复盘</h2></div>
-                    {(room.roundHighlights ?? []).map((hl) => (
-                      <RoundHighlightCard key={hl.id} highlight={hl} />
-                    ))}
-                  </section>
-                ) : null}
-
-                {room.roundScoreHistory && room.roundScoreHistory.length > 0 ? (
-                  <section className="panel" style={{ marginTop: 16 }}>
-                    <div className="panel-heading"><h2>积分明细</h2></div>
-                    <div className="score-history-list">
-                      {room.roundScoreHistory.map((rs, i) => (
-                        <div key={i} className="score-history-row">
-                          <span className="soft-chip">回合 {i + 1}</span>
-                          <span className="score-chip">{TEAM_LABELS[rs.team]}</span>
-                          {rs.ownPoints > 0 ? <span className="score-chip">+{rs.ownPoints}</span> : null}
-                          {rs.neutralPenalty > 0 ? <span className="score-chip" style={{ color: "var(--muted)" }}>-{rs.neutralPenalty}</span> : null}
-                          {rs.opponentPointsLost > 0 ? <span className="score-chip" style={{ color: "var(--danger)" }}>-{rs.opponentPointsLost}</span> : null}
-                          {rs.assassinPenalty > 0 ? <span className="score-chip" style={{ color: "var(--danger)" }}>-{rs.assassinPenalty}</span> : null}
-                          {rs.precisionBonus > 0 ? <span className="score-chip">精准+{rs.precisionBonus}</span> : null}
-                          {rs.victoryBonus > 0 ? <span className="score-chip">胜利+{rs.victoryBonus}</span> : null}
-                          <span className="score-chip" style={{ fontWeight: 700 }}>合计 {rs.totalRound}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </section>
-                ) : null}
-              </>
-            ) : null}
-
-            <BoardPanel room={room} viewer={viewer} g={g} cardMarks={cardMarks} markCard={markCard} />
+            {!isFinished&&<PrivateReview room={room}/>}
+            {isFinished ? <details className="panel result-board"><summary>查看终局棋盘</summary><BoardPanel room={room} viewer={viewer} g={g} cardMarks={cardMarks} markCard={markCard}/></details> : <BoardPanel room={room} viewer={viewer} g={g} cardMarks={cardMarks} markCard={markCard} />}
 
             {viewer?.participantType === "player" && !isFinished ? (
               <ActionPanel viewer={viewer} room={room} g={g} />
@@ -315,9 +254,17 @@ export function RoomPage() {
         </>
       ) : null}
 
-      {error ? <p className="error-text">{error}</p> : null}
+      {error ? <div className="error-text room-error" role="alert"><span>{error}</span><button aria-label="关闭提示" onClick={()=>g.setError("")}>×</button></div> : null}
     </section>
   );
+}
+
+function MatchNotice({g}:{g:ReturnType<typeof useGame>}) {
+  return <div className="match-notice" aria-live="polite" aria-atomic="true">{g.revealBanner?<RevealBanner reveal={g.revealBanner}/>:g.highlightToast?<RoundHighlightToast highlight={g.highlightToast}/>:g.achievementToast?<AchievementToast achievement={g.achievementToast}/>:null}</div>;
+}
+
+function MatchStatus({room}:{room:NonNullable<ReturnType<typeof useGame>["room"]>}) {
+ return <section className="match-status" aria-label="当前对局进度">{(["red","blue"] as const).map(t=><div key={t} className={`team-progress team-progress-${t} ${room.currentTeam===t?'is-current':''}`}><span>{TEAM_LABELS[t]}</span><strong>{room.remainingCounts[t]}</strong><small>剩余词牌</small>{room.settings.scoringMode!=="classic"&&<small>积分 {room.scores[t]}</small>}</div>)}<div className="match-clue"><span className="eyebrow">{TEAM_LABELS[room.currentTeam]} · {room.clue?'正在猜牌':'等待线索'}</span><strong>{room.clue?`${room.clue.word} ${room.clue.count}`:'等待队长出题'}</strong>{room.timerEndsAt?<TimerPill room={room}/>:<span className="hint-text">本回合不限时</span>}</div></section>;
 }
 
 // ─── sub-components ──────────────────────────────────
@@ -368,10 +315,10 @@ function DanmakuLayer({ items }: { items: DanmakuMessage[] }) {
 
 function RoundHighlightToast({ highlight }: { highlight: import("@acg-codenames/shared").RoundHighlight }) {
   return (
-    <div className="round-highlight-toast" aria-hidden="true">
+    <div className="round-highlight-toast" role="status" aria-live="polite">
       <span className="round-highlight-toast-icon">✨</span>
       <span className="round-highlight-toast-text">
-        {highlight.captainTitle} / {highlight.teamTitle}
+        {highlight.team==='red'?'红队':'蓝队'} · 第 {highlight.roundNumber??'—'} 局 / {highlight.roundIndex} 回合 · {highlight.captainTitle} / {highlight.teamTitle}
       </span>
     </div>
   );
@@ -379,10 +326,10 @@ function RoundHighlightToast({ highlight }: { highlight: import("@acg-codenames/
 
 function AchievementToast({ achievement }: { achievement: import("@acg-codenames/shared").AchievementUnlockPayload }) {
   return (
-    <div className="round-highlight-toast achievement-toast" aria-hidden="true">
+    <div className="round-highlight-toast achievement-toast" role="status" aria-live="polite">
       <span className="round-highlight-toast-icon">🏆</span>
       <span className="round-highlight-toast-text">
-        {achievement.nickname} 获得成就：{achievement.title}
+        {achievement.team==='red'?'红队':achievement.team==='blue'?'蓝队':''} · 第 {achievement.roundNumber??'—'} 局 / {achievement.roundIndex??'—'} 回合 · {achievement.nickname} 获得成就：{achievement.title}
       </span>
     </div>
   );
@@ -427,7 +374,7 @@ function RoundHighlightCard({ highlight }: { highlight: import("@acg-codenames/s
 function FocusBar({ room, viewer, onExitFocus, g }: { room: NonNullable<ReturnType<typeof useGame>["room"]>; viewer: ReturnType<typeof useGame>["viewer"]; onExitFocus: () => void; g: ReturnType<typeof useGame> }) {
   return (
     <div className="focus-bar">
-      <strong className="room-code">{room.id}</strong>
+      <strong className="room-code">{room.id}</strong><span className={`self-identity-anchor team-${room.viewer?.team??'spectator'}`}>{room.viewer?.participantType==='spectator'?'旁观者':room.viewer?.team?`我的队伍：${TEAM_LABELS[room.viewer.team]} · ${room.viewer.role==='spymaster'?'队长':'队员'}`:'待分队'}</span>
       {room.phase === "playing" ? (
         <>
           <span className={`status-pill team-pill team-pill-${room.currentTeam}`}>{TEAM_LABELS[room.currentTeam]}</span>
@@ -484,11 +431,11 @@ function SeatPanel({ self, room, viewer, g, reactionEffects }: {
       </div>
       {viewer?.participantType === "player" && isSelfPlayer ? (
         <div className="selection-grid">
-          <button className={self.team === "red" ? "selected" : ""} disabled={!isLobby} onClick={() => chooseTeam("red")}>红队</button>
-          <button className={self.team === "blue" ? "selected" : ""} disabled={!isLobby} onClick={() => chooseTeam("blue")}>蓝队</button>
-          <button className={self.team === null ? "selected" : ""} disabled={!isLobby} onClick={() => chooseTeam(null)}>待定</button>
-          <button className={self.role === "spymaster" ? "selected" : ""} disabled={!isLobby || !self.team} onClick={() => chooseRole("spymaster")}>队长</button>
-          <button className={self.role === "operative" ? "selected" : ""} disabled={!isLobby || !self.team} onClick={() => chooseRole("operative")}>队员</button>
+          <button className={self.team === "red" ? "selected" : ""} disabled={!isLobby || !!room?.countdown || (room?.nextPlan?.stage === "draft" || room?.nextPlan?.stage === "sealed")} onClick={() => chooseTeam("red")}>红队</button>
+          <button className={self.team === "blue" ? "selected" : ""} disabled={!isLobby || !!room?.countdown || (room?.nextPlan?.stage === "draft" || room?.nextPlan?.stage === "sealed")} onClick={() => chooseTeam("blue")}>蓝队</button>
+          <button className={self.team === null ? "selected" : ""} disabled={!isLobby || !!room?.countdown || (room?.nextPlan?.stage === "draft" || room?.nextPlan?.stage === "sealed")} onClick={() => chooseTeam(null)}>待定</button>
+          <button className={self.role === "spymaster" ? "selected" : ""} disabled={!isLobby || !self.team || !!room?.countdown || (room?.nextPlan?.stage === "draft" || room?.nextPlan?.stage === "sealed")} onClick={() => chooseRole("spymaster")}>队长</button>
+          <button className={self.role === "operative" ? "selected" : ""} disabled={!isLobby || !self.team || !!room?.countdown || (room?.nextPlan?.stage === "draft" || room?.nextPlan?.stage === "sealed")} onClick={() => chooseRole("operative")}>队员</button>
         </div>
       ) : (
         <div className="toolbar-inline" style={{ gap: 8 }}>
@@ -507,7 +454,7 @@ function MembersPanel({ room, selfId, collapsedSections, toggleSection, reaction
   sendReaction: (r: ChatReaction, id: string, t: ParticipantType) => void;
 }) {
   return (
-    <section className="panel" style={{ marginBottom: 12 }}>
+    <section className="panel members-panel" style={{ marginBottom: 12 }}>
       <div className="panel-heading">
         <h2>对局成员</h2>
         <span className="soft-chip">{room.players.length} 人</span>
@@ -569,10 +516,10 @@ function ParticipantRow({ participant, label, isSelf, effect, onReact }: {
         {"connected" in participant && !participant.connected ? <span className="soft-chip">离线</span> : null}
         {"isBot" in participant && participant.isBot ? <span className="soft-chip">测试位</span> : null}
         {!isSelf ? (
-          <>
-            <button className="reaction-button" onClick={() => onReact("flower", participant.id, type)} title="送花">💐</button>
-            <button className="reaction-button" onClick={() => onReact("egg", participant.id, type)} title="丢蛋">🥚</button>
-          </>
+          <details><summary aria-label={`与${participant.nickname}互动`}>互动 ▾</summary><div>
+            <button className="reaction-button" onClick={() => onReact("flower", participant.id, type)} title="送花">💐 送花</button>
+            <button className="reaction-button" onClick={() => onReact("egg", participant.id, type)} title="丢蛋">🥚 丢蛋</button>
+          </div></details>
         ) : null}
       </div>
     </div>
@@ -610,6 +557,7 @@ function LobbySettings({ room, viewer, self, g, accountPacks, publicPacks, makeP
         <h2>房间设置</h2>
         <span className="soft-chip">{viewer.canEditRoom ? "社长可编辑" : "等待社长调整"}</span>
       </div>
+      <details className="lobby-advanced"><summary>文字题库与经典设置</summary>
       <div className="settings-row">
         <div className="settings-block">
           <strong>棋盘模式</strong>
@@ -689,9 +637,12 @@ function LobbySettings({ room, viewer, self, g, accountPacks, publicPacks, makeP
           </div>
         ) : null}
       </div>
+      <div className="settings-row"><label className="field"><span>回合计时</span><select aria-label="经典回合计时" disabled={!viewer.canEditRoom} value={room.settings.timerMode ?? "unlimited"} onChange={e=>g.socket.emit("update_room_settings",{roomId:room.id,timerMode:e.target.value as "timed"|"unlimited"})}><option value="unlimited">不限时</option><option value="timed">限时</option></select></label><label className="field"><span>翻牌显示</span><select aria-label="经典翻牌显示" disabled={!viewer.canEditRoom} value={room.settings.flipMode ?? "word-color"} onChange={e=>g.socket.emit("update_room_settings",{roomId:room.id,flipMode:e.target.value as "word-color"|"color-only"})}><option value="word-color">词语与阵营</option><option value="color-only">仅阵营颜色</option></select></label></div>
+      {room.settings.timerMode === "timed" && <div className="settings-row">{(["timerClueSeconds","timerGuessSeconds"] as const).map((key,i)=><label className="field" key={key}><span>{i===0?"提示时间":"猜词时间"}</span><select disabled={!viewer.canEditRoom} value={room.settings[key] ?? 90} onChange={e=>g.socket.emit("update_room_settings",{roomId:room.id,[key]:Number(e.target.value)})}>{[60,90,120].map(n=><option key={n} value={n}>{n} 秒</option>)}</select></label>)}</div>}
+      </details>
       {self && isPlayer(self) && self.isHost ? (
         <div className="toolbar-inline" style={{ marginTop: 8, gap: 8 }}>
-          <button onClick={g.randomizeTeams} disabled={!viewer.canEditRoom}>随机分队</button>
+          <button onClick={() => g.randomizeTeams()} disabled={!viewer.canEditRoom}>随机分队</button>
           <button className="primary-button" onClick={g.startGame} disabled={!viewer.canStartGame}>开始游戏</button>
           {viewer.canUseDebugFill ? <button onClick={g.debugFillRoom}>补 3 个测试位</button> : null}
         </div>
@@ -710,6 +661,8 @@ function BoardPanel({ room, viewer, g, cardMarks, markCard }: {
   const { boardColumns, canSeeHiddenRoles, showSpymasterHints, maskSpymasterHints, setMaskSpymasterHints, revealingCardIds, pendingGuess, guessCard: doGuess, renderHint } = g;
   const boardSizeClass = `board-${boardColumns}`;
   const [showPrivacyTip, setShowPrivacyTip] = useState(false);
+
+  if (room.settings.variant === "anime") return <AnimeBoard room={room} />;
 
   const turnBanner = room.phase === "playing" && room.clue
     ? `${TEAM_LABELS[room.currentTeam]}队员 · 请选择词牌`
@@ -773,10 +726,10 @@ function ActionPanel({ viewer, room, g }: { viewer: NonNullable<ReturnType<typeo
     submitClue();
   }
   return (
-    <section className="panel" style={{ marginBottom: 12 }}>
+    <section className={`panel action-panel ${viewer.team===room.currentTeam?`own-turn team-${viewer.team}`:''}`} style={{ marginBottom: 12 }}>
       {viewer.canSubmitClue ? (
-        <div className="clue-form" onKeyDown={handleClueKeyDown}>
-          <p className="clue-form-hint">你是本回合队长 · 请在这里输入提示词</p>
+        <div className={`clue-form clue-team-${room.currentTeam}`} onKeyDown={handleClueKeyDown}>
+          <p className="clue-form-hint">{TEAM_LABELS[room.currentTeam]}队长 · 请在这里输入提示词</p>
           <label className="field">
             <span>提示词</span>
             <input value={clueWord} onChange={(e) => setClueWord(e.target.value)} maxLength={12} placeholder="例如：机甲 / 学园 / 主角团" />
@@ -785,7 +738,7 @@ function ActionPanel({ viewer, room, g }: { viewer: NonNullable<ReturnType<typeo
             <span>数字</span>
             <input inputMode="numeric" pattern="[0-9]*" value={clueCountInput} onChange={(e) => setClueCountInput(e.target.value)} />
           </label>
-          <button className="primary-button" onClick={submitClue} disabled={!clueWord.trim() || clueCountInput === ""}>提交提示</button>
+          <button className="primary-button" onClick={submitClue} disabled={g.cluePending || g.connectionState !== 'ready' || !clueWord.trim() || clueCountInput === ""} aria-busy={g.cluePending}>{g.cluePending?'正在确认…':'提交提示'}</button>
         </div>
       ) : (
         <p className="hint-text">{renderHint()}</p>
@@ -804,8 +757,9 @@ function SideTabPanel({ g, room, session }: {
   g: ReturnType<typeof useGame>; room: NonNullable<ReturnType<typeof useGame>["room"]>;
   session: ReturnType<typeof useGame>["session"];
 }) {
-  const { sideTab, setSideTab, chatText, setChatText, chatListRef, battleListRef, handleChatScroll, handleBattleScroll, jumpToLatest, scrollChatToBottom, sendChatMessage, sendQuickPhrase, showDanmaku, setShowDanmaku } = g;
+  const { sideTab, setSideTab, chatText, setChatText, chatListRef, battleListRef, handleChatScroll, handleBattleScroll, chatUnread, battleUnread, chatPending, chatError, scrollChatToBottom, scrollBattleToBottom, sendChatMessage } = g;
   const [collapsed, setCollapsed] = useState(false);
+  const [battleExpanded,setBattleExpanded]=useState(false);
   const chatMessages = useMemo(() => room.messages.filter((m) => m.type === "chat" || m.type === "reaction"), [room.messages]);
   const battleMessages = useMemo(() => room.messages.filter((m) => m.type === "system"), [room.messages]);
   function handleChatKeyDown(e: KeyboardEvent<HTMLDivElement>) {
@@ -819,10 +773,11 @@ function SideTabPanel({ g, room, session }: {
 
   return (
     <div className={`panel side-panel${collapsed ? " side-panel-collapsed" : ""}`}>
+      {battleExpanded&&<Dialog title="完整战况" close={()=>setBattleExpanded(false)} wide><BattleEvents messages={battleMessages} room={room}/></Dialog>}
       <div className="side-panel-hdr">
-        <div className="selection-grid side-tab-row">
-          <button className={sideTab === "chat" ? "selected" : ""} onClick={() => { setSideTab("chat"); if (collapsed) setCollapsed(false); }}>聊天</button>
-          <button className={sideTab === "battle" ? "selected" : ""} onClick={() => { setSideTab("battle"); if (collapsed) setCollapsed(false); }}>战况</button>
+        <div className="selection-grid side-tab-row" aria-label="比赛信息">
+          <button className={sideTab === "battle" ? "selected" : ""} onClick={() => { setSideTab("battle"); if (collapsed) setCollapsed(false); }}>战况{battleUnread>0&&<span className="tab-unread" aria-label={`${battleUnread} 条未读战况`}>{battleUnread>99?'99+':battleUnread}</span>}</button>
+          <button className={sideTab === "chat" ? "selected" : ""} onClick={() => { setSideTab("chat"); if (collapsed) setCollapsed(false); }}>聊天{chatUnread>0&&<span className="tab-unread" aria-label={`${chatUnread} 条未读聊天`}>{chatUnread>99?'99+':chatUnread}</span>}</button>
           <button className={sideTab === "score" ? "selected" : ""} onClick={() => { setSideTab("score"); if (collapsed) setCollapsed(false); }}>积分</button>
           <button className={sideTab === "spectators" ? "selected" : ""} onClick={() => { setSideTab("spectators"); if (collapsed) setCollapsed(false); }}>旁观</button>
         </div>
@@ -837,44 +792,28 @@ function SideTabPanel({ g, room, session }: {
             <>
               <div className="chat-list" ref={chatListRef} onScroll={handleChatScroll} style={{ maxHeight: 240 }}>
                 {chatMessages.length === 0 ? <p className="empty-text">还没有聊天。</p> : null}
-                {chatMessages.map((message) => (
-                  <MessageRow key={message.id} message={message} selfId={session?.participantId} />
-                ))}
+                <ChatMessages messages={chatMessages} selfId={session?.participantId}/>
               </div>
-              {jumpToLatest ? <button className="chip-button jump-button" onClick={scrollChatToBottom} style={{ margin: "4px 0" }}>⬇ 有新消息</button> : null}
+              {chatUnread>0 ? <button className="chip-button jump-button" onClick={scrollChatToBottom} style={{ margin: "4px 0" }}>⬇ 有新消息</button> : null}
             </>
           ) : sideTab === "battle" ? (
             <>
+              <button className="battle-expand" onClick={()=>setBattleExpanded(true)}>展开战况</button>
               <div className="chat-list" ref={battleListRef} onScroll={handleBattleScroll} style={{ maxHeight: 320 }}>
                 {battleMessages.length === 0 && (room.roundHighlights?.length ?? 0) === 0 ? <p className="empty-text">暂无战况记录。</p> : null}
-                {(room.roundHighlights ?? []).map((hl) => (
-                  <RoundHighlightCard key={hl.id} highlight={hl} />
-                ))}
-                {battleMessages.map((message) => (
-                  <MessageRow key={message.id} message={message} selfId={session?.participantId} />
-                ))}
+                <BattleEvents messages={battleMessages} room={room}/>
               </div>
-              {jumpToLatest ? <button className="chip-button jump-button" onClick={() => { const list = battleListRef.current; if (!list) return; list.scrollTop = list.scrollHeight; scrollChatToBottom(); }} style={{ margin: "4px 0" }}>⬇ 有新战况</button> : null}
+              {battleUnread>0 ? <button className="chip-button jump-button" onClick={scrollBattleToBottom}>↓ {battleUnread} 条新战况</button> : null}
             </>
           ) : null}
 
           {sideTab === "chat" ? (
             <>
               <div className="chat-bar" onKeyDown={handleChatKeyDown} style={{ marginTop: 8 }}>
-                <input value={chatText} onChange={(e) => setChatText(e.target.value)} maxLength={120} placeholder="发一句话..." style={{ flex: 1 }} />
-                <button onClick={sendChatMessage} disabled={!chatText.trim()}>发送</button>
+                <input value={chatText} onChange={(e) => setChatText(e.target.value)} maxLength={120} disabled={chatPending} aria-label="发送聊天消息" placeholder="发一句话..." style={{ flex: 1 }} />
+                <button onClick={sendChatMessage} disabled={chatPending||!chatText.trim()}>{chatPending?'发送中…':chatError?'重试':'发送'}</button>
               </div>
-              <div className="chip-wrap" style={{ marginTop: 6 }}>
-                <label className="danmaku-toggle">
-                  <input type="checkbox" checked={showDanmaku} onChange={(e) => setShowDanmaku(e.target.checked)} />
-                  <span>弹幕</span>
-                </label>
-                <button className="chip-button" onClick={() => sendQuickPhrase("GG")}>GG</button>
-                <button className="chip-button" onClick={() => sendQuickPhrase("大佬带带我")}>大佬带带我</button>
-                <button className="chip-button" onClick={() => sendQuickPhrase("好猜！")}>好猜！</button>
-                <button className="chip-button" onClick={() => sendQuickPhrase("这个太难了")}>这个太难了</button>
-                <button className="chip-button" onClick={() => sendQuickPhrase("666")}>666</button>
-              </div>
+              {chatError&&<p className="error-text" role="alert">{chatError}</p>}
             </>
           ) : null}
 
@@ -883,7 +822,7 @@ function SideTabPanel({ g, room, session }: {
               <span className="soft-chip">旁观 {room.spectators.length}</span>
               <span className="soft-chip" style={{ marginLeft: 6 }}>排队 {room.joinQueue.length}</span>
               {room.spectators.length === 0 ? <p className="empty-text">当前没有旁观者。</p> : null}
-              {room.spectators.map((spectator) => (
+              <div className="spectator-list">{room.spectators.map((spectator) => (
                 <ParticipantRow
                   key={spectator.id}
                   participant={spectator}
@@ -892,7 +831,7 @@ function SideTabPanel({ g, room, session }: {
                   effect={g.reactionEffects[spectator.id]}
                   onReact={g.sendReaction}
                 />
-              ))}
+              ))}</div>
             </>
           ) : null}
 
@@ -951,7 +890,7 @@ function RevealBanner({ reveal }: { reveal: NonNullable<ReturnType<typeof useGam
     : reveal.outcome === "neutral-hit" ? `${teamLabel} 猜到中立词`
     : `${teamLabel} 踩中刺客`;
   return (
-    <section className={`reveal-banner reveal-${reveal.outcome}`} style={{ marginBottom: 12, padding: 16, borderRadius: 14, background: "var(--surface-soft)" }}>
+    <section className={`reveal-banner reveal-${reveal.outcome}`} role="status">
       <h2 style={{ margin: 0, fontSize: 18 }}>{title}</h2>
       <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
         <span className="score-chip">{reveal.word}</span>
@@ -992,19 +931,6 @@ function ReactionBanner({ reaction }: { reaction: import("@acg-codenames/shared"
           );
         })}
       </div>
-    </div>
-  );
-}
-
-function MessageRow({ message, selfId }: { message: ChatMessage; selfId?: string }) {
-  const isSelf = selfId && message.playerId === selfId;
-  return (
-    <div className={`chat-message ${isSelf ? "chat-self" : ""} ${message.type === "system" ? "chat-system" : ""} ${message.type === "reaction" ? "chat-reaction" : ""}`}>
-      <div className="chat-meta">
-        <strong>{message.nickname ?? "系统"}</strong>
-        <span>{new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
-      </div>
-      <p>{message.text}</p>
     </div>
   );
 }

@@ -1,0 +1,26 @@
+{
+  "fixtureOnly": true,
+  "matrixScreenshots": 80,
+  "screens": [
+    {
+      "file": "board-desktop.png",
+      "sha256": "8ce1d888b8f239f08b8950c2b5fbcc13a55c16756e50148b5dfe22c322ce0b0b"
+    },
+    {
+      "file": "board-mobile.png",
+      "sha256": "ef195b3429f3593c9c923d69657dce65001ba45a049f27ec3b969d6ca1ac0f0f"
+    },
+    {
+      "file": "replay-desktop.png",
+      "sha256": "42bed5664189e3bfb55dbace71444c5d8eff89f9bcad0e42f0b8117e4911c9cf"
+    },
+    {
+      "file": "replay-mobile.png",
+      "sha256": "bae9fde54cd85f34721a2346cf76fd3cf79cad5595fab5e71b0a0cab77565a5c"
+    },
+    {
+      "file": "board-export.png",
+      "sha256": "4f62d6df4981f094f39e013273296eeb78cdebbef63a987c6f36ee44705aa00a"
+    }
+  ]
+}

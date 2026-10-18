@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useGame } from "../context/GameContext";
 import { CandidateReview } from "../lib/CandidateReview";
+import { copyText } from "../lib/clipboard";
 import type { SavedWordPack, PublicWordPack, PublicWordPackSummary } from "@acg-codenames/shared";
 
 export function PacksPage() {
@@ -25,9 +26,9 @@ export function PacksPage() {
   const filter = (name: string) => name.toLowerCase().includes(search.toLowerCase());
 
   const copyEntries = useCallback((entries: string[]) => {
-    navigator.clipboard.writeText(entries.join("\n")).then(() => {
-      alert(`已复制 ${entries.length} 个词条到剪贴板`);
-    }).catch(() => {});
+    void copyText(entries.join("\n")).then(ok => {
+      if (ok) alert(`已复制 ${entries.length} 个词条到剪贴板`);
+    });
   }, []);
 
   const downloadFile = useCallback((name: string, content: string, ext: string, mime: string) => {

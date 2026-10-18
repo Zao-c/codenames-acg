@@ -10,7 +10,12 @@ coverage/
 *.log
 *.tsbuildinfo
 artifacts/
+output/playwright/
 apps/server/data/*.json
 apps/server/data/*.json.bak
 apps/server/apps/server/data/*.json
 apps/server/apps/server/data/*.json.bak
+apps/server/data/anime-covers/
+
+# Regenerable public image cache; never a source artifact
+**/data/public-cache/

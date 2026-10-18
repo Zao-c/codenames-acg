@@ -1,0 +1,23 @@
+{
+  "comment": "Explicit title-to-series corrections; keep Fate branches and Gundam timelines separate. Add full titles after catalog review.",
+  "titles": {
+    "Fate/Zero": "fate-zero",
+    "Fate/Zero 第二季": "fate-zero",
+    "Fate/stay night": "fate-stay-night",
+    "Fate/stay night [Unlimited Blade Works]": "fate-ubw",
+    "Fate/stay night [Unlimited Blade Works] 第二季": "fate-ubw",
+    "Fate/stay night UNLIMITED BLADE WORKS": "fate-ubw",
+    "剧场版 Fate/stay night [Heaven's Feel] I.presage flower": "fate-heavens-feel",
+    "剧场版 Fate/stay night [Heaven's Feel] II.lost butterfly": "fate-heavens-feel",
+    "剧场版 Fate/stay night [Heaven's Feel] III.spring song": "fate-heavens-feel",
+    "剧场版 Fate/Grand Order 神圣圆桌领域卡美洛 前篇 漂泊的银之臂": "fate-camelot",
+    "剧场版 Fate/Grand Order 神圣圆桌领域卡美洛 后篇 圣冠的骑士": "fate-camelot",
+    "机动战士高达SEED": "gundam-seed",
+    "机动战士高达SEED DESTINY": "gundam-seed",
+    "机动战士高达SEED FREEDOM": "gundam-seed",
+    "机动战士高达 水星的魔女": "gundam-witch",
+    "机动战士高达 水星的魔女 第二季": "gundam-witch",
+    "轻音少女": "k-on",
+    "轻音少女 第二季": "k-on"
+  }
+}

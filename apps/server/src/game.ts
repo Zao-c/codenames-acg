@@ -1,4 +1,7 @@
 import crypto from "node:crypto";
+import { canRestoreNamedParticipant, editAnalysis, initializeAnalysis, markSecretExposure, registerPrincipal, snapshotBeforeReveal } from './match-analysis.js';
+import { editPrediction } from './predictions.js';
+import { PrivateReplayStore } from './private-replay.js';
 import { AsyncLocalStorage } from "node:async_hooks";
 import {
   BOARD_MODE_CONFIG,
@@ -12,10 +15,6 @@ import {
   MIN_PLAYERS_TO_START,
   PLAYER_ROLE_LABELS,
   ROOM_ID_LENGTH,
-  ROOM_TTL_LOBBY_IDLE_SECONDS,
-  ROOM_TTL_FINISHED_SECONDS,
-  ROOM_TTL_EMPTY_SECONDS,
-  ROOM_TTL_PLAYING_IDLE_SECONDS,
   TEAM_LABELS,
   buildRoomSummary,
   createCustomWordPack,
@@ -55,11 +54,23 @@ import {
   type RoundHighlight,
   type RoundHighlightCard,
 } from "@acg-codenames/shared";
-import { REPLAY_TTL_SECONDS } from "./store.js";
+import { REPLAY_TTL_SECONDS, computeRoomTTL } from "./store.js";
 import type { ReplayStore, RoomSession, RoomStore, UserStore } from "./types.js";
+import { animeCatalog, animeCatalogFor } from './anime-catalog.js';
+import { candidatesFor, editDraft, makePlan, sealDraft, validatePlanRoster } from './anime-draft.js';
+import type { PlanAction, NextPlan } from '@acg-codenames/shared';
 
 function sampleId(length: number): string {
   return crypto.randomBytes(length).toString("hex").slice(0, length).toUpperCase();
+}
+
+function validateOnlineStart(room: Room): void {
+  for(const team of ['red','blue'] as const){
+    const captain=room.players.find(p=>p.team===team&&(room.nextPlan?p.id===room.nextPlan.captains[team]:p.role==='spymaster'));
+    if(!captain?.connected&&!captain?.isBot)throw new Error(`${TEAM_LABELS[team]}队长离线，请等待恢复或由房主交接后开局`);
+    const exposed=room.nextPlan?.exposedPlayerIds??[];
+    if(!room.players.some(p=>p.team===team&&p.id!==captain?.id&&(p.connected||p.isBot)&&!exposed.includes(p.id)))throw new Error(`${TEAM_LABELS[team]}缺少在线且未接触密钥的队员，暂不能开局`);
+  }
 }
 
 async function generateUniqueRoomId(store: RoomStore): Promise<string> {
@@ -72,6 +83,7 @@ async function generateUniqueRoomId(store: RoomStore): Promise<string> {
 
 const NEUTRAL_COUNT_OPTIONS = {
   "5x5": [3, 5, 7, 9, 11],
+  "6x6": [10],
   "7x7": [7, 9, 11, 13, 15, 17, 19],
   "9x9": [15, 19, 21, 25]
 } as const;
@@ -239,6 +251,16 @@ function withEvent(room: Room, lastEvent: string, message?: ChatMessage): Room {
   };
 }
 
+/** One public diagnostic entry per member per minute; presence is always immediate. */
+function withConnectionEvent(room: Room, participant: Player | Spectator, connected: boolean): Room {
+  const at=now();
+  const previous=[...room.messages].reverse().find(m=>m.connection?.participantId===participant.id&&at-m.createdAt<60_000);
+  const connection={participantId:participant.id,disconnects:(previous?.connection?.disconnects??0)+(connected?0:1),reconnects:(previous?.connection?.reconnects??0)+(connected?1:0),connected,lastChangedAt:at};
+  const text=`${participant.nickname} · ${connected?'已恢复连接':'暂时离线'} · 本分钟断线 ${connection.disconnects} 次 / 恢复 ${connection.reconnects} 次`;
+  const message={...previous,...(previous?{}:createMessage('system',text)),text,connection} as ChatMessage;
+  return {...room,updatedAt:at,lastEvent:text,messages:previous?room.messages.map(m=>m.id===previous.id?message:m):trimMessages([...room.messages,message])};
+}
+
 function requirePlayer(room: Room, playerId: string): Player {
   const player = room.players.find((entry) => entry.id === playerId);
   if (!player) {
@@ -260,9 +282,17 @@ function requireParticipant(room: Room, participantId: string, participantType: 
 }
 
 function requireLobby(room: Room): void {
-  if (room.phase !== "lobby") {
+  if (room.phase !== "lobby" || room.countdown || room.nextPlan?.lockedPlayerIds || room.nextPlan?.stage === "sealed") {
     throw new Error("当前不在准备阶段");
   }
+}
+
+function syncLobbyCaptains(room: Room): void {
+  if (!room.nextPlan) return;
+  room.nextPlan.captains = {};
+  for (const p of room.players) if (p.team && p.role === 'spymaster') room.nextPlan.captains[p.team] = p.id;
+  room.nextPlan.ready = { red:false, blue:false };
+  room.nextPlan.done = { red:false, blue:false };
 }
 
 function requirePlaying(room: Room): void {
@@ -286,7 +316,7 @@ function validateStart(room: Room): void {
     }
   }
 
-  validateWordPackForMode(room.wordPack, room.settings.boardMode);
+  if (room.settings.variant !== "anime") validateWordPackForMode(room.wordPack, room.settings.boardMode);
 }
 
 function updateScores(scores: Room["scores"], winner: Team | null): Room["scores"] {
@@ -315,11 +345,18 @@ function promoteQueuedSpectators(room: Room): {
     };
   }
 
-  const queueToPromote = room.joinQueue.slice(0, openSlots);
+  const queueToPromote: JoinRequest[] = [];
+  for (const entry of room.joinQueue) {
+    if (queueToPromote.length >= openSlots) break;
+    const spectator = room.spectators.find((candidate) => candidate.id === entry.spectatorId);
+    // Never silently promote an offline spectator or one without a restorable session.
+    if (spectator && spectator.connected !== false && spectator.sessionToken) queueToPromote.push(entry);
+  }
   const promotedIds = new Set(queueToPromote.map((entry) => entry.spectatorId));
   const promoted = room.spectators.filter((spectator) => promotedIds.has(spectator.id));
   const spectators = room.spectators.filter((spectator) => !promotedIds.has(spectator.id));
   const players = [...room.players, ...promoted.map(createPlayerFromSpectator)];
+  // Offline candidates keep their position and stay in the queue.
   const joinQueue = room.joinQueue.filter((entry) => !promotedIds.has(entry.spectatorId));
 
   return { players, spectators, joinQueue, promoted };
@@ -388,7 +425,7 @@ function emptyRoundScore(team: Team): RoundScoreDetail {
 }
 
 function computeScoreDelta(round: RoundScoreDetail): number {
-  return round.ownPoints + round.comboBonus - round.neutralPenalty - round.opponentPointsLost - round.assassinPenalty + round.precisionBonus + round.victoryBonus;
+  return round.ownPoints + round.comboBonus - round.neutralPenalty - round.opponentPointsLost - round.assassinPenalty - (round.timeoutPenalty ?? 0) + round.precisionBonus + round.victoryBonus;
 }
 
 function applyScore(room: Room, team: Team, delta: number): { scores: RoomScore } {
@@ -519,6 +556,11 @@ function computeAchievements(room: Room): Achievement[] {
 function resetPerGameReviewState(room: Room): Room {
   return {
     ...room,
+    replayId: undefined,
+    endReason: undefined,
+    exposedPlayerIds: [],
+    privateMatch: undefined,
+    roundHighlights: [],
     clueRecords: [],
     roundScoreHistory: [],
     playerStats: {},
@@ -531,18 +573,26 @@ function resetPerGameReviewState(room: Room): Room {
 
 function finalizeAchievements(room: Room): Room {
   if (room.phase !== "finished" || room.achievements) return room;
-  return { ...room, achievements: computeAchievements(room) };
+  return { ...room, endReason: room.endReason ?? "normal", achievements: computeAchievements(room) };
 }
 
 export class GameService {
+  private readonly privateReplays = new PrivateReplayStore();
   private readonly roomLocks = new Map<string, Promise<void>>();
-  private readonly heldRoomLocks = new AsyncLocalStorage<Set<string>>();
+  /**
+   * AsyncLocalStorage propagates into timers created inside a lock. Tracking a per-acquisition
+   * token (not just the room id) prevents a stale disconnect timer from believing it still holds
+   * the room lock after the original call returned.
+   */
+  private readonly heldRoomLocks = new AsyncLocalStorage<Map<string, symbol>>();
+  private readonly roomLockTokens = new Map<string, symbol>();
+  private readonly duplicateRequestFlags = new Map<string, boolean>();
   private readonly disconnectKickTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   constructor(
     private readonly store: RoomStore,
     private readonly users: UserStore,
-    private readonly options: { enableDebugTools: boolean; disconnectKickDelayMs?: number } = { enableDebugTools: false },
+    private readonly options: { enableDebugTools: boolean; disconnectKickDelayMs?: number; hostTakeoverGraceMs?: number; enableAnimeDraft?: boolean; enableMatchAnalysis?: boolean; enablePredictions?: boolean; resolveCommunityPool?: (id: string, principalId: string) => Promise<import('@acg-codenames/shared').CommunityPool>; resolveManualWorks?: (ids: number[]) => Promise<import('@acg-codenames/shared').AnimeWork[]> } = { enableDebugTools: false },
     private readonly replayStore?: ReplayStore
   ) {}
 
@@ -569,7 +619,9 @@ export class GameService {
   }
 
   private async withRoomLock<T>(roomId: string, fn: () => Promise<T>): Promise<T> {
-    if (this.heldRoomLocks.getStore()?.has(roomId)) {
+    const held = this.heldRoomLocks.getStore();
+    const token = held?.get(roomId);
+    if (token && this.roomLockTokens.get(roomId) === token) {
       return fn();
     }
     const prev = this.roomLocks.get(roomId) ?? Promise.resolve();
@@ -579,9 +631,15 @@ export class GameService {
     this.roomLocks.set(roomId, chained);
     try {
       await prev;
-      const held = new Set(this.heldRoomLocks.getStore() ?? []);
-      held.add(roomId);
-      return await this.heldRoomLocks.run(held, fn);
+      const acquired = Symbol(roomId);
+      const context = new Map(held ?? []);
+      context.set(roomId, acquired);
+      this.roomLockTokens.set(roomId, acquired);
+      try {
+        return await this.heldRoomLocks.run(context, fn);
+      } finally {
+        if (this.roomLockTokens.get(roomId) === acquired) this.roomLockTokens.delete(roomId);
+      }
     } finally {
       release();
       if (this.roomLocks.get(roomId) === chained) {
@@ -590,7 +648,41 @@ export class GameService {
     }
   }
 
-  async createRoom(nickname: string, profile?: Partial<UserProfile>, sessionToken?: string): Promise<{ room: Room; player: Player }> {
+  /** Reads and clears a duplicate marker set by the last idempotent action. */
+  takeDuplicateRequest(roomId: string, requestId?: string): boolean {
+    if (!requestId) return false;
+    const key = `${roomId}:${requestId}`;
+    const value = this.duplicateRequestFlags.get(key) === true;
+    this.duplicateRequestFlags.delete(key);
+    return value;
+  }
+
+  private normalizeRequestId(value: unknown): string | undefined {
+    if (value === undefined || value === null) return undefined;
+    if (typeof value !== 'string' || !/^[A-Za-z0-9:_-]{8,128}$/.test(value)) throw new Error('请求标识无效，请重试');
+    return value;
+  }
+
+  private requestAlreadyHandled(room: Room, requestId: string | undefined): boolean {
+    if (!requestId) return false;
+    const record = room.requestLog?.[requestId];
+    if (!record) return false;
+    if (Date.now() - record.at > 15 * 60_000) return false;
+    this.duplicateRequestFlags.set(`${room.id}:${requestId}`, true);
+    return true;
+  }
+
+  private recordRequest(room: Room, requestId: string | undefined, action: 'submit_clue' | 'guess_card' | 'end_turn'): void {
+    if (!requestId) return;
+    const cutoff = Date.now() - 15 * 60_000;
+    const log = Object.fromEntries(Object.entries(room.requestLog ?? {}).filter(([, record]) => record.at >= cutoff));
+    const entries = Object.entries(log);
+    if (entries.length >= 200) entries.sort((a, b) => a[1].at - b[1].at).splice(0, entries.length - 199);
+    room.requestLog = { ...Object.fromEntries(entries), [requestId]: { at: Date.now(), action, roomVersion: room.updatedAt } };
+    this.duplicateRequestFlags.set(`${room.id}:${requestId}`, false);
+  }
+
+  async createRoom(nickname: string, profile?: Partial<UserProfile>, sessionToken?: string, principalId?: string): Promise<{ room: Room; player: Player }> {
     const resolvedProfile = await this.users.resolveProfile(profile, sessionToken);
     const player = await buildPlayer(nickname, true, resolvedProfile);
     const roomId = await generateUniqueRoomId(this.store);
@@ -617,6 +709,8 @@ export class GameService {
       lastEvent: `${player.nickname} 创建了密令房 ✨`,
       lastReveal: null
     };
+    room.animeEnabled = this.options.enableAnimeDraft === true;
+    registerPrincipal(room, player.id, principalId);
     const nextRoom = withEvent(room, room.lastEvent);
     await this.store.setRoom(nextRoom);
     await this.store.setPlayerSession(player.sessionToken!, createSession(nextRoom.id, player.id, "player"));
@@ -635,10 +729,9 @@ export class GameService {
     return this.store.getRoom(roomId);
   }
 
-  async joinRoom(roomId: string, nickname: string, profile?: Partial<UserProfile>, sessionToken?: string): Promise<{ room: Room; player: Player }> {
+  async joinRoom(roomId: string, nickname: string, profile?: Partial<UserProfile>, sessionToken?: string, principalId?: string): Promise<{ room: Room; player: Player }> {
     return this.withRoomLock(roomId, async () => {
     const room = await this.requireRoom(roomId);
-    requireLobby(room);
 
     const cleanNickname = normalizeNickname(nickname);
     const resolvedProfile = await this.users.resolveProfile(profile, sessionToken);
@@ -647,21 +740,32 @@ export class GameService {
       (entry) => entry.nickname === cleanNickname
     );
     if (existing) {
-      if ("connected" in existing && !existing.connected && sameStableProfileIdentity(existing.profile, resolvedProfile)) {
+      if ("connected" in existing && (!existing.connected || !!principalId && room.participantPrincipals?.[existing.id] === principalId) && (sameStableProfileIdentity(existing.profile, resolvedProfile) || existing.profile.accountType==='guest'&&resolvedProfile.accountType==='guest'&&!!principalId&&room.participantPrincipals?.[existing.id]===principalId)
+        && canRestoreNamedParticipant(room, existing.id, principalId, this.options.enableMatchAnalysis === true)) {
         if ("team" in existing) {
+          this.clearDisconnectKickTimer(roomId, existing.id, "player");
+          const wasConnected=existing.connected;
           existing.connected = true;
-          existing.sessionToken = crypto.randomUUID();
-          const nextRoom = withEvent(room, `${existing.nickname} 已重连`);
+          existing.sessionToken ??= crypto.randomUUID();
+          if (room.hostPlayerId === existing.id) {
+            room.hostOfflineSince = undefined;
+            if (room.hostTakeover) room.hostTakeover = undefined;
+          } else if (room.hostTakeover?.candidateId === existing.id) {
+            room.hostTakeover.approvals = room.hostTakeover.approvals.filter(id => id !== existing.id);
+          }
+          const nextRoom = wasConnected?room:withConnectionEvent(room,existing,true);
           await this.store.setRoom(nextRoom);
           await this.store.setPlayerSession(existing.sessionToken!, createSession(nextRoom.id, existing.id, "player"));
           return { room: nextRoom, player: existing };
         }
 
+        if (room.phase === 'playing' || room.countdown || room.nextPlan?.lockedPlayerIds) throw new Error('本局名单已锁定，请旁观并排队下一局');
         room.spectators = room.spectators.filter((s) => s.id !== existing.id);
         if (room.players.length >= MAX_PLAYERS) {
           room.spectators.push(existing);
           throw new Error("房间已满");
         }
+        this.clearDisconnectKickTimer(roomId, existing.id, "spectator");
         const convertedPlayer = createPlayerFromSpectator(existing);
         if (room.hostPlayerId === existing.id) {
           convertedPlayer.isHost = true;
@@ -674,12 +778,14 @@ export class GameService {
       throw new Error("昵称已被占用");
     }
 
+    if (room.phase === 'playing' || room.countdown || room.nextPlan?.lockedPlayerIds) throw new Error('本局名单已锁定，请旁观并排队下一局');
     if (room.players.length >= MAX_PLAYERS) {
       throw new Error("房间已满");
     }
 
     const player = await buildPlayer(cleanNickname, false, resolvedProfile);
     const nextRoom = withEvent({ ...room, players: [...room.players, player] }, `${player.nickname} 加入了结社 (｡･∀･)ﾉﾞ`);
+    registerPrincipal(nextRoom, player.id, principalId);
     await this.store.setRoom(nextRoom);
     await this.store.setPlayerSession(player.sessionToken!, createSession(nextRoom.id, player.id, "player"));
     return { room: nextRoom, player };
@@ -690,7 +796,8 @@ export class GameService {
     roomId: string,
     nickname: string,
     profile?: Partial<UserProfile>,
-    sessionToken?: string
+    sessionToken?: string,
+    principalId?: string
   ): Promise<{ room: Room; spectator: Spectator }> {
     return this.withRoomLock(roomId, async () => {
     const room = await this.requireRoom(roomId);
@@ -701,13 +808,16 @@ export class GameService {
       (entry) => entry.nickname === cleanNickname
     );
     if (existing) {
-      if ("connected" in existing && !existing.connected && sameStableProfileIdentity(existing.profile, resolvedProfile)) {
+      if ("connected" in existing && (!existing.connected || !!principalId&&room.participantPrincipals?.[existing.id]===principalId) && (sameStableProfileIdentity(existing.profile, resolvedProfile)||existing.profile.accountType==='guest'&&resolvedProfile.accountType==='guest'&&!!principalId&&room.participantPrincipals?.[existing.id]===principalId)
+        && canRestoreNamedParticipant(room, existing.id, principalId, this.options.enableMatchAnalysis === true)) {
         if ("team" in existing) {
           throw new Error("你是本局玩家，请以玩家身份重连");
         }
+        this.clearDisconnectKickTimer(roomId, existing.id, "spectator");
+        const wasConnected=existing.connected;
         existing.connected = true;
-        existing.sessionToken = crypto.randomUUID();
-        const nextRoom = withEvent(room, `${existing.nickname} 已重连`);
+        existing.sessionToken ??= crypto.randomUUID();
+        const nextRoom = wasConnected?room:withConnectionEvent(room,existing,true);
         await this.store.setRoom(nextRoom);
         await this.store.setPlayerSession(existing.sessionToken!, createSession(nextRoom.id, existing.id, "spectator"));
         return { room: nextRoom, spectator: existing };
@@ -723,6 +833,7 @@ export class GameService {
       },
       `${spectator.nickname} 进入旁观 👀`
     );
+    registerPrincipal(nextRoom, spectator.id, principalId);
     await this.store.setRoom(nextRoom);
     await this.store.setPlayerSession(spectator.sessionToken!, createSession(nextRoom.id, spectator.id, "spectator"));
     return { room: nextRoom, spectator };
@@ -731,7 +842,8 @@ export class GameService {
 
   async reconnectRoom(
     roomId: string,
-    sessionToken: string
+    sessionToken: string,
+    principalId?: string
   ): Promise<{ room: Room; participantId: string; participantType: ParticipantType }> {
     return this.withRoomLock(roomId, async () => {
     const session = await this.store.getPlayerSession(sessionToken);
@@ -741,11 +853,56 @@ export class GameService {
 
     const room = await this.requireRoom(roomId);
     const participant = requireParticipant(room, session.participantId, session.participantType);
+    if (!canRestoreNamedParticipant(room, participant.id, principalId, false)) throw new Error('重连凭证与当前身份不匹配');
+    if (participant.sessionToken !== sessionToken) throw new Error('重连凭证已失效');
+    this.clearDisconnectKickTimer(roomId, participant.id, session.participantType);
+    const wasConnected=participant.connected;
     participant.connected = true;
+    await this.store.setPlayerSession(sessionToken,session);
+    if (room.hostPlayerId === participant.id) {
+      room.hostOfflineSince = undefined;
+      if (room.hostTakeover) room.hostTakeover = undefined;
+    } else if (room.hostTakeover?.candidateId === participant.id) {
+      room.hostTakeover.approvals = room.hostTakeover.approvals.filter(id => id !== participant.id);
+    }
 
-    const nextRoom = withEvent(room, `${participant.nickname} 已重连`);
+    const nextRoom = wasConnected?room:withConnectionEvent(room,participant,true);
     await this.store.setRoom(nextRoom);
     return { room: nextRoom, participantId: session.participantId, participantType: session.participantType };
+    });
+  }
+
+  async manageMember(roomId: string, actorId: string, targetId: string, action: {kind:'team'|'role'|'remove';team?:Team|null;role?:PlayerRole}): Promise<Room> {
+    return this.withRoomLock(roomId,async()=>{
+      const room=await this.requireRoom(roomId);
+      const actor=requirePlayer(room,actorId);
+      if(room.hostPlayerId!==actorId||!actor.isHost||!actor.connected)throw new Error('只有在线房主可以管理成员');
+      if(room.gameMode==='reveal-guess'||room.revealGuessState)throw new Error('揭幕猜番请使用原有房间管理');
+      if(room.phase!=='lobby'||room.countdown||room.nextPlan?.lockedPlayerIds||room.nextPlan&&room.nextPlan.stage!=='planning')throw new Error('仅未锁定大厅允许管理；请先取消队长预览或准备');
+      const player=room.players.find(p=>p.id===targetId);
+      const spectator=room.spectators.find(p=>p.id===targetId);
+      if(!player&&!spectator)throw new Error('目标成员不在本房间');
+      if(action.kind==='remove'){
+        if(targetId===actorId)throw new Error('请使用退出房间或转让房主');
+        const result=await this.leaveRoom(roomId,targetId,player?'player':'spectator');
+        if(!result)throw new Error('房间已关闭');
+        // The removed id no longer exists, so its recovery token cannot restore a seat.
+        // Never revoke an account or unrelated room session.
+        if(result.participantPrincipals)delete result.participantPrincipals[targetId];
+        const next=withEvent(result,`${(player??spectator)!.nickname} 已被房主移出房间`);
+        await this.store.setRoom(next);return next;
+      }
+      if(!player)throw new Error('旁观者不能被直接分配玩家席位');
+      if(action.kind==='team'){
+        if(action.team!==null&&action.team!=='red'&&action.team!=='blue')throw new Error('队伍无效');
+        if(player.team===action.team)return room;
+        return this.setTeam(roomId,targetId,action.team);
+      }
+      if(action.kind!=='role'||action.role!=='operative'&&action.role!=='spymaster')throw new Error('管理操作无效');
+      if(!player.team)throw new Error('请先分配队伍');
+      if(player.role===action.role)return room;
+      if(action.role==='spymaster')for(const other of room.players)if(other.id!==targetId&&other.team===player.team&&other.role==='spymaster')other.role='operative';
+      return this.setRole(roomId,targetId,action.role);
     });
   }
 
@@ -755,6 +912,7 @@ export class GameService {
     requireLobby(room);
     const player = requirePlayer(room, playerId);
 
+    if (room.nextPlan) room.nextPlan.ready = { red:false, blue:false };
     player.team = team;
     if (!team) {
       player.role = "operative";
@@ -770,6 +928,7 @@ export class GameService {
       player.role = "operative";
     }
 
+    syncLobbyCaptains(room);
     const nextRoom = withEvent(room, `${player.nickname} 调整了队伍`);
     await this.store.setRoom(nextRoom);
     return nextRoom;
@@ -792,14 +951,16 @@ export class GameService {
       throw new Error("这个队伍已经有队长了");
     }
 
+    if (room.nextPlan) room.nextPlan.ready = { red:false, blue:false };
     player.role = role;
+    syncLobbyCaptains(room);
     const nextRoom = withEvent(room, `${player.nickname} 切换为${PLAYER_ROLE_LABELS[role]}`);
     await this.store.setRoom(nextRoom);
     return nextRoom;
     });
   }
 
-  async randomizeTeams(roomId: string, playerId: string): Promise<Room> {
+  async randomizeTeams(roomId: string, playerId: string, mode: 'all' | 'keep-captains' = 'all'): Promise<Room> {
     return this.withRoomLock(roomId, async () => {
     const room = await this.requireRoom(roomId);
     requireLobby(room);
@@ -810,37 +971,30 @@ export class GameService {
       throw new Error("至少需要 4 名玩家才能随机分队");
     }
 
-    const shuffledPlayers = shuffle(room.players);
-    const firstTeam: Team = Math.random() >= 0.5 ? "red" : "blue";
-    const secondTeam = nextTeam(firstTeam);
-    const firstTeamSize = Math.ceil(shuffledPlayers.length / 2);
-    const firstTeamPlayers = shuffledPlayers.slice(0, firstTeamSize);
-    const secondTeamPlayers = shuffledPlayers.slice(firstTeamSize);
-
-    if (firstTeamPlayers.length < 2 || secondTeamPlayers.length < 2) {
-      throw new Error("至少需要 4 名玩家才能随机分队");
+    if (mode !== 'all' && mode !== 'keep-captains') throw new Error('分队方式无效');
+    const captains: Partial<Record<Team,string>> = {};
+    if (mode === 'keep-captains') {
+      for (const team of ['red','blue'] as const) {
+        const id = room.nextPlan?.captains[team] ?? room.players.find(p => p.team === team && p.role === 'spymaster')?.id;
+        if (!id || !room.players.some(p => p.id === id && p.team === team)) throw new Error('请先指定红蓝两队队长');
+        captains[team] = id;
+      }
     }
-
-    const assignment = new Map<string, { team: Team; role: PlayerRole }>();
-    firstTeamPlayers.forEach((player, index) => {
-      assignment.set(player.id, { team: firstTeam, role: index === 0 ? "spymaster" : "operative" });
-    });
-    secondTeamPlayers.forEach((player, index) => {
-      assignment.set(player.id, { team: secondTeam, role: index === 0 ? "spymaster" : "operative" });
-    });
-
-    const nextPlayers = room.players.map((player) => {
-      const next = assignment.get(player.id);
-      return next ? { ...player, team: next.team, role: next.role } : player;
-    });
-    const nextRoom = withEvent(
-      {
-        ...room,
-        players: nextPlayers
-      },
-      "房主随机分配了红蓝队"
-    );
+    const remaining = shuffle(room.players.filter(p => !Object.values(captains).includes(p.id)));
+    const firstTeam: Team = Math.random() >= 0.5 ? 'red' : 'blue';
+    const other = nextTeam(firstTeam);
+    const firstSize = Math.ceil(room.players.length / 2) - (captains[firstTeam] ? 1 : 0);
+    const assignments = new Map<string, {team:Team;role:PlayerRole}>();
+    for (const team of [firstTeam,other]) {
+      const entries = team === firstTeam ? remaining.slice(0,firstSize) : remaining.slice(firstSize);
+      const captain = captains[team] ?? entries[0].id;
+      assignments.set(captain,{team,role:'spymaster'});
+      for (const p of entries) assignments.set(p.id,{team,role:p.id === captain ? 'spymaster' : 'operative'});
+    }
+    const nextRoom = withEvent({ ...room, players: room.players.map(p => ({...p,...assignments.get(p.id)!})) },
+      mode === 'keep-captains' ? '房主保留队长，重新随机分配了队员' : '房主重新随机分配了全员与队长');
     validateStart(nextRoom);
+    syncLobbyCaptains(nextRoom);
     await this.store.setRoom(nextRoom);
     return nextRoom;
     });
@@ -870,6 +1024,7 @@ export class GameService {
     }
 
     const nextBoardMode = payload.boardMode ?? room.settings.boardMode;
+    if (nextBoardMode === "6x6") throw new Error("经典模式不支持 6×6，请从下局动画配置选择");
     const boardModeChanged = nextBoardMode !== room.settings.boardMode;
 
     let nextNeutralCount: number | undefined;
@@ -912,6 +1067,9 @@ export class GameService {
       },
       `房主更新了密令房设置：${nextBoardMode} / ${nextWordPack.name}`
     );
+    if (nextRoom.nextPlan?.variant === 'classic') {
+      nextRoom.nextPlan = { ...nextRoom.nextPlan, settings: { ...nextRoom.settings }, wordPack: nextWordPack };
+    }
     await this.store.setRoom(nextRoom);
     return nextRoom;
     });
@@ -957,15 +1115,44 @@ export class GameService {
 
   async startGame(roomId: string, playerId: string): Promise<Room> {
     return this.withRoomLock(roomId, async () => {
-    const room = await this.requireRoom(roomId);
-    requireLobby(room);
+      const room = await this.requireRoom(roomId);
+      if (room.hostPlayerId !== playerId) throw new Error("只有房主可以开局");
+      if (room.countdown) return room;
+      if (room.phase !== 'lobby') throw new Error('当前不在准备阶段');
+      if (room.nextPlan) {
+        if (room.nextPlan.variant === 'anime' && room.nextPlan.stage !== 'sealed') throw new Error('请先完成双队长组牌并封存');
+        if(room.nextPlan.variant==='anime'&&room.nextPlan.settings.animeSeriesRotation===true&&room.nextPlan.sealedBoard?.some(c=>c.anime&&room.seriesHistory?.[c.anime.seriesId]!==undefined))throw new Error('轮换历史已变化，请取消准备并更新候选池');
+        validatePlanRoster(room, room.nextPlan);
+      } else validateStart(room);
+      if (room.settings.ruleSet !== "codenames") throw new Error("请使用揭幕猜番开局入口");
+      validateOnlineStart(room);
+      const nextRoom = withEvent({ ...room, countdown: { matchId: room.nextPlan?.matchId ?? crypto.randomUUID(), startsAt: now() + 5000, hostId: playerId } }, "五秒后开始对局");
+      await this.store.setRoom(nextRoom);
+      return nextRoom;
+    });
+  }
+
+  private async beginGame(roomId: string, playerId: string): Promise<Room> {
+    return this.withRoomLock(roomId, async () => {
+    let room = structuredClone(await this.requireRoom(roomId));
+    const plan = room.nextPlan;
+    if (plan) {
+      if (plan.variant === 'anime' && (plan.stage !== 'sealed' || !plan.sealedBoard)) throw new Error('棋盘尚未封存');
+      validatePlanRoster(room, plan);
+      room = { ...room, settings: plan.settings, wordPack: plan.wordPack,
+        players: room.players.map(p => ({ ...p, role: p.team && plan.captains[p.team] === p.id ? 'spymaster' as const : 'operative' as const })) };
+    }
+    if (room.phase !== 'lobby') throw new Error('当前不在准备阶段');
     if (room.hostPlayerId !== playerId) {
       throw new Error("只有房主可以开局");
     }
 
     validateStart(room);
-    const startingTeam: Team = Math.random() >= 0.5 ? "red" : "blue";
-    const { board, remainingCounts } = generateBoard(room.wordPack, room.settings.boardMode, startingTeam, room.settings.neutralCount, room.usedWordIds);
+    validateOnlineStart(room);
+    const startingTeam: Team = plan?.startingTeam ?? (Math.random() >= 0.5 ? "red" : "blue");
+    const { board, remainingCounts } = plan?.variant === 'anime'
+      ? { board: plan.sealedBoard!, remainingCounts: { red: plan.sealedBoard!.filter(c => c.role === 'red').length, blue: plan.sealedBoard!.filter(c => c.role === 'blue').length } }
+      : generateBoard(room.wordPack, room.settings.boardMode, startingTeam, room.settings.neutralCount, room.usedWordIds);
     const nextUsedWordIds = [...(room.usedWordIds ?? []), ...board.map((c) => c.wordId)];
     const timerMode: import("@acg-codenames/shared").TimerMode = room.settings.timerMode ?? "unlimited";
     const timerEndsAt = timerMode === "timed"
@@ -977,6 +1164,10 @@ export class GameService {
       {
         ...resetRoom,
         phase: "playing",
+        matchId: room.countdown?.matchId ?? crypto.randomUUID(),
+        gameStartedAt: now(),
+        scoresAtMatchStart: {...room.scores},
+        countdown: undefined,
         board,
         currentTeam: startingTeam,
         startingTeam,
@@ -995,6 +1186,25 @@ export class GameService {
       },
       `第 ${room.roundNumber} 局开始，${TEAM_LABELS[startingTeam]}先手 ٩(ˊᗜˋ*)و`
     );
+    nextRoom.matchId = plan?.matchId ?? nextRoom.matchId;
+    initializeAnalysis(nextRoom, this.options.enableMatchAnalysis === true, plan?.exposedPlayerIds, isSoloDebugController(nextRoom, nextRoom.hostPlayerId, this.options.enableDebugTools), this.options.enablePredictions === true);
+    nextRoom.exposedPlayerIds = plan?.exposedPlayerIds.filter(id => !Object.values(plan.captains).includes(id)) ?? [];
+    nextRoom.draftReview = plan?.variant === 'anime' ? {
+      matchId: nextRoom.matchId!, participantIds: plan.lockedPlayerIds ?? [],
+      interference: Object.entries(plan.claims).filter(([,c]) => c.kind === 'interference').map(([id,c]) => ({workId: Number(id), from: c.from!, team: c.team}))
+    } : undefined;
+    nextRoom.seriesHistory = { ...room.seriesHistory };
+    for (const card of board) if (card.anime) nextRoom.seriesHistory[card.anime.seriesId] = room.roundNumber;
+    if (plan || this.options.enableAnimeDraft) {
+      const next = makePlan(nextRoom, now());
+      if (plan) {
+        next.variant = plan.variant; next.settings = { ...plan.settings }; next.pool = plan.pool; next.poolName = plan.poolName;
+        next.sourcePool = plan.sourcePool;
+        next.candidates = candidatesFor(plan.pool, nextRoom.seriesHistory, Math.random, plan.settings.animeSeriesRotation === true);
+        next.captains = { ...plan.captains };
+      }
+      nextRoom.nextPlan = next;
+    }
     await this.store.setRoom(nextRoom);
     return nextRoom;
     });
@@ -1002,121 +1212,34 @@ export class GameService {
 
   async restartGame(roomId: string, playerId: string): Promise<Room> {
     return this.withRoomLock(roomId, async () => {
-    const room = await this.requireRoom(roomId);
-    if (room.phase !== "finished") {
-      throw new Error("只有对局结束后才能再来一把");
-    }
-    if (room.hostPlayerId !== playerId) {
-      throw new Error("只有房主可以再来一把");
-    }
-
-    const { players, spectators, joinQueue, promoted } = promoteQueuedSpectators(room);
-    const roundNumber = room.roundNumber + 1;
-
-    if (promoted.length > 0) {
-      const nextRoom = withEvent(
-        {
-          ...room,
-          phase: "lobby",
-          players: players.map((player) => ({
-            ...player,
-            isHost: player.id === room.hostPlayerId,
-            team: player.team,
-            role: player.role
-          })),
-          spectators,
-          joinQueue,
-          board: [],
-          currentTeam: "red",
-          startingTeam: "red",
-          clue: null,
-          remainingCounts: { red: 0, blue: 0 },
-          winner: null,
-          roundNumber,
-          lastReveal: null
-        },
-        `第 ${roundNumber} 局准备阶段，${promoted.length} 名旁观者补位成功`
-      );
-      await this.store.setRoom(nextRoom);
-      await Promise.all(
-        promoted
-          .filter((spectator) => spectator.sessionToken)
-          .map((spectator) =>
-            this.store.setPlayerSession(spectator.sessionToken!, createSession(room.id, spectator.id, "player"))
-          )
-      );
-      return nextRoom;
-    }
-
-    try {
-      validateStart(room);
-    } catch {
-      const nextRoom = withEvent(
-        {
-          ...room,
-          phase: "lobby",
-          players: room.players.map((player) => ({
-            ...player,
-            isHost: player.id === room.hostPlayerId,
-            team: player.team,
-            role: player.role
-          })),
-          board: [],
-          currentTeam: "red",
-          startingTeam: "red",
-          clue: null,
-          remainingCounts: { red: 0, blue: 0 },
-          winner: null,
-          roundNumber,
-          lastReveal: null
-        },
-        "人数不足，回到准备阶段等待玩家加入"
-      );
-      await this.store.setRoom(nextRoom);
-      return nextRoom;
-    }
-
-    const startingTeam: Team = Math.random() >= 0.5 ? "red" : "blue";
-    const { board, remainingCounts } = generateBoard(room.wordPack, room.settings.boardMode, startingTeam, room.settings.neutralCount, room.usedWordIds);
-    const nextUsedWordIds = [...(room.usedWordIds ?? []), ...board.map((c) => c.wordId)];
-    const timerMode: import("@acg-codenames/shared").TimerMode = room.settings.timerMode ?? "unlimited";
-    const timerEndsAt = timerMode === "timed" ? now() + getTimerDuration(room, "clue") * 1000 : undefined;
-    const resetRoom = resetPerGameReviewState(room);
-    const nextRoom = withEvent(
-      {
-        ...resetRoom,
-        phase: "playing",
-        board,
-        currentTeam: startingTeam,
-        startingTeam,
-        clue: null,
-        remainingCounts,
-        winner: null,
-        roundNumber,
-        lastReveal: null,
-        usedWordIds: nextUsedWordIds,
-        timerEndsAt,
-        timerPhase: timerMode === "timed" ? "clue" as const : undefined,
-        timerPaused: false,
-        consecutiveTimeouts: 0,
-        firstTurnBonusUsed: false
-      },
-      `第 ${roundNumber} 局开始，${TEAM_LABELS[startingTeam]}先手 ٩(ˊᗜˋ*)و`
-    );
-    await this.store.setRoom(nextRoom);
-    return nextRoom;
+      const room = await this.requireRoom(roomId);
+      if (room.hostPlayerId !== playerId) throw new Error("只有房主可以再来一把");
+      if (room.countdown) return room;
+      if (room.phase !== "finished") throw new Error("只有对局结束后才能再来一把");
+      await this.ensureReplay(roomId);
+      const lobby = await this.returnToLobby(roomId, playerId);
+      if (lobby.nextPlan?.variant === 'anime') return lobby;
+      try { if (lobby.nextPlan) validatePlanRoster(lobby,lobby.nextPlan); else validateStart(lobby); } catch { return lobby; }
+      return this.startGame(roomId, playerId);
     });
   }
 
   async returnToLobby(roomId: string, playerId: string): Promise<Room> {
     return this.withRoomLock(roomId, async () => {
-    const room = await this.requireRoom(roomId);
+    let room = await this.requireRoom(roomId);
     const host = requirePlayer(room, playerId);
     if (room.hostPlayerId !== playerId) {
       throw new Error("只有房主可以回到准备阶段");
     }
+    if(room.phase==='playing'){await this.forceEndGame(roomId,playerId,'abort');room=await this.requireRoom(roomId);}
+    if (room.phase === "finished") {
+      await this.ensureReplay(roomId);
+      room = await this.requireRoom(roomId);
+    }
     if (room.phase === "lobby") {
-      return room;
+      const cancelled = { ...room, countdown: undefined };
+      await this.store.setRoom(cancelled);
+      return cancelled;
     }
 
     const { players, spectators, joinQueue, promoted } = promoteQueuedSpectators(room);
@@ -1124,9 +1247,13 @@ export class GameService {
       {
         ...room,
         phase: "lobby",
+        replayId: undefined,
+        countdown: undefined,
+        endReason: room.phase === "playing" ? "abandoned" : room.endReason,
         players: players.map((player) => ({
           ...player,
-          isHost: player.id === room.hostPlayerId
+          isHost: player.id === room.hostPlayerId,
+          role: room.nextPlan ? player.team && room.nextPlan.captains[player.team] === player.id ? 'spymaster' : 'operative' : player.role
         })),
         spectators,
         joinQueue,
@@ -1184,9 +1311,110 @@ export class GameService {
       },
       `${currentHost.nickname} 将社长转让给 ${targetPlayer.nickname}`
     );
+    nextRoom.hostOfflineSince = undefined;
+    nextRoom.hostTakeover = undefined;
     await this.store.setRoom(nextRoom);
     return nextRoom;
     });
+  }
+
+  private hostGraceMs(): number {
+    const value = this.options.hostTakeoverGraceMs;
+    return Number.isFinite(value) && value! >= 0 ? value! : 120_000;
+  }
+
+  private takeoverEligibleVoters(room: Room, candidateId: string): Player[] {
+    return room.players.filter(p => !p.isBot && p.id !== room.hostPlayerId && p.id !== candidateId && p.connected !== false);
+  }
+
+  private takeoverRequired(room: Room, candidateId: string): number {
+    const eligible = this.takeoverEligibleVoters(room, candidateId).length;
+    return eligible === 0 ? 0 : Math.floor(eligible / 2) + 1;
+  }
+
+  private applyHostTransfer(room: Room, targetPlayer: Player, reason: string): Room {
+    const previousHost = room.players.find(p => p.id === room.hostPlayerId);
+    return withEvent({
+      ...room,
+      hostPlayerId: targetPlayer.id,
+      hostOfflineSince: undefined,
+      hostTakeover: undefined,
+      players: room.players.map(player => ({ ...player, isHost: player.id === targetPlayer.id }))
+    }, `${previousHost?.nickname ?? '原社长'} 的社长权限已移交给 ${targetPlayer.nickname}${reason ? `（${reason}）` : ''}`);
+  }
+
+  async hostTakeover(roomId: string, playerId: string, kind: 'request' | 'approve' | 'reject' | 'cancel'): Promise<Room> {
+    return this.withRoomLock(roomId, async () => {
+      const room = structuredClone(await this.requireRoom(roomId));
+      const player = requirePlayer(room, playerId);
+      if (player.isBot || player.connected === false) throw new Error('需要在线正式玩家才能发起或确认接任');
+      if (!['request', 'approve', 'reject', 'cancel'].includes(kind)) throw new Error('接任操作无效');
+      const host = room.players.find(p => p.id === room.hostPlayerId);
+      const hostOffline = !!host && host.connected === false;
+      if (kind === 'request') {
+        if (!host) throw new Error('房间没有可接任的社长');
+        if (!hostOffline) throw new Error('社长当前在线，无需接任');
+        const offlineSince = room.hostOfflineSince ?? Date.now();
+        const waitMs = offlineSince + this.hostGraceMs() - Date.now();
+        if (waitMs > 0) throw new Error(`社长离线宽限期尚未结束，约 ${Math.ceil(waitMs / 1000)} 秒后可发起接任`);
+        if (room.hostPlayerId === playerId) return room;
+        const pending = room.hostTakeover;
+        if (pending && pending.candidateId !== playerId && Date.now() - pending.requestedAt < this.hostGraceMs()) {
+          const nickname = room.players.find(p => p.id === pending.candidateId)?.nickname ?? '其他成员';
+          throw new Error(`已有成员（${nickname}）发起接任，请确认或等待该请求结束`);
+        }
+        const required = this.takeoverRequired(room, playerId);
+        if (required === 0) return this.commitHostTakeover(room, player, '无人可投票，宽限期结束后自动接任');
+        const nextRoom: Room = { ...room, hostTakeover: { candidateId: playerId, requestedAt: Date.now(), approvals: [], rejections: [], version: (pending?.version ?? 0) + 1 } };
+        await this.store.setRoom(withEvent(nextRoom, `${player.nickname} 发起社长接任，等待在线成员确认（需 ${required} 票）`));
+        return (await this.store.getRoom(roomId))!;
+      }
+      if (kind === 'cancel') {
+        const pending = room.hostTakeover;
+        if (!pending) return room;
+        if (pending.candidateId !== playerId && room.hostPlayerId !== playerId) throw new Error('只有接任候选人可以撤回请求');
+        const nextRoom = withEvent({ ...room, hostTakeover: undefined }, `${player.nickname} 撤回了社长接任请求`);
+        await this.store.setRoom(nextRoom);
+        return nextRoom;
+      }
+      const pending = room.hostTakeover && { ...room.hostTakeover, rejections: room.hostTakeover.rejections ?? [] };
+      if (!pending) throw new Error('当前没有待确认的接任请求');
+      if (pending.candidateId === playerId) throw new Error('发起人不能给自己投票');
+      if (!this.takeoverEligibleVoters(room, pending.candidateId).some(p => p.id === playerId)) throw new Error('你不在本次接任的确认名单中');
+      if (Date.now() - pending.requestedAt > this.hostGraceMs() * 2) throw new Error('接任请求已过期，请重新发起');
+      if (kind === 'reject') {
+        const rejections = [...new Set([...pending.rejections, playerId])];
+        const approvals = pending.approvals.filter(id => id !== playerId);
+        if (rejections.length >= this.takeoverRequired(room, pending.candidateId)) {
+          const nextRoom = withEvent({ ...room, hostTakeover: undefined }, `在线成员否决了 ${room.players.find(p => p.id === pending.candidateId)?.nickname ?? '成员'} 的接任请求`);
+          await this.store.setRoom(nextRoom);
+          return nextRoom;
+        }
+        const nextRoom: Room = { ...room, hostTakeover: { ...pending, approvals, rejections } };
+        await this.store.setRoom(nextRoom);
+        return nextRoom;
+      }
+      const approvals = [...new Set([...pending.approvals, playerId])];
+      const rejections = pending.rejections.filter(id => id !== playerId);
+      if (approvals.length >= this.takeoverRequired(room, pending.candidateId)) {
+        const candidate = room.players.find(p => p.id === pending.candidateId);
+        if (!candidate || candidate.connected === false) {
+          const nextRoom = withEvent({ ...room, hostTakeover: undefined }, '接任候选人已离线，本次请求取消');
+          await this.store.setRoom(nextRoom);
+          return nextRoom;
+        }
+        return this.commitHostTakeover({ ...room, hostTakeover: { ...pending, approvals, rejections } }, candidate, `${approvals.length} 名在线成员确认`);
+      }
+      const nextRoom: Room = { ...room, hostTakeover: { ...pending, approvals, rejections } };
+      await this.store.setRoom(nextRoom);
+      return nextRoom;
+    });
+  }
+
+  private async commitHostTakeover(room: Room, target: Player, reason: string): Promise<Room> {
+    const nextRoom = this.applyHostTransfer(room, target, reason);
+    await this.store.setRoom(nextRoom);
+    return nextRoom;
   }
 
   async disbandRoom(roomId: string, playerId: string): Promise<Room> {
@@ -1195,14 +1423,17 @@ export class GameService {
     if (room.hostPlayerId !== playerId) {
       throw new Error("只有房主可以解散房间");
     }
+    this.clearRoomDisconnectKickTimers(room.id);
     await this.store.deleteRoom(room.id);
     return room;
     });
   }
 
-  async submitClue(roomId: string, playerId: string, word: string, count: number): Promise<Room> {
+  async submitClue(roomId: string, playerId: string, word: string, count: number, requestId?: string): Promise<Room> {
     return this.withRoomLock(roomId, async () => {
     const room = await this.requireRoom(roomId);
+    const rid = this.normalizeRequestId(requestId);
+    if (this.requestAlreadyHandled(room, rid)) return room;
     requirePlaying(room);
     const player = requirePlayer(room, playerId);
     if (!player.connected) {
@@ -1247,17 +1478,26 @@ export class GameService {
       } as any,
       `${player.nickname} 给出提示：${cleanWord} ${count}`
     );
+    nextRoom.messages.at(-1)!.event = {kind:'clue',team:room.currentTeam,clueId};
+    nextRoom.clueRecords = [...(room.clueRecords ?? []), { clueId, team: room.currentTeam, giverPlayerId: player.id, giverNickname: player.nickname, word: cleanWord, count, guesses: [] }];
+    nextRoom.currentRoundScore = isScoringMode(room.settings.scoringMode) ? emptyRoundScore(room.currentTeam) : undefined;
+    nextRoom.comboStreaks = {};
     ensurePlayerStats(nextRoom, player).cluesGiven += 1;
+    this.recordRequest(nextRoom, rid, 'submit_clue');
     await this.store.setRoom(nextRoom);
     return nextRoom;
     });
   }
 
-  async guessCard(roomId: string, playerId: string, cardId: string): Promise<Room> {
+  async guessCard(roomId: string, playerId: string, cardId: string, requestId?: string): Promise<Room> {
     return this.withRoomLock(roomId, async () => {
-    const room = await this.requireRoom(roomId);
+    const room = structuredClone(await this.requireRoom(roomId));
+    const rid = this.normalizeRequestId(requestId);
+    if (this.requestAlreadyHandled(room, rid)) return room;
     requirePlaying(room);
     const player = requirePlayer(room, playerId);
+    if (room.exposedPlayerIds?.includes(playerId)) throw new Error("已见本局秘密的卸任队长不能猜牌");
+
     if (!player.connected) {
       throw new Error("你已离线，请重新连接");
     }
@@ -1275,10 +1515,14 @@ export class GameService {
       throw new Error("词牌不存在");
     }
     if (card.revealed) {
+      // A late duplicate click after a broadcast must not flip a second card.
+      this.recordRequest(room, rid, 'guess_card');
+      await this.store.setRoom(room);
       return room;
     }
 
     const actingTeam = room.currentTeam;
+    snapshotBeforeReveal(room, cardId, now());
     card.revealed = true;
     card.revealedBy = actingTeam;
     room.clue.usedGuesses += 1;
@@ -1347,7 +1591,7 @@ export class GameService {
         (!room.clue?.id && clueRecord.giverPlayerId === room.clue?.giverPlayerId && clueRecord.word === room.clue?.word)
       )
     ) {
-      clueRecord.guesses.push({ playerId: player.id, nickname: player.nickname, cardWord: card.word, cardRole: card.role, isOwnHit: outcome === "own-hit" });
+      clueRecord.guesses.push({ playerId: player.id, nickname: player.nickname, cardId: card.id, cardWord: card.word, cardRole: card.role, isOwnHit: outcome === "own-hit" });
     } else {
       const newRecord: ClueRoundRecord = {
         clueId: activeClueId,
@@ -1356,7 +1600,7 @@ export class GameService {
         giverNickname: room.players.find(p => p.id === room.clue?.giverPlayerId)?.nickname ?? "?",
         word: room.clue?.word ?? "?",
         count: room.clue?.count ?? 0,
-        guesses: [{ playerId: player.id, nickname: player.nickname, cardWord: card.word, cardRole: card.role, isOwnHit: outcome === "own-hit" }]
+        guesses: [{ playerId: player.id, nickname: player.nickname, cardId: card.id, cardWord: card.word, cardRole: card.role, isOwnHit: outcome === "own-hit" }]
       };
       room.clueRecords.push(newRecord);
     }
@@ -1369,6 +1613,7 @@ export class GameService {
     let nextScores: RoomScore = room.scores;
     if (scoringActive) {
       const prev = room.currentRoundScore ?? emptyRoundScore(actingTeam);
+      const previouslyApplied = computeScoreDelta(prev);
       const streaks = { ...(room.comboStreaks ?? {}) };
 
       if (outcome === "own-hit") {
@@ -1384,22 +1629,12 @@ export class GameService {
         if (outcome === "opponent-hit") {
           prev.opponentHits += 1;
           prev.opponentPointsLost += 5;
-          const opponentTeam = card.role as Team;
-          const opponentRound = room.currentRoundScore?.team === opponentTeam
-            ? room.currentRoundScore
-            : emptyRoundScore(opponentTeam);
-          opponentRound.opponentPointsLost += 5;
         } else if (outcome === "neutral-hit") {
           prev.neutralHits += 1;
           prev.neutralPenalty += 3;
         } else if (outcome === "assassin-hit") {
           prev.assassinHit = true;
           prev.assassinPenalty += 25;
-          const opponentTeam = nextTeam(actingTeam);
-          const opponentRound = room.currentRoundScore?.team === opponentTeam
-            ? room.currentRoundScore
-            : emptyRoundScore(opponentTeam);
-          opponentRound.assassinPenalty += 25;
         }
       }
 
@@ -1407,36 +1642,21 @@ export class GameService {
         prev.victoryBonus = 20;
       }
 
-      const delta = computeScoreDelta(prev);
-      const applied = applyScore(room, actingTeam, delta);
-      nextScores = applied.scores;
-      prev.totalRound = (room.scores[actingTeam] ?? 0) + delta;
-
-      room.comboStreaks = streaks;
-      room.currentRoundScore = prev;
-
-      if (winner) {
-        const clueCount = room.clue?.count ?? 0;
-        if (
-          prev.ownHits === clueCount &&
-          prev.neutralHits === 0 &&
-          !prev.assassinHit &&
-          prev.opponentHits === 0
-        ) {
-          prev.precisionBonus = 10;
-          prev.totalRound += 10;
-          nextScores[actingTeam] = Math.max(0, nextScores[actingTeam] + 10);
-        }
-        room.roundScoreHistory = [...(room.roundScoreHistory ?? []), prev];
-        room.currentRoundScore = undefined;
-        room.comboStreaks = {};
-      }
+      if (!clue && prev.ownHits === room.clue!.count && prev.neutralHits === 0 && prev.opponentHits === 0 && !prev.assassinHit) prev.precisionBonus = 10;
+      prev.totalRound = computeScoreDelta(prev);
+      nextScores = applyScore(room, actingTeam, prev.totalRound - previouslyApplied).scores;
+      const opponentBonus = (outcome === 'opponent-hit' ? 5 : outcome === 'assassin-hit' ? 25 : 0) + (winner && winner !== actingTeam ? 20 : 0);
+      if (opponentBonus) nextScores = applyScoreToScores(nextScores, nextTeam(actingTeam), opponentBonus);
+      room.comboStreaks = clue ? streaks : {};
+      room.currentRoundScore = clue ? prev : undefined;
+      if (!clue) room.roundScoreHistory = [...(room.roundScoreHistory ?? []), prev];
     }
 
     const nextRoom = withEvent(
       {
         ...room,
         phase: winner ? "finished" : room.phase,
+        endReason: winner ? "normal" : undefined,
         currentTeam,
         clue,
         winner,
@@ -1444,10 +1664,12 @@ export class GameService {
         scores: winner && !scoringActive ? updateScores(room.scores, winner) : nextScores,
         lastReveal,
         achievements: winner ? computeAchievements(room) : undefined,
+        ...(!clue && !winner ? {timerPhase: room.settings.timerMode === 'timed' ? 'clue' as const : undefined, timerEndsAt: room.settings.timerMode === 'timed' ? now() + getTimerDuration(room, 'clue') * 1000 : undefined, timerPaused: false, consecutiveTimeouts: 0} : {}),
         ...(winner ? { timerEndsAt: undefined as undefined, timerPhase: undefined as undefined, timerPaused: false, timeoutPauseReason: undefined as undefined } : {})
       },
       event
     );
+    nextRoom.messages.at(-1)!.event = {kind:'guess',team:actingTeam,clueId:room.clue?.id};
     if (!clue) {
       const lastRecord = findRecordForClue(nextRoom.clueRecords, room.clue);
       if (lastRecord) {
@@ -1457,6 +1679,7 @@ export class GameService {
         nextRoom.roundHighlights = highlights;
       }
     }
+    this.recordRequest(nextRoom, rid, 'guess_card');
     await this.store.setRoom(nextRoom);
     if (winner) {
       await this.users.recordRoundResult(nextRoom.players, winner);
@@ -1465,9 +1688,11 @@ export class GameService {
     });
   }
 
-  async endTurn(roomId: string, playerId: string): Promise<Room> {
+  async endTurn(roomId: string, playerId: string, requestId?: string): Promise<Room> {
     return this.withRoomLock(roomId, async () => {
     const room = await this.requireRoom(roomId);
+    const rid = this.normalizeRequestId(requestId);
+    if (this.requestAlreadyHandled(room, rid)) return room;
     requirePlaying(room);
     const player = requirePlayer(room, playerId);
     const isDebugHost = isSoloDebugController(room, playerId, this.options.enableDebugTools);
@@ -1495,7 +1720,7 @@ export class GameService {
         prev.opponentHits === 0
       ) {
         prev.precisionBonus = 10;
-        prev.totalRound += 10;
+        prev.totalRound = computeScoreDelta(prev);
         const team = room.currentTeam;
         nextScores = { ...room.scores, [team]: Math.max(0, room.scores[team] + 10) };
       }
@@ -1524,6 +1749,7 @@ export class GameService {
       },
       `${player.nickname} 结束了回合 (ง •_•)ง`
     );
+    nextRoom.messages.at(-1)!.event = {kind:'turn-end',team:room.currentTeam,clueId:room.clue?.id};
     const giverId = room.clue!.giverPlayerId;
     if (giverId && room.clue!.usedGuesses >= room.clue!.count) {
       const spy = room.players.find(p => p.id === giverId);
@@ -1536,6 +1762,7 @@ export class GameService {
       highlights.push(hl);
       nextRoom.roundHighlights = highlights;
     }
+    this.recordRequest(nextRoom, rid, 'end_turn');
     await this.store.setRoom(nextRoom);
     return nextRoom;
     });
@@ -1570,38 +1797,40 @@ export class GameService {
     });
   }
 
-  async forceEndGame(roomId: string, playerId: string): Promise<Room> {
+  async forceEndGame(roomId: string, playerId: string, mode: 'abort'|'surrender' = 'abort'): Promise<Room> {
     return this.withRoomLock(roomId, async () => {
     const room = await this.requireRoom(roomId);
-    if (room.hostPlayerId !== playerId) {
-      throw new Error("只有社长可以强制结束对局");
-    }
+    const player=requirePlayer(room,playerId);
+    if(mode!=='abort'&&mode!=='surrender')throw new Error('结束方式无效');
+    if(mode==='abort'&&room.hostPlayerId!==playerId)throw new Error('只有房主可以中止本局');
+    if(mode==='surrender'&&(!player.team||!(player.isHost||player.role==='spymaster'||!room.players.some(p=>p.team===player.team&&p.role==='spymaster'&&p.connected))))throw new Error('由本队队长或房主认输；本队队长离线时队员可安全弃赛');
     if (room.phase !== "playing") {
       throw new Error("当前不在对局中");
     }
-    const winner = nextTeam(room.currentTeam);
+    const winner = mode==='surrender'?nextTeam(player.team!):null;
     const nextRoom = withEvent(
-      { ...room, phase: "finished" as const, winner, clue: null, lastReveal: null, timerEndsAt: undefined, timerPhase: undefined, timerPaused: false, timeoutPauseReason: undefined },
-      `社长强制结束了对局`
+      { ...room, phase: "finished" as const, endReason: mode==='surrender'?"forfeit" as const:"aborted" as const, winner, scores:{...(room.scoresAtMatchStart??room.scores)},clue: null, lastReveal: null, timerEndsAt: undefined, timerPhase: undefined, timerPaused: false, timeoutPauseReason: undefined,achievements:[],roundHighlights:[] },
+      mode==='surrender'?`${player.nickname} 代表${TEAM_LABELS[player.team!]}认输，对方获胜；非正常完赛，不授予成就或账号战绩`:`${player.nickname} 中止本局：无胜者，本局积分不计入，不记录胜场`
     );
     const scoringActive = isScoringMode(room.settings.scoringMode);
-    if (!scoringActive) {
-      nextRoom.scores = updateScores(room.scores, winner);
+    if (!scoringActive && winner) {
+      nextRoom.scores = updateScores(nextRoom.scores, winner);
     }
-    nextRoom.achievements = computeAchievements(room);
     await this.store.setRoom(nextRoom);
-    await this.users.recordRoundResult(nextRoom.players, winner);
     return nextRoom;
     });
   }
 
-  async sendChatMessage(roomId: string, participantId: string, participantType: ParticipantType, text: string): Promise<Room> {
+  async sendChatMessage(roomId: string, participantId: string, participantType: ParticipantType, text: string, requestId?: string): Promise<Room> {
     return this.withRoomLock(roomId, async () => {
     const room = await this.requireRoom(roomId);
     const participant = requireParticipant(room, participantId, participantType);
     const cleanText = normalizeChatText(text);
+    if (requestId !== undefined && !/^[a-zA-Z0-9_-]{1,80}$/.test(requestId)) throw new Error('消息标识无效');
+    if (requestId && room.messages.some(m => m.playerId === participantId && m.requestId === requestId)) return room;
     const message = createMessage("chat", cleanText, {
       playerId: participant.id,
+      requestId,
       nickname: participant.nickname
     });
 
@@ -1674,8 +1903,10 @@ export class GameService {
     return this.withRoomLock(roomId, async () => {
     const room = await this.requireRoom(roomId);
     const spectator = requireSpectator(room, spectatorId);
+    if (spectator.connected === false) throw new Error('你已离线，请重新连接后再排队');
+    if (!spectator.sessionToken) throw new Error('当前旁观会话不可恢复，请重新加入房间');
 
-    if (room.phase === "lobby") {
+    if (room.phase === "lobby" && !room.nextPlan?.lockedPlayerIds) {
       throw new Error("准备阶段请直接加入玩家席");
     }
     if (room.players.length >= MAX_PLAYERS) {
@@ -1729,6 +1960,7 @@ export class GameService {
     return this.withRoomLock(roomId, async () => {
     const room = await this.requireRoom(roomId);
     const participant = requireParticipant(room, participantId, participantType);
+    this.clearDisconnectKickTimer(roomId, participantId, participantType);
 
     const players = participantType === "player" ? room.players.filter((entry) => entry.id !== participantId) : room.players;
     const spectators =
@@ -1736,11 +1968,15 @@ export class GameService {
     const joinQueue = room.joinQueue.filter((entry) => entry.spectatorId !== participantId);
 
     if (players.length === 0 || players.every((entry) => entry.isBot)) {
+      this.clearRoomDisconnectKickTimers(room.id);
       await this.store.deleteRoom(room.id);
       return null;
     }
 
-    const nextHostId = players.find((entry) => !entry.isBot)?.id ?? players[0].id;
+    const hostLeft = room.hostPlayerId === participantId;
+    const nextHostId = hostLeft
+      ? players.find((entry) => !entry.isBot)?.id ?? players[0].id
+      : room.hostPlayerId;
     const nextRoom = withEvent(
       {
         ...room,
@@ -1750,16 +1986,46 @@ export class GameService {
         })),
         spectators,
         joinQueue,
-        hostPlayerId: nextHostId
+        hostPlayerId: nextHostId,
+        hostOfflineSince: hostLeft ? undefined : room.hostOfflineSince,
+        hostTakeover: hostLeft || room.hostTakeover?.candidateId === participantId ? undefined : room.hostTakeover,
+        countdown: room.countdown
       },
       `${participant.nickname} 离开了房间`
     );
+    if (nextRoom.nextPlan) {
+      const plan = structuredClone(nextRoom.nextPlan);
+      plan.ready = { red:false, blue:false };
+      const team = (['red','blue'] as const).find(t => plan.captains[t] === participantId);
+      if (team) {
+        delete plan.captains[team];
+      }
+      if (participantType === 'player') {
+        if (plan.stage === 'guide') {
+          // Leaving during the captain preview invalidates the ready state; the host can replace a captain.
+          plan.stage = 'planning'; plan.ready = { red:false, blue:false }; plan.done = { red:false, blue:false }; plan.version += 1;
+        } else if (plan.stage === 'draft' || plan.stage === 'sealed') {
+          // Explicit withdrawal aborts this preparation, never leaves a three-player locked roster.
+          plan.stage = 'planning'; plan.matchId = crypto.randomUUID();
+          plan.endsAt = undefined; plan.lockedPlayerIds = undefined;
+          plan.claims = {}; plan.protection = {}; plan.sealedBoard = undefined;
+          plan.done = { red:false, blue:false }; plan.version += 1;
+        }
+      }
+      nextRoom.nextPlan = plan;
+    }
+    if (nextRoom.countdown && participantType === 'player') {
+      try {
+        if (room.players.find(p => p.id === participantId)?.role === 'spymaster' || room.nextPlan && Object.values(room.nextPlan.captains).includes(participantId)) throw new Error('队长退出');
+        if (nextRoom.nextPlan) validatePlanRoster(nextRoom,nextRoom.nextPlan); else validateStart(nextRoom);
+      } catch { nextRoom.countdown = undefined; }
+    }
     await this.store.setRoom(nextRoom);
     return nextRoom;
     });
   }
 
-  async markDisconnected(roomId: string, participantId: string, participantType: ParticipantType): Promise<Room | null> {
+  async markDisconnected(roomId: string, participantId: string, participantType: ParticipantType, stillDisconnected: () => boolean = () => true): Promise<Room | null> {
     return this.withRoomLock(roomId, async () => {
     const room = await this.store.getRoom(roomId);
     if (!room) {
@@ -1774,29 +2040,222 @@ export class GameService {
       return room;
     }
 
+    if (!stillDisconnected() || !participant.connected) return room;
     participant.connected = false;
-    const nextRoom = withEvent(room, `${participant.nickname} 暂时离线`);
+    if (room.hostPlayerId === participant.id) {
+      room.hostOfflineSince = now();
+    }
+    if (room.hostTakeover && (room.hostTakeover.candidateId === participant.id || room.hostPlayerId === participant.id)) {
+      room.hostTakeover = undefined;
+    }
+    const nextRoom = withConnectionEvent(room,participant,false);
 
-    if (room.phase === "lobby" && !(participant as Player).isBot) {
-      const DISCONNECT_KICK_DELAY = 2 * 60 * 1000;
-      setTimeout(async () => {
-        try {
+    this.clearDisconnectKickTimer(roomId, participantId, participantType);
+    // Guide preview, draft and sealed preparation are part of the locked preparation flow:
+    // a normal 120s lobby cleanup must never silently remove a captain who stepped away.
+    const preparationStarted = !!room.nextPlan && room.nextPlan.stage !== 'planning';
+    if (room.phase === "lobby" && !room.countdown && !preparationStarted && !room.nextPlan?.lockedPlayerIds && !(participant as Player).isBot) {
+      const key = this.disconnectTimerKey(roomId, participantId, participantType);
+      const timer = setTimeout(async () => {
+        await this.withRoomLock(roomId, async () => {
+          if (this.disconnectKickTimers.get(key) !== timer) return;
+          this.disconnectKickTimers.delete(key);
           const current = await this.store.getRoom(roomId);
-          if (!current || current.phase !== "lobby") return;
-          const entry =
-            current.players.find((p) => p.id === participantId) ??
-            current.spectators.find((s) => s.id === participantId);
-          if (!entry?.connected) {
-            await this.leaveRoom(roomId, participantId, participantType);
-          }
-        } catch {
-          // 静默处理
-        }
-      }, DISCONNECT_KICK_DELAY);
+          if (!current || current.phase !== "lobby" || current.countdown || current.nextPlan?.lockedPlayerIds) return;
+          if (current.nextPlan && current.nextPlan.stage !== 'planning') return;
+          const entry = participantType === 'player' ? current.players.find(p => p.id === participantId) : current.spectators.find(p => p.id === participantId);
+          if (entry && !entry.connected && stillDisconnected()) await this.leaveRoom(roomId, participantId, participantType);
+        }).catch(() => { /* Room may expire while a cleanup is queued. */ });
+      }, this.options.disconnectKickDelayMs ?? 120_000);
+      timer.unref?.();
+      this.disconnectKickTimers.set(key, timer);
     }
 
     await this.store.setRoom(nextRoom);
     return nextRoom;
+    });
+  }
+
+  async getPlanPool(roomId: string, principalId: string, planId: string, version: number) {
+    const room = await this.requireRoom(roomId);
+    if (!principalId || room.participantPrincipals?.[room.hostPlayerId] !== principalId) throw new Error('只有房主可以查看当前作品池');
+    const plan = room.nextPlan;
+    if (!plan || plan.id !== planId || !Number.isSafeInteger(version) || plan.version !== version) throw new Error('准备计划已更新，请重新打开作品池');
+    return { planId: plan.id, version: plan.version, works: plan.pool };
+  }
+
+  async planAction(roomId: string, playerId: string, action: PlanAction): Promise<Room> {
+    return this.withRoomLock(roomId, async () => {
+      let room = structuredClone(await this.requireRoom(roomId));
+      const player = requirePlayer(room, playerId);
+      if (room.settings.ruleSet !== 'codenames') throw new Error('此入口仅用于词牌');
+      if (!this.options.enableAnimeDraft && !room.nextPlan && action.kind !== 'nominate') throw new Error('动画组牌暂未开放');
+      const host = room.hostPlayerId === playerId;
+      const time = now();
+      let plan = room.nextPlan ?? makePlan(room, time);
+      if (!this.options.enableAnimeDraft && plan.variant === 'anime' && ['prepare','ready'].includes(action.kind)) throw new Error('已暂停新的动画组牌，现有正式组牌仍可完成');
+      if (room.countdown) throw new Error('五秒倒计时中，请先取消开始');
+      if (plan.stage === 'draft' && time >= (plan.endsAt ?? 0)) {
+        sealDraft(plan, room.seriesHistory);
+        room.nextPlan = plan;
+        await this.store.setRoom(room);
+        return room;
+      }
+      if (room.nextPlan && action.kind !== 'configure' && action.kind !== 'cancel' && action.version !== plan.version) throw new Error('候选池已更新，请使用最新快照');
+      if(room.nextPlan&&action.kind==='configure'&&action.version!==undefined&&action.version!==plan.version)throw new Error('候选池已更新，请使用最新快照');
+      if (action.kind === 'configure') {
+        if (!host) throw new Error('只有房主可以配置下一局');
+        if (plan.stage === 'draft' || plan.stage === 'sealed') throw new Error('正式组牌已锁定，请先取消准备');
+        if (action.variant !== 'anime' && action.variant !== 'classic') throw new Error('玩法无效');
+        const configuredVariant = action.variant;
+        if (action.variant === 'anime' && !this.options.enableAnimeDraft) throw new Error('动画组牌暂未开放');
+        let sourcePool: import('@acg-codenames/shared').NextPlan['sourcePool'];
+        if (action.communityPoolId !== undefined) {
+          const principal = room.participantPrincipals?.[playerId];
+          if (action.variant !== 'anime' || typeof action.communityPoolId !== 'string' || !Number.isSafeInteger(action.communityPoolRevision) || !principal || !this.options.resolveCommunityPool) throw new Error('社区作品池引用无效');
+          const source = await this.options.resolveCommunityPool(action.communityPoolId, principal);
+          if (source.hidden) throw new Error('该作品池已隐藏，不能用于新的配置');
+          if (source.revision !== action.communityPoolRevision) throw new Error('社区作品池已更新，请刷新后重新选择');
+          action = { ...action, poolIds: source.workIds, poolName: source.name };
+          sourcePool = { id: source.id, revision: source.revision };
+        }
+        const boardMode = action.boardMode ?? (action.variant === 'anime' ? '5x5' : room.settings.boardMode);
+        if (!(action.variant === 'anime' ? ['5x5','6x6'] : ['5x5','7x7','9x9']).includes(boardMode)) throw new Error('该玩法不支持此棋盘尺寸');
+        if (action.scoringMode !== undefined && !['classic','scoring','gamble'].includes(action.scoringMode)) throw new Error('计分选项无效');
+        if (action.timerMode !== undefined && !['timed','unlimited'].includes(action.timerMode)) throw new Error('计时选项无效');
+        if (action.flipMode !== undefined && !['word-color','color-only'].includes(action.flipMode)) throw new Error('翻牌显示无效');
+        for (const seconds of [action.timerClueSeconds,action.timerGuessSeconds]) {
+          if (seconds !== undefined && (!Number.isSafeInteger(seconds) || seconds < 1)) throw new Error('计时时长无效');
+        }
+        let wordPack = plan.wordPack;
+        if (action.builtinWordPackId) {
+          const builtin = getBuiltinWordPackById(action.builtinWordPackId);
+          if (!builtin) throw new Error('题库不存在');
+          wordPack = builtin;
+        }
+        if (action.customWordPack) {
+          if (typeof action.customWordPack.name !== 'string' || !Array.isArray(action.customWordPack.entries) || !action.customWordPack.entries.every(w => typeof w === 'string')) throw new Error('文字题库无效');
+          wordPack = createCustomWordPack(action.customWordPack);
+        }
+        if (action.variant === 'classic') validateWordPackForMode(wordPack,boardMode);
+        const principal = room.participantPrincipals?.[playerId];
+        const catalog = animeCatalogFor(principal);
+        if (action.poolIds && (!Array.isArray(action.poolIds) || action.poolIds.length > 2500 || action.poolIds.some(id => !Number.isSafeInteger(id)))) throw new Error('作品池格式无效');
+        const ids = new Set(action.poolIds ?? (plan.pool.length ? plan.pool.map(w => w.id) : catalog.map(w => w.id)));
+        let pool = catalog.filter(w => ids.has(w.id));
+        if (pool.length !== ids.size && sourcePool && this.options.resolveManualWorks) {
+          // A server-verified community pool may reference retired manual works; room snapshots must stay playable.
+          const extra = await this.options.resolveManualWorks([...ids].filter(id => id < 0));
+          const known = new Set(pool.map(w => w.id));
+          pool = [...pool, ...extra.filter(w => ids.has(w.id) && !known.has(w.id))];
+        }
+        if (pool.length !== ids.size) throw new Error('作品池包含目录外作品');
+        for (const flag of [action.animeRandomSwap, action.animeSeriesRotation]) if (flag !== undefined && typeof flag !== 'boolean') throw new Error('动画玩法开关必须为布尔值');
+        const animeRandomSwap = action.variant === 'anime' ? action.animeRandomSwap ?? (plan.variant === 'anime' ? plan.settings.animeRandomSwap === true : true) : undefined;
+        const animeSeriesRotation = action.variant === 'anime' ? action.animeSeriesRotation ?? (plan.variant === 'anime' ? plan.settings.animeSeriesRotation === true : true) : undefined;
+        const candidates = action.variant === 'anime' ? candidatesFor(pool, room.seriesHistory, Math.random, animeSeriesRotation === true) : [];
+        if (action.variant === 'anime' && candidates.length < BOARD_MODE_CONFIG[boardMode].size) throw new Error(`当前可用 ${candidates.length} 个系列，需要 ${BOARD_MODE_CONFIG[boardMode].size} 个；请更换作品池或由房主确认重置本房间轮换历史`);
+        plan = { ...plan, wordPack, version: plan.version + 1, variant: configuredVariant,
+          settings: { ...plan.settings, animeRandomSwap, animeSeriesRotation, variant: action.variant, boardMode, scoringMode: action.scoringMode ?? plan.settings.scoringMode, timerMode: action.timerMode ?? plan.settings.timerMode, timerClueSeconds: action.timerClueSeconds ?? plan.settings.timerClueSeconds, timerGuessSeconds: action.timerGuessSeconds ?? plan.settings.timerGuessSeconds, flipMode: action.flipMode ?? plan.settings.flipMode, neutralCount: action.variant === 'anime' || boardMode !== plan.settings.boardMode ? undefined : plan.settings.neutralCount },
+          pool, poolName: (action.poolName ?? plan.poolName).slice(0,64), sourcePool, candidates, ready: { red:false, blue:false }, done: { red:false, blue:false }, stage: 'planning',
+          bookmarks: Object.fromEntries(Object.entries(plan.bookmarks).map(([id, values]) => [id, values.filter(v => candidates.some(w => w.id === v))])) };
+      } else if (action.kind === 'nominate' || action.kind === 'transfer') {
+        const team = action.team;
+        if (team !== 'red' && team !== 'blue') throw new Error('队伍无效');
+        const target = room.players.find(p => p.id === action.targetId && p.team === team);
+        if (!target) throw new Error('只能指定同队正式玩家');
+        if(action.kind==='transfer'&&!target.connected&&!target.isBot)throw new Error('接任队长必须在线');
+        if (!host && (action.kind === 'transfer' && room.phase === 'playing' ? !(player.team === team && player.role === 'spymaster') : plan.captains[team] !== playerId) && !(action.kind === 'nominate' && target.id === playerId && !plan.captains[team])) throw new Error('没有队长管理权限');
+        if (action.kind === 'nominate' && (plan.stage === 'draft' || plan.stage === 'sealed')) throw new Error('正式组牌请使用队长交接');
+        if (action.kind === 'transfer' && room.phase === 'playing') {
+          const old = room.players.find(p => p.team === team && p.role === 'spymaster');
+          if (!host && old?.id !== playerId) throw new Error('只有房主或当前队长可交接');
+          if (room.exposedPlayerIds?.includes(target.id)) throw new Error('本局卸任队长不可重新接任');
+          room.exposedPlayerIds = [...new Set([...(room.exposedPlayerIds ?? []), ...(old ? [old.id] : [])])];
+          if (old) markSecretExposure(room, old.id);
+          markSecretExposure(room, target.id);
+          room.players = room.players.map(p => p.team === team ? { ...p, role: p.id === target.id ? 'spymaster' : 'operative' } : p);
+        } else {
+          if (plan.lockedPlayerIds && !plan.lockedPlayerIds.includes(target.id)) throw new Error('只能由本局锁定名单接任');
+          const old = plan.captains[team];
+          if (plan.stage === 'draft' || plan.stage === 'sealed') plan.exposedPlayerIds = [...new Set([...plan.exposedPlayerIds, ...(old ? [old] : []), target.id])];
+          plan.captains[team] = target.id;
+          if (room.phase === 'lobby') room.players = room.players.map(p => p.team === team ? { ...p, role: p.id === target.id ? 'spymaster' : 'operative' } : p);
+          plan.ready = { red:false, blue:false };
+          plan.done = { red:false, blue:false };
+        }
+      } else if (action.kind === 'reset-series-history') {
+        if (!host || plan.variant !== 'anime' || plan.stage !== 'planning' || room.phase === 'playing') throw new Error('仅房主可在开局前重置轮换历史');
+        room.seriesHistory = {};
+        plan.candidates = candidatesFor(plan.pool, {}, Math.random, plan.settings.animeSeriesRotation === true);
+        plan.version++;
+        plan.bookmarks = {};
+      } else if (action.kind === 'cancel') {
+        if (!host) throw new Error('只有房主可以取消准备');
+        plan = { ...makePlan(room,time), variant: plan.variant, settings: plan.settings, pool: plan.pool, poolName: plan.poolName, sourcePool: plan.sourcePool, candidates: plan.candidates, captains: plan.captains, bookmarks: plan.bookmarks, version: plan.version + 1 };
+      } else if (action.kind === 'prepare') {
+        if (!host || room.phase === 'playing') throw new Error('本局结束后由房主开始下局准备');
+        if (plan.stage === 'draft' || plan.stage === 'sealed') throw new Error('已进入正式组牌');
+        if (room.phase === 'finished') {
+          room = structuredClone(await this.returnToLobby(roomId, playerId));
+        }
+        if (plan.variant === 'anime') {
+          if(plan.settings.animeSeriesRotation===true&&plan.candidates.some(w=>room.seriesHistory?.[w.seriesId]!==undefined))throw new Error('轮换历史已变化，请更新候选池');
+          if (plan.candidates.length < BOARD_MODE_CONFIG[plan.settings.boardMode].size) throw new Error(`当前可用 ${plan.candidates.length} 个系列，需要 ${BOARD_MODE_CONFIG[plan.settings.boardMode].size} 个；请更换作品池或重置轮换历史`);
+        }
+        validatePlanRoster(room, plan);
+        room.players = room.players.map(p => ({...p,role: p.team && plan.captains[p.team] === p.id ? 'spymaster' : 'operative'}));
+        plan.stage = plan.variant === 'anime' ? 'guide' : 'sealed';
+        plan.ready = { red:false, blue:false };
+      } else {
+        const team = (['red','blue'] as const).find(t => plan.captains[t] === playerId);
+        if (!team) throw new Error('只有指定的下局队长可以操作');
+        if (action.kind === 'bookmark') {
+          if (!plan.candidates.some(w => w.id === action.workId)) throw new Error('作品不在当前快照');
+          const bookmarks = plan.bookmarks[playerId] ?? [];
+          plan.bookmarks[playerId] = bookmarks.includes(action.workId!) ? bookmarks.filter(id => id !== action.workId) : [...bookmarks, action.workId!];
+        } else if (action.kind === 'ready') {
+          if (plan.stage !== 'guide' || room.phase === 'playing') throw new Error('当前不能开始正式组牌');
+          validatePlanRoster(room, plan);
+          plan.ready[team] = true;
+          if (plan.ready.red && plan.ready.blue) {
+            plan.stage = 'draft'; plan.endsAt = time + 180_000;
+            plan.lockedPlayerIds = room.players.map(p => p.id);
+            plan.exposedPlayerIds = Object.values(plan.captains) as string[];
+          }
+        } else {
+          editDraft(plan, team, action, time);
+          if (plan.done.red && plan.done.blue) sealDraft(plan, room.seriesHistory);
+        }
+      }
+      plan.activityAt = time;
+      room.nextPlan = plan;
+      // Private edits never enter messages, summaries, lastEvent, or public progress counters.
+      await this.store.setRoom(room);
+      return room;
+    });
+  }
+
+  async analysisAction(roomId: string, participantId: string, participantType: ParticipantType, action: unknown): Promise<Room> {
+    return this.withRoomLock(roomId, async () => {
+      const current = await this.requireRoom(roomId);
+      const room = { ...current, privateMatch: current.privateMatch ? structuredClone(current.privateMatch) : undefined };
+      editAnalysis(room, participantId, participantType, action, now());
+      room.updatedAt = now();
+      await this.store.setRoom(room);
+      return room;
+    });
+  }
+
+  async predictionAction(roomId: string, participantId: string, participantType: ParticipantType, action: unknown): Promise<Room> {
+    return this.withRoomLock(roomId, async () => {
+      const current = await this.requireRoom(roomId);
+      const room = { ...current, privateMatch: current.privateMatch ? structuredClone(current.privateMatch) : undefined };
+      editPrediction(room, participantId, participantType, action, now());
+      if ((action as { kind: string }).kind === 'share' && room.replayId) this.privateReplays.share(room.matchId!, room.participantPrincipals![participantId], room.privateMatch!.predictionShares[room.participantPrincipals![participantId]]);
+      room.updatedAt = now();
+      await this.store.setRoom(room);
+      return room;
     });
   }
 
@@ -1811,7 +2270,7 @@ export class GameService {
         ? room.joinQueue.some((entry) => entry.spectatorId === participantId)
         : false;
 
-    return sanitizeRoom(room, {
+    const state = sanitizeRoom(room, {
       participantType: participantType ?? null,
       participantId: participantId ?? null,
       team: player?.team,
@@ -1821,6 +2280,8 @@ export class GameService {
       isQueuedForNextRound,
       revealAll: isDebugController
     });
+    state.hostTakeoverAvailableAt = room.hostOfflineSince ? room.hostOfflineSince + this.hostGraceMs() : undefined;
+    return state;
   }
 
   async ensureReplay(roomId: string): Promise<string | undefined> {
@@ -1830,11 +2291,15 @@ export class GameService {
       if (room.replayId) return room.replayId;
       if (room.phase !== "finished") return undefined;
 
-      const replayId = sampleReplayId();
+      const replayId = this.privateReplays.replayId(room.matchId) ?? sampleReplayId();
       const replay = buildReplay(room, replayId);
+      this.privateReplays.save(room, replayId);
       await this.replayStore.saveReplay(replay);
-      const nextRoom = { ...room, replayId, updatedAt: now() };
+      const promotion = promoteQueuedSpectators(room);
+      const nextRoom = { ...room, players: promotion.players, spectators: promotion.spectators, joinQueue: promotion.joinQueue,
+        replayId, replayHistory: [...(room.replayHistory ?? []), { matchId: room.matchId ?? replayId, replayId, roundNumber: room.roundNumber, privateAvailable: !!room.privateMatch && room.endReason === 'normal' }], updatedAt: now() };
       await this.store.setRoom(nextRoom);
+      await Promise.all(promotion.promoted.filter(p => p.sessionToken).map(p => this.store.setPlayerSession(p.sessionToken!, createSession(room.id,p.id,'player'))));
       return replayId;
     });
   }
@@ -1848,11 +2313,49 @@ export class GameService {
     return this.replayStore.getReplay(replayId);
   }
 
+  getPrivateReplay(matchId: string, principalId: string) { return this.privateReplays.get(matchId, principalId); }
+  async sharePrivatePrediction(matchId: string, principalId: string, shared: boolean) {
+    this.privateReplays.share(matchId, principalId, shared);
+    const active = (await this.store.listRooms()).find(r => r.matchId === matchId);
+    if (active) await this.withRoomLock(active.id, async () => {
+      const room = structuredClone(await this.requireRoom(active.id));
+      if (room.matchId === matchId && room.privateMatch) {
+        room.privateMatch.predictionShares[principalId] = shared;
+        await this.store.setRoom(room);
+      }
+    });
+  }
+
   async tickTimers(): Promise<Room[]> {
     const rooms = await this.store.listRooms();
     const expired: Room[] = [];
     const now2 = now();
     for (const room of rooms) {
+      if (room.nextPlan?.stage === 'draft' && (room.nextPlan.endsAt ?? Infinity) <= now2) {
+        await this.withRoomLock(room.id, async () => {
+          const latest = structuredClone(await this.requireRoom(room.id));
+          if (latest.nextPlan?.stage !== 'draft' || (latest.nextPlan.endsAt ?? Infinity) > now()) return;
+          sealDraft(latest.nextPlan, latest.seriesHistory);
+          await this.store.setRoom(latest);
+        });
+        expired.push(room);
+      }
+      if (room.countdown && room.countdown.startsAt <= now2) {
+        await this.withRoomLock(room.id, async () => {
+          const latest = await this.requireRoom(room.id);
+          if (!latest.countdown || latest.countdown.startsAt > now()) return;
+          const matchId = latest.countdown.matchId;
+            try { if (latest.hostPlayerId !== latest.countdown.hostId) throw new Error('房主已变更'); if (latest.nextPlan) validatePlanRoster(latest,latest.nextPlan); else validateStart(latest);validateOnlineStart(latest); } catch(error) {
+              await this.store.setRoom(withEvent({ ...latest, countdown: undefined },error instanceof Error?`开局已取消：${error.message}`:'开局条件发生变化，请重新准备'));
+            return;
+          }
+          await this.store.setRoom({ ...latest, countdown: undefined });
+          const started = await this.beginGame(room.id, latest.hostPlayerId);
+          await this.store.setRoom({ ...started, matchId });
+        });
+        expired.push(room);
+        continue;
+      }
       if (room.phase !== "playing" || room.timerPaused || !room.timerEndsAt || room.timerEndsAt > now2) continue;
       expired.push(room);
     }
@@ -1872,10 +2375,11 @@ export class GameService {
       const currentTeam = nextTeam(latest.currentTeam);
       const scoringActive = isScoringMode(latest.settings.scoringMode);
       let nextScores = latest.scores;
-      if (scoringActive && latest.currentRoundScore) {
-        const prev = latest.currentRoundScore;
+      if (scoringActive) {
+        const prev = emptyRoundScore(latest.currentTeam);
         const penalty = 10;
-        prev.totalRound = -penalty;
+        prev.timeoutPenalty = penalty;
+        prev.totalRound = computeScoreDelta(prev);
         nextScores = { ...latest.scores, [latest.currentTeam]: Math.max(0, latest.scores[latest.currentTeam] - penalty) };
         latest.roundScoreHistory = [...(latest.roundScoreHistory ?? []), prev];
       }
@@ -1905,13 +2409,14 @@ export class GameService {
       const currentTeam = nextTeam(latest.currentTeam);
       const scoringActive = isScoringMode(latest.settings.scoringMode);
       let nextScores = latest.scores;
-      if (scoringActive && latest.currentRoundScore) {
-        const prev = latest.currentRoundScore;
-        const clueCount = latest.clue?.count ?? 0;
-        if (prev.ownHits !== clueCount || prev.neutralHits > 0 || prev.opponentHits > 0) {
-          prev.totalRound = 0;
-          latest.roundScoreHistory = [...(latest.roundScoreHistory ?? []), prev];
+      if (scoringActive) {
+        const prev = latest.currentRoundScore ?? emptyRoundScore(latest.currentTeam);
+        if (prev.ownHits === latest.clue.count && !prev.neutralHits && !prev.opponentHits && !prev.assassinHit && !prev.precisionBonus) {
+          prev.precisionBonus = 10;
+          nextScores = applyScore(latest, latest.currentTeam, 10).scores;
         }
+        prev.totalRound = computeScoreDelta(prev);
+        latest.roundScoreHistory = [...(latest.roundScoreHistory ?? []), prev];
       }
       const nextRoom = withEvent(
         {
@@ -1946,18 +2451,9 @@ export class GameService {
     const rooms = await this.store.listRooms();
     const deleted: string[] = [];
     for (const room of rooms) {
-      const idleMs = Date.now() - room.updatedAt;
-      const humanPlayers = room.players.filter((p) => !p.isBot);
-      if (humanPlayers.length === 0 && idleMs > ROOM_TTL_EMPTY_SECONDS * 1000) {
-        await this.store.deleteRoom(room.id);
-        deleted.push(room.id);
-      } else if (room.phase === "playing" && idleMs > ROOM_TTL_PLAYING_IDLE_SECONDS * 1000) {
-        await this.store.deleteRoom(room.id);
-        deleted.push(room.id);
-      } else if (room.phase === "lobby" && idleMs > ROOM_TTL_LOBBY_IDLE_SECONDS * 1000) {
-        await this.store.deleteRoom(room.id);
-        deleted.push(room.id);
-      } else if (room.phase === "finished" && idleMs > ROOM_TTL_FINISHED_SECONDS * 1000) {
+      const idleMs = Date.now() - Math.max(room.updatedAt, room.nextPlan?.activityAt ?? 0);
+      if (idleMs > computeRoomTTL(room) * 1000) {
+        this.clearRoomDisconnectKickTimers(room.id);
         await this.store.deleteRoom(room.id);
         deleted.push(room.id);
       }
@@ -2179,12 +2675,13 @@ export function buildReplay(room: Room, replayId: string): GameReplay {
     role: c.role,
     revealed: c.revealed,
     guessedByNickname: undefined,
-    guessedByTeam: c.revealedBy
+    guessedByTeam: c.revealedBy,
+    anime: c.anime
   }));
 
   for (const cr of room.clueRecords ?? []) {
     for (const g of cr.guesses) {
-      const card = finalBoard.find((c) => c.word === g.cardWord && c.role === g.cardRole);
+      const card = g.cardId ? finalBoard.find(c => c.id === g.cardId) : finalBoard.find((c) => c.word === g.cardWord && c.role === g.cardRole);
       if (card) {
         card.guessedByNickname = g.nickname;
       }
@@ -2196,7 +2693,7 @@ export function buildReplay(room: Room, replayId: string): GameReplay {
 
   for (let i = 0; i < (room.clueRecords?.length ?? 0); i += 1) {
     const cr = room.clueRecords![i];
-    const hl = room.roundHighlights?.find((highlight) => highlight.clueId === cr.clueId) ?? room.roundHighlights?.[i];
+    const hl = room.roundHighlights?.find((highlight) => highlight.clueId === cr.clueId) ?? room.roundHighlights?.filter(h => !h.clueId)[i];
     const round: ReplayRound = {
       index: i + 1,
       team: cr.team,
@@ -2204,6 +2701,7 @@ export function buildReplay(room: Room, replayId: string): GameReplay {
       clueCount: cr.count,
       giverNickname: cr.giverNickname,
       guesses: cr.guesses.map((g) => ({
+        cardId: g.cardId,
         word: g.cardWord,
         role: g.cardRole,
         guessedByNickname: g.nickname,
@@ -2272,13 +2770,15 @@ export function buildReplay(room: Room, replayId: string): GameReplay {
   const createdAt = Date.now();
   return {
     id: replayId,
+    roundNumber: room.roundNumber, matchId: room.matchId,
     roomId: room.id,
     createdAt,
     expiresAt: createdAt + REPLAY_TTL_SECONDS * 1000,
-    mode: { boardMode, scoringMode, timerMode },
+    mode: { variant:room.settings.variant, boardMode, scoringMode, timerMode },
     players,
     winner: room.winner,
-    durationMs: createdAt - room.createdAt,
+    endReason: room.endReason,
+    durationMs: createdAt - (room.gameStartedAt ?? room.createdAt),
     finalBoard,
     rounds,
     keyEvents: keyEvents.slice(0, 20),

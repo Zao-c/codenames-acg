@@ -10,10 +10,12 @@ export const MAX_USERNAME_LENGTH = 24;
 export const MAX_WORD_PACK_NAME_LENGTH = 32;
 export const MIN_CUSTOM_WORD_PACK_ENTRIES = 25;
 export const ROOM_TTL_SECONDS = 60 * 60 * 6;
-export const ROOM_TTL_LOBBY_IDLE_SECONDS = 60 * 10;
+export const ROOM_TTL_LOBBY_IDLE_SECONDS = 60 * 60 * 2;
 export const ROOM_TTL_FINISHED_SECONDS = 60 * 30;
-export const ROOM_TTL_EMPTY_SECONDS = 60 * 2;
-export const ROOM_TTL_PLAYING_IDLE_SECONDS = 60 * 60 * 2;
+export const ROOM_TTL_EMPTY_SECONDS = 60 * 5;
+export const RG_ROOM_TTL_SETUP_SECONDS = 60 * 60 * 2;
+export const RG_ROOM_TTL_ACTIVE_SECONDS = 60 * 60 * 6;
+export const RG_ROOM_TTL_FINISHED_SECONDS = 60 * 30;
 export const PLAYER_RECONNECT_TTL_SECONDS = 60 * 60 * 12;
 export const MAX_CHAT_MESSAGES = 80;
 export const MAX_CHAT_LENGTH = 120;
@@ -21,6 +23,7 @@ export const MAX_AVATAR_DATA_URL_LENGTH = 220_000;
 
 export const BOARD_MODE_CONFIG = {
   "5x5": { columns: 5, size: 25, starter: 9, follower: 8, neutral: 7, assassin: 1 },
+  "6x6": { columns: 6, size: 36, starter: 13, follower: 12, neutral: 10, assassin: 1 },
   "7x7": { columns: 7, size: 49, starter: 17, follower: 16, neutral: 15, assassin: 1 },
   "9x9": { columns: 9, size: 81, starter: 28, follower: 27, neutral: 25, assassin: 1 }
 } satisfies Record<BoardMode, { columns: number; size: number; starter: number; follower: number; neutral: number; assassin: number }>;

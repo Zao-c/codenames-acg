@@ -4,6 +4,7 @@ import { wordPackSummaries, type ScoringMode, type TimerMode, type FlipMode, typ
 
 const NEUTRAL_COUNT_OPTIONS: Record<BoardMode, number[]> = {
   "5x5": [3, 5, 7, 9, 11],
+  "6x6": [10],
   "7x7": [7, 9, 11, 13, 15, 17, 19],
   "9x9": [15, 19, 21, 25]
 };
@@ -32,13 +33,6 @@ export function CreateRoomPage() {
   } = useGame();
 
   const [gameMode, setGameMode] = useState<GameMode>("codenames");
-  const [rgImageUrl, setRgImageUrl] = useState("");
-  const [rgAnswer, setRgAnswer] = useState("");
-  const [rgAliases, setRgAliases] = useState("");
-  const [rgHints, setRgHints] = useState("");
-  const [rgPuzzleCount, setRgPuzzleCount] = useState(3);
-  const [rgPreviewUrl, setRgPreviewUrl] = useState<string | null>(null);
-  const [showRgAdvanced, setShowRgAdvanced] = useState(false);
 
   const scoringModes: { value: ScoringMode; label: string; hint: string }[] = [
     { value: "classic", label: "经典", hint: "胜利队伍 +1" },
@@ -67,74 +61,12 @@ export function CreateRoomPage() {
   const handleCreate = () => {
     if (!effectiveIdentity) return;
     if (gameMode === "reveal-guess") {
-      if (!rgImageUrl.trim()) {
-        setError("请先上传图片或粘贴图片 URL");
-        return;
-      }
-      if (!rgAnswer.trim()) {
-        setError("请填写标准答案");
-        return;
-      }
       setError("");
-      const aliases = rgAliases.split("\n").map(s => s.trim()).filter(Boolean);
-      const hints = rgHints.split("\n").map(s => s.trim()).filter(Boolean);
-      createRevealGuessRoom(
-        { puzzleCount: rgPuzzleCount, timerEnabled: false },
-        { imageUrl: rgImageUrl.trim(), answer: rgAnswer.trim(), aliases, hints }
-      );
+      createRevealGuessRoom({ puzzleCount: 0, timerEnabled: false });
       return;
     }
     createRoom();
   };
-
-  async function handleRgFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
-      setError("不支持的图片格式，仅支持 PNG / JPEG / WebP");
-      return;
-    }
-    setError("");
-    try {
-      const dataUrl = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.readAsDataURL(file);
-      });
-      const img = new Image();
-      await new Promise<void>((resolve, reject) => {
-        img.onload = () => resolve();
-        img.onerror = () => reject(new Error("图片加载失败"));
-        img.src = dataUrl;
-      });
-      const MAX = 1280;
-      let w = img.naturalWidth, h = img.naturalHeight;
-      if (w > MAX || h > MAX) {
-        if (w > h) { h = Math.round(h * (MAX / w)); w = MAX; }
-        else { w = Math.round(w * (MAX / h)); h = MAX; }
-      }
-      const canvas = document.createElement("canvas");
-      canvas.width = w; canvas.height = h;
-      const ctx = canvas.getContext("2d")!;
-      ctx.drawImage(img, 0, 0, w, h);
-      const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, "image/webp", 0.85));
-      if (blob) {
-        const compressed = await new Promise<string>(resolve => {
-          const r = new FileReader();
-          r.onload = () => resolve(r.result as string);
-          r.readAsDataURL(blob);
-        });
-        setRgImageUrl(compressed);
-        setRgPreviewUrl(compressed);
-      } else {
-        setRgImageUrl(dataUrl);
-        setRgPreviewUrl(dataUrl);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "图片处理失败");
-    }
-    e.target.value = "";
-  }
 
   return (
     <>
@@ -276,53 +208,18 @@ export function CreateRoomPage() {
           </>
         ) : (
           <>
-            <div className="rg-create-card" style={{ marginBottom: 14, padding: 14, background: "var(--rg-accent-light)", borderRadius: 12, border: "1px solid rgba(99,102,241,0.15)" }}>
-              <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>🎴 揭幕猜番</div>
-              <p style={{ margin: 0, fontSize: 13, color: "var(--muted)", lineHeight: 1.6 }}>
-                上传动画截图，用 9×9 白幕遮住。玩家自由翻牌，裁判判定答案。
+            <div className="rg-create-card" style={{ marginBottom: 14, padding: 16, background: "var(--rg-accent-light)", borderRadius: 12, border: "1px solid rgba(99,102,241,0.15)" }}>
+              <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>🎴 揭幕猜番</div>
+              <p style={{ margin: "0 0 10px", fontSize: 13, color: "var(--muted)", lineHeight: 1.6 }}>
+                创建房间后进入准备室，裁判可自由编排本局题目。
               </p>
+              <div style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.8 }}>
+                <div style={{ marginBottom: 2 }}>📁 从<strong style={{ color: "var(--text)" }}>我的图库</strong>选择图片批量加入</div>
+                <div style={{ marginBottom: 2 }}>🌐 浏览<strong style={{ color: "var(--text)" }}>公共图库</strong>，使用社区共享素材</div>
+                <div style={{ marginBottom: 2 }}>📤 <strong style={{ color: "var(--text)" }}>本地上传</strong>图片，填写答案、别名和提示</div>
+                <div style={{ marginBottom: 2 }}>🔄 支持<strong style={{ color: "var(--text)" }}>转让裁判</strong>，多人轮流主持</div>
+              </div>
             </div>
-            <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 10px" }}>可选准备第一题，进房间后也能添加更多题目。</p>
-            <div className="settings-block" style={{ border: "2px dashed var(--border)", borderRadius: 10, padding: 12, background: "var(--surface-soft)" }}>
-              <label className="file-upload-btn" style={{ padding: "10px 20px", fontSize: 14, fontWeight: 600, background: "var(--rg-accent-light)", color: "var(--rg-accent-text)" }}>
-                上传图片
-                <input type="file" accept="image/png,image/jpeg,image/webp" onChange={handleRgFileChange} style={{ display: "none" }} />
-              </label>
-              {rgPreviewUrl && (
-                <div style={{ textAlign: "center", marginTop: 8 }}>
-                  <img src={rgPreviewUrl} alt="预览" style={{ maxWidth: "100%", maxHeight: 160, borderRadius: 8, border: "1px solid var(--border)" }} />
-                </div>
-              )}
-              <input value={rgImageUrl} onChange={e => { setRgImageUrl(e.target.value); setRgPreviewUrl(null); }} placeholder="或粘贴图片 URL" style={{ width: "100%", marginTop: 8, fontSize: 12 }} />
-            </div>
-            <div className="settings-block">
-              <strong>标准答案</strong>
-              <input value={rgAnswer} onChange={(e) => setRgAnswer(e.target.value)} placeholder="例如：新世纪福音战士" style={{ width: "100%" }} />
-            </div>
-            <div className="settings-block">
-              <strong>题目数量</strong>
-              <select value={rgPuzzleCount} onChange={(e) => setRgPuzzleCount(Number(e.target.value))}>
-                {[1, 2, 3, 5, 10].map(v => <option key={v} value={v}>{v} 题</option>)}
-              </select>
-            </div>
-            <button
-              onClick={() => setShowRgAdvanced(!showRgAdvanced)}
-              style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "var(--muted)", padding: 0, marginBottom: 8 }}
-            >
-              高级设置（别名、提示）{showRgAdvanced ? " ▴" : " ▾"}
-            </button>
-            {showRgAdvanced && (
-              <>
-                <div className="settings-block">
-                  <strong>可接受别名，每行一个</strong>
-                  <textarea value={rgAliases} onChange={(e) => setRgAliases(e.target.value)} placeholder="EVA&#10;Evangelion" rows={2} style={{ width: "100%" }} />
-                </div>
-                <div className="settings-block">
-                  <strong>提示，每行一个</strong>
-                  <textarea value={rgHints} onChange={(e) => setRgHints(e.target.value)} placeholder="经典机甲番&#10;庵野秀明" rows={2} style={{ width: "100%" }} />
-                </div>
-              </>
-            )}
           </>
         )}
 

@@ -1,0 +1,53 @@
+/* Round 7: local density and feedback adjustments using the existing theme. */
+.v2-lobby-grid{grid-template-rows:auto auto;align-content:start}
+.preparation-lobby .v2-next-step{grid-row:1;grid-column:1/-1;padding:14px 18px}
+.v2-mode{grid-row:2;grid-column:1;min-height:0}
+.v2-players{grid-row:2;grid-column:2}
+.v2-chat{grid-row:2;grid-column:3;min-height:0}
+.v2-chat-messages{min-height:80px}.v2-chat-empty{min-height:80px}
+.room-identity{padding:10px 14px}
+.room-identity-top{margin-bottom:6px}.room-identity>strong{display:block;color:var(--text)}
+.room-identity-pill{display:inline-flex;align-items:center;gap:7px;background:var(--surface-soft);border-color:var(--line)}
+.room-identity-pill::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--identity-color);flex-shrink:0}
+.room-layout>.stability-status,.room-layout>.stability-banner,.room-layout>.error-text{grid-column:1/-1;width:100%;margin:0}
+.room-layout>.stability-status{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.clue-form[class*=clue-team-]{background:var(--surface);border:1px solid var(--line);border-inline-start:3px solid var(--clue-text);padding:10px 12px}
+.clue-form[class*=clue-team-] .clue-form-hint{color:var(--clue-text);background:transparent;padding:2px 0 5px;text-align:start;letter-spacing:0}
+.clue-form[class*=clue-team-] input{background:var(--surface-soft);border-color:var(--line-strong)}
+.clue-form[class*=clue-team-] .primary-button{background:var(--surface-soft);color:var(--clue-text);border:1px solid color-mix(in srgb,var(--clue-text) 40%,var(--line))}
+.clue-form[class*=clue-team-] .primary-button:hover:not(:disabled){background:color-mix(in srgb,var(--clue-text) 8%,var(--surface))}
+.draft-console-title{justify-content:center}.draft-drop-zones>div{align-items:center;text-align:center}
+.draft-control-panel .draft-selected-list{min-height:146px;max-height:290px;align-content:start;scrollbar-width:thin}
+.draft-control-panel .draft-selected-list .draft-tile{width:100%}
+.interference-rules{width:100%;text-align:start;font-size:12px;color:var(--muted)}
+.interference-rules p{line-height:1.7}.interference-rules summary{cursor:pointer;min-height:32px;padding:5px 0}
+@media(prefers-reduced-motion:reduce){.draft-tile,.draft-dock{transition-duration:0s!important}}
+@media(min-width:761px){
+ .room-layout-playing{max-width:1180px;width:100%;margin-inline:auto;grid-template-columns:180px minmax(0,1fr) 240px;gap:10px 12px;align-content:start;grid-auto-rows:auto}
+ .room-layout-playing .room-center-col{max-width:680px;width:100%;justify-self:center;gap:10px}
+ .room-layout-playing>.room-identity>p{margin-top:3px}
+ .room-layout-playing>.room-bar{padding-bottom:8px;gap:8px}.room-layout-playing .room-bar-stack{gap:6px}
+ .room-layout-playing .next-plan-during-game{padding:6px 12px;gap:8px}
+ .room-layout-playing .anime-board-panel{padding:10px}
+ /* Preserve the measured Round 6 thumbnail proportions at desktop/tablet;
+    only scale the board and gaps. Mobile keeps its existing tracks unchanged. */
+ .room-layout-playing .anime-board{gap:5px;grid-auto-rows:auto;--card-ratio:2.5291}
+ .room-layout-playing [data-board-mode="6x6"] .anime-board{--card-ratio:2.0897}
+ .room-layout-playing .anime-board-card{height:auto;aspect-ratio:var(--card-ratio)}
+ .room-layout-playing .anime-board-card img,.room-layout-playing .anime-board-card>.anime-cover-fallback{position:absolute;inset:0;height:100%;width:100%}
+ .room-layout-playing .anime-board-text .anime-board-card>span{margin:auto 0}
+ .room-layout-playing .anime-board-scroll{max-height:none}
+}
+@media(min-width:761px) and (max-width:1200px){
+ .room-layout-playing{grid-template-columns:160px minmax(0,1fr)}
+ .room-layout-playing>.room-right-col{grid-column:1/-1}
+ .room-layout-playing .anime-board{--card-ratio:1.4615}
+ .room-layout-playing [data-board-mode="6x6"] .anime-board{--card-ratio:1.2043}
+ .v2-chat{grid-column:1/-1;grid-row:3}
+}
+@media(max-width:760px){
+ .preparation-lobby .v2-next-step{padding:14px}
+ .preparation-lobby .v2-chat{min-height:0}.v2-chat-messages,.v2-chat-empty{min-height:80px}
+ .room-layout-playing>.room-identity>strong{display:block}
+ .draft-control-panel .draft-selected-list{min-height:146px;max-height:290px}
+}

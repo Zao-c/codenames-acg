@@ -1,0 +1,111 @@
+import assert from 'node:assert/strict';
+import express from 'express';
+import { createServer } from 'node:http';
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { AnimePoolStore, CommunityError } from '../src/anime-pool-store.js';
+import { animePoolRouter } from '../src/anime-pools.js';
+import { animeCatalog } from '../src/anime-catalog.js';
+import { principalFromKey } from '../src/private-identity.js';
+import { GameService } from '../src/game.js';
+import { createRoomStore } from '../src/store.js';
+import type { UserStore } from '../src/types.js';
+
+const testRoot = path.resolve('artifacts');
+await mkdir(testRoot, { recursive: true });
+const directory = await mkdtemp(path.join(testRoot, 'cipai-community-'));
+const filename = path.join(directory, 'pools.json');
+const works = animeCatalog();
+const store = new AnimePoolStore(filename, works);
+const ownerKey = 'a'.repeat(64), otherKey = 'b'.repeat(64), adminKey = 'local-test-admin-credential-32-chars-minimum';
+const owner = principalFromKey(ownerKey), other = principalFromKey(otherKey);
+const input = { name: '主题池', description: '只有真实目录作品', author: '同名署名', workIds: [...new Map(works.map(w => [w.seriesId, w])).values()].slice(0, 65).map(w => w.id), isPublic: true };
+const app = express(); app.use(express.json()); app.use('/pools', animePoolRouter(store, { enabled: true, adminKey }));
+app.use('/disabled', animePoolRouter(store, { enabled: false, adminKey }));
+const server = createServer(app);
+await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+const base = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
+async function request(url: string, method = 'GET', body?: unknown, key?: string, administrator = false) {
+  const response = await fetch(`${base}${url}`, { method, headers: { 'content-type': 'application/json', ...(key ? { [administrator ? 'x-anime-admin-key' : 'x-private-key']: key } : {}) }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+  return { status: response.status, body: await response.json() };
+}
+try {
+  assert.equal((await request('/pools', 'POST', input)).status, 401);
+  assert.equal((await request('/disabled', 'POST', input, ownerKey)).status, 503);
+  assert.equal((await request('/pools?scope=mine')).status, 401);
+  const created = await request('/pools', 'POST', input, ownerKey);
+  assert.equal(created.status, 201);
+  const id: string = created.body.id;
+  assert.equal(created.body.canEdit, true);
+  assert.equal(JSON.stringify((await request('/pools')).body).includes(owner), false);
+  assert.equal((await request(`/pools/${id}`, 'PUT', { ...input, expectedRevision: 1 }, otherKey)).status, 403);
+  const updates = await Promise.allSettled([
+    store.update(id, owner, { ...input, name: '版本二', expectedRevision: 1 }),
+    store.update(id, owner, { ...input, name: '并发版本', expectedRevision: 1 }),
+  ]);
+  assert.equal(updates.filter(r => r.status === 'fulfilled').length, 1);
+  const rejected = updates.find(r => r.status === 'rejected') as PromiseRejectedResult;
+  assert.equal((rejected.reason as CommunityError).status, 409);
+  const rooms = await createRoomStore('', true);
+  const users = { resolveProfile: async (profile: unknown) => profile ?? ({ accountType: 'guest', username: null, avatarUrl: null }), noteRoomHosted: async () => {} } as unknown as UserStore;
+  const game = new GameService(rooms, users, { enableDebugTools: false, enableAnimeDraft: true, resolveCommunityPool: (id, principal) => store.get(id, principal) }, rooms);
+  const createdRoom = await game.createRoom('pool-host', undefined, undefined, owner);
+  const configure = (revision: number) => game.planAction(createdRoom.room.id, createdRoom.player.id, { roomId: createdRoom.room.id, kind: 'configure', variant: 'anime', boardMode: '6x6', communityPoolId: id, communityPoolRevision: revision, poolIds: [Number.MAX_SAFE_INTEGER] });
+  const configured = await configure(2);
+  assert.equal(configured.nextPlan!.pool.length, 65);
+  assert.deepEqual(configured.nextPlan!.sourcePool, { id, revision: 2 });
+  await assert.rejects(configure(1), /已更新/);
+  const named = { accountType: 'named' as const, username: 'same-name', avatarUrl: null };
+  const namedRoom = await game.createRoom('named-owner', named, undefined, owner);
+  namedRoom.room.players[0].connected = false;
+  await rooms.setRoom(namedRoom.room);
+  await assert.rejects(game.joinRoom(namedRoom.room.id, 'named-owner', named, undefined, other), /昵称/);
+  assert.equal((await game.joinRoom(namedRoom.room.id, 'named-owner', named, undefined, owner)).player.id, namedRoom.player.id);
+  const copy = await request(`/pools/${id}/copy`, 'POST', {}, otherKey);
+  assert.equal(copy.status, 201);
+  assert.equal(copy.body.isPublic, false);
+  assert.notEqual(copy.body.id, id);
+  assert.equal((await request(`/pools/${copy.body.id}`)).status, 404);
+  assert.equal((await request(`/pools/${copy.body.id}`, 'GET', undefined, ownerKey)).status, 404);
+  assert.equal((await request(`/pools/${id}/favorite`, 'PUT', { value: true }, otherKey)).status, 200);
+  assert.equal((await request('/pools?scope=favorites', 'GET', undefined, otherKey)).body.items.length, 1);
+  assert.equal((await request(`/pools/${id}/report`, 'POST', { reason: '作品分类需要核对' }, otherKey)).status, 200);
+  assert.equal((await request(`/pools/${id}/report`, 'POST', { reason: '重复举报' }, otherKey)).status, 409);
+  assert.equal((await request('/pools/moderation', 'GET', undefined, otherKey, true)).status, 403);
+  const moderation = await request('/pools/moderation', 'GET', undefined, adminKey, true);
+  assert.equal(moderation.status, 200);
+  assert.equal(moderation.body.items[0].reports.length, 1);
+  assert.equal(JSON.stringify(moderation.body).includes(other), false);
+  assert.equal((await request(`/pools/${id}/moderation`, 'PUT', { hidden: true, reason: '分类待修正' }, adminKey, true)).status, 200);
+  await assert.rejects(configure(3), /隐藏/);
+  assert.equal((await game.getRoom(createdRoom.room.id))!.nextPlan!.pool.length, 65);
+  assert.equal((await request(`/pools/${id}`)).status, 404);
+  assert.equal((await request(`/pools/${id}/copy`, 'POST', {}, otherKey)).status, 404);
+  assert.equal((await request('/pools?scope=favorites', 'GET', undefined, otherKey)).body.items.length, 0);
+  const hiddenOwn = await store.get(id, owner);
+  assert.equal(hiddenOwn.hidden, true);
+  await store.update(id, owner, { ...input, name: '作者不能自行解禁', expectedRevision: hiddenOwn.revision, hidden: false });
+  assert.equal((await store.get(id, owner)).hidden, true);
+  assert.equal((await store.get(copy.body.id, other)).name.endsWith('副本'), true);
+  assert.deepEqual((await store.get(copy.body.id, other)).workIds, input.workIds);
+  await assert.rejects(store.create(owner, { ...input, workIds: [Number.MAX_SAFE_INTEGER] }), /目录/);
+  const reloaded = new AnimePoolStore(filename, works);
+  assert.equal((await reloaded.get(copy.body.id, other)).canEdit, true);
+  // Failed persistence must not publish an in-memory update or corrupt the last durable state.
+  await mkdir(`${filename}.tmp`);
+  const previous = await store.get(id, owner);
+  await assert.rejects(store.update(id, owner, { ...input, expectedRevision: previous.revision, name: '不应落地' }));
+  assert.equal((await store.get(id, owner)).name, previous.name);
+  assert.equal((await new AnimePoolStore(filename, works).get(id, owner)).name, previous.name);
+  const corrupt = path.join(directory, 'corrupt.json');
+  await writeFile(corrupt, 'invalid-json');
+  await assert.rejects(new AnimePoolStore(corrupt, works).create(owner, input));
+  assert.equal(await readFile(corrupt, 'utf8'), 'invalid-json');
+  console.log('anime community: API ownership, concurrent revision, independent copies, private favorites, reports, moderation, reload and failed-write recovery passed');
+} finally {
+  await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+  const resolved = path.resolve(directory);
+  assert.equal(path.dirname(resolved), testRoot);
+  assert.ok(path.basename(resolved).startsWith('cipai-community-'));
+  await rm(resolved, { recursive: true, force: true });
+}
