@@ -66,6 +66,7 @@ export type ActionReply = {
   turnVersion?: string;
 };
 export interface ClientToServerEvents {
+  manage_member: (payload: { roomId: string; targetId: string; kind: 'team'|'role'|'remove'; team?: 'red'|'blue'|null; role?: 'spymaster'|'operative' }, reply?: (result: ActionReply) => void) => void;
   enable_room_deltas: () => void;
   analysis_action: (payload: AnalysisAction, reply?: (result: ActionReply) => void) => void;
   prediction_action: (payload: PredictionAction) => void;

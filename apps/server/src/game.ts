@@ -251,6 +251,16 @@ function withEvent(room: Room, lastEvent: string, message?: ChatMessage): Room {
   };
 }
 
+/** One public diagnostic entry per member per minute; presence is always immediate. */
+function withConnectionEvent(room: Room, participant: Player | Spectator, connected: boolean): Room {
+  const at=now();
+  const previous=[...room.messages].reverse().find(m=>m.connection?.participantId===participant.id&&at-m.createdAt<60_000);
+  const connection={participantId:participant.id,disconnects:(previous?.connection?.disconnects??0)+(connected?0:1),reconnects:(previous?.connection?.reconnects??0)+(connected?1:0),connected,lastChangedAt:at};
+  const text=`${participant.nickname} · ${connected?'已恢复连接':'暂时离线'} · 本分钟断线 ${connection.disconnects} 次 / 恢复 ${connection.reconnects} 次`;
+  const message={...previous,...(previous?{}:createMessage('system',text)),text,connection} as ChatMessage;
+  return {...room,updatedAt:at,lastEvent:text,messages:previous?room.messages.map(m=>m.id===previous.id?message:m):trimMessages([...room.messages,message])};
+}
+
 function requirePlayer(room: Room, playerId: string): Player {
   const player = room.players.find((entry) => entry.id === playerId);
   if (!player) {
@@ -734,6 +744,7 @@ export class GameService {
         && canRestoreNamedParticipant(room, existing.id, principalId, this.options.enableMatchAnalysis === true)) {
         if ("team" in existing) {
           this.clearDisconnectKickTimer(roomId, existing.id, "player");
+          const wasConnected=existing.connected;
           existing.connected = true;
           existing.sessionToken ??= crypto.randomUUID();
           if (room.hostPlayerId === existing.id) {
@@ -742,7 +753,7 @@ export class GameService {
           } else if (room.hostTakeover?.candidateId === existing.id) {
             room.hostTakeover.approvals = room.hostTakeover.approvals.filter(id => id !== existing.id);
           }
-          const nextRoom = withEvent(room, `${existing.nickname} 已重连`);
+          const nextRoom = wasConnected?room:withConnectionEvent(room,existing,true);
           await this.store.setRoom(nextRoom);
           await this.store.setPlayerSession(existing.sessionToken!, createSession(nextRoom.id, existing.id, "player"));
           return { room: nextRoom, player: existing };
@@ -803,9 +814,10 @@ export class GameService {
           throw new Error("你是本局玩家，请以玩家身份重连");
         }
         this.clearDisconnectKickTimer(roomId, existing.id, "spectator");
+        const wasConnected=existing.connected;
         existing.connected = true;
         existing.sessionToken ??= crypto.randomUUID();
-        const nextRoom = withEvent(room, `${existing.nickname} 已重连`);
+        const nextRoom = wasConnected?room:withConnectionEvent(room,existing,true);
         await this.store.setRoom(nextRoom);
         await this.store.setPlayerSession(existing.sessionToken!, createSession(nextRoom.id, existing.id, "spectator"));
         return { room: nextRoom, spectator: existing };
@@ -844,6 +856,7 @@ export class GameService {
     if (!canRestoreNamedParticipant(room, participant.id, principalId, false)) throw new Error('重连凭证与当前身份不匹配');
     if (participant.sessionToken !== sessionToken) throw new Error('重连凭证已失效');
     this.clearDisconnectKickTimer(roomId, participant.id, session.participantType);
+    const wasConnected=participant.connected;
     participant.connected = true;
     await this.store.setPlayerSession(sessionToken,session);
     if (room.hostPlayerId === participant.id) {
@@ -853,9 +866,42 @@ export class GameService {
       room.hostTakeover.approvals = room.hostTakeover.approvals.filter(id => id !== participant.id);
     }
 
-    const nextRoom = withEvent(room, `${participant.nickname} 已重连`);
+    const nextRoom = wasConnected?room:withConnectionEvent(room,participant,true);
     await this.store.setRoom(nextRoom);
     return { room: nextRoom, participantId: session.participantId, participantType: session.participantType };
+    });
+  }
+
+  async manageMember(roomId: string, actorId: string, targetId: string, action: {kind:'team'|'role'|'remove';team?:Team|null;role?:PlayerRole}): Promise<Room> {
+    return this.withRoomLock(roomId,async()=>{
+      const room=await this.requireRoom(roomId);
+      const actor=requirePlayer(room,actorId);
+      if(room.hostPlayerId!==actorId||!actor.isHost||!actor.connected)throw new Error('只有在线房主可以管理成员');
+      if(room.phase!=='lobby'||room.countdown||room.nextPlan&&room.nextPlan.stage!=='planning')throw new Error('仅未锁定大厅允许管理；请先取消队长预览或准备');
+      const player=room.players.find(p=>p.id===targetId);
+      const spectator=room.spectators.find(p=>p.id===targetId);
+      if(!player&&!spectator)throw new Error('目标成员不在本房间');
+      if(action.kind==='remove'){
+        if(targetId===actorId)throw new Error('请使用退出房间或转让房主');
+        const result=await this.leaveRoom(roomId,targetId,player?'player':'spectator');
+        if(!result)throw new Error('房间已关闭');
+        // The removed id no longer exists, so its recovery token cannot restore a seat.
+        // Never revoke an account or unrelated room session.
+        if(result.participantPrincipals)delete result.participantPrincipals[targetId];
+        const next=withEvent(result,`${(player??spectator)!.nickname} 已被房主移出房间`);
+        await this.store.setRoom(next);return next;
+      }
+      if(!player)throw new Error('旁观者不能被直接分配玩家席位');
+      if(action.kind==='team'){
+        if(action.team!==null&&action.team!=='red'&&action.team!=='blue')throw new Error('队伍无效');
+        if(player.team===action.team)return room;
+        return this.setTeam(roomId,targetId,action.team);
+      }
+      if(action.kind!=='role'||action.role!=='operative'&&action.role!=='spymaster')throw new Error('管理操作无效');
+      if(!player.team)throw new Error('请先分配队伍');
+      if(player.role===action.role)return room;
+      if(action.role==='spymaster')for(const other of room.players)if(other.id!==targetId&&other.team===player.team&&other.role==='spymaster')other.role='operative';
+      return this.setRole(roomId,targetId,action.role);
     });
   }
 
@@ -1993,7 +2039,7 @@ export class GameService {
       return room;
     }
 
-    if (!stillDisconnected()) return room;
+    if (!stillDisconnected() || !participant.connected) return room;
     participant.connected = false;
     if (room.hostPlayerId === participant.id) {
       room.hostOfflineSince = now();
@@ -2001,7 +2047,7 @@ export class GameService {
     if (room.hostTakeover && (room.hostTakeover.candidateId === participant.id || room.hostPlayerId === participant.id)) {
       room.hostTakeover = undefined;
     }
-    const nextRoom = withEvent(room, `${participant.nickname} 暂时离线`);
+    const nextRoom = withConnectionEvent(room,participant,false);
 
     this.clearDisconnectKickTimer(roomId, participantId, participantType);
     // Guide preview, draft and sealed preparation are part of the locked preparation flow:
