@@ -45,7 +45,7 @@ function RoomStabilityBanner() {
         {takeover.candidateId === room.viewer?.participantId && <button onClick={() => g.hostTakeover('cancel')}>撤回请求</button>}
       </div> : canRequest ? <div className="stability-actions"><button className="primary-button" onClick={() => g.hostTakeover('request')}>发起社长接任</button><span className="hint-text">需其他在线正式玩家多数确认；仅你一人在线时宽限期后直接接任。</span></div> : null}
     </div>}
-    {g.actionStatus && <p className="stability-status" role="status">{g.actionStatus}</p>}
+    {g.actionStatus && <p className="stability-status" role="status">{g.actionStatus}{g.clueSyncing&&<button onClick={g.retryClue} disabled={g.connectionState!=='ready'}>重新确认本次提示</button>}</p>}
   </>;
 }
 
@@ -732,7 +732,7 @@ function ActionPanel({ viewer, room, g }: { viewer: NonNullable<ReturnType<typeo
             <span>数字</span>
             <input inputMode="numeric" pattern="[0-9]*" value={clueCountInput} onChange={(e) => setClueCountInput(e.target.value)} />
           </label>
-          <button className="primary-button" onClick={submitClue} disabled={!clueWord.trim() || clueCountInput === ""}>提交提示</button>
+          <button className="primary-button" onClick={submitClue} disabled={g.cluePending || g.connectionState !== 'ready' || !clueWord.trim() || clueCountInput === ""} aria-busy={g.cluePending}>{g.cluePending?'正在确认…':'提交提示'}</button>
         </div>
       ) : (
         <p className="hint-text">{renderHint()}</p>
