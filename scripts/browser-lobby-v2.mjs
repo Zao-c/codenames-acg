@@ -1,3 +1,4 @@
+import { managedClick } from './browser-support.mjs';
 import { readRoomState } from './room-observer.mjs';
 import { theme } from './browser-support.mjs';
 import fs from 'node:fs/promises';
@@ -32,10 +33,10 @@ try{
   assert.equal(await host.getByRole('heading',{name:'队伍与成员',exact:true}).count(),1);
   for(let i=1;i<5;i++){await pages[i].goto(`${base}/room/${id}`);await button(pages[i],'加入房间').click();await until(()=>states[i]?.id===id,`join ${i}`);}
   assert.ok(await button(host,'保留队长随机队员').isDisabled());
-  for(let n=0;n<5;n++)await nextState(0,()=>button(host,'全员重新随机').click());
+  for(let n=0;n<5;n++)await nextState(0,()=>managedClick(host,'全员重新随机'));
   const fixed={...states[0].nextPlan.captains};
   for(let n=0;n<10;n++){
-    await nextState(0,()=>button(host,'保留队长随机队员').click());assert.deepEqual(states[0].nextPlan.captains,fixed);
+    await nextState(0,()=>managedClick(host,'保留队长随机队员'));assert.deepEqual(states[0].nextPlan.captains,fixed);
     for(const t of ['red','blue'])assert.equal(states[0].players.find(p=>p.id===fixed[t]).role,'spymaster');
     assert.ok(Math.abs(states[0].players.filter(p=>p.team==='red').length-states[0].players.filter(p=>p.team==='blue').length)<=1);
   }
@@ -44,7 +45,7 @@ try{
   await tab(pages[2],'玩家');const oldTeam=states[2].players.find(p=>p.nickname==='大厅验收2').team;
   await nextState(2,()=>pages[2].getByLabel('我的队伍',{exact:true}).selectOption(oldTeam==='red'?'blue':'red'));
   await nextState(2,()=>pages[2].getByLabel('我的队伍',{exact:true}).selectOption(oldTeam));
-  await nextState(0,()=>button(host,'全员重新随机').click());
+  await nextState(0,()=>managedClick(host,'全员重新随机'));
   await button(host,'修改设置').click();const config=host.getByRole('dialog',{name:'本局设置'});
   assert.deepEqual(await config.getByLabel('下一局计分').locator('option').allTextContents(),['胜场制','积分制']);
   await config.getByLabel('棋盘',{exact:true}).selectOption('6x6');await config.getByLabel('下一局计分').selectOption('scoring');
@@ -74,7 +75,7 @@ try{
   await button(classicSettings,'保存并返回准备大厅').click();await until(()=>states[5].nextPlan?.wordPackName==='大厅上传题库','uploaded classic pack');
   assert.equal(states[5].nextPlan.settings.timerMode,'timed');assert.equal(states[5].nextPlan.settings.flipMode,'color-only');
   for(let i=0;i<3;i++){const c=io(api,{transports:['websocket']});clients.push(c);await new Promise(r=>c.on('connect',r));await new Promise((resolve,reject)=>{c.once('session',resolve);c.once('error_message',d=>reject(new Error(d.message)));c.emit('join_room',{roomId:classicId,nickname:`公开大厅成员${i}`,identityKey:crypto.randomBytes(32).toString('hex')});});}
-  await until(()=>states[5].players.length===4,'classic 4 players');await button(pages[5],'全员重新随机').click();await button(pages[5],'开始游戏').click();await until(()=>states[5].phase==='playing','classic playing');
+  await until(()=>states[5].players.length===4,'classic 4 players');await managedClick(pages[5],'全员重新随机');await button(pages[5],'开始游戏').click();await until(()=>states[5].phase==='playing','classic playing');
   await create(pages[6],'揭幕猜番');await until(()=>states[6]?.gameMode==='reveal-guess','dedicated reveal flow');assert.equal(await pages[6].locator('.preparation-lobby').count(),0);
   const home=pages[7];await home.locator('.home-room').nth(2).waitFor();assert.equal(await home.locator('.home-room').count(),3);
   const cards=await home.locator('.home-room').evaluateAll(es=>es.map(e=>({x:e.getBoundingClientRect().x,w:e.getBoundingClientRect().width,y:e.getBoundingClientRect().y})));

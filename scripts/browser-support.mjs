@@ -1,5 +1,11 @@
 import assert from 'node:assert/strict';
 
+export async function managedClick(page,name){
+  const tools=page.locator('.v2-more-management');
+  if(await tools.count()&&!await tools.evaluate(element=>element.open))await tools.locator('summary').first().click();
+  await page.getByRole('button',{name,exact:true}).click();
+}
+
 export async function theme(page,light){
   if(await page.evaluate(()=>document.documentElement.classList.contains('light'))===light)return;
   const graph=page.getByRole('dialog',{name:'关联板与思路',exact:true});
