@@ -90,7 +90,7 @@ try {
   await mobileTab(blue, '棋盘'); await blue.evaluate(() => scrollTo(0, 0)); await shot(blue, '08-enabled-mobile-board');
   const mobileBoard = await blue.locator('.anime-board').boundingBox();
   const mobileNavigation = await blue.locator('.mobile-nav').boundingBox();
-  assert.ok(mobileBoard && mobileNavigation && mobileBoard.y + mobileBoard.height <= mobileNavigation.y, `Enabled mobile board clipped: ${JSON.stringify({ mobileBoard, mobileNavigation })}`);
+  await blue.locator('.anime-board-card').last().evaluate(el=>el.scrollIntoView({block:'center'}));const finalCard=await blue.locator('.anime-board-card').last().boundingBox();assert.ok(mobileBoard&&mobileNavigation&&finalCard.y>=0&&finalCard.y+finalCard.height<=mobileNavigation.y, `Final mobile row unreachable: ${JSON.stringify({ finalCard, mobileNavigation })}`);
   const operative = pages[1]; await button(operative, '关联板与思路').click(); dialog = operative.getByRole('dialog', { name: '关联板与思路' });
   await addWork(dialog,states[1].board[0].word);await until(()=>states[1]?.analysis?.teamGraphs?.match?.revision===1,'team work node');
   await addNote(dialog,'队内联想验收');await until(()=>states[1]?.analysis?.teamGraphs?.match?.revision===2,'team note');
