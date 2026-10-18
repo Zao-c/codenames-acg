@@ -561,7 +561,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     try { localStorage.setItem("showDanmaku", v ? "on" : "off"); } catch {}
   };
   const [mobileRoomTab, setMobileRoomTab] = useState<"board" | "players" | "chat">("board");
-  const [sideTab, setSideTab] = useState<SideTab>("chat");
+  const [sideTab, setSideTab] = useState<SideTab>("battle");
   const [chatUnread,setChatUnread]=useState(0),[battleUnread,setBattleUnread]=useState(0);
   const jumpToLatest=chatUnread>0;
   const [chatPending,setChatPending]=useState(false),[chatError,setChatError]=useState('');
@@ -907,8 +907,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [roundAchievements, setRoundAchievements] = useState<AchievementUnlockPayload[]>([]);
   const [achievementToast, setAchievementToast] = useState<AchievementUnlockPayload | null>(null);
   const achievementToastTimerRef = useRef<number | null>(null);
+  const enqueueReveal = useRef<(value: RevealEvent) => void>(() => {});
 
   const clearRoundUiCache = useCallback(() => {
+    setRevealBanner(null);
     setRoundHighlights([]);
     setRoundAchievements([]);
     setHighlightToast(null);
@@ -943,30 +945,37 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const gate = new MatchNotifications();
-    type Notice = {kind:'highlight'; value:RoundHighlight} | {kind:'achievement'; value:AchievementUnlockPayload};
+    type Notice = {kind:'highlight'; value:RoundHighlight} | {kind:'achievement'; value:AchievementUnlockPayload} | {kind:'reveal';value:RevealEvent & {roomId:string;matchId:string;roundIndex:number}};
     const queue: Notice[] = [];
     let timer: number | undefined;
     const display = () => {
+      queue.sort((a,b)=>({reveal:0,highlight:1,achievement:2}[a.kind]-{reveal:0,highlight:1,achievement:2}[b.kind]));
       const next = queue.shift();
-      setHighlightToast(null); setAchievementToast(null);
+      setHighlightToast(null); setAchievementToast(null); setRevealBanner(null);
       if (!next) {timer=undefined;return;}
       const p=next.value, scope=notificationScope.current;
-      if (!scope || p.roomId!==scope.roomId || p.matchId!==scope.matchId || (p.roundIndex??0)<scope.latestTurn) {display();return;}
-      if(next.kind==='highlight')setHighlightToast(next.value);else setAchievementToast(next.value);
-      timer=window.setTimeout(display,1400);
+      if (!scope || p.roomId!==scope.roomId || p.matchId!==scope.matchId || next.kind!=='reveal'&&(p.roundIndex??0)<scope.latestTurn) {display();return;}
+      if(next.kind==='highlight')setHighlightToast(next.value);else if(next.kind==='achievement')setAchievementToast(next.value);else setRevealBanner(next.value);
+      timer=window.setTimeout(display,next.kind==='reveal'?2200:1600);
     };
-    const receive=(notice:Notice)=>{
+    const receive=(notice:Exclude<Notice,{kind:"reveal"}>)=>{
       if(notice.value.roomId!==activeRoomIdRef.current)return;
       const result=gate.receive(notice.kind,notice.value,notificationScope.current);
       if(!result)return;
       if(notice.kind==='highlight')setRoundHighlights(prev=>[...prev,notice.value]);
       else setRoundAchievements(prev=>[...prev,notice.value]);
-      if(result.toast){queue.push(notice);if(timer===undefined)display();}
+      if(result.toast){queue.push(notice);if(timer===undefined)timer=window.setTimeout(display,100);}
     };
     const highlight=(value:RoundHighlight)=>receive({kind:'highlight',value});
     const achievement=(value:AchievementUnlockPayload)=>receive({kind:'achievement',value});
+    enqueueReveal.current=value=>{
+      const scope=notificationScope.current;if(!scope)return;
+      if(!gate.receive('reveal',{id:value.id,...scope,roundIndex:scope.latestTurn},scope))return;
+      queue.push({kind:'reveal',value:{...value,roomId:scope.roomId,matchId:scope.matchId,roundIndex:scope.latestTurn}});
+      if(timer===undefined)timer=window.setTimeout(display,100);
+    };
     socket.on('round_highlight',highlight);socket.on('achievement_unlock',achievement);
-    return()=>{window.clearTimeout(timer);socket.off('round_highlight',highlight);socket.off('achievement_unlock',achievement);};
+    return()=>{enqueueReveal.current=()=>{};window.clearTimeout(timer);socket.off('round_highlight',highlight);socket.off('achievement_unlock',achievement);};
   }, [socket]);
 
   useEffect(() => {
@@ -994,7 +1003,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const reveal = room?.lastReveal; if (!reveal || reveal.id === lastRevealIdRef.current) return;
     lastRevealIdRef.current = reveal.id;
-    setRevealBanner(reveal); setRevealingCardIds((prev) => new Set(prev).add(reveal.cardId));
+    enqueueReveal.current(reveal); setRevealingCardIds((prev) => new Set(prev).add(reveal.cardId));
     if (soundEnabledRef.current) {
       if (reveal.outcome === "own-hit") playOwnHit(); else if (reveal.outcome === "opponent-hit") playOpponentHit(); else if (reveal.outcome === "neutral-hit") playNeutralHit(); else if (reveal.outcome === "assassin-hit") playAssassinHit();
     }

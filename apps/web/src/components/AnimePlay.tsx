@@ -38,6 +38,8 @@ export function NextMatchPanel({ room, mode = 'full', onConfigured, embedded=fal
   useEffect(() => { if (room.phase === 'lobby') setOpen(true); }, [room.phase, plan?.stage]);
   const [catalog, setCatalog] = useState<AnimeWork[]>([]);
   const [pools, setPools] = useState<AnimePool[]>([]);
+  const [catalogState,setCatalogState]=useState<'idle'|'loading'|'ready'|'error'>('idle');
+  const [catalogRetry,setCatalogRetry]=useState(0);
   const [variant, setVariant] = useState<'classic'|'anime'>(plan?.variant ?? 'classic');
   const [score, setScore] = useState<import('@acg-codenames/shared').ScoringMode>(plan?.settings.scoringMode ?? room.settings.scoringMode);
   const [size, setSize] = useState<BoardMode>(plan?.settings.boardMode ?? room.settings.boardMode);
@@ -86,14 +88,14 @@ export function NextMatchPanel({ room, mode = 'full', onConfigured, embedded=fal
     return new Map([...pools,...savedPools].map(pool=>[pool.id,new Set(pool.workIds.map(id=>byId.get(id)).filter(Boolean)).size]));
   },[catalog,pools,savedPools]);
   useEffect(() => { try { setSavedPools(JSON.parse(localStorage.getItem(storageKey) ?? '[]')); } catch {} }, [storageKey]);
-  const needsCatalog = room.viewer?.isHost && (mode==='settings'||(mode==='full'&&!embedded&&(!plan||plan.stage==='planning')));
+  const needsCatalog = room.viewer?.isHost && (mode==='settings'||(mode==='full'&&open&&(!plan||plan.stage==='planning'||room.phase==='finished')));
   const catalogOwner = privateIdentityKey();
   useEffect(() => {
     if (!needsCatalog) return;
-    let live=true;
-    getAnimeCatalog().then(data=>{if(live){setCatalog(data.works);setPools(data.pools??[]);}}).catch(()=>{if(live)setError('目录读取失败，请稍后重试。已准备的候选池仍可使用。');});
+    let live=true;setCatalogState('loading');
+    getAnimeCatalog().then(data=>{if(live){setCatalog(data.works);setPools(data.pools??[]);setCatalogState('ready');}}).catch(()=>{if(live){setCatalogState('error');setError('目录读取失败，请稍后重试。已准备的候选池仍可使用。');}});
     return()=>{live=false;};
-  }, [needsCatalog,catalogOwner]);
+  }, [needsCatalog,catalogOwner,catalogRetry]);
   const refreshCommunity = async () => {
     try {
       const pages = await Promise.all([listCommunityPools('public'), listCommunityPools('mine'), listCommunityPools('favorites')]);
@@ -204,7 +206,8 @@ export function NextMatchPanel({ room, mode = 'full', onConfigured, embedded=fal
         </div>
         {variant==='anime'&&<div className="anime-option-flags"><label><input type="checkbox" checked={randomSwap} onChange={e=>setRandomSwap(e.target.checked)}/>随机互换 A · 封存时双方各一张</label><label><input type="checkbox" checked={seriesRotation} onChange={e=>setSeriesRotation(e.target.checked)}/>历局作品轮换 · 排除已玩系列</label></div>}
         {variant === 'classic' ? <><label>文字题库 <select value={wordPackId} onChange={e => setWordPackId(e.target.value)}><option value="">沿用上次</option>{wordPackSummaries.map(p => <option key={p.id} value={`builtin:${p.id}`}>{p.name}</option>)}{accountPacks.map(p => <option key={p.id} value={`mine:${p.id}`}>{p.name}</option>)}{publicPacks.map(p => <option key={p.publicId} value={`public:${p.publicId}`}>{p.name} · {p.ownerUsername}</option>)}{uploadedPack&&<option value="upload">上传：{uploadedPack.name}</option>}</select></label>{mode==='settings'&&<label>上传文字题库<input type="file" accept=".txt,.json" onChange={async e=>{const file=e.target.files?.[0];if(!file)return;try{const data=await parseCustomWordFile(file);setUploadedPack(data.kind==='candidate'?autoExportCandidatePack(data.pack):data.pack);setWordPackId('upload');setError('');}catch(error){setError((error as Error).message);}}}/></label>}</> : <>
-          <label>动画作品池 <select aria-label="动画作品池" value={poolId} onChange={e => {setPoolId(e.target.value);setError('');}}> {!poolId&&<option value="">作品池失效，请重新选择</option>}{plan?.variant === 'anime' && <option value="current">沿用：{plan.poolName}</option>}{[...pools,...savedPools].map(p => <option key={p.id} value={p.id}>{p.name}（{p.workIds.length} 部{(sourceSeriesCounts.get(p.id)??0)<BOARD_MODE_CONFIG[size].size?' · 系列不足，建议合并年份':''}）</option>)}{communityPools.map(p => <option key={`community:${p.id}`} value={`community:${p.id}`}>社区 · {p.name}（{p.workCount} 部）</option>)}<option value="custom">自定义作品池</option></select></label>
+          <label>动画作品池 <select aria-label="动画作品池" aria-busy={catalogState==='loading'} disabled={catalogState==='loading'} value={poolId} onChange={e => {setPoolId(e.target.value);setError('');}}> {!poolId&&<option value="">作品池失效，请重新选择</option>}{plan?.variant === 'anime' && <option value="current">沿用：{plan.poolName}</option>}{[...pools,...savedPools].map(p => <option key={p.id} value={p.id}>{p.name}（{p.workIds.length} 部{(sourceSeriesCounts.get(p.id)??0)<BOARD_MODE_CONFIG[size].size?' · 系列不足，建议合并年份':''}）</option>)}{communityPools.map(p => <option key={`community:${p.id}`} value={`community:${p.id}`}>社区 · {p.name}（{p.workCount} 部）</option>)}<option value="custom">自定义作品池</option></select></label>
+          {catalogState==='loading'&&<p className="hint-text" role="status">正在读取作品目录…</p>}{catalogState==='error'&&<button onClick={()=>{setError('');setCatalogRetry(n=>n+1);}}>重试读取目录</button>}
           {(communityEnabled || !!communityPools.length) && <div className="anime-toolbar"><button onClick={() => {setPoolDialog(true);setPoolPage(1);}}>搜索全部作品池…</button><button onClick={() => navigate('/anime-pools')}>浏览动画题库广场</button><button onClick={() => void refreshCommunity()}>更新社区列表</button></div>}
           {poolId === 'custom' && <div className="anime-pool-editor"><input aria-label="动画题库名称" value={poolName} onChange={e => setPoolName(e.target.value)} /><input aria-label="搜索目录" placeholder="搜索作品，勾选加入题库" value={query} onChange={e => setQuery(e.target.value)} />
             <p>已选 {customIds.length} 部 / {new Set(catalog.filter(w => customIds.includes(w.id)).map(w => w.seriesId)).size} 个系列</p>
@@ -214,7 +217,7 @@ export function NextMatchPanel({ room, mode = 'full', onConfigured, embedded=fal
           {savedPools.some(p => p.id === poolId) && <><button onClick={() => { const p = savedPools.find(p => p.id === poolId)!; setCustomIds(p.workIds); setPoolName(p.name); setPoolId('custom'); }}>编辑此题库</button><button onClick={() => { const next = savedPools.filter(p => p.id !== poolId); setSavedPools(next); localStorage.setItem(storageKey,JSON.stringify(next)); setPoolId('all'); }}>删除此题库</button></>}
         </>}
         {mode==='settings'&&variant==='classic'&&<details className="v2-advanced"><summary>经典进阶设置</summary><label>回合计时<select aria-label="经典回合计时" value={advanced.timerMode} onChange={e=>setAdvanced(v=>({...v,timerMode:e.target.value as 'timed'|'unlimited'}))}><option value="unlimited">不限时</option><option value="timed">限时</option></select></label>{advanced.timerMode==='timed'&&(['timerClueSeconds','timerGuessSeconds'] as const).map((k,i)=><label key={k}>{i?'猜词时间':'提示时间'}<select value={advanced[k]} onChange={e=>setAdvanced(v=>({...v,[k]:Number(e.target.value)}))}>{[60,90,120].map(n=><option key={n} value={n}>{n} 秒</option>)}</select></label>)}<label>翻牌显示<select aria-label="经典翻牌显示" value={advanced.flipMode} onChange={e=>setAdvanced(v=>({...v,flipMode:e.target.value as 'word-color'|'color-only'}))}><option value="word-color">词语与阵营</option><option value="color-only">仅阵营颜色</option></select></label></details>}
-        <button className="primary-button" disabled={configuring} onClick={configure}>{configuring?'保存中…':mode === 'settings' ? '保存设置' : '保存配置并更新候选池'}</button>{configNotice&&<p role="status" className="hint-text">{configNotice}</p>}
+        <button className="primary-button" disabled={configuring||needsCatalog&&catalogState==='loading'} onClick={configure}>{configuring?'保存中…':mode === 'settings' ? '保存设置' : '保存配置并更新候选池'}</button>{configNotice&&<p role="status" className="hint-text">{configNotice}</p>}
       </details>}
       {plan?.variant==='anime'&&room.viewer?.isHost&&<div className="pool-current-summary"><strong>{plan.poolName}</strong><p>作品 {plan.poolSummary?.source} · 系列 {plan.poolSummary?.series} · 历局排除 {plan.poolSummary?.excluded} · 当前可用 {plan.poolSummary?.available} / 需要 {plan.poolSummary?.required}</p><button onClick={()=>setPoolPreview(true)}>查看当前作品池</button>{plan.stage==='planning'&&room.phase!=='playing'&&<button onClick={()=>{if(window.confirm('重置本房间已玩系列记录？下一局可能再次出现之前玩过的作品；原作品池不会被删除。'))send({kind:'reset-series-history'});}}>重置本房间轮换历史</button>}</div>}
       {mode !== 'settings' && plan && <>

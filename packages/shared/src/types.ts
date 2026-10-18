@@ -412,6 +412,7 @@ export interface PublicRevealGuessState {
 }
 
 export interface ChatMessage {
+  connection?: { participantId: string; disconnects: number; reconnects: number; connected: boolean; lastChangedAt: number };
   event?: { kind: 'clue'|'guess'|'turn-end'; team: Team; clueId?: string }; 
   id: string;
   type: ChatMessageType;

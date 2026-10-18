@@ -930,6 +930,25 @@ async function bootstrap(): Promise<void> {
       }
     });
 
+    socket.on('manage_member',async(payload,reply)=>{
+      try{
+        checkSocketRate(socket.id,'manage_member',12,10_000);
+        const body=asObject(payload),roomId=requireString(body,'roomId'),targetId=requireString(body,'targetId');
+        const session=requireSession(socket.id,roomId);
+        if(session.participantType!=='player')throw new Error('只有房主可以管理成员');
+        if(!['team','role','remove'].includes(String(body.kind)))throw new Error('管理操作无效');
+        const kind=body.kind as 'team'|'role'|'remove';
+        if(kind==='team'&&body.team!==null&&body.team!=='red'&&body.team!=='blue')throw new Error('队伍无效');
+        const room=await game.manageMember(roomId,session.participantId,targetId,{kind,...(kind==='team'?{team:optionalTeam(body.team)}:{}),...(kind==='role'?{role:requirePlayerRole(body.role)}:{})});
+        if(kind==='remove')for(const [id,bound] of socketSessions){
+          if(bound.roomId!==roomId||bound.participantId!==targetId)continue;
+          socketSessions.delete(id);const client=io.sockets.sockets.get(id);
+          client?.leave(roomId);client?.leave(`member:${targetId}`);client?.emit('room_closed',{roomId,reason:'你已被房主移出房间；原席位恢复凭证失效'});
+        }
+        await sendRoomState(roomId);acknowledge(reply,{ok:true,roomId,roomVersion:room.updatedAt});
+      }catch(error){acknowledge(reply,{ok:false,message:error instanceof Error?error.message:'成员管理失败'});fail(socket,error);}
+    });
+
     socket.on("set_role", async (payload) => {
       try {
         const body = asObject(payload);
