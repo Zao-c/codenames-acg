@@ -19,7 +19,8 @@ async function fault(page,mode){await page.evaluate(async mode=>{
 },mode);}
 
 export async function settingsChecks(t){
- const {host,pages,states,baseline,checks,shot,button,until,matrix}=t;
+ const {host,pages,states,baseline,checks,shot,button,until,matrix,ack}=t;
+ const target=states[0].players[2].id;await ack(host,'manage_member',{roomId:states[0].id,targetId:target,kind:'team',team:'blue'});await until(()=>states[0].players.find(p=>p.id===target).team==='blue','uneven roster');await matrix(host,'lobby-unequal','host');await ack(host,'manage_member',{roomId:states[0].id,targetId:target,kind:'team',team:'red'});await until(()=>states[0].players.find(p=>p.id===target).team==='red','restore roster');
  await host.setViewportSize({width:1440,height:900});await theme(host,true);
  await button(host,'修改设置').click();let dialog=host.getByRole('dialog',{name:'本局设置',exact:true});
  await shot(host,'settings-1440-light','host');await dialog.getByLabel('棋盘',{exact:true}).selectOption('6x6');
@@ -51,7 +52,7 @@ export async function tailChecks(t){
  if(baseline)return;
  await host.setViewportSize({width:1440,height:900});await button(host,'修改设置').click();let dialog=host.getByRole('dialog',{name:'本局设置',exact:true});const old=states[0].id,version=states[0].nextPlan.version;
  await dialog.getByLabel('棋盘',{exact:true}).selectOption('5x5');await fault(host,'hold');await button(dialog,'保存并返回准备大厅').click();await until(()=>states[0].nextPlan.version===version+1,'held real ACK state');await until(async()=>await host.evaluate(()=>typeof window.r10Late==='function'),'held ACK');
- await host.evaluate(()=>{window.r10Held=window.r10Late;window.r10Fault='none';document.querySelector('a[href="/"]').click();});await button(host,'＋ 创建房间').click();const create=host.getByRole('dialog',{name:'创建一间房间'});await button(create,'动画组牌').click();await button(create,'创建房间 →').click();await until(()=>states[0]?.id!==old&&states[0]?.nextPlan,'new room');
+ await host.evaluate(()=>{window.r10Held=window.r10Late;window.r10Fault='none';document.querySelector('.nav-brand').click();});await button(host,'＋ 创建房间').click();const create=host.getByRole('dialog',{name:'创建一间房间'});await button(create,'动画组牌').click();await button(create,'创建房间 →').click();await until(()=>states[0]?.id!==old&&states[0]?.nextPlan,'new room');
  await button(host,'修改设置').click();dialog=host.getByRole('dialog',{name:'本局设置',exact:true});await dialog.getByLabel('棋盘',{exact:true}).selectOption('6x6');const writes=await host.evaluate(()=>window.r10Writes);await host.evaluate(()=>window.r10Held());await host.waitForTimeout(300);assert.equal(await dialog.isVisible(),true);assert.equal(await dialog.getByLabel('棋盘',{exact:true}).inputValue(),'6x6');assert.equal(states[0].nextPlan.settings.boardMode,'5x5');assert.equal(await host.evaluate(()=>window.r10Writes),writes);await shot(host,'settings-crossroom-safe','host');
  checks.push('4-seat final lobby and SPA room switch: delayed old real ACK cannot close/overwrite a new room settings draft');
 }
