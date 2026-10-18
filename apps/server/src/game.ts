@@ -877,7 +877,8 @@ export class GameService {
       const room=await this.requireRoom(roomId);
       const actor=requirePlayer(room,actorId);
       if(room.hostPlayerId!==actorId||!actor.isHost||!actor.connected)throw new Error('只有在线房主可以管理成员');
-      if(room.phase!=='lobby'||room.countdown||room.nextPlan&&room.nextPlan.stage!=='planning')throw new Error('仅未锁定大厅允许管理；请先取消队长预览或准备');
+      if(room.gameMode==='reveal-guess'||room.revealGuessState)throw new Error('揭幕猜番请使用原有房间管理');
+      if(room.phase!=='lobby'||room.countdown||room.nextPlan?.lockedPlayerIds||room.nextPlan&&room.nextPlan.stage!=='planning')throw new Error('仅未锁定大厅允许管理；请先取消队长预览或准备');
       const player=room.players.find(p=>p.id===targetId);
       const spectator=room.spectators.find(p=>p.id===targetId);
       if(!player&&!spectator)throw new Error('目标成员不在本房间');

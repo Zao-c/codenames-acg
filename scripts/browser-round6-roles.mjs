@@ -128,6 +128,7 @@ try {
   await settings.getByLabel('玩法', { exact: true }).selectOption('anime');
   await settings.getByLabel('棋盘', { exact: true }).selectOption('5x5');
   const poolSelect = settings.getByLabel('动画作品池', { exact: true });
+  await poolSelect.locator('option[value$="-Q1"],option[value$="-Q2"],option[value$="-Q3"],option[value$="-Q4"]').first().waitFor({state:'attached'});
   const options = await poolSelect.locator('option').evaluateAll(list => list.map(option => option.value).filter(Boolean));
   const quarterly = options.find(value => /^\d{4}-Q[1-4]$/.test(value));
   assert.ok(quarterly, 'quarterly pool available');

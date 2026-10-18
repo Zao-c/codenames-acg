@@ -35,6 +35,11 @@ await assert.rejects(game.manageMember(room.id,host.id,players[1].id,{kind:'remo
 reset.countdown=undefined;reset.phase='playing';await store.setRoom(reset);
 await assert.rejects(game.manageMember(room.id,host.id,players[1].id,{kind:'remove'}),/未锁定大厅/);
 reset.phase='lobby';await store.setRoom(reset);
+reset.nextPlan!.lockedPlayerIds=[host.id];await store.setRoom(reset);
+await assert.rejects(game.manageMember(room.id,host.id,players[1].id,{kind:'remove'}),/未锁定大厅/);
+reset.nextPlan!.lockedPlayerIds=undefined;const oldMode=reset.gameMode;reset.gameMode='reveal-guess';await store.setRoom(reset);
+await assert.rejects(game.manageMember(room.id,host.id,players[1].id,{kind:'remove'}),/揭幕猜番/);
+reset.gameMode=oldMode;await store.setRoom(reset);
 
 // Ten short disconnects: immediate presence, one record with precise diagnostics, same token.
 for(let n=0;n<10;n++){

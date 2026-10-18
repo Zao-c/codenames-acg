@@ -275,6 +275,7 @@ try {
   check('D04 opponent selection is protected for the original 10 seconds');
   await captureRoles('draft');
   await until(()=>Date.now()>claims()[e].protectedUntil,'10 second protection passed');
+  await until(async()=>!(await candidate(host,e).locator('small').innerText()).includes('保护'),'client protection countdown expired');
   const beforeSteal=[...states[4].nextPlan.publicSelectedWorkIds].sort();
   await mouseDrag(host,candidate(host,e),zone(host,'take'),'D04-steal-after-protection');
   await until(()=>claims()[e]?.team==='red','steal');
