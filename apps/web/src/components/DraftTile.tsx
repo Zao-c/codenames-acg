@@ -69,6 +69,8 @@ export function DraftTile({ work, claim, time, bookmark, canEdit, allow, onPrevi
       if (wasDragging && moved && action && allow[action]) onDrop(work, action, Number(el?.getAttribute('data-replace-id'))||undefined);
     };
     const cancel = (ev: PointerEvent) => { if (ev.pointerId === e.pointerId) stop(); };
+    const onBlur = () => stop();
+    const onVisibility = () => { if (document.visibilityState === 'hidden') stop(); };
     function stop() {
       if (done) return;
       done = true; gestureActive = false;
@@ -76,6 +78,8 @@ export function DraftTile({ work, claim, time, bookmark, canEdit, allow, onPrevi
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
       window.removeEventListener('pointercancel', cancel);
+      window.removeEventListener('blur', onBlur);
+      document.removeEventListener('visibilitychange', onVisibility);
       document.removeEventListener('touchmove', blockScroll);
       if (frame) { window.cancelAnimationFrame(frame); frame = 0; }
       zone?.classList.remove('drop-hot'); zone = null;
@@ -88,6 +92,8 @@ export function DraftTile({ work, claim, time, bookmark, canEdit, allow, onPrevi
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
     window.addEventListener('pointercancel', cancel);
+    window.addEventListener('blur', onBlur);
+    document.addEventListener('visibilitychange', onVisibility);
   };
 
   return <article className={`draft-tile ${compact?'draft-tile-compact':''} role-${claim?.team ?? 'hidden'} ${ghost ? 'is-dragging' : ''} ${publicSelected ? 'is-public-selected' : ''}`} data-drop={compact&&canEdit&&claim?.kind==='manual'?'replace':undefined} data-replace-id={work.id}>

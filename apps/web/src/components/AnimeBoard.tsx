@@ -36,7 +36,7 @@ export function AnimeBoard({ room }: { room: PublicRoomState }) {
   const scroll = useRef<HTMLDivElement>(null);
   const selected = room.board.find(card => card.id === preview?.id);
   const cols = BOARD_MODE_CONFIG[room.settings.boardMode].columns;
-  return <section className="panel anime-board-panel" data-analysis={room.analysis ? 'true' : undefined}>
+  return <section className="panel anime-board-panel" data-analysis={room.analysis ? 'true' : undefined} data-board-mode={room.settings.boardMode}>
     <div className="anime-toolbar"><strong>封面棋盘 · {room.settings.boardMode}</strong>
       <button onClick={() => { setText(!text); localStorage.setItem('anime-text-view', text ? '0':'1'); }}>{text ? '封面显示' : '纯文字显示'}</button>
       <button aria-label="缩小棋盘" disabled={zoom <= 1} onClick={() => setZoom(z => Math.max(1,z-.25))}>−</button>

@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from 'react-router-dom';
+import { ClueRequestLifecycle } from '../lib/pending-clue';
 
 function genId(): string {
   if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
@@ -351,6 +352,9 @@ export interface GameContextType {
   cancelQueueJoin: () => void;
   debugFillRoom: () => void;
   submitClue: () => void;
+  cluePending: boolean;
+  clueSyncing: boolean;
+  retryClue: () => void;
   guessCard: (cardId: string) => void;
   endTurn: () => void;
   resumeTimer: () => void;
@@ -484,7 +488,15 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [lostRoom, setLostRoom] = useState<{ roomId: string; message: string } | null>(null);
   const [actionStatus, setActionStatus] = useState("");
   const [connectionState, setConnectionState] = useState<ConnectionState>("idle");
-  const [clueWord, setClueWord] = useState("");
+  const clueDraftRevisionRef = useRef(0);
+  const [clueWord, setClueWordRaw] = useState("");
+  const [cluePending, setCluePending] = useState(false);
+  const [clueSyncing, setClueSyncing] = useState(false);
+  const setClueWord = (value: string) => {
+    clueDraftRevisionRef.current += 1;
+    setClueWordRaw(value);
+    clearActionError('clue');
+  };
   const [clueCountInput, setClueCountInputRaw] = useState("2");
   const [chatText, setChatText] = useState("");
   const [danmakuQueue, setDanmakuQueue] = useState<DanmakuMessage[]>([]);
@@ -508,6 +520,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   soundEnabledRef.current = soundEnabled;
   const setClueCountInput = (value: string) => {
     if (/^\d*$/.test(value)) {
+      clueDraftRevisionRef.current += 1;
       setClueCountInputRaw(value);
       if (scopedErrorRef.current?.scope === 'clue') { scopedErrorRef.current = null; setError(''); }
     }
@@ -556,7 +569,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [pendingGuess, setPendingGuess] = useState<string | null>(null);
   const guessLockRef = useRef(false);
   const endTurnLockRef = useRef(false);
-  const clueRequestRef = useRef<{ id: string; word: string; count: string } | null>(null);
+  const clueLifecycleRef = useRef<ClueRequestLifecycle | null>(null);
   const guessActionRef = useRef<{ requestId: string; cardId: string; turnKey: string; matchId?: string } | null>(null);
   const endTurnActionRef = useRef<{ requestId: string; turnKey: string; matchId?: string } | null>(null);
   const scopedErrorRef = useRef<{ scope: 'clue' | 'guess' | 'endTurn'; message: string } | null>(null);
@@ -565,6 +578,31 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const guessUnlockTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const endTurnUnlockTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const joinAttemptRef = useRef<{ roomId: string; spectator: boolean; previousRoomId?: string; previousPhase?: string; previousToken?: string } | null>(null);
+  if (!clueLifecycleRef.current) clueLifecycleRef.current = new ClueRequestLifecycle((event, request, message) => {
+    setCluePending(event === 'pending' || event === 'syncing');
+    setClueSyncing(event === 'syncing');
+    if (event === 'pending') {
+      clearActionError('clue');
+      setActionStatus('正在提交提示…');
+    } else if (event === 'syncing') {
+      setActionStatus('提示尚未确认，正在同步；输入已保留，请勿重复提交。');
+      if (activeRoomIdRef.current === request.roomId) socket.emit('sync_room_state', { roomId: request.roomId });
+    } else {
+      setActionStatus('');
+      if (event === 'rejected') setActionError('clue', `提示未提交：${message ?? '服务器拒绝'}。输入已保留。`);
+      else {
+        clearActionError('clue');
+        if (event === 'accepted' && clueDraftRevisionRef.current === request.draftRevision) {
+          setClueWordRaw('');
+          setClueCountInputRaw('2');
+        }
+      }
+    }
+  });
+  useEffect(() => () => clueLifecycleRef.current?.cancel(), []);
+  useEffect(() => {
+    if (clueLifecycleRef.current?.pending?.roomId !== session?.roomId) clueLifecycleRef.current?.cancel();
+  }, [session?.roomId]);
   const [revealingCardIds, setRevealingCardIds] = useState<Set<string>>(new Set());
   const [maskSpymasterHints, setMaskSpymasterHints] = useState(false);
   const [globalReaction, setGlobalReaction] = useState<import("@acg-codenames/shared").ReactionEffectPayload | null>(null);
@@ -650,6 +688,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
   // ─── socket event listeners ───────────────────────────
   useEffect(() => {
     function onSession(p: ClientSession) {
+      if (activeRoomIdRef.current && activeRoomIdRef.current !== p.roomId) {
+        clueLifecycleRef.current?.cancel();
+        scopedErrorRef.current = null;
+      }
       const attempt=joinAttemptRef.current;
       const created=createAttemptRef.current;
       releaseJoin();
@@ -659,7 +701,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       joinAttemptRef.current=null;
       recoveryAttempt.current=null;
       setJoinError('');setLostRoom(null);
-      setSession(p); saveSession(p); setConnectionState("ready"); setError(""); activeRoomIdRef.current = p.roomId; freshSessionRef.current = true;
+      setSession(p); saveSession(p); setConnectionState("ready"); if (!scopedErrorRef.current) setError(""); activeRoomIdRef.current = p.roomId; freshSessionRef.current = true;
       const previous = attempt ?? created;
       if(previous&&previous.previousRoomId&&previous.previousRoomId!==p.roomId&&previous.previousPhase==='lobby'&&previous.previousToken){
         // The new seat is confirmed; explicitly release the old lobby seat without risking rollback.
@@ -696,21 +738,16 @@ export function GameProvider({ children }: { children: ReactNode }) {
           clearTimeout(endTurnUnlockTimerRef.current);
         }
       }
-      const pendingClue=clueRequestRef.current;
-      // ACK loss must not erase a clue the server actually accepted, nor duplicate the input.
-      if(pendingClue&&p.clue&&p.clue.word===pendingClue.word){
-        clueRequestRef.current=null;
-        setClueWord(current=>current.trim()===pendingClue.word?'':current);
-        setClueCountInputRaw("2");setActionStatus("");
-        clearActionError('clue');
-      }
+      clueLifecycleRef.current?.observe(p);
     }
     function onRoomSummaries(p: RoomSummary[]) { setRoomSummaries(p); }
     function onAnalysisState(p: { roomId: string; analysis: import('@acg-codenames/shared').AnalysisPermissions }) {
-      if (p.roomId === activeRoomIdRef.current) setError('');
       setRoom(current => current?.id === p.roomId && current.matchId === p.analysis.matchId ? { ...current, analysis: p.analysis } : current);
     }
     function onError(p: { message: string; code?:string; roomId?:string; action?:string }) {
+      // submit_clue has a correlated ACK. Its legacy error broadcast has no
+      // requestId, so it must not overwrite this or a later action's feedback.
+      if (p.action === 'submit_clue') return;
       const attempt=joinAttemptRef.current;
       // Tabs may own different live rooms while sharing one persisted "last room".
       const activeId=activeRoomIdRef.current??session?.roomId??loadSession()?.roomId??undefined;
@@ -782,6 +819,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     function onRoomClosed(p: { roomId: string; reason: string }) {
       invalidateRoomSession(p.roomId);
       if (p.roomId !== activeRoomIdRef.current) return;
+      clueLifecycleRef.current?.cancel();
       setSession(null); setRoom(null); setConnectionState("idle"); setDidReconnect(false); setRevealBanner(null); setError(p.reason); activeRoomIdRef.current = null;
     }
     const onConnect=()=>{if(!loadSession()&&!joinLockRef.current)setConnectionState('idle');};
@@ -1361,32 +1399,35 @@ export function GameProvider({ children }: { children: ReactNode }) {
   function cancelQueueJoin() { if (session) socket.emit("cancel_queue_join", { roomId: session.roomId }); }
   function debugFillRoom() { if (session) socket.emit("debug_fill_room", { roomId: session.roomId }); }
   function submitClue() {
-    if (!session || !viewer?.canSubmitClue || !clueWord.trim()) return;
+    if (!session || !room || room.id !== session.roomId || activeRoomIdRef.current !== room.id || connectionState !== 'ready' || !viewer?.canSubmitClue || !clueWord.trim() || clueLifecycleRef.current?.pending) return;
     const count = Number(clueCountInput);
     if (!Number.isInteger(count) || count < MIN_CLUE_COUNT || count > MAX_CLUE_COUNT) {
-      setError(`提示数量无效，请输入 ${MIN_CLUE_COUNT}-${MAX_CLUE_COUNT} 的整数`);
+      setActionError('clue', `提示数量无效，请输入 ${MIN_CLUE_COUNT}-${MAX_CLUE_COUNT} 的整数`);
       return;
     }
-    const word=clueWord.trim(), rawCount=clueCountInput, requestId=genId();
-    clueRequestRef.current={id:requestId,word,count:rawCount};
-    setActionStatus('正在提交提示…');clearActionError('clue');setError('');
-    let settled=false;
-    const timer=setTimeout(()=>{
-      if(settled)return;settled=true;clueRequestRef.current=null;setActionStatus('');
-      setActionError('clue','提示提交未确认：正在同步最新局面。输入已保留，请勿重复提交。');
-      socket.emit('sync_room_state',{roomId:session.roomId});
-    },9000);
+    const word=clueWord.trim(), requestId=genId();
+    const started = clueLifecycleRef.current!.start({
+      requestId, roomId:room.id, matchId:room.matchId, roundNumber:room.roundNumber,
+      turnVersion:roomTurnKey(room), roomVersion:room.updatedAt, team:room.currentTeam,
+      giverPlayerId:session.participantId, recordCount:room.clueRecords?.length ?? 0,
+      word, count, draftRevision:clueDraftRevisionRef.current
+    });
+    if (!started) return;
     socket.emit("submit_clue", { roomId: session.roomId, word, count, requestId }, result => {
-      if(settled)return;settled=true;clearTimeout(timer);clueRequestRef.current=null;setActionStatus('');
-      if(!result?.ok){
-        setActionError('clue',`提示未提交：${result?.message??'服务器拒绝'}。输入已保留。`);
-        return;
-      }
-      // Only the confirmed request clears the draft, so a failed send never loses the word.
-      setClueWord(current=>current.trim()===word?'':current);
-      setClueCountInputRaw("2");clearActionError('clue');
+      if (activeRoomIdRef.current !== session.roomId) return;
+      clueLifecycleRef.current?.acknowledge(requestId, result);
     });
     if (soundEnabled) playSubmitClue();
+  }
+  function retryClue() {
+    if (connectionState !== 'ready' || clueLifecycleRef.current?.pending?.roomId !== activeRoomIdRef.current) return;
+    const request = clueLifecycleRef.current?.retry();
+    if (!request) return;
+    // Reuse the exact requestId and payload. Server idempotency makes this safe
+    // even if the original action was accepted but every confirmation was lost.
+    socket.emit('submit_clue', {roomId:request.roomId,requestId:request.requestId,word:request.word,count:request.count}, result => {
+      if (activeRoomIdRef.current === request.roomId) clueLifecycleRef.current?.acknowledge(request.requestId, result);
+    });
   }
   function guessCard(cardId: string) {
     if (!session || !viewer?.canGuess || guessLockRef.current) return;
@@ -1463,6 +1504,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (soundEnabledRef.current) playClick();
   }
   function leaveRoom() {
+    clueLifecycleRef.current?.cancel();
     if (session) {
       const isPlaying = room?.phase === "playing" || room?.phase === "finished";
       if (isPlaying) {
@@ -1480,7 +1522,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
     if(session)clearSession(session.roomId);
     setSession(null); setRoom(null); setConnectionState("idle"); setDidReconnect(false); setRevealBanner(null); setDanmakuQueue([]); setRoundHighlights([]); setRoundAchievements([]); setHighlightToast(null); setAchievementToast(null); setError(""); setJoinError(""); setLostRoom(null); setActionStatus(""); activeRoomIdRef.current = null;
-    clueRequestRef.current=null;guessActionRef.current=null;endTurnActionRef.current=null;guessLockRef.current=false;endTurnLockRef.current=false;setPendingGuess(null);scopedErrorRef.current=null;
+    clueLifecycleRef.current?.cancel();guessActionRef.current=null;endTurnActionRef.current=null;guessLockRef.current=false;endTurnLockRef.current=false;setPendingGuess(null);scopedErrorRef.current=null;
     clearTimeout(guessUnlockTimerRef.current);clearTimeout(endTurnUnlockTimerRef.current);
   }
   function logoutNamedUser() {
@@ -1562,7 +1604,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     uploadRoomPack, useAccountPackForRoom, usePublicPackForRoom,
     startGame, restartGame, returnToLobby, transferHost, disbandRoom, forceEndGame,
     queueForNextRound, cancelQueueJoin, debugFillRoom,
-    submitClue, guessCard, endTurn, resumeTimer: resumeTimerFunc, hostTakeover, syncRoomState, joinError, clearJoinError: () => setJoinError(''), lostRoom, actionStatus, sendChatMessage, sendQuickPhrase, sendReaction, copyLink,
+    submitClue, cluePending, clueSyncing, retryClue, guessCard, endTurn, resumeTimer: resumeTimerFunc, hostTakeover, syncRoomState, joinError, clearJoinError: () => setJoinError(''), lostRoom, actionStatus, sendChatMessage, sendQuickPhrase, sendReaction, copyLink,
     clueWord, setClueWord, clueCountInput, setClueCountInput,
     chatText, setChatText, danmakuQueue, showDanmaku: showDanmakuRaw, setShowDanmaku,
     roundHighlights, roundAchievements, highlightToast, achievementToast,

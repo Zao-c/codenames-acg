@@ -170,7 +170,7 @@ export function NextMatchPanel({ room, mode = 'full', onConfigured, embedded=fal
         {plan.stage === 'guide' && team && <div className="anime-guide"><p>先浏览真实候选池，私人书签仅自己可见。双方确认后开始 180 秒组牌。</p><button className="primary-button" disabled={plan.captainView?.ready[team]} onClick={() => send({kind:'ready'})}>准备好了 / 跳过引导</button><p>红队 {plan.captainView?.ready.red ? '已确认':'浏览中'} · 蓝队 {plan.captainView?.ready.blue ? '已确认':'浏览中'}</p></div>}
         
         {draft && team && <><div className="anime-toolbar"><strong>{TEAM_LABELS[team]}手选 {own.length} / {quota?.manual}</strong><button disabled={plan.captainView?.done[team]} onClick={() => send({kind:'done'})}>手选完成，剩余随机补齐</button></div>
-          <p className="hint-text">拖入阵容领取，拖回候选池撤回；覆盖己方牌或点「更换这张」更换作品。</p>
+          <p className="hint-text">拖入阵容领取，拖回候选池撤回；拖到己方已选牌上可确认替换。</p>
         </>}
         {plan.stage === 'sealed' && room.phase === 'lobby' && room.viewer?.isHost && !room.countdown && <button className="primary-button" onClick={() => socket.emit('start_game',{roomId:room.id})}>开始五秒倒计时</button>}
         {plan.stage === 'sealed' && <p className="draft-sealed">准备已封存，等待房主五秒开局。</p>}
@@ -216,7 +216,8 @@ export function NextMatchPanel({ room, mode = 'full', onConfigured, embedded=fal
     {replaceCandidate&&<Dialog title="选择要更换的作品" close={()=>setReplaceCandidate(null)}><p>手选已满。选择一张己方手选牌，用《{replaceCandidate.title}》更换。</p>{own.map(id=><button key={id} onClick={()=>{setReplaceConfirm({work:replaceCandidate,old:id});setReplaceCandidate(null);}}>{list.find(w=>w.id===id)?.title}</button>)}</Dialog>}
     {replaceConfirm&&<Dialog title="更换作品" close={()=>setReplaceConfirm(null)}><p>将《{list.find(w=>w.id===replaceConfirm.old)?.title}》更换为《{replaceConfirm.work.title}》？</p><p className="hint-text">更换失败时保留原牌；抢夺仍受保护期和最后 20 秒限制。</p><button className="primary-button" onClick={()=>{send({kind:'take',workId:replaceConfirm.work.id,replaceId:replaceConfirm.old});setReplaceConfirm(null);setReplacement(undefined);}}>确认更换</button><button onClick={()=>setReplaceConfirm(null)}>取消</button></Dialog>}
     {interfere && team && <Dialog title="投放干扰牌" close={() => setInterfere(null)}>
-      <div className="anime-confirm"><p>将《{interfere.title}》作为干扰牌投放给{TEAM_LABELS[team === 'red' ? 'blue' : 'red']}？双方队长可见，普通队员和观众不可见。它占用对方的随机补位，不占手选额度；每队每局限一张，再次投放会替换原牌，投放后不可撤回，最后 20 秒禁止更改。</p>
+      <div className="anime-confirm"><p>将《{interfere.title}》投给{TEAM_LABELS[team === 'red' ? 'blue' : 'red']}作为干扰牌？<br/>仅双方队长可见；确认后不可撤回。</p>
+      <details className="interference-rules"><summary>规则说明</summary><p>每队每局一张，再次投放替换原牌；占接收方随机补位，不占手选额度；最后 20 秒不可更改。普通队员和旁观者不可见。</p></details>
         <button className="primary-button" onClick={() => { send({kind:'interfere',workId:interfere.id}); setInterfere(null); }}>确认投放</button>
         <button onClick={() => setInterfere(null)}>取消</button></div>
     </Dialog>}
