@@ -13,7 +13,7 @@
 @media(min-width:761px){
  .room-layout-playing{max-width:1700px;grid-template-columns:170px minmax(0,1fr) 290px;gap:12px}
  .room-layout-playing .room-center-col{max-width:none;width:100%}
- .room-layout-playing .anime-board,.room-layout-focus .anime-board{gap:7px;--card-ratio:1.75}
+ .room-layout-playing .anime-board,.room-layout-focus .anime-board{gap:7px;grid-auto-rows:auto;--card-ratio:1.75}
  .room-layout-playing [data-board-mode="6x6"] .anime-board,.room-layout-focus [data-board-mode="6x6"] .anime-board{--card-ratio:1.5}
  .room-layout-playing .anime-board-card,.room-layout-focus .anime-board-card{height:auto;aspect-ratio:var(--card-ratio);min-height:0;max-height:none}
  .room-layout-focus{max-width:1700px;width:100%;grid-template-columns:minmax(0,1fr)}

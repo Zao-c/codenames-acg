@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import { MemberManagement, canManageMembers, useMemberManagement } from './MemberManagement';
 import { RoomIdentity } from './RoomIdentity';
 import { ChatMessages } from './Conversation';
@@ -12,6 +13,7 @@ import { NextMatchPanel, StartCountdown } from './AnimePlay';
 /** Preparation is a single workspace. All decisions use the current server snapshot. */
 export function PreparationLobby({room}:{room:PublicRoomState}) {
   const g = useGame();
+  const navigate=useNavigate();
   const [settings,setSettings] = useState(false);
   const [preview,setPreview] = useState(false);
   const [management,setManagement] = useState(false);
@@ -64,7 +66,7 @@ export function PreparationLobby({room}:{room:PublicRoomState}) {
     </div>;
   };
   return <section className={`preparation-lobby lobby-v2 mobile-view-${g.mobileRoomTab}`}>
-    <header className="v2-stage-header"><div><p className="eyebrow">LOBBY / 准备大厅</p><h1>好友入座，准备开局。</h1><p className="hint-text">房间 <strong className="room-code">{room.id}</strong> · 第 {room.roundNumber} 局 · {g.connectionState==='ready'?'已连接':'正在重新连接'}</p></div><div className="v2-stage-tools"><button onClick={g.leaveRoom}>退出房间</button><button onClick={()=>void g.copyLink()}>{g.copied?'已复制链接':'邀请好友 ↗'}</button>{host&&<button className="icon-button" aria-label="房间管理" onClick={()=>setManagement(true)}><Icon name="settings" size={17}/></button>}</div></header>
+    <header className="v2-stage-header"><div><p className="eyebrow">LOBBY / 准备大厅</p><h1>好友入座，准备开局。</h1><p className="hint-text">房间 <strong className="room-code">{room.id}</strong> · 第 {room.roundNumber} 局 · {g.connectionState==='ready'?'已连接':'正在重新连接'}</p></div><div className="v2-stage-tools"><button onClick={()=>{if(window.confirm('确定退出房间？你将离开席位，已开始的组牌准备会取消。')){g.leaveRoom();navigate('/');}}}>退出房间</button><button onClick={()=>void g.copyLink()}>{g.copied?'已复制链接':'邀请好友 ↗'}</button>{host&&<button className="icon-button" aria-label="房间管理" onClick={()=>setManagement(true)}><Icon name="settings" size={17}/></button>}</div></header>
     <RoomIdentity room={room}/>
     <StartCountdown room={room}/>
     <div className="v2-lobby-grid">
