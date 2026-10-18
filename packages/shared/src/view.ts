@@ -1,4 +1,4 @@
-import { MAX_PLAYERS, MIN_PLAYERS_TO_START, TEAM_LABELS } from "./constants.js";
+import { BOARD_MODE_CONFIG, MAX_PLAYERS, MIN_PLAYERS_TO_START, TEAM_LABELS } from "./constants.js";
 import { analysisPermissions } from "./analysis-view.js";
 import { toWordPackSummary } from "./words.js";
 import type {
@@ -213,6 +213,13 @@ export function sanitizeRoom(room: Room, viewer: ViewerIdentity = {}): PublicRoo
     ? Object.entries(plan.claims).filter(([, claim]) => claim.kind === 'manual').map(([id]) => Number(id)).sort((a, b) => a - b)
     : undefined;
   const nextPlan = plan ? {
+    randomSwapCompleted: !!plan.randomSwap,
+    poolSummary: {
+      source: plan.pool.length, series: new Set(plan.pool.map(w => w.seriesId)).size,
+      excluded: plan.settings.animeSeriesRotation === true ? new Set(plan.pool.filter(w => room.seriesHistory?.[w.seriesId] !== undefined).map(w => w.seriesId)).size : 0,
+      available: new Set(plan.pool.filter(w => plan.settings.animeSeriesRotation !== true || room.seriesHistory?.[w.seriesId] === undefined).map(w => w.seriesId)).size,
+      required: BOARD_MODE_CONFIG[plan.settings.boardMode].size,
+    },
     id: plan.id, version: plan.version, variant: plan.variant, settings: plan.settings,
     wordPackName: plan.wordPack.name, poolName: plan.poolName, sourcePool: plan.sourcePool, poolIds: plan.pool.map(w => w.id), publicSelectedWorkIds, candidates: plan.candidates,
     startingTeam: plan.startingTeam, stage: plan.stage, captains: plan.captains, endsAt: plan.endsAt,

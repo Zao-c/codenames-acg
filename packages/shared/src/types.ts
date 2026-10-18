@@ -259,6 +259,9 @@ export interface Clue {
 }
 
 export interface RoomSettings {
+  /** Missing fields in an existing plan mean disabled (pre Round 8 compatibility). */
+  animeRandomSwap?: boolean;
+  animeSeriesRotation?: boolean;
   ruleSet: GameMode;
   variant?: "classic" | "anime";
   boardMode: BoardMode;
@@ -472,6 +475,9 @@ export interface RoundHighlightCard {
 }
 
 export interface RoundHighlight {
+  roomId?: string;
+  matchId?: string;
+  roundNumber?: number;
   id: string;
   clueId?: string;
   roundIndex: number;
@@ -489,6 +495,11 @@ export interface RoundHighlight {
 }
 
 export interface AchievementUnlockPayload {
+  roomId?: string;
+  matchId?: string;
+  roundNumber?: number;
+  roundIndex?: number;
+  team?: Team;
   id: string;
   title: string;
   playerId: string;
@@ -919,12 +930,15 @@ export interface ReplayKeyEvent {
 }
 
 export interface GameReplay {
+  roundNumber?: number;
+  matchId?: string;
   endReason?: Room['endReason'];
   id: string;
   roomId: string;
   createdAt: number;
   expiresAt: number;
   mode: {
+    variant?: "classic" | "anime";
     boardMode: BoardMode;
     scoringMode: ScoringMode;
     timerMode: TimerMode;

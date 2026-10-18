@@ -1,3 +1,4 @@
+import { Dialog } from '../components/UI';
 import { RoomIdentity } from '../components/RoomIdentity';
 import { ChatMessages, BattleEvents } from '../components/Conversation';
 import { CompactMembers, MatchManagement, MatchResult } from '../components/MatchSummary';
@@ -139,9 +140,9 @@ export function RoomPage() {
   }
 
   if (isLobby && room.nextPlan?.stage !== 'draft') return <><RoomStabilityBanner/><PreparationLobby room={room}/></>;
-  if(isLobby&&room.nextPlan?.stage==='draft')return <section className={`room-layout room-layout-lobby room-preparing-anime draft-room-shell mobile-view-${g.mobileRoomTab}`}><RoomStabilityBanner/><header className="room-bar"><div><strong className="room-code">{room.id}</strong><p className="hint-text">动画组牌 · {room.nextPlan.settings.boardMode}</p></div><div className="bar-actions"><button onClick={()=>void copyLink()}>{copied?'已复制':'邀请好友'}</button>{viewer?.isHost&&<MatchManagement/>}</div></header><RoomIdentity room={room}/><NextMatchPanel room={room}/><aside className="lobby-people"><CompactMembers room={room}/></aside><aside className="room-right-col lobby-chat"><SideTabPanel g={g} room={room} session={session}/></aside>{error&&<p className="error-text" role="alert">{error}</p>}</section>;
+  if(isLobby&&room.nextPlan?.stage==='draft')return <section className={`room-layout room-layout-lobby room-preparing-anime draft-room-shell mobile-view-${g.mobileRoomTab}`}><RoomStabilityBanner/><header className="room-bar"><div><strong className="room-code">{room.id}</strong><span className={`self-identity-anchor team-${room.viewer?.team??'spectator'}`}>{room.viewer?.participantType==='spectator'?'旁观者':room.viewer?.team?`我的队伍：${TEAM_LABELS[room.viewer.team]} · ${room.viewer.role==='spymaster'?'队长':'队员'}`:'待分队'}</span><p className="hint-text">动画组牌 · {room.nextPlan.settings.boardMode}</p></div><div className="bar-actions"><button onClick={()=>void copyLink()}>{copied?'已复制':'邀请好友'}</button>{viewer?.isHost&&<><button onClick={()=>{if(window.confirm('取消本次准备并保留配置？'))g.socket.emit('plan_action',{roomId:room.id,kind:'cancel',version:room.nextPlan?.version});}}>取消本次准备</button><MatchManagement/></>}</div></header><RoomIdentity room={room}/><PrivateReview room={room}/><NextMatchPanel room={room}/><aside className="lobby-people"><CompactMembers room={room}/></aside><aside className="room-right-col lobby-chat"><SideTabPanel g={g} room={room} session={session}/></aside>{error&&<p className="error-text" role="alert">{error}</p>}</section>;
 
-  if(isFinished)return <MatchResult room={room}/>;
+  if(isFinished)return <>{highlightToast&&<RoundHighlightToast highlight={highlightToast}/ >}{achievementToast&&<AchievementToast achievement={achievementToast}/ >}<MatchResult room={room}/></>;
 
   const phaseClass =
     focusMode ? "room-layout-focus"
@@ -167,7 +168,7 @@ export function RoomPage() {
         <header className="room-bar room-bar-clean">
           <div className="room-bar-main room-bar-stack">
             <div className="room-title-stack">
-              <strong className="room-code">{room.id}</strong>
+              <strong className="room-code">{room.id}</strong><span className={`self-identity-anchor team-${room.viewer?.team??'spectator'}`}>{room.viewer?.participantType==='spectator'?'旁观者':room.viewer?.team?`我的队伍：${TEAM_LABELS[room.viewer.team]} · ${room.viewer.role==='spymaster'?'队长':'队员'}`:'待分队'}</span>
               <p className="room-subtitle">{isLobby && room.nextPlan?.variant === "anime" ? room.nextPlan.poolName : room.wordPackSummary.name}</p>
             </div>
             <div className="status-strip">
@@ -227,7 +228,7 @@ export function RoomPage() {
             {!isFinished && <div className="mobile-match-status"><MatchStatus room={room}/></div>}
             {!isFinished && revealBanner && room.lastReveal?.id === revealBanner.id ? <RevealBanner reveal={revealBanner} /> : null}
 
-            <PrivateReview room={room}/>
+            {!isFinished&&<PrivateReview room={room}/>}
             {isFinished ? <details className="panel result-board"><summary>查看终局棋盘</summary><BoardPanel room={room} viewer={viewer} g={g} cardMarks={cardMarks} markCard={markCard}/></details> : <BoardPanel room={room} viewer={viewer} g={g} cardMarks={cardMarks} markCard={markCard} />}
 
             {viewer?.participantType === "player" && !isFinished ? (
@@ -309,10 +310,10 @@ function DanmakuLayer({ items }: { items: DanmakuMessage[] }) {
 
 function RoundHighlightToast({ highlight }: { highlight: import("@acg-codenames/shared").RoundHighlight }) {
   return (
-    <div className="round-highlight-toast" aria-hidden="true">
+    <div className="round-highlight-toast" role="status" aria-live="polite">
       <span className="round-highlight-toast-icon">✨</span>
       <span className="round-highlight-toast-text">
-        {highlight.captainTitle} / {highlight.teamTitle}
+        {highlight.team==='red'?'红队':'蓝队'} · 第 {highlight.roundNumber??'—'} 局 / {highlight.roundIndex} 回合 · {highlight.captainTitle} / {highlight.teamTitle}
       </span>
     </div>
   );
@@ -320,10 +321,10 @@ function RoundHighlightToast({ highlight }: { highlight: import("@acg-codenames/
 
 function AchievementToast({ achievement }: { achievement: import("@acg-codenames/shared").AchievementUnlockPayload }) {
   return (
-    <div className="round-highlight-toast achievement-toast" aria-hidden="true">
+    <div className="round-highlight-toast achievement-toast" role="status" aria-live="polite">
       <span className="round-highlight-toast-icon">🏆</span>
       <span className="round-highlight-toast-text">
-        {achievement.nickname} 获得成就：{achievement.title}
+        {achievement.team==='red'?'红队':achievement.team==='blue'?'蓝队':''} · 第 {achievement.roundNumber??'—'} 局 / {achievement.roundIndex??'—'} 回合 · {achievement.nickname} 获得成就：{achievement.title}
       </span>
     </div>
   );
@@ -368,7 +369,7 @@ function RoundHighlightCard({ highlight }: { highlight: import("@acg-codenames/s
 function FocusBar({ room, viewer, onExitFocus, g }: { room: NonNullable<ReturnType<typeof useGame>["room"]>; viewer: ReturnType<typeof useGame>["viewer"]; onExitFocus: () => void; g: ReturnType<typeof useGame> }) {
   return (
     <div className="focus-bar">
-      <strong className="room-code">{room.id}</strong>
+      <strong className="room-code">{room.id}</strong><span className={`self-identity-anchor team-${room.viewer?.team??'spectator'}`}>{room.viewer?.participantType==='spectator'?'旁观者':room.viewer?.team?`我的队伍：${TEAM_LABELS[room.viewer.team]} · ${room.viewer.role==='spymaster'?'队长':'队员'}`:'待分队'}</span>
       {room.phase === "playing" ? (
         <>
           <span className={`status-pill team-pill team-pill-${room.currentTeam}`}>{TEAM_LABELS[room.currentTeam]}</span>
@@ -720,7 +721,7 @@ function ActionPanel({ viewer, room, g }: { viewer: NonNullable<ReturnType<typeo
     submitClue();
   }
   return (
-    <section className="panel action-panel" style={{ marginBottom: 12 }}>
+    <section className={`panel action-panel ${viewer.team===room.currentTeam?`own-turn team-${viewer.team}`:''}`} style={{ marginBottom: 12 }}>
       {viewer.canSubmitClue ? (
         <div className={`clue-form clue-team-${room.currentTeam}`} onKeyDown={handleClueKeyDown}>
           <p className="clue-form-hint">{TEAM_LABELS[room.currentTeam]}队长 · 请在这里输入提示词</p>
@@ -753,6 +754,7 @@ function SideTabPanel({ g, room, session }: {
 }) {
   const { sideTab, setSideTab, chatText, setChatText, chatListRef, battleListRef, handleChatScroll, handleBattleScroll, chatUnread, battleUnread, chatPending, chatError, scrollChatToBottom, scrollBattleToBottom, sendChatMessage } = g;
   const [collapsed, setCollapsed] = useState(false);
+  const [battleExpanded,setBattleExpanded]=useState(false);
   const chatMessages = useMemo(() => room.messages.filter((m) => m.type === "chat" || m.type === "reaction"), [room.messages]);
   const battleMessages = useMemo(() => room.messages.filter((m) => m.type === "system"), [room.messages]);
   function handleChatKeyDown(e: KeyboardEvent<HTMLDivElement>) {
@@ -766,6 +768,7 @@ function SideTabPanel({ g, room, session }: {
 
   return (
     <div className={`panel side-panel${collapsed ? " side-panel-collapsed" : ""}`}>
+      {battleExpanded&&<Dialog title="完整战况" close={()=>setBattleExpanded(false)} wide><BattleEvents messages={battleMessages} room={room}/></Dialog>}
       <div className="side-panel-hdr">
         <div className="selection-grid side-tab-row">
           <button className={sideTab === "chat" ? "selected" : ""} onClick={() => { setSideTab("chat"); if (collapsed) setCollapsed(false); }}>聊天{chatUnread?` · ${chatUnread}`:''}</button>
@@ -790,6 +793,7 @@ function SideTabPanel({ g, room, session }: {
             </>
           ) : sideTab === "battle" ? (
             <>
+              <button className="battle-expand" onClick={()=>setBattleExpanded(true)}>展开战况</button>
               <div className="chat-list" ref={battleListRef} onScroll={handleBattleScroll} style={{ maxHeight: 320 }}>
                 {battleMessages.length === 0 && (room.roundHighlights?.length ?? 0) === 0 ? <p className="empty-text">暂无战况记录。</p> : null}
                 <BattleEvents messages={battleMessages} room={room}/>

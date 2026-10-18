@@ -6,6 +6,7 @@ import type { CommunityPool, CommunityPoolInput, CommunityPoolPage, PoolModerati
 
 export function getFeatures(): Promise<{ animeCommunity: boolean }> { return request('/api/features'); }
 export function getAnimeCatalog(): Promise<{ works: AnimeWork[]; pools?: import('@acg-codenames/shared').AnimePool[] }> { return request('/api/anime/catalog', { headers: communityHeaders() }); }
+export function getPlanPool(roomId:string,planId:string,version:number):Promise<{planId:string;version:number;works:AnimeWork[]}>{return request(`/api/rooms/${encodeURIComponent(roomId)}/plan-pool?${new URLSearchParams({planId,version:String(version)})}`,{headers:communityHeaders()});}
 export function listManualWorks(scope: 'mine'|'public' = 'mine', q = '', page = 1): Promise<import('@acg-codenames/shared').ManualAnimePage> {
   return request(`/api/anime/manual?${new URLSearchParams({ scope, q, page: String(page) })}`, { headers: communityHeaders() });
 }

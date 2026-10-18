@@ -1074,6 +1074,7 @@ export class GameService {
       if (room.phase !== 'lobby') throw new Error('当前不在准备阶段');
       if (room.nextPlan) {
         if (room.nextPlan.variant === 'anime' && room.nextPlan.stage !== 'sealed') throw new Error('请先完成双队长组牌并封存');
+        if(room.nextPlan.variant==='anime'&&room.nextPlan.settings.animeSeriesRotation===true&&room.nextPlan.sealedBoard?.some(c=>c.anime&&room.seriesHistory?.[c.anime.seriesId]!==undefined))throw new Error('轮换历史已变化，请取消准备并更新候选池');
         validatePlanRoster(room, room.nextPlan);
       } else validateStart(room);
       if (room.settings.ruleSet !== "codenames") throw new Error("请使用揭幕猜番开局入口");
@@ -1152,7 +1153,7 @@ export class GameService {
       if (plan) {
         next.variant = plan.variant; next.settings = { ...plan.settings }; next.pool = plan.pool; next.poolName = plan.poolName;
         next.sourcePool = plan.sourcePool;
-        next.candidates = candidatesFor(plan.pool, nextRoom.seriesHistory);
+        next.candidates = candidatesFor(plan.pool, nextRoom.seriesHistory, Math.random, plan.settings.animeSeriesRotation === true);
         next.captains = { ...plan.captains };
       }
       nextRoom.nextPlan = next;
@@ -2028,6 +2029,14 @@ export class GameService {
     });
   }
 
+  async getPlanPool(roomId: string, principalId: string, planId: string, version: number) {
+    const room = await this.requireRoom(roomId);
+    if (!principalId || room.participantPrincipals?.[room.hostPlayerId] !== principalId) throw new Error('只有房主可以查看当前作品池');
+    const plan = room.nextPlan;
+    if (!plan || plan.id !== planId || !Number.isSafeInteger(version) || plan.version !== version) throw new Error('准备计划已更新，请重新打开作品池');
+    return { planId: plan.id, version: plan.version, works: plan.pool };
+  }
+
   async planAction(roomId: string, playerId: string, action: PlanAction): Promise<Room> {
     return this.withRoomLock(roomId, async () => {
       let room = structuredClone(await this.requireRoom(roomId));
@@ -2046,6 +2055,7 @@ export class GameService {
         return room;
       }
       if (room.nextPlan && action.kind !== 'configure' && action.kind !== 'cancel' && action.version !== plan.version) throw new Error('候选池已更新，请使用最新快照');
+      if(room.nextPlan&&action.kind==='configure'&&action.version!==undefined&&action.version!==plan.version)throw new Error('候选池已更新，请使用最新快照');
       if (action.kind === 'configure') {
         if (!host) throw new Error('只有房主可以配置下一局');
         if (plan.stage === 'draft' || plan.stage === 'sealed') throw new Error('正式组牌已锁定，请先取消准备');
@@ -2093,10 +2103,13 @@ export class GameService {
           pool = [...pool, ...extra.filter(w => ids.has(w.id) && !known.has(w.id))];
         }
         if (pool.length !== ids.size) throw new Error('作品池包含目录外作品');
-        const candidates = action.variant === 'anime' ? candidatesFor(pool, room.seriesHistory) : [];
-        if (action.variant === 'anime' && candidates.length < BOARD_MODE_CONFIG[boardMode].size) throw new Error(`所选题库至少需要 ${BOARD_MODE_CONFIG[boardMode].size} 个不同系列，当前只有 ${candidates.length} 个`);
+        for (const flag of [action.animeRandomSwap, action.animeSeriesRotation]) if (flag !== undefined && typeof flag !== 'boolean') throw new Error('动画玩法开关必须为布尔值');
+        const animeRandomSwap = action.variant === 'anime' ? action.animeRandomSwap ?? (plan.variant === 'anime' ? plan.settings.animeRandomSwap === true : true) : undefined;
+        const animeSeriesRotation = action.variant === 'anime' ? action.animeSeriesRotation ?? (plan.variant === 'anime' ? plan.settings.animeSeriesRotation === true : true) : undefined;
+        const candidates = action.variant === 'anime' ? candidatesFor(pool, room.seriesHistory, Math.random, animeSeriesRotation === true) : [];
+        if (action.variant === 'anime' && candidates.length < BOARD_MODE_CONFIG[boardMode].size) throw new Error(`当前可用 ${candidates.length} 个系列，需要 ${BOARD_MODE_CONFIG[boardMode].size} 个；请更换作品池或由房主确认重置本房间轮换历史`);
         plan = { ...plan, wordPack, version: plan.version + 1, variant: configuredVariant,
-          settings: { ...plan.settings, variant: action.variant, boardMode, scoringMode: action.scoringMode ?? plan.settings.scoringMode, timerMode: action.timerMode ?? plan.settings.timerMode, timerClueSeconds: action.timerClueSeconds ?? plan.settings.timerClueSeconds, timerGuessSeconds: action.timerGuessSeconds ?? plan.settings.timerGuessSeconds, flipMode: action.flipMode ?? plan.settings.flipMode, neutralCount: action.variant === 'anime' || boardMode !== plan.settings.boardMode ? undefined : plan.settings.neutralCount },
+          settings: { ...plan.settings, animeRandomSwap, animeSeriesRotation, variant: action.variant, boardMode, scoringMode: action.scoringMode ?? plan.settings.scoringMode, timerMode: action.timerMode ?? plan.settings.timerMode, timerClueSeconds: action.timerClueSeconds ?? plan.settings.timerClueSeconds, timerGuessSeconds: action.timerGuessSeconds ?? plan.settings.timerGuessSeconds, flipMode: action.flipMode ?? plan.settings.flipMode, neutralCount: action.variant === 'anime' || boardMode !== plan.settings.boardMode ? undefined : plan.settings.neutralCount },
           pool, poolName: (action.poolName ?? plan.poolName).slice(0,64), sourcePool, candidates, ready: { red:false, blue:false }, done: { red:false, blue:false }, stage: 'planning',
           bookmarks: Object.fromEntries(Object.entries(plan.bookmarks).map(([id, values]) => [id, values.filter(v => candidates.some(w => w.id === v))])) };
       } else if (action.kind === 'nominate' || action.kind === 'transfer') {
@@ -2124,6 +2137,12 @@ export class GameService {
           plan.ready = { red:false, blue:false };
           plan.done = { red:false, blue:false };
         }
+      } else if (action.kind === 'reset-series-history') {
+        if (!host || plan.variant !== 'anime' || plan.stage !== 'planning' || room.phase === 'playing') throw new Error('仅房主可在开局前重置轮换历史');
+        room.seriesHistory = {};
+        plan.candidates = candidatesFor(plan.pool, {}, Math.random, plan.settings.animeSeriesRotation === true);
+        plan.version++;
+        plan.bookmarks = {};
       } else if (action.kind === 'cancel') {
         if (!host) throw new Error('只有房主可以取消准备');
         plan = { ...makePlan(room,time), variant: plan.variant, settings: plan.settings, pool: plan.pool, poolName: plan.poolName, sourcePool: plan.sourcePool, candidates: plan.candidates, captains: plan.captains, bookmarks: plan.bookmarks, version: plan.version + 1 };
@@ -2132,6 +2151,10 @@ export class GameService {
         if (plan.stage === 'draft' || plan.stage === 'sealed') throw new Error('已进入正式组牌');
         if (room.phase === 'finished') {
           room = structuredClone(await this.returnToLobby(roomId, playerId));
+        }
+        if (plan.variant === 'anime') {
+          if(plan.settings.animeSeriesRotation===true&&plan.candidates.some(w=>room.seriesHistory?.[w.seriesId]!==undefined))throw new Error('轮换历史已变化，请更新候选池');
+          if (plan.candidates.length < BOARD_MODE_CONFIG[plan.settings.boardMode].size) throw new Error(`当前可用 ${plan.candidates.length} 个系列，需要 ${BOARD_MODE_CONFIG[plan.settings.boardMode].size} 个；请更换作品池或重置轮换历史`);
         }
         validatePlanRoster(room, plan);
         room.players = room.players.map(p => ({...p,role: p.team && plan.captains[p.team] === p.id ? 'spymaster' : 'operative'}));
@@ -2700,10 +2723,11 @@ export function buildReplay(room: Room, replayId: string): GameReplay {
   const createdAt = Date.now();
   return {
     id: replayId,
+    roundNumber: room.roundNumber, matchId: room.matchId,
     roomId: room.id,
     createdAt,
     expiresAt: createdAt + REPLAY_TTL_SECONDS * 1000,
-    mode: { boardMode, scoringMode, timerMode },
+    mode: { variant:room.settings.variant, boardMode, scoringMode, timerMode },
     players,
     winner: room.winner,
     endReason: room.endReason,

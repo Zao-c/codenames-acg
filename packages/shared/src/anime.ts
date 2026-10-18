@@ -76,9 +76,15 @@ export interface NextPlan {
   exposedPlayerIds: string[];
   endsAt?: number;
   sealedBoard?: Card[];
+  /** Private seal audit. Never included in PublicNextPlan or public replays. */
+  randomSwap?: { redCardId: string; blueCardId: string };
   activityAt: number;
 }
 export interface PublicNextPlan {
+  randomSwapCompleted?: boolean;
+  poolSummary?: { source: number; series: number; excluded: number; available: number; required: number };
+  /** Legacy field; current servers fetch the full source snapshot on demand. */
+  poolPreview?: AnimeWork[];
   wordPackName?: string;
   id: string;
   version: number;
@@ -100,7 +106,9 @@ export interface PublicNextPlan {
 }
 export interface PlanAction {
   roomId: string;
-  kind: 'configure' | 'nominate' | 'bookmark' | 'prepare' | 'ready' | 'take' | 'release' | 'interfere' | 'done' | 'transfer' | 'cancel';
+  kind: 'configure' | 'nominate' | 'bookmark' | 'prepare' | 'ready' | 'take' | 'release' | 'interfere' | 'done' | 'transfer' | 'cancel' | 'reset-series-history';
+  animeRandomSwap?: boolean;
+  animeSeriesRotation?: boolean;
   version?: number;
   variant?: 'classic' | 'anime';
   boardMode?: RoomSettings['boardMode'];

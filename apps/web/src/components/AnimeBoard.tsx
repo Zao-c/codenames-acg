@@ -44,15 +44,15 @@ export function AnimeBoard({ room }: { room: PublicRoomState }) {
       <button onClick={() => { setZoom(1); scroll.current?.scrollTo(0,0); }}>重置视图</button>
       <AssociationBoard key={room.matchId} room={room}/>
       <SpectatorPredictions key={`predictions-${room.matchId}`} room={room}/>
-    </div><p className="hint-text">点卡片查看作品；猜牌需要再次确认。放大后可滑动浏览。</p>
+    </div>{room.clue&&<p className={`board-current-clue team-${room.currentTeam}`} role="status">{room.currentTeam==='red'?'红队':'蓝队'}线索 · <strong>{room.clue.word} ×{room.clue.count}</strong> · {room.players.find(p=>p.id===room.clue?.giverPlayerId)?.nickname??'队长'}</p>}<p className="hint-text">点卡片查看作品；猜牌需要再次确认。放大后可滑动浏览。</p>
     <div className="anime-board-scroll" ref={scroll}><div className={`anime-board ${text ? "anime-board-text" : ""}`} style={{ gridTemplateColumns: `repeat(${cols}, minmax(0,1fr))`, width: `${zoom*100}%` }}>
-      {room.board.map(card => <button key={card.id} className={`anime-board-card role-${card.role ?? 'hidden'} ${card.revealed ? 'is-revealed':''}`} aria-label={`${card.word}${card.revealed ? ' 已翻开':''}`} data-personal-mark={marks[card.id]||undefined}
+      {room.board.map(card => <button key={card.id} className={`anime-board-card role-${card.role ?? 'hidden'} ${card.revealed ? 'is-revealed':''}`} aria-label={`${card.word}${card.revealed ? ` 已翻 · ${{red:'红队',blue:'蓝队',neutral:'中立',assassin:'刺客'}[card.role!]}`:''}`} data-personal-mark={marks[card.id]||undefined}
         onContextMenu={e=>{e.preventDefault();if(held.current||Date.now()-touchStarted.current<1500)return;suppress.current=true;markReadyAt.current=0;setMarkTarget(card);}}
         onPointerDown={e=>{suppress.current=false;if(e.pointerType==='mouse')return;touchStarted.current=Date.now();const {clientX:x,clientY:y}=e;e.currentTarget.setPointerCapture(e.pointerId);held.current={x,y,ready:false,timer:setTimeout(()=>{if(held.current)held.current.ready=true;suppress.current=true;},500)};}}
         onPointerMove={e=>{if(held.current&&Math.hypot(e.clientX-held.current.x,e.clientY-held.current.y)>8)cancelHold();}}
         onPointerUp={()=>{const ready=held.current?.ready;cancelHold();if(ready){suppress.current=true;markReadyAt.current=Date.now()+180;setMarkTarget(card);}}} onPointerCancel={cancelHold}
         onClick={() => { if(suppress.current){suppress.current=false;return;}setPreview(card); setConfirm(false); }}>
-        {!text && card.anime && <Cover work={card.anime} />}<span>{card.word}</span>{card.role && <b>{card.role === 'red' ? '红' : card.role === 'blue' ? '蓝' : card.role === 'neutral' ? '中立' : '刺客'}</b>}
+        {!text && card.anime && <Cover work={card.anime} />}<span>{card.word}</span>{card.role && <b className={card.revealed?'revealed-status':'captain-affiliation'}>{card.revealed?'已翻 · ':''}{card.role === 'red' ? '红队' : card.role === 'blue' ? '蓝队' : card.role === 'neutral' ? '中立' : '刺客'}</b>}
         {marks[card.id]&&<i className={`personal-mark mark-${marks[card.id]}`}>预判 · {({red:'红',blue:'蓝',neutral:'中立',assassin:'刺客'} as Record<string,string>)[marks[card.id]]}</i>}
       </button>)}
     </div></div>
