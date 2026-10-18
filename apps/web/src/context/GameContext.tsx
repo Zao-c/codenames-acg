@@ -8,6 +8,9 @@ function genId(): string {
   return "id-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10);
 }
 import {
+  applyRoomDelta,
+  type RoomSnapshot,
+  type RoomDelta,
   BOARD_MODE_CONFIG,
   MAX_CLUE_COUNT,
   MIN_CLUE_COUNT,
@@ -715,8 +718,16 @@ export function GameProvider({ children }: { children: ReactNode }) {
       saveRecoverableSessions(recoverable);
       if(navigateAfterSession.current){navigateAfterSession.current=false;navigate(`/room/${p.roomId}`);}
     }
-    function onRoomState(p: PublicRoomState) {
+    let wireState: RoomSnapshot | null = null;
+    function onDelta(delta: RoomDelta) {
+      if (delta.roomId !== activeRoomIdRef.current) return;
+      const next = applyRoomDelta(wireState, delta);
+      if (next) onRoomState(next);
+      else { wireState = null; socket.emit("sync_room_state", {roomId: delta.roomId}); }
+    }
+    function onRoomState(p: RoomSnapshot) {
       if (!loadSession() || p.id !== activeRoomIdRef.current) return;
+      wireState = p;
       if(p.phase==='playing'&&notificationScope.current?.matchId!==p.matchId)setSideTab('battle');
       notificationScope.current = p.matchId ? {roomId:p.id,matchId:p.matchId,roundNumber:p.roundNumber,latestTurn:p.clueRecords?.length??0} : null;
       setRoom(p); setConnectionState("ready"); setLostRoom(null);
@@ -826,17 +837,19 @@ export function GameProvider({ children }: { children: ReactNode }) {
       clueLifecycleRef.current?.cancel();
       setSession(null); setRoom(null); setConnectionState("idle"); setDidReconnect(false); setRevealBanner(null); setError(p.reason); activeRoomIdRef.current = null;
     }
-    const onConnect=()=>{if(!loadSession()&&!joinLockRef.current)setConnectionState('idle');};
+    const onConnect=()=>{wireState=null;socket.emit("enable_room_deltas");if(!loadSession()&&!joinLockRef.current)setConnectionState('idle');};
     socket.on('connect',onConnect);
     socket.on("session", onSession);
     socket.on("room_state", onRoomState);
+    socket.on("room_state_delta", onDelta);
+    socket.emit("enable_room_deltas");
     socket.on('analysis_state', onAnalysisState);
     socket.on("room_summaries", onRoomSummaries);
     socket.on("error_message", onError);
     socket.on("room_closed", onRoomClosed);
     socket.io.on("reconnect", () => { if (session) { setConnectionState("connecting"); recoveryAttempt.current={roomId:session.roomId,retry:true};socket.emit("reconnect_room", { roomId: session.roomId, sessionToken: session.sessionToken,identityKey:privateIdentityKey() }); } });
     socket.on("disconnect", () => setConnectionState("connecting"));
-    return () => { socket.off('connect',onConnect);socket.off('analysis_state', onAnalysisState); socket.off("session", onSession); socket.off("room_state", onRoomState); socket.off("room_summaries", onRoomSummaries); socket.off("error_message", onError); socket.off("room_closed", onRoomClosed); socket.io.off("reconnect"); socket.off("disconnect"); };
+    return () => { socket.off('connect',onConnect);socket.off('analysis_state', onAnalysisState); socket.off("session", onSession); socket.off("room_state", onRoomState); socket.off("room_state_delta", onDelta); socket.off("room_summaries", onRoomSummaries); socket.off("error_message", onError); socket.off("room_closed", onRoomClosed); socket.io.off("reconnect"); socket.off("disconnect"); };
   }, [session?.roomId, socket]);
 
   useEffect(() => {
@@ -1053,6 +1066,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setError("本地登录信息已失效，请重新登录");
       return;
     }
+    // A successful interactive login already supplied this account and session.
+    // Do not log in twice and consume the shared login rate budget on every entry.
+    if (namedAccount?.username === username && identity.userSessionToken) return;
     void loginNamedUser({ username }).then((account) => {
       if(loadIdentity()?.username!==username)return;
       if (!account || typeof account.username !== "string" || !account.username.trim()) {

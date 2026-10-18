@@ -1,3 +1,5 @@
+import { getHomeCovers } from '../lib/api';
+import { Cover } from '../components/Cover';
 import { loadRecoverableSessions } from '../lib/storage';
 import { useEffect, useRef, useState } from "react";
 import { MAX_PLAYERS, type AnimeWork } from "@acg-codenames/shared";
@@ -14,10 +16,10 @@ export function HomePage() {
   const [mode,setMode] = useState<'classic'|'anime'|'reveal'>(params.get('variant')==='anime'?'anime':'classic');
   const [filter,setFilter] = useState<'all'|'waiting'|'playing'>('all');
   const codeInput = useRef<HTMLInputElement>(null);
-  const [covers,setCovers] = useState<AnimeWork[]>([]);
+  const [covers,setCovers] = useState<Pick<AnimeWork,'id'|'title'|'fullTitle'|'cover'>[]>([]);
   const [coverIds,setCoverIds] = useState<number[]>([]);
   useEffect(()=>{if(params.has('create')){setCreating(true);if(params.get('variant')==='anime')setMode('anime');}},[params]);
-  useEffect(()=>{let live=true;fetch(`${import.meta.env.VITE_SERVER_URL||''}/api/anime/catalog`).then(r=>r.json()).then(data=>{if(!live)return;const curated:AnimeWork[]=(data.works??[]).filter((w:AnimeWork)=>w.cover);setCovers(curated);setCoverIds(curated.slice(0,4).map(w=>w.id));}).catch(()=>{});return()=>{live=false;};},[]);
+  useEffect(()=>{let live=true;getHomeCovers().then(data=>{if(live){setCovers(data.works);setCoverIds(data.works.slice(0,4).map(w=>w.id));}}).catch(()=>{});return()=>{live=false;};},[]);
   const requireAuth = (fn:()=>void) => {if(!g.effectiveIdentity){g.setError('请先登录');navigate(`/login?next=${encodeURIComponent(g.roomCode.length===6?`/room/${g.roomCode}?join=1`:'/?create=1')}`);return;}fn();};
   const closeCreate = () => {setCreating(false);if(params.has('create'))setParams({}, {replace:true});};
   const mine=(id:string)=>g.session?.roomId===id||!!loadRecoverableSessions()[id];
@@ -28,7 +30,7 @@ export function HomePage() {
         <div className="home-welcome-actions"><button className="primary-button" onClick={()=>requireAuth(()=>setCreating(true))}>＋ 创建房间</button><button onClick={()=>{codeInput.current?.scrollIntoView({block:'center',behavior:'smooth'});codeInput.current?.focus({preventScroll:true});}}>加入好友的房间 ↗</button></div>
         <div className="home-welcome-meta"><span>经典词牌</span><span>动画组牌</span><span>揭幕猜番</span></div>
       </div>
-      {!!coverIds.length&&<div className="home-feature" aria-label="动画目录精选"><div className="feature-covers">{coverIds.map(id=>covers.find(w=>w.id===id)).filter((w):w is AnimeWork=>!!w).map(w=><figure className="feature-cover" key={w.id}><img src={w.cover} alt={w.title} loading="lazy" referrerPolicy="no-referrer" onError={()=>setCoverIds(previous=>{const remaining=previous.filter(id=>id!==w.id);const next=covers.find(candidate=>candidate.cover&&!remaining.includes(candidate.id));return next?[...remaining,next.id]:remaining;})}/><span>{w.title}</span></figure>)}</div><div className="feature-caption">想玩的作品，成为共同的词牌</div></div>}
+      {!!coverIds.length&&<div className="home-feature" aria-label="动画目录精选"><div className="feature-covers">{coverIds.map(id=>covers.find(w=>w.id===id)).filter((w):w is Pick<AnimeWork,'id'|'title'|'fullTitle'|'cover'>=>!!w).map(w=><figure className="feature-cover" key={w.id}><Cover work={w}/><span>{w.title}</span></figure>)}</div><div className="feature-caption">想玩的作品，成为共同的词牌</div></div>}
     </section>
     <section className="join-inline" aria-label="通过房号加入"><div className="join-copy"><strong>已有房号？</strong><span>输入六位房号，直接加入朋友的局</span></div><form className="join-form" onSubmit={e=>{e.preventDefault();requireAuth(()=>g.joinByRoomCode(false));}}><input ref={codeInput} value={g.roomCode} onChange={e=>g.setRoomCode(e.target.value.toUpperCase())} aria-label="房间号" placeholder="输入 6 位房号" maxLength={6} autoComplete="off" spellCheck={false}/><button type="submit" className="primary-button" disabled={g.roomCode.length!==6}>加入房间 →</button><button type="button" disabled={g.roomCode.length!==6} onClick={()=>requireAuth(()=>g.joinByRoomCode(true))}>旁观</button></form></section>
     <section className="public-lobby"><div className="public-heading"><div><p className="eyebrow">DISCOVER / PUBLIC ROOMS</p><h2>公开房间 <span className="public-count">{rooms.length} 间</span></h2><p className="hint-text">找到还差队友的房间，或旁观进行中的对局。</p></div><div className="public-filter" role="group" aria-label="筛选公开房间">{(['all','waiting','playing'] as const).map((f,i)=><button key={f} className={filter===f?'active':''} aria-pressed={filter===f} onClick={()=>setFilter(f)}>{['全部','可加入','进行中'][i]}</button>)}</div></div>

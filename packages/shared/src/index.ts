@@ -11,3 +11,4 @@ export * from "./anime-community.js";
 export * from "./titles.js";
 export * from "./turn.js";
 export * from "./match-events.js";
+export * from "./room-transport.js";

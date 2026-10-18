@@ -1,0 +1,38 @@
+{
+  "passed": true,
+  "players": 8,
+  "candidates": 180,
+  "extraCatalogWorks": 5000,
+  "avatarSourceBytes": [
+    9011,
+    8987,
+    9015,
+    8995,
+    8999,
+    9007,
+    8979,
+    8967
+  ],
+  "seconds": 72.814,
+  "actions": 240,
+  "snapshots": 0,
+  "deltas": 2160,
+  "actualRoomBytes": 1972358,
+  "previousFullStateEstimateBytes": 394717291,
+  "reductionPercent": 99.50031122401477,
+  "catalog": {
+    "uncompressed": 2164033,
+    "gzip": 486709,
+    "home": 3725
+  },
+  "latencyMs": {
+    "p50": 61,
+    "p95": 89,
+    "max": 126
+  },
+  "server": {
+    "maxRssMiB": 245.3359375,
+    "eventLoopP99Ms": 123.076607
+  },
+  "scope": "Loopback synthetic benchmark; previous bytes reconstruct full state and original data-URI avatars; not an internet speed or 3-hour soak guarantee."
+}

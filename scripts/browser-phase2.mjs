@@ -1,3 +1,4 @@
+import { readRoomState } from './room-observer.mjs';
 import { theme } from './browser-support.mjs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -42,7 +43,7 @@ try {
     }, { key, i });
     const page = await context.newPage(); pages.push(page);
     page.on('pageerror', error => errors.push(error.message));
-    page.on('websocket', socket => socket.on('framereceived', frame => { try { const value = String(frame.payload); if (value.startsWith('42')) { const [event, data] = JSON.parse(value.slice(2)); if (event === 'room_state') states[i] = data; if (event === 'analysis_state' && states[i]?.id === data.roomId) states[i].analysis = data.analysis; } } catch {} }));
+    page.on('response',async response=>{if(!response.url().includes('/socket.io/')||response.request().method()!=='GET')return;try{for(const packet of(await response.text()).split('\x1e'))if(packet.startsWith('42')){const[event,data]=JSON.parse(packet.slice(2));if(event==='room_state'||event==='room_state_delta')states[i]=readRoomState(event,data,states[i]);}}catch{}});page.on('websocket', socket => socket.on('framereceived', frame => { try { const value = String(frame.payload); if (value.startsWith('42')) { const [event, data] = JSON.parse(value.slice(2)); if(event==='room_state'||event==='room_state_delta')states[i]=readRoomState(event,data,states[i]); if (event === 'analysis_state' && states[i]?.id === data.roomId) states[i].analysis = data.analysis; } } catch {} }));
     await page.goto(base);
   }
   const host = pages[0];

@@ -1,3 +1,4 @@
+import { readRoomState } from './room-observer.mjs';
 import { theme } from './browser-support.mjs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -38,7 +39,7 @@ async function playToVictory(anime=false){
 try{
  for(let i=0;i<4;i++){
   const context=await browser.newContext(i>=2?{viewport:{width:390,height:844},isMobile:true,hasTouch:true}:{viewport:{width:1440,height:900}});
-  const p=await context.newPage();pages.push(p);p.on('pageerror',e=>errors.push(e.message));p.on('websocket',ws=>ws.on('framereceived',f=>{try{const s=String(f.payload);if(s.startsWith('42')){const [event,data]=JSON.parse(s.slice(2));if(event==='room_state')states[i]=data;}}catch{}}));
+  const p=await context.newPage();pages.push(p);p.on('pageerror',e=>errors.push(e.message));p.on('response',async response=>{if(!response.url().includes('/socket.io/')||response.request().method()!=='GET')return;try{for(const packet of(await response.text()).split('\x1e'))if(packet.startsWith('42')){const[event,data]=JSON.parse(packet.slice(2));if(event==='room_state'||event==='room_state_delta')states[i]=readRoomState(event,data,states[i]);}}catch{}});p.on('websocket',ws=>ws.on('framereceived',f=>{try{const s=String(f.payload);if(s.startsWith('42')){const [event,data]=JSON.parse(s.slice(2));if(event==='room_state'||event==='room_state_delta')states[i]=readRoomState(event,data,states[i]);}}catch{}}));
   await p.goto(`${url}/login`);await button(p,'游客').click();await p.getByPlaceholder('输入昵称直接开玩').fill(`验收${Date.now().toString().slice(-6)}${i}`);await button(p,'快速进入').click();await p.goto(url);await visible(p.getByRole('button',{name:'＋ 创建房间',exact:true}));
  }
  const host=pages[0];await shot(host,'01-home-desktop-dark');await host.setViewportSize({width:1920,height:1080});await theme(host,true);await shot(host,'02-home-desktop-light-1920');await theme(host,false);await host.setViewportSize({width:1440,height:900});await shot(pages[3],'03-home-mobile');await pages[3].setViewportSize({width:360,height:740});await theme(pages[3],true);await shot(pages[3],'04-home-small-light');await theme(pages[3],false);await pages[3].setViewportSize({width:390,height:844});

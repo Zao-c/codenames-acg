@@ -1,0 +1,1010 @@
+{
+  "passed": true,
+  "checks": [
+    "4 players + spectator, game 1, 25 cards, swap false, interference, 4 clue turns, no-guess end-turn and terminal assassin",
+    "4 players + spectator, game 2, 36 cards, swap true, interference, 4 clue turns, no-guess end-turn and terminal assassin",
+    "4 players + spectator, game 3, 25 cards, swap true, interference, 4 clue turns, no-guess end-turn and terminal assassin",
+    "pool preview fetched only on demand, protected by host identity and plan version; no full pool in room broadcasts",
+    "public replay fail→success, stale delayed request ignored, three replay ids, cumulative actual guesses and no-guess turns",
+    "private replay expired→authorized, consecutive match ids and permission validation",
+    "actual live CDN CORS export plus bounded server fallback; fallback count recorded",
+    "actual uploaded manual cover decoded, requested with CORS and included in 36-card long-title export",
+    "8 actual PNG downloads: 25/36 × 4:3/16:9 × light/dark, 1600 dimensions, broken-cover fallback and mobile long-press image",
+    "replay navigation preserves active room session"
+  ],
+  "screens": [
+    "lobby-1440-dark.png",
+    "lobby-1440-light.png",
+    "lobby-390-dark.png",
+    "lobby-390-light.png",
+    "pool-1.png",
+    "draft-captain-1440-dark.png",
+    "draft-captain-1440-light.png",
+    "draft-captain-390-dark.png",
+    "draft-captain-390-light.png",
+    "draft-spectator-1440-dark.png",
+    "draft-spectator-1440-light.png",
+    "draft-spectator-390-dark.png",
+    "draft-spectator-390-light.png",
+    "active-clue-operative-1440-dark.png",
+    "active-clue-operative-1440-light.png",
+    "active-clue-operative-390-dark.png",
+    "active-clue-operative-390-light.png",
+    "board-5x5-red-captain-1440-dark.png",
+    "board-5x5-red-captain-1440-light.png",
+    "board-5x5-red-captain-390-dark.png",
+    "board-5x5-red-captain-390-light.png",
+    "board-5x5-red-operative-1440-dark.png",
+    "board-5x5-red-operative-1440-light.png",
+    "board-5x5-red-operative-390-dark.png",
+    "board-5x5-red-operative-390-light.png",
+    "board-5x5-blue-captain-1440-dark.png",
+    "board-5x5-blue-captain-1440-light.png",
+    "board-5x5-blue-captain-390-dark.png",
+    "board-5x5-blue-captain-390-light.png",
+    "board-5x5-blue-operative-1440-dark.png",
+    "board-5x5-blue-operative-1440-light.png",
+    "board-5x5-blue-operative-390-dark.png",
+    "board-5x5-blue-operative-390-light.png",
+    "board-5x5-spectator-1440-dark.png",
+    "board-5x5-spectator-1440-light.png",
+    "board-5x5-spectator-390-dark.png",
+    "board-5x5-spectator-390-light.png",
+    "text-1.png",
+    "battle-1.png",
+    "pool-2.png",
+    "board-6x6-red-captain-1440-dark.png",
+    "board-6x6-red-captain-1440-light.png",
+    "board-6x6-red-captain-390-dark.png",
+    "board-6x6-red-captain-390-light.png",
+    "board-6x6-red-operative-1440-dark.png",
+    "board-6x6-red-operative-1440-light.png",
+    "board-6x6-red-operative-390-dark.png",
+    "board-6x6-red-operative-390-light.png",
+    "board-6x6-blue-captain-1440-dark.png",
+    "board-6x6-blue-captain-1440-light.png",
+    "board-6x6-blue-captain-390-dark.png",
+    "board-6x6-blue-captain-390-light.png",
+    "board-6x6-blue-operative-1440-dark.png",
+    "board-6x6-blue-operative-1440-light.png",
+    "board-6x6-blue-operative-390-dark.png",
+    "board-6x6-blue-operative-390-light.png",
+    "board-6x6-spectator-1440-dark.png",
+    "board-6x6-spectator-1440-light.png",
+    "board-6x6-spectator-390-dark.png",
+    "board-6x6-spectator-390-light.png",
+    "text-2.png",
+    "battle-2.png",
+    "pool-3.png",
+    "text-3.png",
+    "battle-3.png",
+    "replay-1-1440-dark.png",
+    "replay-1-1440-light.png",
+    "replay-1-390-dark.png",
+    "replay-1-390-light.png",
+    "replay-2-1440-dark.png",
+    "replay-2-1440-light.png",
+    "replay-2-390-dark.png",
+    "replay-2-390-light.png",
+    "replay-3-1440-dark.png",
+    "replay-3-1440-light.png",
+    "replay-3-390-dark.png",
+    "replay-3-390-light.png",
+    "export-live-cdn.png",
+    "export-manual-cover-long-title.png",
+    "export-mobile-bad-covers.png"
+  ],
+  "events": [
+    [
+      {
+        "kind": "round_highlight",
+        "roundNumber": 1,
+        "roundIndex": 0,
+        "team": "blue"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 1,
+        "roundIndex": 0,
+        "team": "blue"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 1,
+        "roundIndex": 0,
+        "team": "blue"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 1,
+        "roundIndex": 1,
+        "team": "red"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 1,
+        "roundIndex": 1,
+        "team": "red"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 1,
+        "roundIndex": 2,
+        "team": "blue"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 1,
+        "roundIndex": 2,
+        "team": "blue"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 1,
+        "roundIndex": 3,
+        "team": "red"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 1,
+        "roundIndex": 3,
+        "team": "red"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 1,
+        "roundIndex": 3,
+        "team": "red"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 2,
+        "roundIndex": 0,
+        "team": "blue"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 2,
+        "roundIndex": 0,
+        "team": "blue"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 2,
+        "roundIndex": 0,
+        "team": "blue"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 2,
+        "roundIndex": 1,
+        "team": "red"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 2,
+        "roundIndex": 1,
+        "team": "red"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 2,
+        "roundIndex": 2,
+        "team": "blue"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 2,
+        "roundIndex": 2,
+        "team": "blue"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 2,
+        "roundIndex": 3,
+        "team": "red"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 2,
+        "roundIndex": 3,
+        "team": "red"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 2,
+        "roundIndex": 3,
+        "team": "red"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 3,
+        "roundIndex": 0,
+        "team": "red"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 3,
+        "roundIndex": 0,
+        "team": "red"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 3,
+        "roundIndex": 0,
+        "team": "red"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 3,
+        "roundIndex": 1,
+        "team": "blue"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 3,
+        "roundIndex": 1,
+        "team": "blue"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 3,
+        "roundIndex": 2,
+        "team": "red"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 3,
+        "roundIndex": 2,
+        "team": "red"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 3,
+        "roundIndex": 3,
+        "team": "blue"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 3,
+        "roundIndex": 3,
+        "team": "blue"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 3,
+        "roundIndex": 3,
+        "team": "blue"
+      }
+    ],
+    [
+      {
+        "kind": "round_highlight",
+        "roundNumber": 1,
+        "roundIndex": 0,
+        "team": "blue"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 1,
+        "roundIndex": 0,
+        "team": "blue"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 1,
+        "roundIndex": 0,
+        "team": "blue"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 1,
+        "roundIndex": 1,
+        "team": "red"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 1,
+        "roundIndex": 1,
+        "team": "red"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 1,
+        "roundIndex": 2,
+        "team": "blue"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 1,
+        "roundIndex": 2,
+        "team": "blue"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 1,
+        "roundIndex": 3,
+        "team": "red"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 1,
+        "roundIndex": 3,
+        "team": "red"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 1,
+        "roundIndex": 3,
+        "team": "red"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 2,
+        "roundIndex": 0,
+        "team": "blue"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 2,
+        "roundIndex": 0,
+        "team": "blue"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 2,
+        "roundIndex": 0,
+        "team": "blue"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 2,
+        "roundIndex": 1,
+        "team": "red"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 2,
+        "roundIndex": 1,
+        "team": "red"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 2,
+        "roundIndex": 2,
+        "team": "blue"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 2,
+        "roundIndex": 2,
+        "team": "blue"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 2,
+        "roundIndex": 3,
+        "team": "red"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 2,
+        "roundIndex": 3,
+        "team": "red"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 2,
+        "roundIndex": 3,
+        "team": "red"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 3,
+        "roundIndex": 0,
+        "team": "red"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 3,
+        "roundIndex": 0,
+        "team": "red"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 3,
+        "roundIndex": 0,
+        "team": "red"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 3,
+        "roundIndex": 1,
+        "team": "blue"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 3,
+        "roundIndex": 1,
+        "team": "blue"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 3,
+        "roundIndex": 2,
+        "team": "red"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 3,
+        "roundIndex": 2,
+        "team": "red"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 3,
+        "roundIndex": 3,
+        "team": "blue"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 3,
+        "roundIndex": 3,
+        "team": "blue"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 3,
+        "roundIndex": 3,
+        "team": "blue"
+      }
+    ],
+    [
+      {
+        "kind": "round_highlight",
+        "roundNumber": 1,
+        "roundIndex": 0,
+        "team": "blue"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 1,
+        "roundIndex": 0,
+        "team": "blue"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 1,
+        "roundIndex": 0,
+        "team": "blue"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 1,
+        "roundIndex": 1,
+        "team": "red"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 1,
+        "roundIndex": 1,
+        "team": "red"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 1,
+        "roundIndex": 2,
+        "team": "blue"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 1,
+        "roundIndex": 2,
+        "team": "blue"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 1,
+        "roundIndex": 3,
+        "team": "red"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 1,
+        "roundIndex": 3,
+        "team": "red"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 1,
+        "roundIndex": 3,
+        "team": "red"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 2,
+        "roundIndex": 0,
+        "team": "blue"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 2,
+        "roundIndex": 0,
+        "team": "blue"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 2,
+        "roundIndex": 0,
+        "team": "blue"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 2,
+        "roundIndex": 1,
+        "team": "red"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 2,
+        "roundIndex": 1,
+        "team": "red"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 2,
+        "roundIndex": 2,
+        "team": "blue"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 2,
+        "roundIndex": 2,
+        "team": "blue"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 2,
+        "roundIndex": 3,
+        "team": "red"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 2,
+        "roundIndex": 3,
+        "team": "red"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 2,
+        "roundIndex": 3,
+        "team": "red"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 3,
+        "roundIndex": 0,
+        "team": "red"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 3,
+        "roundIndex": 0,
+        "team": "red"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 3,
+        "roundIndex": 0,
+        "team": "red"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 3,
+        "roundIndex": 1,
+        "team": "blue"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 3,
+        "roundIndex": 1,
+        "team": "blue"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 3,
+        "roundIndex": 2,
+        "team": "red"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 3,
+        "roundIndex": 2,
+        "team": "red"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 3,
+        "roundIndex": 3,
+        "team": "blue"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 3,
+        "roundIndex": 3,
+        "team": "blue"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 3,
+        "roundIndex": 3,
+        "team": "blue"
+      }
+    ],
+    [
+      {
+        "kind": "round_highlight",
+        "roundNumber": 1,
+        "roundIndex": 0,
+        "team": "blue"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 1,
+        "roundIndex": 0,
+        "team": "blue"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 1,
+        "roundIndex": 0,
+        "team": "blue"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 1,
+        "roundIndex": 1,
+        "team": "red"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 1,
+        "roundIndex": 1,
+        "team": "red"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 1,
+        "roundIndex": 2,
+        "team": "blue"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 1,
+        "roundIndex": 2,
+        "team": "blue"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 1,
+        "roundIndex": 3,
+        "team": "red"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 1,
+        "roundIndex": 3,
+        "team": "red"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 1,
+        "roundIndex": 3,
+        "team": "red"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 2,
+        "roundIndex": 0,
+        "team": "blue"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 2,
+        "roundIndex": 0,
+        "team": "blue"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 2,
+        "roundIndex": 0,
+        "team": "blue"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 2,
+        "roundIndex": 1,
+        "team": "red"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 2,
+        "roundIndex": 1,
+        "team": "red"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 2,
+        "roundIndex": 2,
+        "team": "blue"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 2,
+        "roundIndex": 2,
+        "team": "blue"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 2,
+        "roundIndex": 3,
+        "team": "red"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 2,
+        "roundIndex": 3,
+        "team": "red"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 2,
+        "roundIndex": 3,
+        "team": "red"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 3,
+        "roundIndex": 0,
+        "team": "red"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 3,
+        "roundIndex": 0,
+        "team": "red"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 3,
+        "roundIndex": 0,
+        "team": "red"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 3,
+        "roundIndex": 1,
+        "team": "blue"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 3,
+        "roundIndex": 1,
+        "team": "blue"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 3,
+        "roundIndex": 2,
+        "team": "red"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 3,
+        "roundIndex": 2,
+        "team": "red"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 3,
+        "roundIndex": 3,
+        "team": "blue"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 3,
+        "roundIndex": 3,
+        "team": "blue"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 3,
+        "roundIndex": 3,
+        "team": "blue"
+      }
+    ],
+    [
+      {
+        "kind": "round_highlight",
+        "roundNumber": 1,
+        "roundIndex": 0,
+        "team": "blue"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 1,
+        "roundIndex": 0,
+        "team": "blue"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 1,
+        "roundIndex": 0,
+        "team": "blue"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 1,
+        "roundIndex": 1,
+        "team": "red"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 1,
+        "roundIndex": 1,
+        "team": "red"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 1,
+        "roundIndex": 2,
+        "team": "blue"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 1,
+        "roundIndex": 2,
+        "team": "blue"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 1,
+        "roundIndex": 3,
+        "team": "red"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 1,
+        "roundIndex": 3,
+        "team": "red"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 1,
+        "roundIndex": 3,
+        "team": "red"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 2,
+        "roundIndex": 0,
+        "team": "blue"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 2,
+        "roundIndex": 0,
+        "team": "blue"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 2,
+        "roundIndex": 0,
+        "team": "blue"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 2,
+        "roundIndex": 1,
+        "team": "red"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 2,
+        "roundIndex": 1,
+        "team": "red"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 2,
+        "roundIndex": 2,
+        "team": "blue"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 2,
+        "roundIndex": 2,
+        "team": "blue"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 2,
+        "roundIndex": 3,
+        "team": "red"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 2,
+        "roundIndex": 3,
+        "team": "red"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 2,
+        "roundIndex": 3,
+        "team": "red"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 3,
+        "roundIndex": 0,
+        "team": "red"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 3,
+        "roundIndex": 0,
+        "team": "red"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 3,
+        "roundIndex": 0,
+        "team": "red"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 3,
+        "roundIndex": 1,
+        "team": "blue"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 3,
+        "roundIndex": 1,
+        "team": "blue"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 3,
+        "roundIndex": 2,
+        "team": "red"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 3,
+        "roundIndex": 2,
+        "team": "red"
+      },
+      {
+        "kind": "round_highlight",
+        "roundNumber": 3,
+        "roundIndex": 3,
+        "team": "blue"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 3,
+        "roundIndex": 3,
+        "team": "blue"
+      },
+      {
+        "kind": "achievement_unlock",
+        "roundNumber": 3,
+        "roundIndex": 3,
+        "team": "blue"
+      }
+    ]
+  ],
+  "errors": []
+}

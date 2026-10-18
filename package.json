@@ -36,7 +36,10 @@
     "verify:round7": "node scripts/verify-round7.mjs",
     "test:round8:local": "node scripts/test-browser-local.mjs --round8",
     "verify:round8": "node scripts/verify-round8.mjs",
-    "test:round8:large:local": "node scripts/test-browser-local.mjs --round8-large"
+    "test:round8:large:local": "node scripts/test-browser-local.mjs --round8-large",
+    "test:performance:unit": "npm run build -w @acg-codenames/shared && node node_modules/tsx/dist/cli.mjs apps/server/test/performance.test.ts",
+    "test:performance:load": "node scripts/performance-load.mjs",
+    "test:performance:browser": "node scripts/test-browser-local.mjs --performance"
   },
   "devDependencies": {
     "playwright": "^1.59.1",
