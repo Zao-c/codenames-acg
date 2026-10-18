@@ -1,9 +1,9 @@
 import type { GameReplay } from '@acg-codenames/shared';
 import { resolveAnimeAssetUrl } from './api';
 import { roleLabel } from './replay-board';
+import { cardAppearance } from './card-appearance';
 
 export interface ReplayExportOptions { aspect: '4:3'|'16:9'; theme:'light'|'dark'; nicknames:boolean }
-const colors:Record<string,string>={red:'#b83844',blue:'#286ba7',neutral:'#827967',assassin:'#292736'};
 async function coverImage(replay:GameReplay, card:GameReplay['finalBoard'][number]):Promise<HTMLImageElement|null>{
   if(!card.anime?.cover)return null;
   const load=(src:string):Promise<HTMLImageElement|null>=>new Promise(resolve=>{
@@ -32,11 +32,13 @@ export async function exportReplayPng(replay:GameReplay, options:ReplayExportOpt
   const footer=options.nicknames?100:65,cellW=(1600-pad*2-gap*(cols-1))/cols,cellH=(canvas.height-top-footer-gap*(cols-1))/cols;
   const fit=(text:string,width:number)=>{if(ctx.measureText(text).width<=width)return text;let end=text.length;while(end>0&&ctx.measureText(text.slice(0,end)+'…').width>width)end--;return text.slice(0,end)+'…';};
   replay.finalBoard.forEach((card,i)=>{
-    const x=pad+(i%cols)*(cellW+gap),y=top+Math.floor(i/cols)*(cellH+gap),img=images[i],color=colors[card.role];
-    ctx.fillStyle=dark?'#3c414c':'#dfdad0';ctx.fillRect(x,y,cellW,cellH);
+    const x=pad+(i%cols)*(cellW+gap),y=top+Math.floor(i/cols)*(cellH+gap),img=images[i],appearance=cardAppearance(card.role),color=appearance.border;
+    ctx.fillStyle=!img&&card.revealed?appearance.paper:dark?'#3c414c':'#dfdad0';ctx.fillRect(x,y,cellW,cellH);
     if(img){const ratio=Math.max(cellW/img.width,cellH/img.height),w=img.width*ratio,h=img.height*ratio;ctx.save();ctx.beginPath();ctx.rect(x,y,cellW,cellH);ctx.clip();ctx.drawImage(img,x+(cellW-w)/2,y+(cellH-h)/2,w,h);ctx.restore();}
-    ctx.fillStyle='rgba(15,18,24,.84)';ctx.fillRect(x,y+cellH-48,cellW,48);ctx.fillStyle='#fff';ctx.font='bold 19px sans-serif';ctx.fillText(fit(card.word,cellW-14),x+7,y+cellH-42);
-    ctx.font='14px sans-serif';ctx.fillText(fit(card.revealed?(options.nicknames&&card.guessedByNickname?`翻牌：${card.guessedByNickname}`:'实际已翻'):`赛后归属：${roleLabel(card.role)}`,cellW-14),x+7,y+cellH-19);
+    if(img&&card.revealed){ctx.fillStyle=dark?appearance.dark:appearance.light;ctx.fillRect(x,y,cellW,cellH);}
+    const line=(text:string,lineY:number)=>{const value=fit(text,cellW-14);if(img){ctx.strokeStyle='rgba(9,15,25,.95)';ctx.lineWidth=3;ctx.lineJoin='round';ctx.strokeText(value,x+7,lineY);}ctx.fillStyle=img||card.role==='assassin'&&card.revealed?'#fff':ink;ctx.fillText(value,x+7,lineY);};
+    ctx.font='bold 19px sans-serif';line(card.word,y+cellH-42);
+    ctx.font='14px sans-serif';line(card.revealed?(options.nicknames&&card.guessedByNickname?`翻牌：${card.guessedByNickname}`:'实际已翻'):`赛后归属：${roleLabel(card.role)}`,y+cellH-19);
     const status=card.revealed?`已翻 · ${roleLabel(card.role)}`:'未翻';ctx.font='bold 17px sans-serif';const badgeW=ctx.measureText(status).width+16;ctx.fillStyle=card.revealed?color:'#404653';ctx.fillRect(x,y,badgeW,27);ctx.fillStyle='#fff';ctx.fillText(status,x+8,y+4);
     ctx.strokeStyle=card.revealed?color:(dark?'#747982':'#a9a59d');ctx.lineWidth=card.revealed?4:1;ctx.strokeRect(x+2,y+2,cellW-4,cellH-4);
   });

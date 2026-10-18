@@ -18,7 +18,7 @@ export function Icon({ name, size = 20 }: { name: 'cards'|'home'|'users'|'chat'|
  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 }
 
-export function Dialog({ title, close, children, wide = false }: { title: string; close: () => void; children: ReactNode; wide?: boolean }) {
+export function Dialog({ title, close, children, wide = false, className='', closeDisabled=false }: { title: string; close: () => void; children: ReactNode; wide?: boolean; className?:string; closeDisabled?:boolean }) {
  const ref=useRef<HTMLDivElement>(null);
  const onClose=useRef(close);onClose.current=close;
  useEffect(()=>{
@@ -38,5 +38,5 @@ export function Dialog({ title, close, children, wide = false }: { title: string
   const node=ref.current;
   return()=>{node?.removeEventListener('keydown',key);document.body.style.overflow=overflow;previous?.focus();};
  },[]);
- return <div className="dialog-backdrop" onClick={close}><div className={`dialog-sheet ${wide?'dialog-wide':''}`} ref={ref} role="dialog" aria-modal="true" aria-label={title} tabIndex={-1} onClick={e=>e.stopPropagation()}><header className="dialog-heading"><h2>{title}</h2><button aria-label={`关闭${title}`} onClick={close}><Icon name="close"/></button></header>{children}</div></div>;
+ return <div className="dialog-backdrop" onClick={close}><div className={`dialog-sheet ${wide?'dialog-wide':''} ${className}`} ref={ref} role="dialog" aria-modal="true" aria-label={title} tabIndex={-1} onClick={e=>e.stopPropagation()}><header className="dialog-heading"><h2>{title}</h2><button disabled={closeDisabled} aria-label={`关闭${title}`} onClick={close}><Icon name="close"/></button></header>{children}</div></div>;
 }

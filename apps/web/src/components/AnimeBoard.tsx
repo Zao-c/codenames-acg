@@ -3,6 +3,7 @@ import { BOARD_MODE_CONFIG, animeWorkLink, type AnimeWork, type PublicCard, type
 import { resolveAnimeAssetUrl } from '../lib/api';
 
 import { useGame } from '../context/GameContext';
+import { CardRevealTint } from './CardRevealTint';
 import { Dialog } from './UI';
 import { AssociationBoard } from './AssociationBoard';
 import { SpectatorPredictions } from './SpectatorPredictions';
@@ -50,7 +51,7 @@ export function AnimeBoard({ room }: { room: PublicRoomState }) {
         onPointerMove={e=>{if(held.current&&Math.hypot(e.clientX-held.current.x,e.clientY-held.current.y)>8)cancelHold();}}
         onPointerUp={()=>{const ready=held.current?.ready;cancelHold();if(ready){suppress.current=true;markReadyAt.current=Date.now()+180;setMarkTarget(card);}}} onPointerCancel={cancelHold}
         onClick={() => { if(suppress.current){suppress.current=false;return;}setPreview(card); setConfirm(false); }}>
-        {!text && card.anime && <Cover work={card.anime} />}<span>{card.word}</span>{card.role && <b className={card.revealed?'revealed-status':'captain-affiliation'}>{card.revealed?'已翻 · ':''}{card.role === 'red' ? '红队' : card.role === 'blue' ? '蓝队' : card.role === 'neutral' ? '中立' : '刺客'}</b>}
+        {!text && card.anime && <Cover work={card.anime} />}{!text&&card.anime&&card.revealed&&card.role&&<CardRevealTint role={card.role}/>}<span className="anime-card-word">{card.word}</span>{card.role && <b className={card.revealed?'revealed-status':'captain-affiliation'}>{card.revealed?'已翻 · ':'预知 · '}{card.role === 'red' ? '红队' : card.role === 'blue' ? '蓝队' : card.role === 'neutral' ? '中立' : '刺客'}</b>}
         {marks[card.id]&&<i className={`personal-mark mark-${marks[card.id]}`}>预判 · {({red:'红',blue:'蓝',neutral:'中立',assassin:'刺客'} as Record<string,string>)[marks[card.id]]}</i>}
       </button>)}
     </div></div>
