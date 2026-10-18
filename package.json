@@ -41,7 +41,9 @@
     "test:performance:load": "node scripts/performance-load.mjs",
     "test:performance:browser": "node scripts/test-browser-local.mjs --performance",
     "test:round9:local": "node scripts/test-round9-local.mjs",
-    "verify:round9": "node scripts/verify-round9.mjs"
+    "verify:round9": "node scripts/verify-round9.mjs",
+    "test:round10:local": "node scripts/test-round10-local.mjs",
+    "test:round10:unit": "npm run build -w @acg-codenames/shared && node node_modules/tsx/dist/cli.mjs apps/web/test/room-configuration.test.ts"
   },
   "devDependencies": {
     "playwright": "^1.59.1",

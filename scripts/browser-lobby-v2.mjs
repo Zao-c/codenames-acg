@@ -48,7 +48,7 @@ try{
   await button(host,'修改设置').click();const config=host.getByRole('dialog',{name:'本局设置'});
   assert.deepEqual(await config.getByLabel('下一局计分').locator('option').allTextContents(),['胜场制','积分制']);
   await config.getByLabel('棋盘',{exact:true}).selectOption('6x6');await config.getByLabel('下一局计分').selectOption('scoring');
-  await config.getByLabel('动画作品池',{exact:true}).selectOption('2026-Q3');await button(config,'保存设置').click();await until(()=>states[0].nextPlan.settings.boardMode==='6x6','saved config');
+  await config.getByLabel('动画作品池',{exact:true}).selectOption('2026-Q3');await button(config,'保存并返回准备大厅').click();await until(()=>states[0].nextPlan.settings.boardMode==='6x6','saved config');
   assert.equal(await host.locator('.anime-config').count(),0);
   await pages[4].getByLabel('发送聊天消息').fill('大家准备好了吗？');await button(pages[4],'发送').click();await host.getByText('大家准备好了吗？',{exact:true}).waitFor();
   assert.equal(await host.getByText('GG',{exact:true}).count(),0);assert.equal(await host.locator('.danmaku-toggle').count(),0);
@@ -62,7 +62,7 @@ try{
   await create(pages[5],'经典词牌');await until(()=>!!states[5],'classic create');const classicId=states[5].id;
   for(const size of ['7x7','9x9']){
     await button(pages[5],'修改设置').click();const settings=pages[5].getByRole('dialog',{name:'本局设置'});
-    await settings.getByLabel('棋盘',{exact:true}).selectOption(size);await button(settings,'保存设置').click();
+    await settings.getByLabel('棋盘',{exact:true}).selectOption(size);await button(settings,'保存并返回准备大厅').click();
     await until(()=>states[5].nextPlan?.settings.boardMode===size,`classic ${size} saved`);
   }
   await button(pages[5],'修改设置').click();const classicSettings=pages[5].getByRole('dialog',{name:'本局设置'});
@@ -71,7 +71,7 @@ try{
   await classicSettings.getByLabel('经典回合计时').selectOption('timed');await classicSettings.getByLabel('经典翻牌显示').selectOption('color-only');
   assert.notEqual(states[5].nextPlan.settings.timerMode,'timed','advanced edits are saved atomically');
   await classicSettings.getByLabel('上传文字题库').setInputFiles({name:'大厅上传题库.txt',mimeType:'text/plain',buffer:Buffer.from(Array.from({length:110},(_,i)=>`联想词条${i}`).join('\n'))});
-  await button(classicSettings,'保存设置').click();await until(()=>states[5].nextPlan?.wordPackName==='大厅上传题库','uploaded classic pack');
+  await button(classicSettings,'保存并返回准备大厅').click();await until(()=>states[5].nextPlan?.wordPackName==='大厅上传题库','uploaded classic pack');
   assert.equal(states[5].nextPlan.settings.timerMode,'timed');assert.equal(states[5].nextPlan.settings.flipMode,'color-only');
   for(let i=0;i<3;i++){const c=io(api,{transports:['websocket']});clients.push(c);await new Promise(r=>c.on('connect',r));await new Promise((resolve,reject)=>{c.once('session',resolve);c.once('error_message',d=>reject(new Error(d.message)));c.emit('join_room',{roomId:classicId,nickname:`公开大厅成员${i}`,identityKey:crypto.randomBytes(32).toString('hex')});});}
   await until(()=>states[5].players.length===4,'classic 4 players');await button(pages[5],'全员重新随机').click();await button(pages[5],'开始游戏').click();await until(()=>states[5].phase==='playing','classic playing');
