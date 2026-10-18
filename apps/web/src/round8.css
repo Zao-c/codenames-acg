@@ -1,0 +1,73 @@
+/* Round 8: local readability improvements; existing board geometry and identity
+   strip structure remain in round7.css. */
+.room-identity.identity-red{--identity-accent:#bd5261;border-color:#bd526166;box-shadow:inset 3px 0 #bd5261;background:color-mix(in srgb,var(--surface) 95%,#bd5261)}
+.room-identity.identity-blue{--identity-accent:#4b84bc;border-color:#4b84bc66;box-shadow:inset 3px 0 #4b84bc;background:color-mix(in srgb,var(--surface) 95%,#4b84bc)}
+.identity-red .room-identity-pill{background:#bd52612a;color:var(--text);border:1px solid #bd526180}
+.identity-blue .room-identity-pill{background:#4b84bc2a;color:var(--text);border:1px solid #4b84bc80}
+.self-identity-anchor{display:inline-flex;font-size:11px;padding:2px 7px;border-radius:5px;white-space:nowrap}
+.self-identity-anchor.team-red{background:#bd526126;color:#d87985}.self-identity-anchor.team-blue{background:#4b84bc26;color:#78aada}
+.light .self-identity-anchor.team-red{color:#a33043}.light .self-identity-anchor.team-blue{color:#285d94}
+.nav-room-label{font-size:11px!important;border:1px solid var(--line);border-radius:5px;padding:3px 7px!important;opacity:.8}
+.anime-board-card.is-revealed img{opacity:1;filter:saturate(.94)}
+.anime-board-card.is-revealed::after{display:none;content:none}
+.anime-board-card.is-revealed{border-width:3px;box-shadow:inset 0 0 0 1px #ffffff60}
+.anime-board-card.role-red.is-revealed{border-color:#d65769}.anime-board-card.role-blue.is-revealed{border-color:#508fcf}
+.anime-board-card.role-neutral.is-revealed{border-color:#b5a67c}.anime-board-card.role-assassin.is-revealed{border-color:#9382b2}
+.anime-board-card>b.revealed-status{top:0;left:0;right:auto;bottom:auto;padding:2px 5px;border-radius:0 0 5px 0;background:#292d37ed;color:#fff;font-size:10px;line-height:1.3}
+.anime-board-card.role-red>b.revealed-status{background:#a72e43f2}.anime-board-card.role-blue>b.revealed-status{background:#265e9bf2}
+.anime-board-card.role-neutral>b.revealed-status{background:#736647f2}.anime-board-card.role-assassin>b.revealed-status{background:#343040f2}
+.anime-board-card>b.captain-affiliation{font-size:9px;opacity:.9}
+.anime-board-text .anime-board-card>b.revealed-status{position:static;align-self:start;margin:0 0 auto;font-size:10px}
+.board-current-clue{margin:3px 0 6px;padding:5px 8px;border-left:3px solid #718097;font-size:12px;border-radius:4px;background:#71809712;overflow-wrap:anywhere}
+.board-current-clue.team-red{border-color:#bd5261}.board-current-clue.team-blue{border-color:#4b84bc}
+.action-panel.own-turn.team-red{border-color:#bd52616b;box-shadow:inset 2px 0 #bd5261}.action-panel.own-turn.team-blue{border-color:#4b84bc6b;box-shadow:inset 2px 0 #4b84bc}
+.battle-turn{border:1px solid var(--line);border-left:3px solid #718097;border-radius:7px;padding:9px;margin:0 0 8px;overflow-wrap:anywhere}
+.battle-turn.team-red{border-left-color:#bd5261}.battle-turn.team-blue{border-left-color:#4b84bc}
+.battle-turn summary{display:grid;gap:3px;cursor:pointer;font-size:11px}.battle-turn summary strong{font-size:14px}.battle-turn small{opacity:.7}.battle-turn p{font-size:12px;line-height:1.6;margin:8px 0}
+.battle-expand{font-size:11px;justify-self:end}.battle-timeline{width:100%;min-width:0}
+.round-highlight-toast{max-width:min(600px,calc(100vw - 28px));padding:9px 14px;pointer-events:none;min-height:0;gap:8px}
+.round-highlight-toast-text{font-size:12px;overflow-wrap:anywhere}.round-highlight-toast-icon{font-size:17px}
+.draft-public-badge{top:4px;right:4px;left:auto;bottom:auto;background:#17212a8c!important;border:1px solid #ffffff5c!important;color:#fff!important;padding:2px 5px!important;font-size:9px!important;box-shadow:none!important;width:auto!important;border-radius:4px}
+.draft-tile.is-public-selected{box-shadow:none!important;border-color:var(--line)!important}
+.captain-management{width:100%;font-size:12px}.captain-management>summary{cursor:pointer}.captain-management .anime-toolbar{padding-top:8px}
+.anime-option-flags{display:flex;gap:8px 16px;flex-wrap:wrap}.anime-option-flags label{display:flex;align-items:center;gap:6px;font-size:12px}.anime-option-flags input{width:auto}
+.pool-current-summary{padding:8px;border:1px solid var(--line);border-radius:7px;font-size:12px}.pool-current-summary p{margin:4px 0}.pool-current-summary button{margin:4px 6px 0 0}
+.current-pool-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:10px;max-height:65vh;overflow:auto}.current-pool-grid article{min-width:0;display:grid;gap:4px}.current-pool-grid img{width:100%;height:126px;object-fit:cover}.current-pool-grid span{font-size:11px;overflow-wrap:anywhere}
+.history-match{display:flex;gap:7px 12px;flex-wrap:wrap;align-items:center;margin:8px 0;font-size:12px}
+.replay-page{max-width:1320px;width:100%;margin-inline:auto;grid-template-columns:minmax(0,1fr) 300px;gap:12px}
+.replay-hero{padding:12px 16px!important}.replay-title{font-size:21px!important;margin:8px 0!important}.replay-meta-details{font-size:12px}.replay-hero-header{gap:6px;flex-wrap:wrap}
+.replay-board-panel{padding:12px!important}.replay-board-panel .panel-heading{flex-wrap:wrap;gap:6px}.replay-board-panel .panel-heading h2{font-size:16px}.replay-board{gap:7px}
+.replay-board-card{position:relative;min-width:0;overflow:hidden;min-height:95px;aspect-ratio:1.7;border:1px solid var(--line);isolation:isolate;background:var(--surface)!important}
+.replay-board-card .replay-board-cover{position:absolute;inset:0;opacity:1!important}.replay-board-card .replay-board-cover img{width:100%;height:100%;object-fit:cover;filter:none!important;opacity:1!important}
+.replay-board-card.is-revealed{border:3px solid #827967}.replay-board-card.is-revealed.replay-card-role-red{border-color:#bd5261}.replay-board-card.is-revealed.replay-card-role-blue{border-color:#4b84bc}.replay-board-card.is-revealed.replay-card-role-assassin{border-color:#9382b2}
+.replay-board-card.replay-card-unrevealed{opacity:1!important;filter:none!important}
+.replay-board-word{position:absolute;bottom:0;inset-inline:0;z-index:2;background:#171d29dc;color:#fff;padding:5px 6px 20px!important;line-height:1.3;font-size:12px;overflow-wrap:anywhere}
+.replay-board-card:not(:has(.replay-board-cover)) .replay-board-word{top:25px;display:flex;align-items:center;justify-content:center}
+.replay-board-tag{position:absolute;top:0;left:0;z-index:3;background:#333d50eb;color:#fff;font-size:10px;padding:3px 5px;border-radius:0 0 5px 0}
+.is-revealed.replay-card-role-red .replay-board-tag{background:#a72e43f2}.is-revealed.replay-card-role-blue .replay-board-tag{background:#265e9bf2}
+.replay-post-affiliation,.replay-board-guesser{position:absolute;bottom:4px;left:6px;right:4px;z-index:3;font-size:9px;color:#e2e5ed;overflow-wrap:anywhere}
+.replay-step-controls,.replay-export-options{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px}.replay-export-options label{display:flex;align-items:center;gap:7px;font-size:12px}.replay-export-options input{width:auto}.replay-export-preview{display:block;max-width:100%;height:auto;margin-top:10px}
+.replay-round-header{flex-wrap:wrap;overflow-wrap:anywhere}.replay-guess{flex-wrap:wrap}
+@media(max-width:760px){.replay-page{display:block}.replay-hero{margin-bottom:10px}.replay-board{gap:4px}.replay-board-card{min-height:66px;aspect-ratio:1.02}.replay-board-word{font-size:9px;padding:3px 3px 16px!important}.replay-board-tag{font-size:8px;padding:2px 3px}.replay-post-affiliation,.replay-board-guesser{font-size:8px;left:3px;bottom:3px}.replay-board-panel{padding:8px!important}.replay-board-panel .panel-heading button{font-size:11px}.replay-timeline{margin-top:10px}.round-highlight-toast{top:auto;bottom:88px;width:calc(100vw - 28px);padding:8px 10px;transform:translateX(-50%)}.current-pool-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(prefers-reduced-motion:reduce){.round-highlight-toast,.replay-board-card{animation:none!important;transition:none!important}}
+
+.round-highlight-toast-text{white-space:normal}
+.replay-board-card .replay-board-cover{width:100%;height:100%;border-radius:0;margin:0}
+
+.route-replay .replay-page{max-width:1320px;grid-template-columns:minmax(0,1fr) 300px}
+.route-replay .replay-board-card{padding:0}
+.reveal-banner{width:min(560px,calc(100vw - 28px));font-size:12px;gap:8px;overflow-wrap:anywhere}
+.reveal-banner>*{min-width:0}.reveal-banner>strong{font-size:12px;white-space:normal}
+.v2-captain-tools>summary{cursor:pointer;font-size:12px;font-weight:600}
+@media(max-width:760px){.route-replay .replay-page{display:block}.reveal-banner{top:auto;bottom:88px;display:flex;flex-wrap:wrap;padding:8px 10px}.reveal-banner>strong{flex-basis:100%}.route-replay .replay-board-card{max-height:none;min-height:66px}.route-replay .replay-board-word{font-size:9px;display:block;line-height:1.3}}
+
+.replay-hero{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;align-items:center}
+.replay-hero-header{grid-column:1/-1;display:flex;margin-bottom:0}.replay-hero .replay-title{text-align:left;margin:2px 0!important}.replay-meta-details{grid-column:1/-1}.replay-meta-details>summary{margin:3px 0!important}
+.reveal-banner>h2{font-size:13px!important;flex-shrink:0}.reveal-banner>div{flex-wrap:wrap;margin-top:0!important}.reveal-banner .score-chip{font-size:11px;padding:3px 6px}
+@media(max-width:760px){.room-layout-playing .self-identity-anchor{font-size:9px;padding:2px 5px;line-height:1.2}.room-layout-playing .room-title-stack{gap:4px}.room-layout-playing .anime-board-panel>.hint-text{margin-bottom:3px}.room-layout-playing .anime-board-panel>.anime-toolbar{margin-bottom:4px}.replay-hero .replay-title{font-size:17px!important}.replay-hero>button{font-size:11px;padding:6px}.reveal-banner>h2{flex-basis:100%}}
+
+@media(max-width:760px){.room-center-col>.private-review-entry{order:5}}
+
+@media(min-width:761px){.replay-hero{grid-template-columns:minmax(0,1fr) auto auto}.replay-hero .replay-title{grid-column:1;grid-row:1}.replay-hero-header{grid-column:2;grid-row:1;justify-self:end}.replay-hero>button{grid-column:3;grid-row:1}.replay-meta-details{grid-column:1/-1;grid-row:2}}
+
+@media(max-width:760px){.anime-board-card>b.revealed-status{font-size:8px;padding:2px 3px;white-space:nowrap;line-height:1.3}}

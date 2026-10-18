@@ -10,3 +10,4 @@ export * from "./analysis-view.js";
 export * from "./anime-community.js";
 export * from "./titles.js";
 export * from "./turn.js";
+export * from "./match-events.js";

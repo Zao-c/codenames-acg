@@ -108,7 +108,7 @@ async function pressureAndSeatChecks(host,roomId,join){
  await tab(pages[2],'玩家');await shot(pages[2],'lobby-4-mobile-dark',true);await theme(pages[2],true);await shot(pages[2],'lobby-4-mobile-light',true);await theme(pages[2],false);await tab(pages[2],'准备');
  check('R10/R12 open spectator converts to a player; 8-player full state explains capacity; 12 real clients, MAX_PLAYERS remains 8');
 }
-async function mouseDrag(p,source,target,name){
+async function mouseDrag(p,source,target,name,valid=true){
  await target.scrollIntoViewIfNeeded();await source.scrollIntoViewIfNeeded();
  const from=await source.boundingBox(),to=await target.boundingBox();
  assert.ok(from&&to,`drag boxes ${name}`);
@@ -116,7 +116,7 @@ async function mouseDrag(p,source,target,name){
  const b={x:to.x+to.width/2,y:to.y+Math.min(to.height/2,45)};
  await p.mouse.move(a.x,a.y);await p.mouse.down();await p.mouse.move(a.x+10,a.y+10,{steps:3});await p.mouse.move(b.x,b.y,{steps:24});await p.waitForTimeout(100);
  assert.equal(await p.locator('.draft-drag-ghost').count(),1,'real pointer ghost');
- if(name){assert.ok(await p.locator('.drop-hot').count()>0,'reachable highlighted target');await p.screenshot({path:path.join(artifacts,`${name}.png`)});}
+ if(name){assert.equal((await p.locator('.drop-hot').count())>0,valid,'only valid targets highlight');await p.screenshot({path:path.join(artifacts,`${name}.png`)});}
  await p.mouse.up();await p.waitForTimeout(250);
  assert.equal(await p.locator('.draft-drag-ghost').count(),0);
  assert.equal(await p.locator('.drop-hot').count(),0);
@@ -206,6 +206,7 @@ try {
   const quarterly = options.find(value => /^\d{4}-Q[1-4]$/.test(value));
   assert.ok(quarterly, 'quarterly pool available');
   await poolSelect.selectOption(quarterly);
+  await settings.getByLabel('历局作品轮换 · 排除已玩系列').uncheck();
   await button(settings, '保存设置').click();
   await until(() => states[0].nextPlan?.variant === 'anime', 'anime configured');
   await pressureAndSeatChecks(host, roomId, join);
@@ -314,10 +315,10 @@ try {
   }
   const other=Number(Object.keys(claims()).find(id=>claims()[id].team==='blue'&&claims()[id].kind==='manual'));
   const old=Number(Object.keys(claims()).find(id=>claims()[id].team==='red'&&claims()[id].kind==='manual'));
-  await mouseDrag(host,candidate(host,other),chosen(host,old),'D09-last20-replace-attempt');
-  await button(host,'确认更换').click();await host.waitForTimeout(250);
+  await mouseDrag(host,candidate(host,other),chosen(host,old),'D09-last20-replace-attempt',false);
+  assert.equal(await host.getByRole('dialog',{name:'更换作品',exact:true}).count(),0);
   assert.equal(claims()[other].team,'blue');assert.equal(claims()[old].team,'red');
-  assert.match((await host.locator('.error-text').allInnerTexts()).join(' '),/最后 20/);
+  assert.match((await host.locator('.draft-bookmark-status').allInnerTexts()).join(' '),/最后 20/);
   const unclaimed=ids.find(id=>!claims()[id]);
   await candidate(host,unclaimed).click();assert.equal(await button(host,'投放为干扰牌').count(),0);await host.keyboard.press('Escape');
   check('D09 real final-20s clock rejects steal/replace atomically and removes interference action; old selections preserved');

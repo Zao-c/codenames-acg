@@ -9,6 +9,7 @@ import { createServer } from "node:http";
 import { Server } from "socket.io";
 import {
   BOARD_MODE_CONFIG,
+  MatchEventLedger,
   MAX_AVATAR_DATA_URL_LENGTH,
   type BoardMode,
   type RevealGuessSettings,
@@ -39,6 +40,7 @@ import { AnimePoolStore, CommunityError } from './anime-pool-store.js';
 import { animePoolRouter } from './anime-pools.js';
 import { ManualWorkStore } from './manual-works.js';
 import { manualCoverRouter, manualWorkRouter } from './manual-works-api.js';
+import { fetchReplayCover } from './replay-cover.js';
 
 type PayloadRecord = Record<string, unknown>;
 
@@ -495,7 +497,7 @@ async function bootstrap(): Promise<void> {
   app.get('/api/private-replays/:matchId', (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     try { res.json(game.getPrivateReplay(req.params.matchId, principalFromKey(req.header('x-private-key')))); }
-    catch { res.status(404).json({ message: '私密复盘不存在、未开放或无权访问' }); }
+    catch { res.status(404).json({ message: '私密复盘不存在、已过期或无权访问。服务重启后内存复盘会失效；请在原设备重试或恢复身份凭证。' }); }
   });
   app.post('/api/private-replays/:matchId/share', async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
@@ -508,11 +510,21 @@ async function bootstrap(): Promise<void> {
     } catch { res.status(404).json({ message: '预测不存在、未开放或无权修改' }); }
   });
 
+  const replayCoverLimiter=rateLimit({windowMs:60_000,limit:240,standardHeaders:true,legacyHeaders:false});
+  app.get('/api/replays/:replayId/covers/:cardId',replayCoverLimiter,async(req,res)=>{
+    try{
+      const replay=await game.getReplay(String(req.params.replayId));
+      const card=replay?.finalBoard.find(c=>c.id===req.params.cardId);
+      if(!card?.anime?.cover){res.sendStatus(404);return;}
+      const cover=await fetchReplayCover(card.anime.cover);
+      res.setHeader('Cache-Control','public, max-age=300');res.type(cover.type).send(cover.data);
+    }catch{res.sendStatus(404);}
+  });
   app.get("/api/replays/:replayId", async (req, res) => {
     try {
       const replay = await game.getReplay(req.params.replayId);
       if (!replay) {
-        res.status(404).json({ message: "复盘不存在或已过期" });
+        res.status(404).json({ message: "公开复盘不存在、已过期或服务重启后已失效" });
         return;
       }
       res.json(replay);
@@ -633,17 +645,25 @@ async function bootstrap(): Promise<void> {
     await broadcastRoomSummaries();
   }
 
+  const publishedMatchEvents = new MatchEventLedger();
   async function emitRoundHighlights(roomId: string): Promise<void> {
     const room = await game.getRoom(roomId);
     if (!room) return;
     const highlights = room.roundHighlights ?? [];
     if (highlights.length === 0) return;
     const sanitizedHighlights = sanitizeRoundHighlightsForPhase(highlights, room.phase) ?? [];
-    const lastHl = sanitizedHighlights[sanitizedHighlights.length - 1];
-    io.to(roomId).emit("round_highlight", lastHl);
-    const achievements = buildAchievementUnlocksFromHighlight(highlights[highlights.length - 1], room);
-    for (const ach of achievements) {
-      io.to(roomId).emit("achievement_unlock", ach);
+    const scope = { roomId, matchId: room.matchId!, roundNumber: room.roundNumber };
+    // Claim synchronously after the fetch, before emitting. Concurrent guess/end-turn
+    // handlers may observe the same snapshot, or more than one new closed turn.
+    for (const highlight of sanitizedHighlights) {
+      if (!publishedMatchEvents.claim(roomId, scope.matchId, `highlight:${highlight.id}`)) continue;
+      io.to(roomId).emit("round_highlight", { ...highlight, ...scope });
+      const original = highlights.find(h => h.id === highlight.id)!;
+      for (const ach of buildAchievementUnlocksFromHighlight(original, room)) {
+        if (publishedMatchEvents.claim(roomId, scope.matchId, `achievement:${ach.id}`)) {
+          io.to(roomId).emit("achievement_unlock", { ...ach, ...scope, team: highlight.team, roundIndex: highlight.roundIndex });
+        }
+      }
     }
   }
 

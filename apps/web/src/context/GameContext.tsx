@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from 'react-router-dom';
+import { MatchNotifications, type NotificationScope } from '../lib/match-notifications';
 import { ClueRequestLifecycle } from '../lib/pending-clue';
 
 function genId(): string {
@@ -477,6 +478,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [publicImagePacks, setPublicImagePacks] = useState<PublicImagePackSummary[]>([]);
   const [roomCode, setRoomCode] = useState("");
   const [session, setSession] = useState<ClientSession | null>(loadSession());
+  const notificationScope = useRef<NotificationScope | null>(null);
   const activeRoomIdRef = useRef<string | null>(null);
   const freshSessionRef = useRef(false);
   const navigateAfterSession = useRef(false);
@@ -715,6 +717,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
     function onRoomState(p: PublicRoomState) {
       if (!loadSession() || p.id !== activeRoomIdRef.current) return;
+      if(p.phase==='playing'&&notificationScope.current?.matchId!==p.matchId)setSideTab('battle');
+      notificationScope.current = p.matchId ? {roomId:p.id,matchId:p.matchId,roundNumber:p.roundNumber,latestTurn:p.clueRecords?.length??0} : null;
       setRoom(p); setConnectionState("ready"); setLostRoom(null);
       // Only a local action-scoped error survives unrelated room broadcasts.
       if (!scopedErrorRef.current) setError("");
@@ -887,17 +891,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
     gameKey: null
   });
 
-  useEffect(() => {
-    function onRoundHighlight(p: RoundHighlight) {
-      setRoundHighlights((prev) => [...prev, p]);
-      setHighlightToast(p);
-      if (highlightToastTimerRef.current !== null) window.clearTimeout(highlightToastTimerRef.current);
-      highlightToastTimerRef.current = window.setTimeout(() => setHighlightToast(null), 3500);
-    }
-    socket.on("round_highlight", onRoundHighlight);
-    return () => { socket.off("round_highlight", onRoundHighlight); };
-  }, [socket]);
-
   const [roundAchievements, setRoundAchievements] = useState<AchievementUnlockPayload[]>([]);
   const [achievementToast, setAchievementToast] = useState<AchievementUnlockPayload | null>(null);
   const achievementToastTimerRef = useRef<number | null>(null);
@@ -936,14 +929,31 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }, [clearRoundUiCache, room, session?.roomId]);
 
   useEffect(() => {
-    function onAchievementUnlock(p: AchievementUnlockPayload) {
-      setRoundAchievements((prev) => [...prev, p]);
-      setAchievementToast(p);
-      if (achievementToastTimerRef.current !== null) window.clearTimeout(achievementToastTimerRef.current);
-      achievementToastTimerRef.current = window.setTimeout(() => setAchievementToast(null), 3500);
-    }
-    socket.on("achievement_unlock", onAchievementUnlock);
-    return () => { socket.off("achievement_unlock", onAchievementUnlock); };
+    const gate = new MatchNotifications();
+    type Notice = {kind:'highlight'; value:RoundHighlight} | {kind:'achievement'; value:AchievementUnlockPayload};
+    const queue: Notice[] = [];
+    let timer: number | undefined;
+    const display = () => {
+      const next = queue.shift();
+      setHighlightToast(null); setAchievementToast(null);
+      if (!next) {timer=undefined;return;}
+      const p=next.value, scope=notificationScope.current;
+      if (!scope || p.roomId!==scope.roomId || p.matchId!==scope.matchId || (p.roundIndex??0)<scope.latestTurn) {display();return;}
+      if(next.kind==='highlight')setHighlightToast(next.value);else setAchievementToast(next.value);
+      timer=window.setTimeout(display,1400);
+    };
+    const receive=(notice:Notice)=>{
+      if(notice.value.roomId!==activeRoomIdRef.current)return;
+      const result=gate.receive(notice.kind,notice.value,notificationScope.current);
+      if(!result)return;
+      if(notice.kind==='highlight')setRoundHighlights(prev=>[...prev,notice.value]);
+      else setRoundAchievements(prev=>[...prev,notice.value]);
+      if(result.toast){queue.push(notice);if(timer===undefined)display();}
+    };
+    const highlight=(value:RoundHighlight)=>receive({kind:'highlight',value});
+    const achievement=(value:AchievementUnlockPayload)=>receive({kind:'achievement',value});
+    socket.on('round_highlight',highlight);socket.on('achievement_unlock',achievement);
+    return()=>{window.clearTimeout(timer);socket.off('round_highlight',highlight);socket.off('achievement_unlock',achievement);};
   }, [socket]);
 
   useEffect(() => {

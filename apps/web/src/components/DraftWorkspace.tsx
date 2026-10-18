@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { TEAM_LABELS, type AnimeWork, type PublicNextPlan, type Team } from '@acg-codenames/shared';
+import { BOARD_MODE_CONFIG, draftQuota, TEAM_LABELS, type AnimeWork, type PublicNextPlan, type Team } from '@acg-codenames/shared';
 import { DraftTile, type DropAction, type DropAllow } from './DraftTile';
 import { Cover } from './AnimeBoard';
 
@@ -12,16 +12,17 @@ export function DraftWorkspace(p:Props) {
  const captainControls=!!team&&!!plan.captainView;
  useEffect(()=>{if(mobilePane==='public')setPublicExpanded(true);},[mobilePane]);
  useEffect(()=>{if(p.replacement!==undefined)setMobilePane('pool');},[p.replacement]);
- const editable=!!team&&plan.stage==='draft';
+ const editable=!!team&&!!plan.captainView&&plan.stage==='draft'&&p.remaining>0;
  const publicIds=plan.stage==='draft'?(plan.publicSelectedWorkIds??[]):[];
  const publicSet=new Set(publicIds);
  const publicWorks=publicIds.map(id=>plan.candidates.find(w=>w.id===id)).filter((w):w is AnimeWork=>!!w);
  const selected=plan.candidates.filter(w=>claims[w.id]&&(selectionTeam==='own'?claims[w.id].team===team:claims[w.id].team!==team));
- const allow=(w:AnimeWork):DropAllow=>{const claim=claims[w.id];return{
-  take:editable&&(!claim||(claim.kind!=='interference'&&claim.team!==team)),
+ const allow=(w:AnimeWork):DropAllow=>{const claim=claims[w.id];const legal=editable&&(!claim||(claim.kind!=='interference'&&claim.team!==team&&p.remaining>20&&p.time>=claim.protectedUntil));const ownCount=Object.values(claims).filter(c=>c.team===team&&c.kind==='manual').length;const space=!!team&&ownCount<draftQuota(BOARD_MODE_CONFIG[plan.settings.boardMode].size,plan.startingTeam,team).manual;return{
+  take:legal&&(space||p.replacement!==undefined),
   release:editable&&claim?.team===team&&claim.kind==='manual',
   interfere:editable&&!claim&&p.remaining>20,
-  replace:editable&&(!claim||(claim.kind!=='interference'&&claim.team!==team)),
+  replace:legal,
+  reason:p.remaining<=20?'最后 20 秒不能抢夺或更改干扰':claim?.kind==='interference'?'干扰牌不可抢夺或撤回':claim&&p.time<claim.protectedUntil?'保护期内不可抢夺':undefined,
  };};
  if(plan.variant!=='anime')return <div className="plan-controls">{p.controls}</div>;
  return <div className={`draft-workspace stage-${plan.stage} draft-pane-${mobilePane} ${captainControls?'has-captain-console':'observer-workspace'}`}>

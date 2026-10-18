@@ -1,0 +1,16 @@
+{
+  "passed": true,
+  "checks": [
+    "4 players + spectator, game 1, 25 cards, swap false, interference, 4 clue turns, no-guess end-turn and terminal assassin",
+    "4 players + spectator, game 2, 36 cards, swap true, interference, 4 clue turns, no-guess end-turn and terminal assassin",
+    "4 players + spectator, game 3, 25 cards, swap true, interference, 4 clue turns, no-guess end-turn and terminal assassin",
+    "public replay fail→success, stale delayed request ignored, three replay ids, cumulative actual guesses and no-guess turns",
+    "private replay expired→authorized, consecutive match ids and permission validation",
+    "actual live CDN CORS export plus bounded server fallback; fallback count recorded",
+    "actual uploaded manual cover decoded, requested with CORS and included in 36-card long-title export",
+    "8 actual PNG downloads: 25/36 × 4:3/16:9 × light/dark, 1600 dimensions, broken-cover fallback and mobile long-press image",
+    "replay navigation preserves active room session"
+  ],
+  "screenshotCount": 80,
+  "errors": []
+}

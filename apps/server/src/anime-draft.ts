@@ -7,16 +7,16 @@ export function shuffled<T>(items: readonly T[], random = Math.random): T[] {
   for (let i = result.length - 1; i > 0; i--) { const j = Math.floor(random() * (i + 1)); [result[i], result[j]] = [result[j], result[i]]; }
   return result;
 }
-export function candidatesFor(pool: AnimeWork[], history: Record<string, number> = {}, random = Math.random): AnimeWork[] {
+export function candidatesFor(pool: AnimeWork[], history: Record<string, number> = {}, random = Math.random, strictRotation = false): AnimeWork[] {
   const unique = new Map<string, AnimeWork>();
   // Shuffle first: no popularity weighting; stable age sort only affects historic reuse.
-  for (const work of shuffled(pool, random)) if (!unique.has(work.seriesId)) unique.set(work.seriesId, work);
+  for (const work of shuffled(pool, random)) if ((!strictRotation || history[work.seriesId] === undefined) && !unique.has(work.seriesId)) unique.set(work.seriesId, work);
   return [...unique.values()].sort((a, b) => (history[a.seriesId] ?? -1) - (history[b.seriesId] ?? -1)).slice(0, 180);
 }
 export function makePlan(room: Room, time: number): NextPlan {
   return {
     id: crypto.randomUUID(), matchId: crypto.randomUUID(), version: 1, variant: 'classic',
-    settings: { ...room.settings, variant: 'classic', boardMode: room.settings.boardMode === '6x6' ? '5x5' : room.settings.boardMode },
+    settings: { ...room.settings, animeRandomSwap:undefined, animeSeriesRotation:undefined, variant: 'classic', boardMode: room.settings.boardMode === '6x6' ? '5x5' : room.settings.boardMode },
     wordPack: room.wordPack, pool: [], poolName: '全部动画', candidates: [], startingTeam: Math.random() < .5 ? 'red' : 'blue',
     stage: 'planning', captains: Object.fromEntries(room.players.filter(p => p.role === 'spymaster' && p.team).map(p => [p.team!, p.id])),
     bookmarks: {}, ready: { red: false, blue: false }, done: { red: false, blue: false }, claims: {}, protection: {}, exposedPlayerIds: [], activityAt: time,
@@ -56,6 +56,17 @@ export function sealDraft(plan: NextPlan, history: Record<string, number> = {}, 
   for (const team of ['red', 'blue'] as const) fill(team, draftQuota(size, plan.startingTeam, team).total);
   fill('neutral', size === 36 ? 10 : 7); fill('assassin', 1);
   if (cards.length !== size) throw new Error('组牌数量不合法');
+  if (plan.settings.animeRandomSwap === true) {
+    const pick = (team: Team) => {
+      const manual = cards.filter(c => c.role === team && plan.claims[c.anime!.id]?.kind === 'manual');
+      const eligible = manual.length ? manual : cards.filter(c => c.role === team && !plan.claims[c.anime!.id]);
+      if (!eligible.length) throw new Error('随机互换缺少合法补位牌');
+      return eligible[Math.floor(random() * eligible.length)];
+    };
+    const red = pick('red'), blue = pick('blue');
+    red.role = 'blue'; blue.role = 'red';
+    plan.randomSwap = { redCardId: red.id, blueCardId: blue.id };
+  }
   plan.sealedBoard = shuffled(cards, random);
   plan.stage = 'sealed';
 }
