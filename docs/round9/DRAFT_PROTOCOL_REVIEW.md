@@ -6,6 +6,19 @@
 
 `planning → guide → draft → interference → sealing → sealed → playing`
 
+```mermaid
+stateDiagram-v2
+  planning --> guide: 房主准备
+  guide --> draft: 两队就绪
+  draft --> interference: 双方完成或服务器截止，锁定 manual
+  interference --> sealing: 双方完成或服务器截止
+  sealing --> sealed: 房间锁内一次互换、补位、封存
+  sealed --> playing: 在线席位校验和五秒倒计时
+  guide --> planning: 房主取消
+  draft --> planning: 主动退出取消准备
+  interference --> planning: 主动退出取消准备
+```
+
 - planning：房主配置规则快照；建议选牌 180/240/300 秒，5×5 默认 180、6×6 默认 240；独立干扰 30/45/60 秒，建议 45。均待批准。
 - guide：仅两队指定队长读取候选、私人书签和就绪。是否允许改队长待批准，本 PR 新房主管理只允许 planning，先取消预览再操作。
 - draft：服务器截止时间决定阶段；保留 10 秒保护、最后 20 秒禁抢、原子替换。双方 done 或截止锁定普通 manual 集合。
