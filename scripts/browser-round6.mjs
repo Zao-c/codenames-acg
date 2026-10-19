@@ -350,12 +350,14 @@ try {
   await boardRatios('5x5');
   await finishNormally(1);
   const firstReplay=states[0].replayId;assert.ok(firstReplay);
-  // Use the existing next-game plan dialog, preserving the actual gameplay flow.
-  await button(host,'准备下一局').first().click();
-  await host.getByRole('dialog',{name:'下一局计划'}).getByLabel('棋盘',{exact:true}).selectOption('6x6');
-  const configButton=host.getByRole('dialog',{name:'下一局计划'}).getByRole('button',{name:/保存配置并更新候选池/});
-  await configButton.click();await host.waitForTimeout(350);
-  await host.getByRole('dialog',{name:'下一局计划'}).getByRole('button',{name:'进入队长预览',exact:true}).click();
+  // Return directly, then explicitly edit the next game's settings.
+  await button(host,'返回房间').click();
+  await button(host,'修改设置').click();
+  const nextSettings=host.getByRole('dialog',{name:'本局设置'});
+  await nextSettings.getByLabel('棋盘',{exact:true}).selectOption('6x6');
+  await nextSettings.getByRole('button',{name:/保存并返回准备大厅/}).click();
+  await nextSettings.waitFor({state:'hidden'});
+  await button(host,'进入队长预览 →').click();
   await until(()=>states[0].phase==='lobby'&&states[0].nextPlan.stage==='guide','next guide');
   await act(host,roomId,'ready');await act(blueCaptain,roomId,'ready');await until(()=>states[0].nextPlan.stage==='draft','second draft');
   assert.deepEqual(states[4].nextPlan.publicSelectedWorkIds,[]);

@@ -5,6 +5,7 @@ import path from 'node:path';
 import sharp from 'sharp';
 import {RoomTransport,applyRoomDelta,type PublicRoomState} from '@acg-codenames/shared';
 import {PublicAssets} from '../src/public-assets.js';
+import {fetchReplayCover} from '../src/replay-cover.js';
 import {ScopedResource} from '../../web/src/lib/resource-cache.js';
 
 const state={id:'room',players:[{id:'a',profile:{avatarUrl:null}}],spectators:[],board:[],messages:[],serverNow:100,
@@ -45,6 +46,15 @@ try{
   assert.equal(downloads,1,'simultaneous cold misses share one download');
   assert.ok(images.every(b=>b.equals(images[0])));assert.equal((await sharp(images[0]).metadata()).format,'webp');
   const restarted=new PublicAssets(dir,fetcher);await restarted.cover(source);assert.equal(downloads,1,'persistent cache reused after restart');
+  const slowFetcher=(async (_url:unknown,init?:RequestInit)=>{
+    await new Promise(r=>setTimeout(r,5200));
+    init?.signal?.throwIfAborted();
+    return new Response(new Uint8Array(png),{headers:{'content-type':'image/png'}});
+  }) as typeof fetch;
+  const slowSource='https://lain.bgm.tv/r/400/pic/cover/l/slow.jpg';
+  const slowResults=await Promise.allSettled([new PublicAssets(dir,slowFetcher).cover(slowSource),fetchReplayCover(slowSource,slowFetcher)]);
+  assert.equal(slowResults[0].status,'fulfilled','5.2-second CDN response populates bounded cover cache');
+  assert.equal(slowResults[1].status,'rejected','PNG export retains its original 4.5-second deadline');
   await assert.rejects(assets.cover('http://127.0.0.1/secrets'));assert.equal(downloads,1,'arbitrary origin rejected before fetch');
   const data='data:image/png;base64,'+png.toString('base64');
   const input={players:[{profile:{avatarUrl:data}}],messages:[{profile:{avatarUrl:data}}]};
