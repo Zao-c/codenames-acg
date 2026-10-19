@@ -528,6 +528,11 @@ async function bootstrap(): Promise<void> {
     }
   });
 
+  app.get('/api/rooms/:roomId/interference-pool',metadataLimiter,async(req,res)=>{
+    res.setHeader('Cache-Control','no-store');
+    try {res.json(await game.getInterferencePool(String(req.params.roomId),principalFromKey(req.header('x-private-key')),String(req.query.planId??''),Number(req.query.stageVersion),String(req.query.q??''),Number(req.query.page??1)));}
+    catch(error){res.status(403).json({message:error instanceof Error?error.message:'干扰作品池读取失败'});}
+  });
   app.get('/api/rooms/:roomId/plan-pool',metadataLimiter,async(req,res)=>{
     res.setHeader('Cache-Control','no-store');
     try {
@@ -818,7 +823,7 @@ async function bootstrap(): Promise<void> {
         await game.planAction(roomId,session.participantId,payload);
         await sendRoomState(roomId);
         acknowledge(reply, {ok:true});
-      } catch(error) { acknowledge(reply, {ok:false,message:error instanceof Error?error.message:'配置未保存'});fail(socket,error); }
+      } catch(error) { const bound=socketSessions.get(socket.id);if(bound)try{await sendRoomState(bound.roomId);}catch{} acknowledge(reply, {ok:false,message:error instanceof Error?error.message:'配置未保存'});fail(socket,error); }
     });
     socket.emit("room_summaries", []);
     broadcastRoomSummaries().catch((error) => {

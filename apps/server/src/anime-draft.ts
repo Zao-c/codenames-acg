@@ -16,7 +16,7 @@ export function candidatesFor(pool: AnimeWork[], history: Record<string, number>
 export function makePlan(room: Room, time: number): NextPlan {
   return {
     id: crypto.randomUUID(), matchId: crypto.randomUUID(), version: 1, variant: 'classic',
-    settings: { ...room.settings, animeRandomSwap:undefined, animeSeriesRotation:undefined, variant: 'classic', boardMode: room.settings.boardMode === '6x6' ? '5x5' : room.settings.boardMode },
+    settings: { ...room.settings, animeDraft:undefined, animeRandomSwap:undefined, animeSeriesRotation:undefined, variant: 'classic', boardMode: room.settings.boardMode === '6x6' ? '5x5' : room.settings.boardMode },
     wordPack: room.wordPack, pool: [], poolName: '全部动画', candidates: [], startingTeam: Math.random() < .5 ? 'red' : 'blue',
     stage: 'planning', captains: Object.fromEntries(room.players.filter(p => p.role === 'spymaster' && p.team).map(p => [p.team!, p.id])),
     bookmarks: {}, ready: { red: false, blue: false }, done: { red: false, blue: false }, claims: {}, protection: {}, exposedPlayerIds: [], activityAt: time,
@@ -30,9 +30,9 @@ export function validatePlanRoster(room: Room, plan: NextPlan): void {
   }
 }
 export function sealDraft(plan: NextPlan, history: Record<string, number> = {}, random = Math.random): void {
-  if (plan.stage !== 'draft') return;
+  if(plan.settings.animeDraft?.version===2?plan.stage!=='interference':plan.stage!=='draft')return;
   const size = BOARD_MODE_CONFIG[plan.settings.boardMode].size;
-  const candidates = new Map(plan.candidates.map(w => [w.id, w]));
+  const candidates = new Map((plan.settings.animeDraft?.version===2?plan.pool:plan.candidates).map(w => [w.id, w]));
   const cards: Card[] = [];
   const used = new Set<string>();
   const add = (work: AnimeWork, role: Card['role']) => {
@@ -59,7 +59,7 @@ export function sealDraft(plan: NextPlan, history: Record<string, number> = {}, 
   if (plan.settings.animeRandomSwap === true) {
     const pick = (team: Team) => {
       const manual = cards.filter(c => c.role === team && plan.claims[c.anime!.id]?.kind === 'manual');
-      const eligible = manual.length ? manual : cards.filter(c => c.role === team && !plan.claims[c.anime!.id]);
+      const eligible = manual.length||plan.settings.animeDraft?.version===2 ? manual : cards.filter(c => c.role === team && !plan.claims[c.anime!.id]);
       if (!eligible.length) throw new Error('随机互换缺少合法补位牌');
       return eligible[Math.floor(random() * eligible.length)];
     };

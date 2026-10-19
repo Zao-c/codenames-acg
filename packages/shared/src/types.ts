@@ -1,4 +1,4 @@
-import type { AnimeWork, NextPlan, PublicNextPlan } from "./anime.js";
+import type { AnimeDraftRules, AnimeWork, NextPlan, PublicNextPlan } from "./anime.js";
 import type { AnalysisPermissions, MatchPrivateState } from "./analysis.js";
 export type Team = "red" | "blue";
 export type CardRole = Team | "neutral" | "assassin";
@@ -259,6 +259,7 @@ export interface Clue {
 }
 
 export interface RoomSettings {
+  animeDraft?: AnimeDraftRules;
   /** Missing fields in an existing plan mean disabled (pre Round 8 compatibility). */
   animeRandomSwap?: boolean;
   animeSeriesRotation?: boolean;
