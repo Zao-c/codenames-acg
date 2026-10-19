@@ -39,13 +39,13 @@ function RoomStabilityBanner() {
     {g.lostRoom && <div className="stability-banner danger" role="alert"><strong>房间已断开</strong><p>{g.lostRoom.message}</p><button onClick={() => { g.setError(''); location.assign('/'); }}>返回大厅</button></div>}
     {g.joinError && <div className="stability-banner" role="status"><strong>入房未完成</strong><p>{g.joinError}</p></div>}
     {!room.hostOnline && <div className="stability-banner" role="status">
-      <strong>社长当前离线</strong>
+      <strong>房主当前离线</strong>
       <p>{offlineSeconds !== null ? `已离线约 ${offlineSeconds} 秒。` : ''}{graceRemaining > 0 ? `安全接任宽限期还有 ${graceRemaining} 秒。` : '宽限期已结束，在线正式玩家可以发起接任；接任只移交房间管理权，不会获得队长秘密或私人图谱。'}</p>
       {takeover ? <div className="stability-actions">
         <span>{takeover.candidateNickname} 申请接任 · 已确认 {takeover.approvals}/{takeover.required}{takeover.rejections ? ` · 反对 ${takeover.rejections}` : ''}</span>
         {takeover.canApprove && <><button className="primary-button" onClick={() => g.hostTakeover('approve')}>同意接任</button><button onClick={() => g.hostTakeover('reject')}>拒绝</button></>}
         {takeover.candidateId === room.viewer?.participantId && <button onClick={() => g.hostTakeover('cancel')}>撤回请求</button>}
-      </div> : canRequest ? <div className="stability-actions"><button className="primary-button" onClick={() => g.hostTakeover('request')}>发起社长接任</button><span className="hint-text">需其他在线正式玩家多数确认；仅你一人在线时宽限期后直接接任。</span></div> : null}
+      </div> : canRequest ? <div className="stability-actions"><button className="primary-button" onClick={() => g.hostTakeover('request')}>发起房主接任</button><span className="hint-text">需其他在线正式玩家多数确认；仅你一人在线时宽限期后直接接任。</span></div> : null}
     </div>}
     {g.actionStatus && <p className="stability-status" role="status">{g.actionStatus}{g.clueSyncing&&<button onClick={g.retryClue} disabled={g.connectionState!=='ready'}>重新确认本次提示</button>}</p>}
   </>;
@@ -403,7 +403,7 @@ function HostControls({ viewer, returnToLobby, transferHost, disbandRoom, hostTr
         {hostTransferCandidates.length === 0 ? <option value="">暂无可转让玩家</option> : null}
         {hostTransferCandidates.map((p) => (<option key={p.id} value={p.id}>{p.nickname}</option>))}
       </select>
-      <button onClick={transferHost} disabled={!viewer.canTransferHost || !transferHostTargetId}>转让社长</button>
+      <button onClick={transferHost} disabled={!viewer.canTransferHost || !transferHostTargetId}>转让房主</button>
       <button className="danger-button" onClick={disbandRoom}>解散房间</button>
     </div>
   );
@@ -510,7 +510,7 @@ function ParticipantRow({ participant, label, isSelf, effect, onReact }: {
         </div>
       </div>
       <div className="participant-actions">
-        {"isHost" in participant && participant.isHost ? <span className="soft-chip">社长</span> : null}
+        {"isHost" in participant && participant.isHost ? <span className="soft-chip">房主</span> : null}
         {team ? <span className={`role-chip role-chip-${team}`}>{team === "red" ? "红队" : "蓝队"}</span> : null}
         {role ? <span className={`role-chip role-chip-role`}>{role === "spymaster" ? "队长" : "队员"}</span> : null}
         {"connected" in participant && !participant.connected ? <span className="soft-chip">离线</span> : null}
@@ -555,7 +555,7 @@ function LobbySettings({ room, viewer, self, g, accountPacks, publicPacks, makeP
     <section className="panel" style={{ marginBottom: 12 }}>
       <div className="panel-heading">
         <h2>房间设置</h2>
-        <span className="soft-chip">{viewer.canEditRoom ? "社长可编辑" : "等待社长调整"}</span>
+        <span className="soft-chip">{viewer.canEditRoom ? "房主可编辑" : "等待房主调整"}</span>
       </div>
       <details className="lobby-advanced"><summary>文字题库与经典设置</summary>
       <div className="settings-row">

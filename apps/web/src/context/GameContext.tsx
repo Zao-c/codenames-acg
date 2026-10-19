@@ -1511,7 +1511,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   function hostTakeover(kind: 'request'|'approve'|'reject'|'cancel') {
     if(!session)return;
     socket.emit('host_takeover',{roomId:session.roomId,kind},result=>{
-      if(!result?.ok)setError(result?.message??'社长接任未完成');
+      if(!result?.ok)setError(result?.message??'房主接任未完成');
       else setError('');
     });
   }

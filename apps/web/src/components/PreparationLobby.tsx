@@ -18,6 +18,7 @@ export function PreparationLobby({room}:{room:PublicRoomState}) {
   const [settings,setSettings] = useState(false);
   const [preview,setPreview] = useState(false);
   const [management,setManagement] = useState(false);
+  const [teams,setTeams] = useState(false);
   const manage=useMemberManagement(room);
   const manageable=canManageMembers(room);
   const [dropTeam,setDropTeam]=useState<Team|'none'|null>(null);
@@ -66,7 +67,7 @@ export function PreparationLobby({room}:{room:PublicRoomState}) {
     </div>;
   };
   return <section className={`preparation-lobby lobby-v2 mobile-view-${g.mobileRoomTab}`}>
-    <header className="v2-stage-header"><div><p className="eyebrow">LOBBY / 准备大厅</p><h1>好友入座，准备开局。</h1><p className="hint-text">房间 <strong className="room-code">{room.id}</strong> · 第 {room.roundNumber} 局 · {g.connectionState==='ready'?'已连接':'正在重新连接'}</p></div><div className="v2-stage-tools"><button onClick={()=>{if(window.confirm('确定退出房间？你将离开席位，已开始的组牌准备会取消。')){g.leaveRoom();navigate('/');}}}>退出房间</button><button onClick={()=>void g.copyLink()}>{g.copied?'已复制链接':'邀请好友 ↗'}</button>{host&&<button className="icon-button" aria-label="房间管理" onClick={()=>setManagement(true)}><Icon name="settings" size={17}/></button>}</div></header>
+    <header className="v2-stage-header"><div><p className="eyebrow">LOBBY / 准备大厅</p><h1>好友入座，准备开局。</h1><p className="hint-text">房间 <strong className="room-code">{room.id}</strong> · 第 {room.roundNumber} 局 · {g.connectionState==='ready'?'已连接':'正在重新连接'}</p></div><div className="v2-stage-tools"><button onClick={()=>{if(window.confirm('确定退出房间？你将离开席位，已开始的组牌准备会取消。')){g.leaveRoom();navigate('/');}}}>退出房间</button><button onClick={()=>void g.copyLink()}>{g.copied?'已复制链接':'邀请好友 ↗'}</button>{host&&<button className="room-management-trigger" aria-label="房间管理" onClick={()=>setManagement(true)}><Icon name="users" size={17}/>房间管理</button>}</div></header>
     <RoomIdentity room={room}/>
     <StartCountdown room={room}/>
     <div className="v2-lobby-grid">
@@ -77,10 +78,7 @@ export function PreparationLobby({room}:{room:PublicRoomState}) {
         <section className="v2-seat-tools" aria-label="我的席位"><h3>我的席位</h3>      {self&&!locked&&<div className="v2-self-controls"><select aria-label="我的队伍" value={self.team??''} onChange={e=>g.chooseTeam((e.target.value||null) as Team|null)}><option value="">待分队</option><option value="red">红队</option><option value="blue">蓝队</option></select><select aria-label="我的身份" disabled={!self.team} value={!!self.team&&captain(self.team)===self.id?'spymaster':'operative'} onChange={e=>g.chooseRole(e.target.value as 'spymaster'|'operative')}><option value="operative">队员</option><option value="spymaster">队长</option></select></div>}{!self&&<p className="hint-text">旁观者 · 只读与聊天</p>}{self&&locked&&<p className="hint-text">本局席位已锁定，等待下一局可调整。</p>}</section>
 
         <div className={`v2-pending ${dropTeam==='none'?'host-drop-target':''}`} {...dropProps(null)}><div className="v2-team-heading"><strong>待分队</strong><span>{room.players.filter(p=>!p.team).length} 人</span></div>{room.players.filter(p=>!p.team).map(member)}{room.players.every(p=>p.team)&&<p className="hint-text">当前没有待分队玩家</p>}</div>
-        {host&&<details className="v2-more-management"><summary>分队工具与队长管理</summary>
-        {host&&!locked&&<details className="v2-captain-tools" aria-label="队长管理"><summary>队长管理</summary><div>{(['red','blue'] as const).map(t=><div key={t}>{<label className="v2-captain-picker">本局队长<select aria-label={`${TEAM_LABELS[t]}本局队长`} value={captain(t)??''} onChange={e=>send({kind:'nominate',team:t,targetId:e.target.value})}><option value="" disabled>请选择队长</option>{room.players.filter(p=>p.team===t).map(p=><option value={p.id} key={p.id}>{p.nickname}</option>)}</select></label>}</div>)}</div></details>}
-        {host&&<div className="v2-shuffle"><p className="v2-field-title">房主分队操作</p>{manageable?<p className="hint-text">拖动成员到队伍，或打开成员管理菜单。任命新队长会将原队长改为队员。</p>:<p className="hint-text">成员管理已锁定；先取消本次准备再调整。</p>}<div><button disabled={locked||room.players.length<4||!!missing.length} onClick={()=>g.randomizeTeams('keep-captains')}>保留队长随机队员</button><button disabled={locked||room.players.length<4} onClick={()=>g.randomizeTeams('all')}>全员重新随机</button></div><p className="hint-text">可反复重抽。保留队长时，两队队长留在原队；全员重抽会重新指定队长。</p></div>}
-        </details>}
+        {host&&<button className="v2-more-management" onClick={()=>setTeams(true)}><Icon name="users" size={16}/>分队与队长管理</button>}
         {!!room.spectators.length&&<details className="v2-spectators"><summary>旁观与排队 · {room.spectators.length} 人</summary>{room.spectators.map(s=><div className="v2-member" key={s.id}><span>{s.nickname}{!s.connected?' · 离线':''}{room.joinQueue.some(q=>q.spectatorId===s.id)?' · 已排队下一局':''}</span><MemberManagement room={room} targetId={s.id}/></div>)}</details>}
         {room.viewer?.participantType==='spectator'&&<div className="spectator-seat-actions"><p className="hint-text">旁观者 · 可聊天和观看公共信息</p>{room.viewer.isQueuedForNextRound?<button onClick={g.cancelQueueJoin}>取消排队</button>:room.viewer.canQueueForNextRound?<button onClick={g.queueForNextRound}>排队下一局</button>:!locked&&!room.viewer.canQueueForNextRound&&!room.countdown&&room.players.length<MAX_PLAYERS?<button onClick={()=>g.joinSpecificRoom(room.id,false)}>加入玩家席</button>:<p className="hint-text">{room.players.length>=MAX_PLAYERS?'玩家席已满，请等待空位。':'本局席位已锁定，请等待下一局。'}</p>}</div>}
       </section>
@@ -92,7 +90,13 @@ export function PreparationLobby({room}:{room:PublicRoomState}) {
     <PrivateReview room={room}/>
     {g.error&&<div className="error-text" role="alert">{g.error}<button aria-label="关闭提示" onClick={()=>g.setError('')}>×</button></div>}
     {settings&&host&&!locked&&<RoomSettingsDialog key={`${room.id}:${room.viewer?.participantId}`} room={room} close={()=>setSettings(false)}/>}
-    {management&&host&&<Dialog title="房间管理" close={()=>setManagement(false)}><div className="v2-management"><label>转让房主<select aria-label="转让房主" value={g.transferHostTargetId} onChange={e=>g.setTransferHostTargetId(e.target.value)}>{g.hostTransferCandidates.map(p=><option key={p.id} value={p.id}>{p.nickname}</option>)}</select></label><button disabled={!g.transferHostTargetId} onClick={g.transferHost}>转让社长</button><button className="danger-button" onClick={g.disbandRoom}>解散房间</button>{room.viewer?.canUseDebugFill&&!locked&&<button onClick={g.debugFillRoom}>补 3 个测试位</button>}</div></Dialog>}
+    {teams&&host&&<Dialog title="分队与队长管理" className="team-management-dialog" close={()=>setTeams(false)} wide>
+      <p className="hint-text">调整即时同步给所有成员。也可返回大厅拖动成员，或在成员旁打开管理菜单。</p>
+      <section className="team-management-section"><h3>本局队长</h3>{!locked?<div className="team-captain-grid">{(['red','blue'] as const).map(t=><label key={t} className={`team-${t}`}>{TEAM_LABELS[t]}队长<select aria-label={`${TEAM_LABELS[t]}本局队长`} value={captain(t)??''} onChange={e=>send({kind:'nominate',team:t,targetId:e.target.value})}><option value="" disabled>请选择队长</option>{room.players.filter(p=>p.team===t).map(p=><option value={p.id} key={p.id}>{p.nickname}</option>)}</select></label>)}</div>:<p className="hint-text">本局席位已锁定，先取消本次准备再调整。</p>}<p className="hint-text">任命新队长后，原队长成为队员。</p></section>
+      <section className="team-management-section v2-shuffle"><h3>随机分队</h3>{!manageable&&<p className="hint-text">成员管理已锁定；先取消本次准备再调整。</p>}<div><button disabled={locked||room.players.length<4||!!missing.length} onClick={()=>g.randomizeTeams('keep-captains')}>保留队长随机队员</button><button disabled={locked||room.players.length<4} onClick={()=>g.randomizeTeams('all')}>全员重新随机</button></div><p className="hint-text">保留队长时，两队队长留在原队；全员重抽会重新指定队长。可以反复重抽。</p></section>
+      {g.error&&<p role="alert" className="error-text">{g.error}</p>}<div className="settings-actions"><button className="primary-button" onClick={()=>setTeams(false)}>完成并返回大厅</button></div>
+    </Dialog>}
+    {management&&host&&<Dialog title="房间管理" close={()=>setManagement(false)}><div className="v2-management"><label>转让房主<select aria-label="转让房主" value={g.transferHostTargetId} onChange={e=>g.setTransferHostTargetId(e.target.value)}>{g.hostTransferCandidates.map(p=><option key={p.id} value={p.id}>{p.nickname}</option>)}</select></label><button disabled={!g.transferHostTargetId} onClick={g.transferHost}>转让房主</button><button className="danger-button" onClick={g.disbandRoom}>解散房间</button>{room.viewer?.canUseDebugFill&&!locked&&<button onClick={g.debugFillRoom}>补 3 个测试位</button>}</div></Dialog>}
     {preview&&stage==='guide'&&<Dialog title="队长预览" close={()=>setPreview(false)} wide><NextMatchPanel room={room} mode="preview"/></Dialog>}
   </section>;
 }
