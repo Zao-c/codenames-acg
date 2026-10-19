@@ -1,4 +1,4 @@
-import { managedClick } from './browser-support.mjs';
+import { managedClick, openMemberTools } from './browser-support.mjs';
 import { readRoomState } from './room-observer.mjs';
 import { theme } from './browser-support.mjs';
 import fs from 'node:fs/promises';
@@ -32,7 +32,7 @@ try{
   assert.equal(await host.getByRole('heading',{name:'本局玩法',exact:true}).count(),1);
   assert.equal(await host.getByRole('heading',{name:'队伍与成员',exact:true}).count(),1);
   for(let i=1;i<5;i++){await pages[i].goto(`${base}/room/${id}`);await button(pages[i],'加入房间').click();await until(()=>states[i]?.id===id,`join ${i}`);}
-  assert.ok(await button(host,'保留队长随机队员').isDisabled());
+  await openMemberTools(host);assert.ok(await button(host,'保留队长随机队员').isDisabled());
   for(let n=0;n<5;n++)await nextState(0,()=>managedClick(host,'全员重新随机'));
   const fixed={...states[0].nextPlan.captains};
   for(let n=0;n<10;n++){

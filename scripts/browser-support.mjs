@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
 
-export async function managedClick(page,name){
+export async function openMemberTools(page){
   const tools=page.locator('.v2-more-management');
   if(await tools.count()&&!await tools.evaluate(element=>element.open))await tools.locator('summary').first().click();
+}
+export async function managedClick(page,name){
+  await openMemberTools(page);
   await page.getByRole('button',{name,exact:true}).click();
 }
 

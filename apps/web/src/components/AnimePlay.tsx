@@ -225,7 +225,7 @@ export function NextMatchPanel({ room, mode = 'full', onConfigured, embedded=fal
     if(community)localStorage.removeItem(bringBackKey);
     localStorage.removeItem(`cipai-selected-community-pool:${privateIdentityKey()}:`);
     localStorage.removeItem('cipai-selected-community-pool');
-    if(stillHere()){setConfigNotice('已保存，服务端版本和设置已核对。');onConfigured?.();}
+    if(stillHere()){setConfigNotice(mode==='settings'?'已保存，服务端版本和设置已核对。':'配置已由服务器保存，候选池已更新。');onConfigured?.();}
     }catch(e){if(stillHere()){setConfigNotice('');setError((e as Error).message);}}finally{configureLock.current=false;if(stillHere())setConfiguring(false);}
   };
   const take = (id: number) => { send({ kind:'take', workId:id, replaceId: replacement }); if (replacement !== undefined) setReplacement(undefined); };

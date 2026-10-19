@@ -143,6 +143,7 @@ try {
     await button(pages[i], '确认就绪，开始组牌').click();
   }
   await until(() => states[0].nextPlan?.stage === 'draft', 'draft');
+  await until(() => [0,1,2,3,4].every(index=>states[index]?.nextPlan?.stage==='draft'), 'all participant draft snapshots');
   const candidates = states[0].nextPlan.candidates;
   const [a, b, c, d, e] = candidates.map(work => work.id);
 
