@@ -1,0 +1,23 @@
+{
+  "passed": true,
+  "ids": [
+    524123,
+    485936,
+    1262
+  ],
+  "responses": [
+    {
+      "url": "http://182.61.136.105/api/anime/cover/524123?v=2898196673",
+      "status": 200
+    },
+    {
+      "url": "http://182.61.136.105/api/anime/cover/485936?v=2318431400",
+      "status": 200
+    },
+    {
+      "url": "http://182.61.136.105/api/anime/cover/1262?v=1429987407",
+      "status": 200
+    }
+  ],
+  "scope": "Read-only public home with three real public catalog works selected locally. External CDN deliberately blocked in this browser; all image bytes come from the actual production same-origin cache. No room/account/game created."
+}
