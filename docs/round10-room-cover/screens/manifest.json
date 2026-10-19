@@ -1,0 +1,77 @@
+[
+  {
+    "file": "before-captain-5x5-1440-light.png",
+    "sourceSha": "7f9bfdafff1e116b69fbf058ac062f7de1f8afe9",
+    "sha256": "850ea4e1de840774833ac5d89eba4cb1ffcd77bc66e93df4813ad7628c7b23ad"
+  },
+  {
+    "file": "after-captain-5x5-1440-light.png",
+    "sourceSha": "db8b61a27ff103f6c004062463d07efdd0313a21",
+    "sha256": "ea416df9c00e68eb4cd3911fc313f2d2dd452c7469ba7e86ff63398adb01dc3d"
+  },
+  {
+    "file": "before-captain-6x6-390-dark.png",
+    "sourceSha": "7f9bfdafff1e116b69fbf058ac062f7de1f8afe9",
+    "sha256": "638f413e0d013da5e53d39d5301a5e1d82243de4dd7c24338da60739eaffa798"
+  },
+  {
+    "file": "after-captain-6x6-390-dark.png",
+    "sourceSha": "db8b61a27ff103f6c004062463d07efdd0313a21",
+    "sha256": "8bcabe1f461205e33e2db98046e3f5ce334719634e1125d0de4ff1dc10846093"
+  },
+  {
+    "file": "before-flips-5x5-1440-light.png",
+    "sourceSha": "7f9bfdafff1e116b69fbf058ac062f7de1f8afe9",
+    "sha256": "b52a8383318461167bff39e020d93f170b73629fbc6c057f582c434ec3ecdf0e"
+  },
+  {
+    "file": "after-flips-5x5-1440-light.png",
+    "sourceSha": "db8b61a27ff103f6c004062463d07efdd0313a21",
+    "sha256": "1b2b810ca5a734aef09d425c583530f5cf46ef1bedb056f40677971b113513f4"
+  },
+  {
+    "file": "before-flips-6x6-390-dark.png",
+    "sourceSha": "7f9bfdafff1e116b69fbf058ac062f7de1f8afe9",
+    "sha256": "762b3a741bd0a80843ff9b066351d80f377a31640595e7c08ecad046be82063a"
+  },
+  {
+    "file": "after-flips-6x6-390-dark.png",
+    "sourceSha": "db8b61a27ff103f6c004062463d07efdd0313a21",
+    "sha256": "35c33bd61f0b7db7596d014bca847484795b55bc5356ba2909eec35d5e353453"
+  },
+  {
+    "file": "before-text-6x6-390-light.png",
+    "sourceSha": "7f9bfdafff1e116b69fbf058ac062f7de1f8afe9",
+    "sha256": "1547e3e29c1193e2d94010b0e40f0367d86d1eddd26bc44cee3dbe899a649338"
+  },
+  {
+    "file": "after-text-6x6-390-light.png",
+    "sourceSha": "db8b61a27ff103f6c004062463d07efdd0313a21",
+    "sha256": "150b9bfcc3f598eb403328f98135163ab35f9b272b31d3b7805c6d5b4f21ffb5"
+  },
+  {
+    "file": "before-feedback-settings-1440-light.png",
+    "sourceSha": "7f9bfdafff1e116b69fbf058ac062f7de1f8afe9",
+    "sha256": "158080997be5c18a22b8ee6d62fafadbb02bf5773057e87cf9da3bb76bc740fc"
+  },
+  {
+    "file": "after-feedback-settings-1440-light.png",
+    "sourceSha": "db8b61a27ff103f6c004062463d07efdd0313a21",
+    "sha256": "0b4b89b0c1562e69949493339c38af0977b4cab88d7780763eb99bc742a217ca"
+  },
+  {
+    "file": "countdown-390-light.png",
+    "sourceSha": "db8b61a27ff103f6c004062463d07efdd0313a21",
+    "sha256": "e558871673e9b4283afd379fb5466c68db30b0d28f123fcec7cadc82d9fd82e7"
+  },
+  {
+    "file": "return-6x6-result.png",
+    "sourceSha": "db8b61a27ff103f6c004062463d07efdd0313a21",
+    "sha256": "c3bbc47f2d077f2b4028d519e51e0d53a60a7c80db70e208b46a224aa153427a"
+  },
+  {
+    "file": "return-6x6-lobby.png",
+    "sourceSha": "db8b61a27ff103f6c004062463d07efdd0313a21",
+    "sha256": "492d53b4237ab2863878cb3b5ba2ca2d5cfdee68e49e0321a63ddedde15afafa"
+  }
+]

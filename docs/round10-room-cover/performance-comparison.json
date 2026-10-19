@@ -1,0 +1,82 @@
+{
+  "passed": true,
+  "scope": "Current isolated loopback benchmark compared with the previously recorded Round 8 performance reference; these are different runs, not simultaneous internet measurements.",
+  "reference": {
+    "sha": "59f2bd1aad922bad41d42b63ca0857b0102ad0b1",
+    "passed": true,
+    "players": 8,
+    "candidates": 180,
+    "extraCatalogWorks": 5000,
+    "avatarSourceBytes": [
+      9015,
+      9031,
+      9007,
+      9019,
+      9007,
+      9019,
+      9027,
+      9047
+    ],
+    "seconds": 67.944,
+    "actions": 240,
+    "snapshots": 0,
+    "deltas": 2160,
+    "actualRoomBytes": 1970853,
+    "previousFullStateEstimateBytes": 394653479,
+    "reductionPercent": 99.50061177593217,
+    "catalog": {
+      "uncompressed": 2164033,
+      "gzip": 486709,
+      "home": 3725
+    },
+    "latencyMs": {
+      "p50": 40,
+      "p95": 55,
+      "max": 86
+    },
+    "server": {
+      "maxRssMiB": 250.875,
+      "eventLoopP99Ms": 83.755007
+    },
+    "scope": "Loopback synthetic benchmark; previous bytes reconstruct full state and original data-URI avatars; not an internet speed or 3-hour soak guarantee."
+  },
+  "after": {
+    "passed": true,
+    "players": 8,
+    "candidates": 180,
+    "extraCatalogWorks": 5000,
+    "avatarSourceBytes": [
+      9031,
+      8975,
+      9043,
+      9003,
+      8991,
+      9023,
+      9011,
+      8999
+    ],
+    "seconds": 67.972,
+    "actions": 240,
+    "snapshots": 0,
+    "deltas": 2160,
+    "actualRoomBytes": 1971402,
+    "previousFullStateEstimateBytes": 396037063,
+    "reductionPercent": 99.50221780126675,
+    "catalog": {
+      "uncompressed": 2164033,
+      "gzip": 486709,
+      "home": 3725
+    },
+    "latencyMs": {
+      "p50": 39,
+      "p95": 50,
+      "max": 57
+    },
+    "server": {
+      "maxRssMiB": 246.5078125,
+      "eventLoopP99Ms": 54.362111
+    },
+    "scope": "Loopback synthetic benchmark; previous bytes reconstruct full state and original data-URI avatars; not an internet speed or 3-hour soak guarantee."
+  },
+  "roomByteChangePercent": 0.027855958815803383
+}
