@@ -14,7 +14,7 @@ let browser;for(const channel of ['chromium','msedge','chrome',undefined]){try{b
 if(!browser)throw new Error('No browser available');
 const pages=[],states=[],errors=[],clients=[],checks=[];
 const button=(p,name)=>p.getByRole('button',{name,exact:true});
-const until=async(fn,label)=>{for(let i=0;i<150;i++){if(fn())return;await new Promise(r=>setTimeout(r,100));}throw new Error(`Timed out: ${label}`);};
+const until=async(fn,label)=>{for(let i=0;i<150;i++){if(await fn())return;await new Promise(r=>setTimeout(r,100));}throw new Error(`Timed out: ${label}`);};
 const tab=async(p,name)=>{const n=p.getByRole('navigation',{name:'房间导航'});if(await n.isVisible())await button(n,name).click();};
 async function shot(p,name){await p.evaluate(()=>document.fonts.ready);await p.screenshot({path:path.join(artifacts,`${name}.png`),fullPage:true});const b=await p.evaluate(()=>({w:innerWidth,s:document.documentElement.scrollWidth}));assert.ok(b.s<=b.w+1,`${name}: overflow ${JSON.stringify(b)}`);}
 async function create(p,mode){await button(p,'＋ 创建房间').click();await button(p.getByRole('dialog'),mode).click();await button(p.getByRole('dialog'),'创建房间 →').click();}
@@ -50,7 +50,7 @@ try{
   assert.deepEqual(await config.getByLabel('下一局计分').locator('option').allTextContents(),['胜场制','积分制']);
   await config.getByLabel('棋盘',{exact:true}).selectOption('6x6');await config.getByLabel('下一局计分').selectOption('scoring');
   await config.getByLabel('动画作品池',{exact:true}).selectOption('2026-Q3');await button(config,'保存并返回准备大厅').click();await until(()=>states[0].nextPlan.settings.boardMode==='6x6','saved config');
-  assert.equal(await host.locator('.anime-config').count(),0);
+  await until(async()=>await host.locator('.anime-config').count()===0,'settings closes after confirmed snapshot and ACK');
   await pages[4].getByLabel('发送聊天消息').fill('大家准备好了吗？');await button(pages[4],'发送').click();await host.getByText('大家准备好了吗？',{exact:true}).waitFor();
   assert.equal(await host.getByText('GG',{exact:true}).count(),0);assert.equal(await host.locator('.danmaku-toggle').count(),0);
   await button(host,'打开快捷设置').click();await button(host,'关闭弹幕').click();assert.ok(await button(host,'开启弹幕').getAttribute('aria-pressed')==='false');await button(host,'关闭设置').click();
@@ -96,7 +96,7 @@ try{
   for(const p of capPages()){await tab(p,'准备');await button(p,'确认就绪，开始组牌').click();}
   await until(()=>states[0].nextPlan.stage==='draft','draft');assert.ok(states[0].nextPlan.endsAt>Date.now()+175000);
   for(const p of capPages()){const b=button(p,'选牌与操作');if(await b.isVisible())await b.click();await button(p,'手选完成，剩余随机补齐').click();}
-  await until(()=>states[0].nextPlan.stage==='sealed','sealed');await shot(host,'11-sealed-desktop');assert.ok(await button(host,'全员重新随机').isDisabled());assert.equal(await button(host,'进入队长预览 →').count(),0);
+  await until(()=>states[0].nextPlan.stage==='sealed','sealed');await shot(host,'11-sealed-desktop');await openMemberTools(host);assert.ok(await button(host,'全员重新随机').isDisabled());assert.equal(await button(host,'进入队长预览 →').count(),0);
   await button(host,'开始五秒倒计时').click();await host.locator('.start-countdown').waitFor();await button(host,'取消开始').click();await until(()=>!states[0].countdown,'cancel countdown');assert.equal(states[0].nextPlan.stage,'sealed');
   await button(host,'开始五秒倒计时').click();await until(()=>states[0].phase==='playing','anime playing');assert.equal(states[0].board.length,36);
   checks.push('planning/guide/draft/sealed/countdown/playing server stages, preview cannot take, one-captain no timer, cancel/reset, both ready starts 180s, sealed locks and countdown cancel');
