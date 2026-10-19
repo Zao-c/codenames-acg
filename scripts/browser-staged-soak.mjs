@@ -156,7 +156,7 @@ async function configureRound(number){
   if(i===0){
    const zone=pages[i].locator('.draft-drop-zones [data-drop="interfere"]');await zone.scrollIntoViewIfNeeded();await choose.scrollIntoViewIfNeeded();const source=await choose.boundingBox(),target=await zone.boundingBox();assert.ok(source&&target);assert.ok(target.y+target.height/2<pages[i].viewportSize().height,'drag target must be inside the viewport');
    await pages[i].mouse.move(source.x+source.width/2,source.y+source.height/2);await pages[i].mouse.down();await pages[i].mouse.move(target.x+target.width/2,target.y+target.height/2,{steps:15});
-   assert.equal(await pages[i].locator('.draft-drag-ghost').count(),1);if(number<2)await shot(i,`round-${number}-interference-grab`);await pages[i].mouse.up();
+   assert.equal(await pages[i].locator('.draft-drag-ghost').count(),1);if(number<2)await pages[i].screenshot({path:path.join(out,`round-${number}-interference-grab.png`),fullPage:false});await pages[i].mouse.up();
   }else await choose.click();
   await button(pages[i].getByRole('dialog',{name:'确认干扰作品'}),'确认投放').click();
   await until(()=>states[i].nextPlan.captainView?.claims[work.id]?.kind==='interference','interference committed');
