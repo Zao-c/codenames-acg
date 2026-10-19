@@ -992,6 +992,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!session || !room || !pendingCreateConfigRef.current) return;
+    // Old-room broadcasts can arrive while create_room is in flight. Apply the
+    // queued initial settings only after the new seat and matching room agree.
+    if (createAttemptRef.current || session.roomId !== room.id) return;
     const hostPlayer = room.players.find((p) => p.id === session.participantId);
     if (!hostPlayer?.isHost || room.phase !== "lobby") return;
     const pending = pendingCreateConfigRef.current;

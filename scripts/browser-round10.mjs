@@ -9,7 +9,7 @@ import {chromium} from 'playwright';
 import {readRoomState} from './room-observer.mjs';
 import {theme} from './browser-support.mjs';
 const baseline=process.env.ROUND10_BASELINE==='1',base=process.env.PLAYTEST_BASE_URL,api=process.env.PLAYTEST_API_URL;
-const out=path.resolve(`output/playwright/round10/${baseline?'before':'after'}`);await fs.mkdir(out,{recursive:true});const attempt=path.join(out,'attempts',new Date().toISOString().replaceAll(':','-'));for(const name of await fs.readdir(out))if(name.startsWith('failure')){await fs.mkdir(attempt,{recursive:true});await fs.rename(path.join(out,name),path.join(attempt,name));}
+const out=path.resolve(`output/playwright/round10/${baseline?'before':process.env.ROUND10_SETTINGS_ONLY==='1'?'settings-debug':'after'}`);await fs.mkdir(out,{recursive:true});const attempt=path.join(out,'attempts',new Date().toISOString().replaceAll(':','-'));for(const name of await fs.readdir(out))if(name.startsWith('failure')){await fs.mkdir(attempt,{recursive:true});await fs.rename(path.join(out,name),path.join(attempt,name));}
 let browser;for(const channel of ['chromium','msedge','chrome',undefined])try{browser=await chromium.launch({channel,headless:true});break;}catch{}
 assert.ok(browser);const extraSpectators=[];const pages=[],states=[],sessions=[],checks=[],errors=[],screens=[],geometry=[],catalogRequests=[],noticeLog=[];
 const button=(p,name)=>p.getByRole('button',{name,exact:true});
@@ -36,7 +36,7 @@ if(!baseline){
  checks.push('real desktop drag, click/keyboard/mobile menus, unique captain appointment, forged non-host rejected');
 }
 const all=(await(await fetch(api+'/api/anime/catalog')).json()).works;const unique=[...new Map(all.map(w=>[w.seriesId,w])).values()];
-for(const [round,size,catalog] of [[0,'5x5',171],[1,'6x6',500],[2,'6x6',5000]]){
+for(const [round,size,catalog] of (process.env.ROUND10_SETTINGS_ONLY==='1'?[]:[[0,'5x5',171],[1,'6x6',500],[2,'6x6',5000]])){
  if(round){await raw(host,'return_to_lobby',{roomId:id});await until(()=>states[0].phase==='lobby','back to lobby');}
  await plan('configure',{variant:'anime',boardMode:size,poolIds:unique.slice(0,Math.min(catalog,500)).map(w=>w.id),animeSeriesRotation:false,animeRandomSwap:true});await plan('prepare');
  if(!baseline){const rejected=await ack(host,'manage_member',{roomId:id,targetId:sessions[2].participantId,kind:'remove'});assert.equal(rejected.ok,false);await host.getByRole('button',{name:'关闭提示',exact:true}).click();}
