@@ -3,6 +3,7 @@ import {theme} from './browser-support.mjs';
 
 export async function feedbackSettingsChecks(t){
  const {host,pages,states,checks,button,until,shot}=t;
+ await host.setViewportSize({width:1440,height:900});await theme(host,true);
  const expected=['大厅','创建房间','文字题库','动画题库','图片图库','个人资料'];
  assert.deepEqual(await host.locator('.app-nav .nav-links>button').allTextContents(),expected);
  assert.equal(await host.locator('.nav-room-label').count(),0);
