@@ -1,0 +1,17 @@
+The bundle contains this ref:
+0e09d0aae15bccf8b94687184fffa4c1c79581a5 refs/heads/codex/cipai-round10-v2
+The bundle requires these 2 refs:
+59f2bd1aad922bad41d42b63ca0857b0102ad0b1 
+1b8a8709a067aa2bfc002a29ef3c2aa31785efa7 
+The bundle uses this hash algorithm: sha1
+/opt/codenames-releases/uploads/round10-0e09d0a.bundle is okay
+From /opt/codenames-releases/uploads/round10-0e09d0a.bundle
+ * [new branch]      codex/cipai-round10-v2 -> round10-review/head
+curl: (7) Failed to connect to 127.0.0.1 port 3199 after 0 ms: Couldn't connect to server
+app-before.tar.gz: OK
+system-before.tar.gz: OK
+HEAD is now at 0e09d0a docs(round10): publish acceptance, visual evidence and guarded release tooling
+curl: (7) Failed to connect to 127.0.0.1 port 3001 after 0 ms: Couldn't connect to server
+DEPLOYED_SHA=0e09d0aae15bccf8b94687184fffa4c1c79581a5
+BACKUP=/opt/codenames-backups/round10-20261019T024648Z-0e09d0aae15b
+MAIN_PID=1780126

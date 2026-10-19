@@ -1,0 +1,21 @@
+{
+  "passed": true,
+  "url": "http://182.61.136.105/",
+  "title": "词牌结社",
+  "assets": [
+    {
+      "path": "/assets/index-Cwh4z7ey.css",
+      "status": 200
+    },
+    {
+      "path": "/assets/index-C37-tFA0.js",
+      "status": 200
+    }
+  ],
+  "errors": [],
+  "screens": [
+    "production-desktop-dark.png",
+    "production-mobile-light.png"
+  ],
+  "scope": "Read-only public home with local guest identity; no production room, account or game created. Multiplayer regression ran on isolated local services."
+}

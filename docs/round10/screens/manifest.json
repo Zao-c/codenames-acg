@@ -452,5 +452,27 @@
     "pixelHeight": 900,
     "bytes": 2526497,
     "sha256": "02ca552b022bd3f80c4f853511fb947c9c7b42f7a4912d21800c665ee0aad993"
+  },
+  {
+    "file": "production-desktop-dark.png",
+    "role": "public home; local guest identity; no production room",
+    "width": 1440,
+    "height": 900,
+    "sourceSha": "0e09d0aae15bccf8b94687184fffa4c1c79581a5",
+    "pixelWidth": 1440,
+    "pixelHeight": 900,
+    "bytes": 72476,
+    "sha256": "ca6be17db5223bb623cb820ff2c011a3bbae7317804690b0973fa90b45c93122"
+  },
+  {
+    "file": "production-mobile-light.png",
+    "role": "public home; local guest identity; no production room",
+    "width": 390,
+    "height": 844,
+    "sourceSha": "0e09d0aae15bccf8b94687184fffa4c1c79581a5",
+    "pixelWidth": 390,
+    "pixelHeight": 1056,
+    "bytes": 129068,
+    "sha256": "1d6d4fd2f1046aa2f81211d4d8cc43b6b957583e374866ed5b9f7dec2192a3a8"
   }
 ]
