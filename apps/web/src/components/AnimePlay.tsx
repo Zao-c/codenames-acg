@@ -350,7 +350,7 @@ export function NextMatchPanel({ room, mode = 'full', onConfigured, embedded=fal
       </div>
     </Dialog>}
   </>;
-  if(mode!=='settings'&&plan?.stage==='interference')return <InterferenceWorkspace room={room}/>;
+  if(mode!=='settings'&&plan?.stage==='interference')return <InterferenceWorkspace key={`${plan.id}:${plan.stageVersion}:${room.viewer?.participantId}:${team}:${!!plan.captainView}`} room={room}/>;
   if (mode === 'settings') return <div className="lobby-config-form"><fieldset disabled={configuring} className="settings-fields">{content}</fieldset>{overlay}</div>;
   if(mode==='full'&&!embedded&&room.phase==='playing')return <><button onClick={()=>setOpen(true)}>查看准备</button>{open&&createPortal(<Dialog title="下一局计划" close={()=>setOpen(false)} wide>{content}</Dialog>,document.body)}{createPortal(overlay,document.body)}</>;
   return <section className={`panel next-match-panel ${room.phase==='playing'?'next-plan-during-game':''} ${plan?.variant==='anime'?'has-anime-plan':''}`}>

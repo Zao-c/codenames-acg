@@ -38,7 +38,7 @@ export function AnimeBoard({ room }: { room: PublicRoomState }) {
       <button onClick={() => { setText(!text); localStorage.setItem('anime-text-view', text ? '0':'1'); }}>{text ? '封面显示' : '纯文字显示'}</button>
       <AssociationBoard key={room.matchId} room={room}/>
       <SpectatorPredictions key={`predictions-${room.matchId}`} room={room}/>
-    </div>{room.clue&&<p className={`board-current-clue team-${room.currentTeam}`} role="status">{room.currentTeam==='red'?'红队':'蓝队'}线索 · <strong>{room.clue.word} ×{room.clue.count}</strong> · {room.players.find(p=>p.id===room.clue?.giverPlayerId)?.nickname??'队长'}</p>}<p className="hint-text">{room.viewer?.role==='spymaster'?'阵营标签为队长视角；深色蒙层与“已翻”标记表示已经翻开。':'深色蒙层与“已翻”标记表示已经翻开。'}点卡片查看作品，猜牌需再次确认。</p>
+    </div>{room.clue&&<p className={`board-current-clue team-${room.currentTeam}`} role="status">{room.currentTeam==='red'?'红队':'蓝队'}线索 · <strong>{room.clue.word} ×{room.clue.count}</strong> · {room.players.find(p=>p.id===room.clue?.giverPlayerId)?.nickname??'队长'}</p>}
     <div className="anime-board-scroll"><div className={`anime-board ${text ? "anime-board-text" : ""}`} style={{ gridTemplateColumns: `repeat(${cols}, minmax(0,1fr))` }}>
       {room.board.map(card => <button key={card.id} className={`anime-board-card role-${card.role ?? 'hidden'} ${card.revealed ? 'is-revealed':''}`} aria-label={`${card.word}${card.revealed ? ` 已翻 · ${{red:'红队',blue:'蓝队',neutral:'中立',assassin:'刺客'}[card.role!]}`:''}`} data-personal-mark={marks[card.id]||undefined}
         onContextMenu={e=>{e.preventDefault();if(held.current||Date.now()-touchStarted.current<1500)return;suppress.current=true;markReadyAt.current=0;setMarkTarget(card);}}
