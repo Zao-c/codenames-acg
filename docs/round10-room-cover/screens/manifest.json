@@ -73,5 +73,20 @@
     "file": "return-6x6-lobby.png",
     "sourceSha": "db8b61a27ff103f6c004062463d07efdd0313a21",
     "sha256": "492d53b4237ab2863878cb3b5ba2ca2d5cfdee68e49e0321a63ddedde15afafa"
+  },
+  {
+    "file": "production-desktop-dark.png",
+    "sourceSha": "a73ad5afb87522ad472b5c4bc2f529e3eec5e169",
+    "sha256": "16f5078997a07a3bb1877db22deaea2cb314ea0b6115c7c35be131fd66642842"
+  },
+  {
+    "file": "production-mobile-light.png",
+    "sourceSha": "a73ad5afb87522ad472b5c4bc2f529e3eec5e169",
+    "sha256": "a024914be0c95e683de5eace1b559b9503ddc2920e9445472aaf65f81b03e14d"
+  },
+  {
+    "file": "production-cover-recovery.png",
+    "sourceSha": "a73ad5afb87522ad472b5c4bc2f529e3eec5e169",
+    "sha256": "855a9c47276beb607e3016a2f253aaba25142372d4250c746e962aa65795062c"
   }
 ]
