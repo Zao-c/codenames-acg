@@ -96,6 +96,7 @@ async function configureRound(number){
  const size=number%2?'6x6':'5x5',selection=[180,240,300][number%3],interference=[30,60,null][number%3];
  await button(pages[0],'修改设置').click();const dialog=pages[0].getByRole('dialog',{name:'本局设置'});
  await dialog.getByLabel('棋盘',{exact:true}).selectOption(size);await dialog.getByLabel('选牌时间',{exact:true}).selectOption(String(selection));await dialog.getByLabel('干扰时间',{exact:true}).selectOption(interference===null?'unlimited':String(interference));
+ if(number<2){for(const width of [1440,390])for(const light of [true,false]){await pages[0].setViewportSize({width,height:width===390?844:900});await pages[0].evaluate(light=>{document.documentElement.classList.toggle('light',light);},light);await shot(0,`round-${number}-settings-${width}-${light?'light':'dark'}`);}await pages[0].setViewportSize({width:1440,height:900});}
  const save=dialog.getByRole('button',{name:/^(保存并返回准备大厅|返回准备大厅)$/});await save.click();await dialog.waitFor({state:'hidden'});
  assert.equal(states[0].nextPlan.settings.animeDraft.selectionSeconds,selection);assert.equal(states[0].nextPlan.settings.animeDraft.interferenceSeconds,interference);
  await button(pages[0],'进入队长预览 →').click();await until(()=>states[0].nextPlan.stage==='guide','guide');
