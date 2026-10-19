@@ -1,0 +1,9 @@
+
+> acg_codenames@0.1.0 test:staged:unit
+> npm run build -w @acg-codenames/shared && node node_modules/tsx/dist/cli.mjs apps/server/test/staged-draft.test.ts
+
+
+> @acg-codenames/shared@0.1.0 build
+> tsc -p tsconfig.json
+
+Staged draft PASS: empty new rooms, trusted preset references, both captains early finish/cancel, eight players, 3/4/5 minute boundaries, last20 protection, full-pool ACL, timed/unlimited interference, zero-manual repair and atomic manual-only swaps

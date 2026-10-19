@@ -1,3 +1,4 @@
+import {advanceStagedDraft,editStagedInterference,hasManual,interferenceChoices,staged,validateDraftRules} from './staged-draft.js';
 import crypto from "node:crypto";
 import { canRestoreNamedParticipant, editAnalysis, initializeAnalysis, markSecretExposure, registerPrincipal, snapshotBeforeReveal } from './match-analysis.js';
 import { editPrediction } from './predictions.js';
@@ -56,7 +57,7 @@ import {
 } from "@acg-codenames/shared";
 import { REPLAY_TTL_SECONDS, computeRoomTTL } from "./store.js";
 import type { ReplayStore, RoomSession, RoomStore, UserStore } from "./types.js";
-import { animeCatalog, animeCatalogFor } from './anime-catalog.js';
+import { animeCatalog, animeCatalogFor, animePools } from './anime-catalog.js';
 import { candidatesFor, editDraft, makePlan, sealDraft, validatePlanRoster } from './anime-draft.js';
 import type { PlanAction, NextPlan } from '@acg-codenames/shared';
 
@@ -2004,11 +2005,11 @@ export class GameService {
         if (plan.stage === 'guide') {
           // Leaving during the captain preview invalidates the ready state; the host can replace a captain.
           plan.stage = 'planning'; plan.ready = { red:false, blue:false }; plan.done = { red:false, blue:false }; plan.version += 1;
-        } else if (plan.stage === 'draft' || plan.stage === 'sealed') {
+        } else if (plan.stage === 'draft' || plan.stage === 'interference' || plan.stage === 'sealed') {
           // Explicit withdrawal aborts this preparation, never leaves a three-player locked roster.
           plan.stage = 'planning'; plan.matchId = crypto.randomUUID();
           plan.endsAt = undefined; plan.lockedPlayerIds = undefined;
-          plan.claims = {}; plan.protection = {}; plan.sealedBoard = undefined;
+          plan.claims = {}; plan.protection = {}; plan.sealedBoard = undefined;plan.interferenceWorks=undefined;plan.interferenceClosed=undefined;plan.requests=undefined;plan.stageVersion=(plan.stageVersion??0)+1;
           plan.done = { red:false, blue:false }; plan.version += 1;
         }
       }
@@ -2084,6 +2085,16 @@ export class GameService {
     return { planId: plan.id, version: plan.version, works: plan.pool };
   }
 
+  async getInterferencePool(roomId:string,principal:string,planId:string,stageVersion:number,query:string,page:number){
+    const room=await this.requireRoom(roomId),plan=room.nextPlan;
+    const captain=(['red','blue'] as const).find(t=>plan?.captains[t]&&room.participantPrincipals?.[plan.captains[t]!]===principal&&room.players.some(p=>p.id===plan.captains[t]));
+    if(!plan||!captain||!staged(plan)||plan.stage!=='interference')throw new Error('只有当前双方队长可选择干扰作品');
+    if(plan.id!==planId||(plan.stageVersion??0)!==stageVersion)throw new Error('组牌阶段已更新，请刷新干扰作品池');
+    if(!Number.isSafeInteger(page)||page<1||query.length>100)throw new Error('分页参数无效');
+    const q=query.toLocaleLowerCase();const works=interferenceChoices(plan,room.seriesHistory??{},captain).filter(w=>!q||`${w.fullTitle} ${w.aliases.join(' ')}`.toLocaleLowerCase().includes(q));
+    return {planId:plan.id,stageVersion,page,total:works.length,works:works.slice((page-1)*60,page*60)};
+  }
+
   async planAction(roomId: string, playerId: string, action: PlanAction): Promise<Room> {
     return this.withRoomLock(roomId, async () => {
       let room = structuredClone(await this.requireRoom(roomId));
@@ -2095,7 +2106,18 @@ export class GameService {
       let plan = room.nextPlan ?? makePlan(room, time);
       if (!this.options.enableAnimeDraft && plan.variant === 'anime' && ['prepare','ready'].includes(action.kind)) throw new Error('已暂停新的动画组牌，现有正式组牌仍可完成');
       if (room.countdown) throw new Error('五秒倒计时中，请先取消开始');
-      if (plan.stage === 'draft' && time >= (plan.endsAt ?? 0)) {
+      const isV2=staged(plan)||action.animeDraft?.version===2;
+      if(isV2&&action.draftProtocol!==2)throw new Error('本局使用新版组牌，请刷新页面后继续');
+      const fingerprint=JSON.stringify(action);
+      if(staged(plan)&&action.kind!=='configure'){
+        if(typeof action.requestId!=='string'||action.requestId.length<8||action.requestId.length>128)throw new Error('新版组牌请求缺少有效操作标识，请刷新页面');
+        if(['take','release','interfere','confirm-interference','unready','ready','bookmark','done'].includes(action.kind)&&!Object.values(plan.captains).includes(playerId))throw new Error('只有当前指定队长可以操作');
+        const receipt=plan.requests?.find(r=>r.actor===playerId&&r.id===action.requestId);
+        if(receipt){if(receipt.fingerprint!==fingerprint)throw new Error('同一操作标识不能用于不同请求');return room;}
+        if(action.planId!==plan.id||action.stageVersion!==(plan.stageVersion??0))throw new Error('组牌阶段已更新，请使用当前快照');
+      }
+      if(staged(plan)&&advanceStagedDraft(plan,room.seriesHistory??{},time)){room.nextPlan=plan;await this.store.setRoom(room);throw new Error('组牌阶段已更新，请按当前页面继续');}
+      if (!staged(plan)&&plan.stage === 'draft' && time >= (plan.endsAt ?? 0)) {
         sealDraft(plan, room.seriesHistory);
         room.nextPlan = plan;
         await this.store.setRoom(room);
@@ -2105,11 +2127,17 @@ export class GameService {
       if(room.nextPlan&&action.kind==='configure'&&action.version!==undefined&&action.version!==plan.version)throw new Error('候选池已更新，请使用最新快照');
       if (action.kind === 'configure') {
         if (!host) throw new Error('只有房主可以配置下一局');
-        if (plan.stage === 'draft' || plan.stage === 'sealed') throw new Error('正式组牌已锁定，请先取消准备');
+        if (plan.stage === 'draft' || plan.stage === 'interference' || plan.stage === 'sealed'||isV2&&plan.stage==='guide') throw new Error('准备已锁定，请先取消准备再修改设置');
         if (action.variant !== 'anime' && action.variant !== 'classic') throw new Error('玩法无效');
         const configuredVariant = action.variant;
         if (action.variant === 'anime' && !this.options.enableAnimeDraft) throw new Error('动画组牌暂未开放');
         let sourcePool: import('@acg-codenames/shared').NextPlan['sourcePool'];
+        if(action.animePoolId!==undefined){
+          if(action.variant!=='anime'||typeof action.animePoolId!=='string'||action.communityPoolId!==undefined||action.poolIds!==undefined)throw new Error('预设作品池引用无效');
+          const preset=animePools().find(p=>p.id===action.animePoolId);
+          if(!preset)throw new Error('预设作品池已失效，请重新选择');
+          action={...action,poolIds:preset.workIds,poolName:preset.name};
+        }
         if (action.communityPoolId !== undefined) {
           const principal = room.participantPrincipals?.[playerId];
           if (action.variant !== 'anime' || typeof action.communityPoolId !== 'string' || !Number.isSafeInteger(action.communityPoolRevision) || !principal || !this.options.resolveCommunityPool) throw new Error('社区作品池引用无效');
@@ -2140,8 +2168,8 @@ export class GameService {
         if (action.variant === 'classic') validateWordPackForMode(wordPack,boardMode);
         const principal = room.participantPrincipals?.[playerId];
         const catalog = animeCatalogFor(principal);
-        if (action.poolIds && (!Array.isArray(action.poolIds) || action.poolIds.length > 2500 || action.poolIds.some(id => !Number.isSafeInteger(id)))) throw new Error('作品池格式无效');
-        const ids = new Set(action.poolIds ?? (plan.pool.length ? plan.pool.map(w => w.id) : catalog.map(w => w.id)));
+        if (action.poolIds && (!Array.isArray(action.poolIds) || (!action.animePoolId&&action.poolIds.length > 2500) || action.poolIds.some(id => !Number.isSafeInteger(id)))) throw new Error('作品池格式无效');
+        const ids = new Set(action.poolIds ?? (plan.pool.length ? plan.pool.map(w => w.id) : isV2 ? [] : catalog.map(w => w.id)));
         let pool = catalog.filter(w => ids.has(w.id));
         if (pool.length !== ids.size && sourcePool && this.options.resolveManualWorks) {
           // A server-verified community pool may reference retired manual works; room snapshots must stay playable.
@@ -2151,13 +2179,15 @@ export class GameService {
         }
         if (pool.length !== ids.size) throw new Error('作品池包含目录外作品');
         for (const flag of [action.animeRandomSwap, action.animeSeriesRotation]) if (flag !== undefined && typeof flag !== 'boolean') throw new Error('动画玩法开关必须为布尔值');
-        const animeRandomSwap = action.variant === 'anime' ? action.animeRandomSwap ?? (plan.variant === 'anime' ? plan.settings.animeRandomSwap === true : true) : undefined;
+        const animeDraft=action.variant==='anime'?(action.animeDraft!==undefined?validateDraftRules(action.animeDraft):plan.settings.animeDraft):undefined;
+        const animeRandomSwap = action.variant === 'anime' ? animeDraft?true:action.animeRandomSwap ?? (plan.variant === 'anime' ? plan.settings.animeRandomSwap === true : true) : undefined;
         const animeSeriesRotation = action.variant === 'anime' ? action.animeSeriesRotation ?? (plan.variant === 'anime' ? plan.settings.animeSeriesRotation === true : true) : undefined;
         const candidates = action.variant === 'anime' ? candidatesFor(pool, room.seriesHistory, Math.random, animeSeriesRotation === true) : [];
-        if (action.variant === 'anime' && candidates.length < BOARD_MODE_CONFIG[boardMode].size) throw new Error(`当前可用 ${candidates.length} 个系列，需要 ${BOARD_MODE_CONFIG[boardMode].size} 个；请更换作品池或由房主确认重置本房间轮换历史`);
+        if (action.variant === 'anime' && !(isV2&&pool.length===0&&!action.poolName) && candidates.length < BOARD_MODE_CONFIG[boardMode].size) throw new Error(`当前可用 ${candidates.length} 个系列，需要 ${BOARD_MODE_CONFIG[boardMode].size} 个；请更换作品池或由房主确认重置本房间轮换历史`);
         plan = { ...plan, wordPack, version: plan.version + 1, variant: configuredVariant,
-          settings: { ...plan.settings, animeRandomSwap, animeSeriesRotation, variant: action.variant, boardMode, scoringMode: action.scoringMode ?? plan.settings.scoringMode, timerMode: action.timerMode ?? plan.settings.timerMode, timerClueSeconds: action.timerClueSeconds ?? plan.settings.timerClueSeconds, timerGuessSeconds: action.timerGuessSeconds ?? plan.settings.timerGuessSeconds, flipMode: action.flipMode ?? plan.settings.flipMode, neutralCount: action.variant === 'anime' || boardMode !== plan.settings.boardMode ? undefined : plan.settings.neutralCount },
-          pool, poolName: (action.poolName ?? plan.poolName).slice(0,64), sourcePool, candidates, ready: { red:false, blue:false }, done: { red:false, blue:false }, stage: 'planning',
+          settings: { ...plan.settings, animeDraft, animeRandomSwap, animeSeriesRotation, variant: action.variant, boardMode, scoringMode: action.scoringMode ?? plan.settings.scoringMode, timerMode: action.timerMode ?? plan.settings.timerMode, timerClueSeconds: action.timerClueSeconds ?? plan.settings.timerClueSeconds, timerGuessSeconds: action.timerGuessSeconds ?? plan.settings.timerGuessSeconds, flipMode: action.flipMode ?? plan.settings.flipMode, neutralCount: action.variant === 'anime' || boardMode !== plan.settings.boardMode ? undefined : plan.settings.neutralCount },
+          claims:{},protection:{},endsAt:undefined,sealedBoard:undefined,randomSwap:undefined,interferenceWorks:undefined,interferenceClosed:undefined,requests:undefined,stageVersion:0,
+          pool, poolName: (pool.length ? action.poolName ?? plan.poolName : '尚未选择作品池').slice(0,64), sourcePool, candidates, ready: { red:false, blue:false }, done: { red:false, blue:false }, stage: 'planning',
           bookmarks: Object.fromEntries(Object.entries(plan.bookmarks).map(([id, values]) => [id, values.filter(v => candidates.some(w => w.id === v))])) };
       } else if (action.kind === 'nominate' || action.kind === 'transfer') {
         const team = action.team;
@@ -2166,7 +2196,7 @@ export class GameService {
         if (!target) throw new Error('只能指定同队正式玩家');
         if(action.kind==='transfer'&&!target.connected&&!target.isBot)throw new Error('接任队长必须在线');
         if (!host && (action.kind === 'transfer' && room.phase === 'playing' ? !(player.team === team && player.role === 'spymaster') : plan.captains[team] !== playerId) && !(action.kind === 'nominate' && target.id === playerId && !plan.captains[team])) throw new Error('没有队长管理权限');
-        if (action.kind === 'nominate' && (plan.stage === 'draft' || plan.stage === 'sealed')) throw new Error('正式组牌请使用队长交接');
+        if (action.kind === 'nominate' && (plan.stage === 'draft' || plan.stage === 'interference' || plan.stage === 'sealed')) throw new Error('正式组牌请使用队长交接');
         if (action.kind === 'transfer' && room.phase === 'playing') {
           const old = room.players.find(p => p.team === team && p.role === 'spymaster');
           if (!host && old?.id !== playerId) throw new Error('只有房主或当前队长可交接');
@@ -2178,11 +2208,11 @@ export class GameService {
         } else {
           if (plan.lockedPlayerIds && !plan.lockedPlayerIds.includes(target.id)) throw new Error('只能由本局锁定名单接任');
           const old = plan.captains[team];
-          if (plan.stage === 'draft' || plan.stage === 'sealed') plan.exposedPlayerIds = [...new Set([...plan.exposedPlayerIds, ...(old ? [old] : []), target.id])];
+          if (plan.stage === 'draft' || plan.stage === 'interference' || plan.stage === 'sealed') plan.exposedPlayerIds = [...new Set([...plan.exposedPlayerIds, ...(old ? [old] : []), target.id])];
           plan.captains[team] = target.id;
           if (room.phase === 'lobby') room.players = room.players.map(p => p.team === team ? { ...p, role: p.id === target.id ? 'spymaster' : 'operative' } : p);
           plan.ready = { red:false, blue:false };
-          plan.done = { red:false, blue:false };
+          plan.done = staged(plan)&&plan.stage==='interference'?{...plan.done,[team]:false}:{red:false,blue:false};
         }
       } else if (action.kind === 'reset-series-history') {
         if (!host || plan.variant !== 'anime' || plan.stage !== 'planning' || room.phase === 'playing') throw new Error('仅房主可在开局前重置轮换历史');
@@ -2195,7 +2225,7 @@ export class GameService {
         plan = { ...makePlan(room,time), variant: plan.variant, settings: plan.settings, pool: plan.pool, poolName: plan.poolName, sourcePool: plan.sourcePool, candidates: plan.candidates, captains: plan.captains, bookmarks: plan.bookmarks, version: plan.version + 1 };
       } else if (action.kind === 'prepare') {
         if (!host || room.phase === 'playing') throw new Error('本局结束后由房主开始下局准备');
-        if (plan.stage === 'draft' || plan.stage === 'sealed') throw new Error('已进入正式组牌');
+        if (plan.stage === 'draft' || plan.stage === 'interference' || plan.stage === 'sealed') throw new Error('已进入正式组牌');
         if (room.phase === 'finished') {
           room = structuredClone(await this.returnToLobby(roomId, playerId));
         }
@@ -2205,7 +2235,7 @@ export class GameService {
         }
         validatePlanRoster(room, plan);
         room.players = room.players.map(p => ({...p,role: p.team && plan.captains[p.team] === p.id ? 'spymaster' : 'operative'}));
-        plan.stage = plan.variant === 'anime' ? 'guide' : 'sealed';
+        plan.stage = plan.variant === 'anime' ? 'guide' : 'sealed';plan.stageVersion=(plan.stageVersion??0)+1;
         plan.ready = { red:false, blue:false };
       } else {
         const team = (['red','blue'] as const).find(t => plan.captains[t] === playerId);
@@ -2219,15 +2249,25 @@ export class GameService {
           validatePlanRoster(room, plan);
           plan.ready[team] = true;
           if (plan.ready.red && plan.ready.blue) {
-            plan.stage = 'draft'; plan.endsAt = time + 180_000;
+            plan.stage = 'draft'; plan.stageVersion=(plan.stageVersion??0)+1;plan.endsAt = time + (plan.settings.animeDraft?.selectionSeconds??180)*1000;
             plan.lockedPlayerIds = room.players.map(p => p.id);
             plan.exposedPlayerIds = Object.values(plan.captains) as string[];
           }
         } else {
-          editDraft(plan, team, action, time);
-          if (plan.done.red && plan.done.blue) sealDraft(plan, room.seriesHistory);
+          if(staged(plan)&&plan.stage==='interference')editStagedInterference(plan,team,action,time,room.seriesHistory??{});
+          else {
+            if(staged(plan)&&action.kind==='interfere')throw new Error('请在选牌结束后的独立干扰阶段投放');
+            if(staged(plan)&&plan.stage==='draft'&&action.kind==='unready')plan.done[team]=false;
+            else {
+              if(staged(plan)&&action.kind==='done'&&!hasManual(plan,team))throw new Error('请先选择至少一张普通牌再完成组牌');
+              editDraft(plan,team,action,time);
+            }
+            if(staged(plan))advanceStagedDraft(plan,room.seriesHistory??{},time);
+          }
+          if (!staged(plan)&&plan.done.red && plan.done.blue) sealDraft(plan, room.seriesHistory);
         }
       }
+      if(staged(plan)&&action.kind!=='configure'&&action.requestId)plan.requests=[...(plan.requests??[]),{id:action.requestId,actor:playerId,fingerprint}].slice(-128);
       plan.activityAt = time;
       room.nextPlan = plan;
       // Private edits never enter messages, summaries, lastEvent, or public progress counters.
@@ -2331,7 +2371,10 @@ export class GameService {
     const expired: Room[] = [];
     const now2 = now();
     for (const room of rooms) {
-      if (room.nextPlan?.stage === 'draft' && (room.nextPlan.endsAt ?? Infinity) <= now2) {
+      if(room.nextPlan&&staged(room.nextPlan)&&['draft','interference'].includes(room.nextPlan.stage)&&(room.nextPlan.endsAt??Infinity)<=now2){
+        await this.withRoomLock(room.id,async()=>{const latest=structuredClone(await this.requireRoom(room.id));if(latest.nextPlan&&advanceStagedDraft(latest.nextPlan,latest.seriesHistory??{},now()))await this.store.setRoom(latest);});expired.push(room);
+      }
+      if (room.nextPlan&&!staged(room.nextPlan)&&room.nextPlan.stage === 'draft' && (room.nextPlan.endsAt ?? Infinity) <= now2) {
         await this.withRoomLock(room.id, async () => {
           const latest = structuredClone(await this.requireRoom(room.id));
           if (latest.nextPlan?.stage !== 'draft' || (latest.nextPlan.endsAt ?? Infinity) > now()) return;

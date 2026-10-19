@@ -21,6 +21,7 @@ export function configurationMatches(base:PublicRoomState, room:PublicRoomState,
     if(payload[key]!==undefined&&settings[key]!==payload[key])return false;
   }
   if(isPlan&&payload.variant==='anime')for(const key of ['animeRandomSwap','animeSeriesRotation'] as const)if(payload[key]!==undefined&&settings[key]!==payload[key])return false;
+  if(isPlan&&payload.animeDraft&&JSON.stringify(settings.animeDraft)!==JSON.stringify(payload.animeDraft))return false;
   const packName=isPlan?room.nextPlan?.wordPackName:room.wordPackSummary.name;
   if(payload.customWordPack&&packName!==payload.customWordPack.name)return false;
   if(payload.builtinWordPackId&&packName!==wordPackSummaries.find(p=>p.id===payload.builtinWordPackId)?.name)return false;

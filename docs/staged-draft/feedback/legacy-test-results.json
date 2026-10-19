@@ -1,0 +1,30 @@
+[
+  {
+    "command": "npm run test:rules",
+    "passed": true,
+    "code": 0,
+    "seconds": 48.28,
+    "log": "test-rules.log"
+  },
+  {
+    "command": "npm run test:e2e:local",
+    "passed": true,
+    "code": 0,
+    "seconds": 73.4,
+    "log": "test-e2e-local.log"
+  },
+  {
+    "command": "npm run test:browser:local",
+    "passed": true,
+    "code": 0,
+    "seconds": 87.32,
+    "log": "test-browser-local.log"
+  },
+  {
+    "command": "npm run test:round10:local",
+    "passed": true,
+    "code": 0,
+    "seconds": 428.55,
+    "log": "test-round10-local.log"
+  }
+]

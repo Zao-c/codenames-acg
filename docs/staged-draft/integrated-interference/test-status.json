@@ -1,0 +1,33 @@
+{
+  "acceptanceComplete": false,
+  "frontendSha": "6613e67a90c0d0e7963ba9cadffb64293127d53c",
+  "typecheck": "passed",
+  "linuxBuild": "passed",
+  "stagedUnit": "passed",
+  "broadcastUnit": "passed",
+  "productionReadOnlyBrowser": "passed",
+  "productionCoverRecovery": "passed",
+  "twoGameShortRun": {
+    "passed": true,
+    "seconds": 456.725103,
+    "sourceSha": "c3b40bd3a4381142820061af10ff95b5da106fa4",
+    "differenceToDeployment": "hand metadata deduplication; later final-build attempts passed first full game but driver defects interrupted later progression"
+  },
+  "legacyMatrix": {
+    "status": "incomplete",
+    "scope": "8 players + 20 spectators, 5x5/6x6 visual matrices ran; stopped in the unchanged replay PNG export case for over 30 minutes. Not counted as a full pass. Initial setup/environment failure and diagnostic attempts are retained in output."
+  },
+  "threeHour": {
+    "status": "running",
+    "started": {
+      "startedAt": "2026-10-19T17:21:12.629Z",
+      "targetSeconds": 10800,
+      "eightContexts": true,
+      "compiled": true
+    },
+    "completedGames": 2,
+    "latestProgress": 606.5239888000001,
+    "previousAttempts": "excluded; corrected driver now waits for actual debounced search responses and preserves the drag viewport"
+  },
+  "fullArtifactVerification": "pending end of soak"
+}

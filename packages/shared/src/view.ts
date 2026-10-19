@@ -209,7 +209,7 @@ export function sanitizeRoom(room: Room, viewer: ViewerIdentity = {}): PublicRoo
     canApprove: viewer.participantType === 'player' && !!viewer.participantId && eligibleVoters.some(p => p.id === viewer.participantId) && !takeover.approvals.includes(viewer.participantId) && !takeover.rejections.includes(viewer.participantId),
     expiresAt: takeover.requestedAt + 120_000
   } : undefined;
-  const publicSelectedWorkIds = plan && plan.stage === 'draft'
+  const publicSelectedWorkIds = plan && (plan.stage === 'draft'||plan.stage==='interference')
     ? Object.entries(plan.claims).filter(([, claim]) => claim.kind === 'manual').map(([id]) => Number(id)).sort((a, b) => a - b)
     : undefined;
   const nextPlan = plan ? {
@@ -220,11 +220,11 @@ export function sanitizeRoom(room: Room, viewer: ViewerIdentity = {}): PublicRoo
       available: new Set(plan.pool.filter(w => plan.settings.animeSeriesRotation !== true || room.seriesHistory?.[w.seriesId] === undefined).map(w => w.seriesId)).size,
       required: BOARD_MODE_CONFIG[plan.settings.boardMode].size,
     },
-    id: plan.id, version: plan.version, variant: plan.variant, settings: plan.settings,
+    id: plan.id, version: plan.version, variant: plan.variant, settings: plan.settings,stageVersion:plan.stageVersion,interferenceClosed:plan.interferenceClosed,
     wordPackName: plan.wordPack.name, poolName: plan.poolName, sourcePool: plan.sourcePool, poolIds: plan.pool.map(w => w.id), publicSelectedWorkIds, candidates: plan.candidates,
     startingTeam: plan.startingTeam, stage: plan.stage, captains: plan.captains, endsAt: plan.endsAt,
     myTeam, myBookmarks: myTeam ? plan.bookmarks[viewer.participantId!] ?? [] : undefined,
-    captainView: captainClaims ? { claims: captainClaims, ready: plan.ready, done: plan.done } : undefined,
+    captainView: captainClaims ? { claims: captainClaims, ready: plan.ready, done: plan.done,interferenceWorks:plan.interferenceWorks } : undefined,
   } : undefined;
 
   return {

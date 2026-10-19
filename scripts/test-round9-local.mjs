@@ -10,7 +10,7 @@ try{
 const {works}=JSON.parse(await readFile(path.join(codeRoot,'apps/server/resources/anime-catalog.json'),'utf8'));
 await writeFile(path.join(temp,'imports.json'),JSON.stringify({schemaVersion:1,works:Array.from({length:5000},(_,i)=>({...works[i%works.length],id:900000+i,title:'大目录'+i,fullTitle:'大目录'+i,seriesId:'fixture:'+i,source:'bangumi'}))}));
 run(['--use-env-proxy','node_modules/tsx/dist/cli.mjs','apps/server/src/index.ts'],{PORT:'3192',CLIENT_ORIGIN:'http://127.0.0.1:5347',USE_MEMORY_STORE:'1',ENABLE_ANIME_DRAFT:'1',ENABLE_MATCH_ANALYSIS:'1',ENABLE_PREDICTIONS:'1',ENABLE_ANIME_COMMUNITY:'1',USER_STORE_FILE:path.join(temp,'users.json'),ANIME_POOL_STORE_FILE:path.join(temp,'pools.json'),ANIME_IMPORT_FILE:path.join(temp,'imports.json'),MANUAL_WORK_STORE_FILE:path.join(temp,'manual.json'),ANIME_COVER_DIR:path.join(temp,'covers'),REVEAL_IMAGE_DIR:path.join(temp,'images')});
-run(['node_modules/vite/bin/vite.js','--host','127.0.0.1','--port','5347','--strictPort','apps/web'],{VITE_SERVER_URL:'http://127.0.0.1:3192'});
+run(['node_modules/vite/bin/vite.js','--host','127.0.0.1','--port','5347','--strictPort','apps/web'],{VITE_DEFAULT_STAGED_DRAFT:'0',VITE_SERVER_URL:'http://127.0.0.1:3192'});
 await Promise.all([ready('http://127.0.0.1:3192/health'),ready('http://127.0.0.1:5347')]);
 const test=run([path.resolve('scripts/browser-round9.mjs')],{PLAYTEST_BASE_URL:'http://127.0.0.1:5347',PLAYTEST_API_URL:'http://127.0.0.1:3192'},process.cwd());
 if(await new Promise(r=>test.on('exit',r))!==0)throw new Error('Round9 browser failed');

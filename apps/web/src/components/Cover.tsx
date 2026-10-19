@@ -22,21 +22,28 @@ function CoverImage({ work }: { work: Work }) {
   }, []);
   useEffect(() => {
     if (!visible || !work.cover) return;
-    let live=true;const controller=new AbortController();
+    let live=true;const controller=new AbortController();let next:number|undefined;
     // Keep the original request alive; switch only to an already loaded backup.
     const timer=window.setTimeout(async()=>{
       if(live&&!loaded.current)setWaiting(true);
-      for(const candidate of backup?[backup,direct]:[direct]){
+      if(!backup)return;
+      const recover=async(attempt:number)=>{
         if(!live||loaded.current)return;
-        try{await probeCover(candidate,controller.signal);if(live&&!loaded.current){loaded.current=true;setReplacement(candidate);setFailed(false);setWaiting(false);}return;}
-        catch{/* A failed backup must never cancel the original image. */}
-      }
+        try{await probeCover(backup,controller.signal);if(live&&!loaded.current){loaded.current=true;setReplacement(backup);setFailed(false);setWaiting(false);}}
+        catch{
+          // A failed CDN request is often transient. Retry the cache with bounded
+          // backoff; probing the already pending original would block the shared
+          // single-request queue for another full timeout on every missing card.
+          if(live&&!loaded.current&&attempt<2)next=window.setTimeout(()=>void recover(attempt+1),[5000,15000][attempt]);
+        }
+      };
+      void recover(0);
     },failed?500:3000);
-    return()=>{live=false;clearTimeout(timer);controller.abort();};
+    return()=>{live=false;clearTimeout(timer);clearTimeout(next);controller.abort();};
   },[visible,direct,backup,failed,retry]);
   if(!work.cover)return <span className="anime-cover-fallback">{work.title}</span>;
   return <>
-    <img ref={image} src={replacement??direct} alt="" loading={visible?'eager':'lazy'} decoding="async" referrerPolicy="no-referrer" className="cover-image" style={failed||waiting?{opacity:0}:undefined} onLoad={()=>{loaded.current=true;setFailed(false);setWaiting(false);}} onError={()=>{if(!loaded.current)setFailed(true);}}/>
+    <img ref={image} src={replacement??direct} alt="" draggable={false} loading={visible?'eager':'lazy'} decoding="async" referrerPolicy="no-referrer" className="cover-image" style={failed||waiting?{opacity:0}:undefined} onLoad={()=>{loaded.current=true;setFailed(false);setWaiting(false);}} onError={()=>{if(!loaded.current)setFailed(true);}}/>
     {(failed||waiting)&&<span className="anime-cover-fallback cover-load-status" title={failed?'封面暂不可用，点击重试':'封面加载较慢，原图仍在加载，可点击重试'} onClick={()=>{loaded.current=false;setFailed(false);setWaiting(true);if(image.current){image.current.src='';image.current.src=direct;}setRetry(n=>n+1);}}>{work.title}<small>{failed?'封面暂不可用 · 点此重试':'封面加载中…'}</small></span>}
   </>;
 }

@@ -999,7 +999,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (!hostPlayer?.isHost || room.phase !== "lobby") return;
     const pending = pendingCreateConfigRef.current;
     pendingCreateConfigRef.current = null;
-    if (pending.variant === 'anime') { socket.emit('plan_action',{roomId:session.roomId,kind:'configure',variant:'anime',boardMode:pending.boardMode}); return; }
+    if (pending.variant === 'anime') { socket.emit('plan_action',{roomId:session.roomId,kind:'configure',draftProtocol:2,variant:'anime',boardMode:pending.boardMode,poolIds:import.meta.env.VITE_DEFAULT_STAGED_DRAFT==='0'?undefined:[],animeDraft:import.meta.env.VITE_DEFAULT_STAGED_DRAFT==='0'?undefined:{version:2,selectionSeconds:pending.boardMode==='6x6'?300:180,interferenceSeconds:30}}); return; }
     socket.emit("update_room_settings", { roomId: session.roomId, boardMode: pending.boardMode, builtinWordPackId: pending.builtinWordPackId, customWordPack: pending.customWordPack, scoringMode: pending.scoringMode, timerMode: pending.timerMode, timerClueSeconds: pending.timerClueSeconds, timerGuessSeconds: pending.timerGuessSeconds, neutralCount: pending.neutralCount, flipMode: pending.flipMode });
   }, [room, session, socket]);
   useEffect(() => { setTransferHostTargetId((cur) => { if (cur && hostTransferCandidates.some((p) => p.id === cur)) return cur; return hostTransferCandidates[0]?.id ?? ""; }); }, [hostTransferCandidates]);

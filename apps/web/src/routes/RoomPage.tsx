@@ -1,3 +1,4 @@
+import {planActionEnvelope} from '../lib/plan-action';
 import { RecentClues } from '../components/RecentClues';
 import { Dialog } from '../components/UI';
 import { RoomIdentity } from '../components/RoomIdentity';
@@ -140,8 +141,8 @@ export function RoomPage() {
     return <RevealGuessRoom />;
   }
 
-  if (isLobby && room.nextPlan?.stage !== 'draft') return <><RoomStabilityBanner/><PreparationLobby room={room}/></>;
-  if(isLobby&&room.nextPlan?.stage==='draft')return <section className={`room-layout room-layout-lobby room-preparing-anime draft-room-shell mobile-view-${g.mobileRoomTab}`}><RoomStabilityBanner/><header className="room-bar"><div><strong className="room-code">{room.id}</strong><span className={`self-identity-anchor team-${room.viewer?.team??'spectator'}`}>{room.viewer?.participantType==='spectator'?'旁观者':room.viewer?.team?`我的队伍：${TEAM_LABELS[room.viewer.team]} · ${room.viewer.role==='spymaster'?'队长':'队员'}`:'待分队'}</span><p className="hint-text">动画组牌 · {room.nextPlan.settings.boardMode}</p></div><div className="bar-actions"><button onClick={()=>void copyLink()}>{copied?'已复制':'邀请好友'}</button>{viewer?.isHost&&<><button onClick={()=>{if(window.confirm('取消本次准备并保留配置？'))g.socket.emit('plan_action',{roomId:room.id,kind:'cancel',version:room.nextPlan?.version});}}>取消本次准备</button><MatchManagement/></>}</div></header><RoomIdentity room={room}/><PrivateReview room={room}/><NextMatchPanel room={room}/><aside className="lobby-people"><CompactMembers room={room}/></aside><aside className="room-right-col lobby-chat"><SideTabPanel g={g} room={room} session={session}/></aside>{error&&<p className="error-text" role="alert">{error}</p>}</section>;
+  if (isLobby && room.nextPlan?.stage !== 'draft'&&room.nextPlan?.stage!=='interference') return <><RoomStabilityBanner/><PreparationLobby room={room}/></>;
+  if(isLobby&&(room.nextPlan?.stage==='draft'||room.nextPlan?.stage==='interference'))return <section className={`room-layout room-layout-lobby room-preparing-anime draft-room-shell mobile-view-${g.mobileRoomTab}`}><RoomStabilityBanner/><header className="room-bar"><div><strong className="room-code">{room.id}</strong><span className={`self-identity-anchor team-${room.viewer?.team??'spectator'}`}>{room.viewer?.participantType==='spectator'?'旁观者':room.viewer?.team?`我的队伍：${TEAM_LABELS[room.viewer.team]} · ${room.viewer.role==='spymaster'?'队长':'队员'}`:'待分队'}</span><p className="hint-text">动画组牌 · {room.nextPlan.settings.boardMode}</p></div><div className="bar-actions"><button onClick={()=>void copyLink()}>{copied?'已复制':'邀请好友'}</button>{viewer?.isHost&&<><button onClick={()=>{if(window.confirm('取消本次准备并保留配置？'))g.socket.emit('plan_action',planActionEnvelope(room,{kind:'cancel'}));}}>取消本次准备</button><MatchManagement/></>}</div></header><RoomIdentity room={room}/><PrivateReview room={room}/><NextMatchPanel room={room}/><aside className="lobby-people"><CompactMembers room={room}/></aside><aside className="room-right-col lobby-chat"><SideTabPanel g={g} room={room} session={session}/></aside>{error&&<p className="error-text" role="alert">{error}</p>}</section>;
 
   if(isFinished)return <><MatchNotice g={g}/><MatchResult room={room}/></>;
 
