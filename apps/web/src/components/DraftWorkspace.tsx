@@ -17,7 +17,7 @@ export function DraftWorkspace(p:Props) {
  const publicIds=plan.stage==='draft'||plan.stage==='interference'?(plan.publicSelectedWorkIds??[]):[];
  const publicSet=new Set(publicIds);
  const publicWorks=publicIds.map(id=>plan.candidates.find(w=>w.id===id)).filter((w):w is AnimeWork=>!!w);
- const handWorks=[...plan.candidates,...(plan.captainView?.interferenceWorks??[])];
+ const handWorks=[...new Map([...plan.candidates,...(plan.captainView?.interferenceWorks??[])].map(w=>[w.id,w])).values()];
  const selected=handWorks.filter(w=>claims[w.id]&&(selectionTeam==='own'?claims[w.id].team===team:claims[w.id].team!==team));
  const opponent=handWorks.filter(w=>claims[w.id]?.kind==='manual'&&claims[w.id].team!==team);
  const allow=(w:AnimeWork):DropAllow=>{if(p.interference)return {take:false,release:false,replace:false,interfere:p.interference.canChoose&&!p.interference.loading&&!claims[w.id],reason:'普通手牌已锁定'};const claim=claims[w.id];const legal=editable&&(!claim||(claim.kind!=='interference'&&claim.team!==team&&p.remaining>20&&p.time>=claim.protectedUntil));const ownCount=Object.values(claims).filter(c=>c.team===team&&c.kind==='manual').length;const space=!!team&&ownCount<draftQuota(BOARD_MODE_CONFIG[plan.settings.boardMode].size,plan.startingTeam,team).manual;return{

@@ -151,7 +151,7 @@ async function configureRound(number){
   if(i===4&&interference!==null&&number%2===0)continue;
   const p=states[i].nextPlan,key=await pages[i].evaluate(()=>localStorage.getItem('cipai.private-identity.v1'));
   const result=await pages[i].request.get(base+`/api/rooms/${states[0].id}/interference-pool?`+new URLSearchParams({planId:p.id,stageVersion:String(p.stageVersion),page:'1'}),{headers:{'x-private-key':key}});assert.ok(result.ok());const data=await result.json();assert.ok(data.works.length<=60);
-  const work=data.works.find(w=>!p.candidates.some(c=>c.id===w.id))??data.works[0];assert.ok(work);
+  const work=(i===4?data.works.find(w=>p.candidates.some(c=>c.id===w.id)):data.works.find(w=>!p.candidates.some(c=>c.id===w.id)))??data.works[0];assert.ok(work);
   await pages[i].getByLabel('搜索干扰作品').fill(work.fullTitle);const choose=pages[i].locator('.draft-candidates').getByRole('button',{name:work.title,exact:true});await choose.waitFor();await until(async()=>await choose.locator('..').locator('.draft-grab').count()>0,'interference search');
   if(i===0){
    await choose.scrollIntoViewIfNeeded();const source=await choose.boundingBox(),target=await pages[i].locator('.draft-drop-zones [data-drop="interfere"]').boundingBox();assert.ok(source&&target);
@@ -160,9 +160,11 @@ async function configureRound(number){
   }else await choose.click();
   await button(pages[i].getByRole('dialog',{name:'确认干扰作品'}),'确认投放').click();
   await until(()=>states[i].nextPlan.captainView?.claims[work.id]?.kind==='interference','interference committed');
+  const handIds=await pages[i].locator('.draft-selected-list .draft-tile').evaluateAll(cards=>cards.map(c=>c.getAttribute('data-replace-id')));assert.equal(new Set(handIds).size,handIds.length,'candidate metadata and interference metadata must not duplicate a hand card');
   if(number<2){await shot(i,`round-${number}-interference-${i}`);if(i===0){await theme(pages[i],true);await shot(i,`round-${number}-interference-desktop-light`);await pages[i].setViewportSize({width:390,height:844});await pages[i].getByRole('region',{name:'对方普通手牌'}).waitFor();assert.equal(await pages[i].getByRole('region',{name:'对方普通手牌'}).locator('button').count(),Object.values(states[i].nextPlan.captainView.claims).filter(c=>c.kind==='manual'&&c.team==='blue').length);await shot(i,`round-${number}-interference-mobile-light`);await theme(pages[i],false);await shot(i,`round-${number}-interference-mobile-dark`);await pages[i].setViewportSize({width:1440,height:900});}}
   await button(pages[i],'准备成牌').click();
  }
+ if(number===0)checks.push('interference reuses the full-width drafting workspace, defaults to opponent hand, supports real drag confirmation and full-pool search, retains anonymous member view, and fits light/dark desktop/mobile');
  while(states[0].nextPlan.stage!=='sealed'){await pulse();await sleep(500);}
  assert.equal(states[0].nextPlan.randomSwapCompleted,true);await button(pages[0],'开始五秒倒计时').click();await until(()=>states.every(s=>s.phase==='playing'),'eight clients playing');
  assert.equal(await pages[0].getByRole('button',{name:'放大棋盘',exact:true}).count(),0);assert.equal(await pages[0].locator('.anime-board-panel').getByRole('button',{name:'重置视图',exact:true}).count(),0);
