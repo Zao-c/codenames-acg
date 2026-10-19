@@ -1,7 +1,7 @@
 import {spawn} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-const out=path.resolve('output/playwright/round10/tests');fs.mkdirSync(out,{recursive:true});
+const out=path.resolve(`output/playwright/${process.env.ROUND10_REVIEW_DIR??'round10'}/tests`);fs.mkdirSync(out,{recursive:true});
 let results=[];try{results=JSON.parse(fs.readFileSync(path.join(out,'results.json'),'utf8'));}catch{};
 async function run(command){
  const name=command.replaceAll(':','-').replaceAll(' ','-');const log=path.join(out,name+'.log');const handle=fs.openSync(log,'w');const started=Date.now();
