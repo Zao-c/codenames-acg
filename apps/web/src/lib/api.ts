@@ -9,6 +9,8 @@ export function getFeatures(): Promise<{ animeCommunity: boolean }> { return req
 type AnimeCatalog = {works:AnimeWork[];pools?:import('@acg-codenames/shared').AnimePool[]};
 const catalogCache = new ScopedResource<AnimeCatalog>();
 const homeCache = new ScopedResource<{works:Pick<AnimeWork,'id'|'title'|'fullTitle'|'cover'>[]}>();
+const presetCache=new ScopedResource<{pools:import('@acg-codenames/shared').AnimePresetOption[]}>(60_000);
+export function getAnimePresetOptions(){return presetCache.get('public',()=>request<{pools:import('@acg-codenames/shared').AnimePresetOption[]}>('/api/anime/preset-options'));}
 export function getAnimeCatalog(): Promise<AnimeCatalog> { const key=privateIdentityKey(); return catalogCache.get(key,()=>request('/api/anime/catalog',{headers:{'x-private-key':key},cache:'no-cache'},30000)); }
 export function getHomeCovers() { return homeCache.get('public',()=>request<{works:Pick<AnimeWork,'id'|'title'|'fullTitle'|'cover'>[]}>('/api/anime/home-covers')); }
 async function catalogMutation<T>(operation:Promise<T>) { const value=await operation;catalogCache.clear();return value; }

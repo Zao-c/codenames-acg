@@ -27,7 +27,7 @@ function sealWhenReady(plan:NextPlan,history:Record<string,number>,random:()=>nu
 export function advanceStagedDraft(plan:NextPlan,history:Record<string,number>,time:number,random=Math.random):boolean{
   if(!staged(plan))return false;
   let changed=false;
-  if(plan.stage==='draft'&&plan.endsAt!==undefined&&time>=plan.endsAt){
+  if(plan.stage==='draft'&&((plan.endsAt!==undefined&&time>=plan.endsAt)||(plan.done.red&&plan.done.blue))){
     plan.stage='interference';plan.stageVersion=(plan.stageVersion??0)+1;plan.done={red:false,blue:false};plan.interferenceClosed=false;
     const seconds=plan.settings.animeDraft!.interferenceSeconds;
     plan.endsAt=seconds===null?undefined:time+seconds*1000;changed=true;

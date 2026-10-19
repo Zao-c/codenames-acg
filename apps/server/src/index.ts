@@ -452,6 +452,14 @@ async function bootstrap(): Promise<void> {
     catch { res.set('Cache-Control','no-store').status(503).end(); }
   });
   const metadataLimiter = rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: true, legacyHeaders: false, message: { message: '目录读取太频繁，请稍后重试' } });
+  app.get('/api/anime/preset-options',metadataLimiter,(_req,res)=>{
+    const byId=new Map(animeCatalog().map(w=>[w.id,w]));
+    const pools=animePools().map(p=>{
+      const works=[...new Set(p.workIds)].map(id=>byId.get(id)).filter((w):w is NonNullable<typeof w>=>!!w);
+      return {id:p.id,name:p.name,workCount:works.length,seriesCount:new Set(works.map(w=>w.seriesId)).size,preview:works.slice(0,4).map(({id,title,cover})=>({id,title,cover}))};
+    }).filter(p=>p.workCount>=50);
+    res.set('Cache-Control','public, max-age=60').json({pools});
+  });
   app.get('/api/features', metadataLimiter, (_req, res) => { res.setHeader('Cache-Control', 'no-store'); res.json({ animeCommunity: env.enableAnimeCommunity }); });
   app.get('/api/anime/home-covers', metadataLimiter, (_req, res) => {
     const works = animeCatalog().filter(work => work.cover).slice(0, 24).map(({id,title,fullTitle,cover}) => ({id,title,fullTitle,cover}));

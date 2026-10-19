@@ -132,6 +132,7 @@ export interface PlanAction {
   flipMode?: RoomSettings['flipMode'];
   poolIds?: number[];
   poolName?: string;
+  animePoolId?: string;
   communityPoolId?: string;
   communityPoolRevision?: number;
   builtinWordPackId?: string;
@@ -140,6 +141,10 @@ export interface PlanAction {
   targetId?: string;
   workId?: number;
   replaceId?: number;
+}
+export interface AnimePresetOption {
+  id:string; name:string; workCount:number; seriesCount:number;
+  preview:Pick<AnimeWork,'id'|'title'|'cover'>[];
 }
 export function draftQuota(size: number, startingTeam: Team, team: Team): { total: number; manual: number } {
   const starter = team === startingTeam;

@@ -26,6 +26,14 @@ try{
   assert.equal((await current()).nextPlan!.endsAt,clock+seconds*1000);
  };
  for(const value of [{version:2,selectionSeconds:0,interferenceSeconds:30},{version:2,selectionSeconds:180,interferenceSeconds:45},{version:1,selectionSeconds:180,interferenceSeconds:30}])assert.throws(()=>validateDraftRules(value));
+ await act(0,{kind:'configure',variant:'anime',boardMode:'5x5',animeDraft:{version:2,selectionSeconds:180,interferenceSeconds:30}});
+ assert.equal((await current()).nextPlan!.pool.length,0,'a new v2 room never silently chooses the whole catalog');
+ assert.equal((await current()).nextPlan!.candidates.length,0);
+ await assert.rejects(act(0,{kind:'prepare'}),/当前可用 0/);
+ await assert.rejects(act(0,{kind:'configure',variant:'anime',animePoolId:'does-not-exist'}),/预设作品池已失效/);
+ await assert.rejects(act(0,{kind:'configure',variant:'anime',animePoolId:'all',poolIds:[pool[0].id]}),/引用无效/);
+ await act(0,{kind:'configure',variant:'anime',animePoolId:'all'});
+ assert.ok((await current()).nextPlan!.pool.length>0,'whole catalog is still available when explicitly selected by trusted preset ID');
  await configure('6x6',300,30);
  let p=(await current()).nextPlan!,start=clock;
  await assert.rejects(act(1,{kind:'take',workId:p.candidates[0].id}),/队长/);
@@ -33,7 +41,7 @@ try{
  await assert.rejects(game.planAction(id,players[0].id,oldClient),/刷新/);
  for(const [i,offset] of [[0,0],[4,2]])for(let k=0;k<2;k++)await act(i,{kind:'take',workId:p.candidates[offset+k].id});
  await assert.rejects(act(0,{kind:'interfere',workId:p.candidates[8].id}),/独立干扰/);
- await act(0,{kind:'done'});await act(4,{kind:'done'});assert.equal((await current()).nextPlan!.stage,'draft','early done never skips the selection timer');
+ await act(0,{kind:'done'});assert.equal((await current()).nextPlan!.stage,'draft','one captain alone never skips the selection timer');await act(0,{kind:'unready'});
  clock=start+10000;await act(0,{kind:'take',workId:p.candidates[2].id});
  clock=p.endsAt!-20000;
  await assert.rejects(act(0,{kind:'take',workId:p.candidates[3].id}),/最后 20/);
@@ -81,6 +89,18 @@ try{
  for(const i of [0,4]){p=(await current()).nextPlan!;const free=p.candidates.find(w=>!p.claims[w.id])!;await act(i,{kind:'take',workId:free.id});}
  p=(await current()).nextPlan!;assert.equal(p.stage,'sealed');assert.ok(p.randomSwap);assert.equal(p.sealedBoard!.length,25);
  await act(0,{kind:'cancel'});assert.equal((await current()).nextPlan!.stage,'planning');assert.equal((await current()).nextPlan!.requests?.length,1);
+ // Both captains may finish at two minutes; a single ready captain can cancel,
+ // and the other captain's own ordinary edits do not revoke that readiness.
+ await configure('5x5',300,60);p=(await current()).nextPlan!;
+ await assert.rejects(act(0,{kind:'done'}),/至少一张/);
+ await act(0,{kind:'take',workId:p.candidates[0].id});await act(4,{kind:'take',workId:p.candidates[1].id});
+ clock+=120000;await act(0,{kind:'done'});await act(4,{kind:'take',workId:p.candidates[2].id});
+ assert.equal((await current()).nextPlan!.done.red,true);
+ await act(0,{kind:'unready'});assert.equal((await current()).nextPlan!.done.red,false);
+ await act(0,{kind:'done'});const early=await envelope({kind:'done'});
+ await game.planAction(id,players[4].id,early);p=(await current()).nextPlan!;
+ assert.equal(p.stage,'interference');assert.equal(p.endsAt,clock+60000);
+ const phaseVersion=p.stageVersion;await game.planAction(id,players[4].id,early);assert.equal((await current()).nextPlan!.stageVersion,phaseVersion,'retry does not restart interference');
  // A replacement captain inherits the frozen selection, not the old captain's
  // authority or readiness. The opposite team's confirmation remains valid.
  await configure('5x5',180,null);p=(await current()).nextPlan!;
@@ -95,5 +115,5 @@ try{
  assert.equal(game.getPublicRoomState(await current(),players[0].id,'player').nextPlan!.captainView,undefined);
  assert.ok((await game.getInterferencePool(id,'principal-1',p.id,p.stageVersion!,'',1)).works.length);
  await act(1,{kind:'confirm-interference'});assert.equal((await current()).nextPlan!.stage,'sealed');
- console.log('Staged draft PASS: eight players, 3/4/5 minute boundaries, last20 protection, full-pool pagination and ACL, timed/unlimited interference, automatic interference, zero-manual repair, exact counts, private projections and atomic idempotent swaps');
+ console.log('Staged draft PASS: empty new rooms, trusted preset references, both captains early finish/cancel, eight players, 3/4/5 minute boundaries, last20 protection, full-pool ACL, timed/unlimited interference, zero-manual repair and atomic manual-only swaps');
 }finally{Date.now=actualNow;}

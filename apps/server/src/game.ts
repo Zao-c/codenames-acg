@@ -57,7 +57,7 @@ import {
 } from "@acg-codenames/shared";
 import { REPLAY_TTL_SECONDS, computeRoomTTL } from "./store.js";
 import type { ReplayStore, RoomSession, RoomStore, UserStore } from "./types.js";
-import { animeCatalog, animeCatalogFor } from './anime-catalog.js';
+import { animeCatalog, animeCatalogFor, animePools } from './anime-catalog.js';
 import { candidatesFor, editDraft, makePlan, sealDraft, validatePlanRoster } from './anime-draft.js';
 import type { PlanAction, NextPlan } from '@acg-codenames/shared';
 
@@ -2132,6 +2132,12 @@ export class GameService {
         const configuredVariant = action.variant;
         if (action.variant === 'anime' && !this.options.enableAnimeDraft) throw new Error('动画组牌暂未开放');
         let sourcePool: import('@acg-codenames/shared').NextPlan['sourcePool'];
+        if(action.animePoolId!==undefined){
+          if(action.variant!=='anime'||typeof action.animePoolId!=='string'||action.communityPoolId!==undefined||action.poolIds!==undefined)throw new Error('预设作品池引用无效');
+          const preset=animePools().find(p=>p.id===action.animePoolId);
+          if(!preset)throw new Error('预设作品池已失效，请重新选择');
+          action={...action,poolIds:preset.workIds,poolName:preset.name};
+        }
         if (action.communityPoolId !== undefined) {
           const principal = room.participantPrincipals?.[playerId];
           if (action.variant !== 'anime' || typeof action.communityPoolId !== 'string' || !Number.isSafeInteger(action.communityPoolRevision) || !principal || !this.options.resolveCommunityPool) throw new Error('社区作品池引用无效');
@@ -2162,8 +2168,8 @@ export class GameService {
         if (action.variant === 'classic') validateWordPackForMode(wordPack,boardMode);
         const principal = room.participantPrincipals?.[playerId];
         const catalog = animeCatalogFor(principal);
-        if (action.poolIds && (!Array.isArray(action.poolIds) || action.poolIds.length > 2500 || action.poolIds.some(id => !Number.isSafeInteger(id)))) throw new Error('作品池格式无效');
-        const ids = new Set(action.poolIds ?? (plan.pool.length ? plan.pool.map(w => w.id) : catalog.map(w => w.id)));
+        if (action.poolIds && (!Array.isArray(action.poolIds) || (!action.animePoolId&&action.poolIds.length > 2500) || action.poolIds.some(id => !Number.isSafeInteger(id)))) throw new Error('作品池格式无效');
+        const ids = new Set(action.poolIds ?? (plan.pool.length ? plan.pool.map(w => w.id) : isV2 ? [] : catalog.map(w => w.id)));
         let pool = catalog.filter(w => ids.has(w.id));
         if (pool.length !== ids.size && sourcePool && this.options.resolveManualWorks) {
           // A server-verified community pool may reference retired manual works; room snapshots must stay playable.
@@ -2177,11 +2183,11 @@ export class GameService {
         const animeRandomSwap = action.variant === 'anime' ? animeDraft?true:action.animeRandomSwap ?? (plan.variant === 'anime' ? plan.settings.animeRandomSwap === true : true) : undefined;
         const animeSeriesRotation = action.variant === 'anime' ? action.animeSeriesRotation ?? (plan.variant === 'anime' ? plan.settings.animeSeriesRotation === true : true) : undefined;
         const candidates = action.variant === 'anime' ? candidatesFor(pool, room.seriesHistory, Math.random, animeSeriesRotation === true) : [];
-        if (action.variant === 'anime' && candidates.length < BOARD_MODE_CONFIG[boardMode].size) throw new Error(`当前可用 ${candidates.length} 个系列，需要 ${BOARD_MODE_CONFIG[boardMode].size} 个；请更换作品池或由房主确认重置本房间轮换历史`);
+        if (action.variant === 'anime' && !(isV2&&pool.length===0) && candidates.length < BOARD_MODE_CONFIG[boardMode].size) throw new Error(`当前可用 ${candidates.length} 个系列，需要 ${BOARD_MODE_CONFIG[boardMode].size} 个；请更换作品池或由房主确认重置本房间轮换历史`);
         plan = { ...plan, wordPack, version: plan.version + 1, variant: configuredVariant,
           settings: { ...plan.settings, animeDraft, animeRandomSwap, animeSeriesRotation, variant: action.variant, boardMode, scoringMode: action.scoringMode ?? plan.settings.scoringMode, timerMode: action.timerMode ?? plan.settings.timerMode, timerClueSeconds: action.timerClueSeconds ?? plan.settings.timerClueSeconds, timerGuessSeconds: action.timerGuessSeconds ?? plan.settings.timerGuessSeconds, flipMode: action.flipMode ?? plan.settings.flipMode, neutralCount: action.variant === 'anime' || boardMode !== plan.settings.boardMode ? undefined : plan.settings.neutralCount },
           claims:{},protection:{},endsAt:undefined,sealedBoard:undefined,randomSwap:undefined,interferenceWorks:undefined,interferenceClosed:undefined,requests:undefined,stageVersion:0,
-          pool, poolName: (action.poolName ?? plan.poolName).slice(0,64), sourcePool, candidates, ready: { red:false, blue:false }, done: { red:false, blue:false }, stage: 'planning',
+          pool, poolName: (pool.length ? action.poolName ?? plan.poolName : '尚未选择作品池').slice(0,64), sourcePool, candidates, ready: { red:false, blue:false }, done: { red:false, blue:false }, stage: 'planning',
           bookmarks: Object.fromEntries(Object.entries(plan.bookmarks).map(([id, values]) => [id, values.filter(v => candidates.some(w => w.id === v))])) };
       } else if (action.kind === 'nominate' || action.kind === 'transfer') {
         const team = action.team;
@@ -2249,7 +2255,15 @@ export class GameService {
           }
         } else {
           if(staged(plan)&&plan.stage==='interference')editStagedInterference(plan,team,action,time,room.seriesHistory??{});
-          else {if(staged(plan)&&action.kind==='interfere')throw new Error('请在选牌结束后的独立干扰阶段投放');editDraft(plan,team,action,time);}
+          else {
+            if(staged(plan)&&action.kind==='interfere')throw new Error('请在选牌结束后的独立干扰阶段投放');
+            if(staged(plan)&&plan.stage==='draft'&&action.kind==='unready')plan.done[team]=false;
+            else {
+              if(staged(plan)&&action.kind==='done'&&!hasManual(plan,team))throw new Error('请先选择至少一张普通牌再完成组牌');
+              editDraft(plan,team,action,time);
+            }
+            if(staged(plan))advanceStagedDraft(plan,room.seriesHistory??{},time);
+          }
           if (!staged(plan)&&plan.done.red && plan.done.blue) sealDraft(plan, room.seriesHistory);
         }
       }

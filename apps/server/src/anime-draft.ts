@@ -103,5 +103,7 @@ export function editDraft(plan: NextPlan, team: Team, action: PlanAction, time: 
     for (const [key, existing] of Object.entries(plan.claims)) if (existing.kind === 'interference' && existing.from === team) delete plan.claims[Number(key)];
     plan.claims[id] = { team: other(team), from: team, kind: 'interference', protectedUntil: 0 };
   } else throw new Error('无效组牌操作');
-  plan.done = { red: false, blue: false };
+  plan.done = plan.settings.animeDraft?.version===2
+    ? {...plan.done,[team]:false,...(claim&&claim.team!==team?{[other(team)]:false}:{})}
+    : { red: false, blue: false };
 }
