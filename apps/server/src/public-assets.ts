@@ -78,7 +78,7 @@ export class PublicAssets {
     // fetchReplayCover revalidates the server-selected CDN, redirects, MIME, size and timeout.
     const key = crypto.createHash('sha256').update(source).digest('hex');
     return this.cached('cover', key, async () => {
-      const image = await fetchReplayCover(source, this.fetcher);
+      const image = await fetchReplayCover(source, this.fetcher, 12_000);
       return sharp(image.data, { limitInputPixels: 20_000_000 }).rotate().resize({ width: 400, withoutEnlargement: true }).webp({ quality: 82 }).toBuffer();
     });
   }

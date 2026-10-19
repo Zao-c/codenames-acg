@@ -14,7 +14,7 @@ export async function probeCover(source:string,signal:AbortSignal):Promise<void>
       const image=new Image();image.referrerPolicy='no-referrer';
       const stop=(error?:Error)=>{clearTimeout(timer);signal.removeEventListener('abort',abort);image.onload=null;image.onerror=null;if(error){image.src='';reject(error);}else resolve();};
       const abort=()=>stop(new DOMException('Aborted','AbortError'));
-      const timer=setTimeout(()=>stop(new Error('Cover timeout')),10_000);
+      const timer=setTimeout(()=>stop(new Error('Cover timeout')),15_000);
       signal.addEventListener('abort',abort,{once:true});
       image.onload=()=>image.naturalWidth>0?stop():stop(new Error('Invalid image'));
       image.onerror=()=>stop(new Error('Cover unavailable'));image.src=source;
