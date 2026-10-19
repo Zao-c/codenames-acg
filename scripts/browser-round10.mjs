@@ -1,3 +1,4 @@
+import {browserProxy} from './browser-network.mjs';
 import { settingsChecks, flipChecks, tailChecks } from './round10-checks.mjs';
 import {randomBytes} from 'node:crypto';
 import {io} from 'socket.io-client';
@@ -10,7 +11,7 @@ import {readRoomState} from './room-observer.mjs';
 import {theme} from './browser-support.mjs';
 const baseline=process.env.ROUND10_BASELINE==='1',base=process.env.PLAYTEST_BASE_URL,api=process.env.PLAYTEST_API_URL;
 const out=path.resolve(`output/playwright/round10/${baseline?'before':process.env.ROUND10_SETTINGS_ONLY==='1'?'settings-debug':'after'}`);await fs.mkdir(out,{recursive:true});const attempt=path.join(out,'attempts',new Date().toISOString().replaceAll(':','-'));for(const name of await fs.readdir(out))if(name.startsWith('failure')){await fs.mkdir(attempt,{recursive:true});await fs.rename(path.join(out,name),path.join(attempt,name));}
-let browser;for(const channel of ['chromium','msedge','chrome',undefined])try{browser=await chromium.launch({channel,headless:true});break;}catch{}
+let browser;for(const channel of ['chromium','msedge','chrome',undefined])try{browser=await chromium.launch({channel,headless:true,...browserProxy()});break;}catch{}
 assert.ok(browser);const extraSpectators=[];const pages=[],states=[],sessions=[],checks=[],errors=[],screens=[],geometry=[],catalogRequests=[],noticeLog=[];
 const button=(p,name)=>p.getByRole('button',{name,exact:true});
 async function until(fn,label){for(let i=0;i<400;i++){if(await fn())return;await new Promise(r=>setTimeout(r,100));}throw new Error(label);}

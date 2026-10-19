@@ -1,3 +1,4 @@
+import {browserProxy} from './browser-network.mjs';
 import { readRoomState } from './room-observer.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -7,7 +8,7 @@ import {theme} from './browser-support.mjs';
 const base=process.env.PLAYTEST_BASE_URL??'http://127.0.0.1:5317';
 const api=process.env.PLAYTEST_API_URL??'http://127.0.0.1:3152';
 const out=path.resolve('output/playwright/round8/browser');await fs.mkdir(out,{recursive:true});
-let browser;for(const channel of ['chromium','msedge','chrome',undefined])try{browser=await chromium.launch({channel,headless:true});break;}catch{}
+let browser;for(const channel of ['chromium','msedge','chrome',undefined])try{browser=await chromium.launch({channel,headless:true,...browserProxy()});break;}catch{}
 assert.ok(browser);const pages=[],states=[],events=[],errors=[],checks=[],screens=[],replays=[];
 const button=(p,name)=>p.getByRole('button',{name,exact:true});
 async function until(fn,label){for(let i=0;i<240;i++){if(await fn())return;await new Promise(r=>setTimeout(r,100));}throw new Error(label);}
