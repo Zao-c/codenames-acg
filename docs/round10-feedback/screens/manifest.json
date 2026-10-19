@@ -398,5 +398,25 @@
     "pixelWidth": 390,
     "pixelHeight": 3337,
     "sha256": "d5e7e6f97ce68da216ba021112a01fd0161f047f9b30a80a54c805b88be86f4e"
+  },
+  {
+    "file": "production-desktop-dark.png",
+    "role": "public home; local guest identity; no room created",
+    "width": 1440,
+    "height": 900,
+    "pixelWidth": 1440,
+    "pixelHeight": 900,
+    "sourceSha": "89b5f70485b7c0a9ca1e70e2e414b9ed6731da6b",
+    "sha256": "16f5078997a07a3bb1877db22deaea2cb314ea0b6115c7c35be131fd66642842"
+  },
+  {
+    "file": "production-mobile-light.png",
+    "role": "public home; local guest identity; no room created",
+    "width": 390,
+    "height": 844,
+    "pixelWidth": 390,
+    "pixelHeight": 1101,
+    "sourceSha": "89b5f70485b7c0a9ca1e70e2e414b9ed6731da6b",
+    "sha256": "ac74084d77ac7da6ca79f2727b10596a1537565e64005a7565299b5316cd124b"
   }
 ]
