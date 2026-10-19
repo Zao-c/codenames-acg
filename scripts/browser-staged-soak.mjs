@@ -139,19 +139,36 @@ async function configureRound(number){
   await sleep(700);
  }
  assert.equal(states[0].nextPlan.stage,'interference');await pages[0].getByRole('region',{name:'独立干扰阶段'}).waitFor();
+ const workspace=pages[0].locator('.draft-workspace.stage-interference');
+ await workspace.waitFor();assert.equal(await pages[0].locator('.interference-workspace').count(),0,'reuse the drafting layout');
+ const layout=await pages[0].locator('.next-match-panel').evaluate(el=>({panel:el.getBoundingClientRect().width,room:el.parentElement.getBoundingClientRect().width}));
+ assert.ok(layout.panel/layout.room>.95,'interference occupies the full room width');
+ const hand=workspace.locator('.draft-selected-panel');assert.ok((await hand.getByRole('button',{name:'对方已选',exact:true}).getAttribute('class')).includes('selected'));
+ assert.equal(await hand.locator('.draft-tile').count(),Object.values(states[0].nextPlan.captainView.claims).filter(c=>c.kind==='manual'&&c.team==='blue').length);
+ assert.equal(await pages[1].locator('.draft-control-panel').count(),0,'ordinary members cannot view team hands or interference controls');
+ assert.equal(await pages[1].getByLabel('搜索干扰作品').count(),0,'ordinary members cannot search the private interference pool');
  for(const i of [0,4]){
   if(i===4&&interference!==null&&number%2===0)continue;
   const p=states[i].nextPlan,key=await pages[i].evaluate(()=>localStorage.getItem('cipai.private-identity.v1'));
   const result=await pages[i].request.get(base+`/api/rooms/${states[0].id}/interference-pool?`+new URLSearchParams({planId:p.id,stageVersion:String(p.stageVersion),page:'1'}),{headers:{'x-private-key':key}});assert.ok(result.ok());const data=await result.json();assert.ok(data.works.length<=60);
   const work=data.works.find(w=>!p.candidates.some(c=>c.id===w.id))??data.works[0];assert.ok(work);
-  await pages[i].getByLabel('搜索干扰作品').fill(work.fullTitle);const choose=button(pages[i],`投放干扰《${work.title}》`);await choose.waitFor();await until(async()=>await choose.isEnabled(),'interference search');await choose.click();await button(pages[i].getByRole('dialog',{name:'确认干扰作品'}),'确认投放').click();
+  await pages[i].getByLabel('搜索干扰作品').fill(work.fullTitle);const choose=pages[i].locator('.draft-candidates').getByRole('button',{name:work.title,exact:true});await choose.waitFor();await until(async()=>await choose.locator('..').getByRole('button',{name:`拖动《${work.title}》`,exact:true}).count()>0,'interference search');
+  if(i===0){
+   await choose.scrollIntoViewIfNeeded();const source=await choose.boundingBox(),target=await pages[i].locator('.draft-drop-zones [data-drop="interfere"]').boundingBox();assert.ok(source&&target);
+   await pages[i].mouse.move(source.x+source.width/2,source.y+source.height/2);await pages[i].mouse.down();await pages[i].mouse.move(target.x+target.width/2,target.y+target.height/2,{steps:15});
+   assert.equal(await pages[i].locator('.draft-drag-ghost').count(),1);if(number<2)await shot(i,`round-${number}-interference-grab`);await pages[i].mouse.up();
+  }else await choose.click();
+  await button(pages[i].getByRole('dialog',{name:'确认干扰作品'}),'确认投放').click();
   await until(()=>states[i].nextPlan.captainView?.claims[work.id]?.kind==='interference','interference committed');
-  if(number<2){await shot(i,`round-${number}-interference-${i}`);if(i===0){await pages[i].setViewportSize({width:390,height:844});await theme(pages[i],true);await shot(i,`round-${number}-interference-mobile-light`);await pages[i].setViewportSize({width:1440,height:900});await theme(pages[i],false);}}
+  if(number<2){await shot(i,`round-${number}-interference-${i}`);if(i===0){await theme(pages[i],true);await shot(i,`round-${number}-interference-desktop-light`);await pages[i].setViewportSize({width:390,height:844});await pages[i].getByRole('region',{name:'对方普通手牌'}).waitFor();assert.equal(await pages[i].getByRole('region',{name:'对方普通手牌'}).locator('button').count(),Object.values(states[i].nextPlan.captainView.claims).filter(c=>c.kind==='manual'&&c.team==='blue').length);await shot(i,`round-${number}-interference-mobile-light`);await theme(pages[i],false);await shot(i,`round-${number}-interference-mobile-dark`);await pages[i].setViewportSize({width:1440,height:900});}}
   await button(pages[i],'准备成牌').click();
  }
  while(states[0].nextPlan.stage!=='sealed'){await pulse();await sleep(500);}
  assert.equal(states[0].nextPlan.randomSwapCompleted,true);await button(pages[0],'开始五秒倒计时').click();await until(()=>states.every(s=>s.phase==='playing'),'eight clients playing');
  assert.equal(await pages[0].getByRole('button',{name:'放大棋盘',exact:true}).count(),0);assert.equal(await pages[0].locator('.anime-board-panel').getByRole('button',{name:'重置视图',exact:true}).count(),0);
+ assert.equal(await pages[0].getByText('本队等待，留意对方的线索与翻牌。',{exact:true}).count(),0);
+ assert.equal(await pages[0].getByText(/阵营标签为队长视角；深色蒙层/).count(),0);
+ assert.equal(await pages[0].locator('.anime-board-panel').getByText(/点卡片查看作品，猜牌需再次确认/).count(),0);
  for(let i=0;i<8;i++){
   await tab(pages[i],'棋盘');const cards=pages[i].locator('.anime-board-card');await cards.last().scrollIntoViewIfNeeded();await cards.first().scrollIntoViewIfNeeded();
  }
