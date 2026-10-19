@@ -30,4 +30,4 @@
 - [修改前手机组牌（8c9aa27）](screens/before-mobile-8c9aa27.png)／[修改后手机组牌](screens/round-0-draft-mobile.png)。均为 390px 浏览器，整页截图包含固定导航在视口中的位置。
 - [鼠标抓牌悬浮层](screens/drag-desktop-0.png)／[手机拖动把手与悬浮卡](screens/touch-grab-mobile.png)。
 - [新房间空白选池](screens/new-room-empty-pool.png)；[桌面浅色](screens/round-0-settings-1440-light.png)／[深色](screens/round-0-settings-1440-dark.png)；[手机浅色](screens/round-0-settings-390-light.png)／[深色](screens/round-0-settings-390-dark.png)。
-- [两局短测](short-browser-report.json)、[旧版回归](legacy-test-results.json)、[新增单测](staged-unit.log)、[生产审计](production-audit.json)、[生产封面恢复](production-covers.json)。
+- [两局短测](short-browser-report.json)、[旧版回归](legacy-test-results.json)、[新增单测](staged-unit.txt)、[生产审计](production-audit.json)、[生产封面恢复](production-covers.json)。
