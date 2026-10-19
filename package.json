@@ -47,7 +47,9 @@
     "verify:round10": "node scripts/verify-round10.mjs",
     "test:staged:unit": "npm run build -w @acg-codenames/shared && node node_modules/tsx/dist/cli.mjs apps/server/test/staged-draft.test.ts",
     "test:staged:smoke": "node scripts/test-staged-soak-local.mjs --smoke",
-    "test:staged:soak": "node scripts/test-staged-soak-local.mjs"
+    "test:staged:soak": "node scripts/test-staged-soak-local.mjs",
+    "test:broadcast:unit": "node node_modules/tsx/dist/cli.mjs apps/server/test/room-broadcast.test.ts",
+    "test:staged:chat": "node scripts/test-chat-burst.mjs"
   },
   "devDependencies": {
     "playwright": "^1.59.1",

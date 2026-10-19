@@ -45,6 +45,7 @@ import { animePoolRouter } from './anime-pools.js';
 import { ManualWorkStore } from './manual-works.js';
 import { manualCoverRouter, manualWorkRouter } from './manual-works-api.js';
 import { fetchReplayCover } from './replay-cover.js';
+import {RoomBroadcastQueue} from './room-broadcast.js';
 
 type PayloadRecord = Record<string, unknown>;
 
@@ -666,7 +667,9 @@ async function bootstrap(): Promise<void> {
     summariesTimer=setTimeout(()=>{summariesTimer=undefined;game.listRoomSummaries().then(rooms=>io.emit("room_summaries",assets.wire(rooms))).catch(error=>console.warn('room summaries:',error));},150);
   }
 
-  async function sendRoomState(roomId: string): Promise<void> {
+  const roomBroadcasts=new RoomBroadcastQueue(publishRoomState);
+  function sendRoomState(roomId:string):Promise<void>{return roomBroadcasts.send(roomId);}
+  async function publishRoomState(roomId: string): Promise<void> {
     const room = await game.getRoom(roomId);
     if (!room) {
       await broadcastRoomSummaries();
