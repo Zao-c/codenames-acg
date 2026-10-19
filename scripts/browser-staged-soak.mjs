@@ -152,7 +152,7 @@ async function configureRound(number){
   const p=states[i].nextPlan,key=await pages[i].evaluate(()=>localStorage.getItem('cipai.private-identity.v1'));
   const result=await pages[i].request.get(base+`/api/rooms/${states[0].id}/interference-pool?`+new URLSearchParams({planId:p.id,stageVersion:String(p.stageVersion),page:'1'}),{headers:{'x-private-key':key}});assert.ok(result.ok());const data=await result.json();assert.ok(data.works.length<=60);
   const work=data.works.find(w=>!p.candidates.some(c=>c.id===w.id))??data.works[0];assert.ok(work);
-  await pages[i].getByLabel('搜索干扰作品').fill(work.fullTitle);const choose=pages[i].locator('.draft-candidates').getByRole('button',{name:work.title,exact:true});await choose.waitFor();await until(async()=>await choose.locator('..').getByRole('button',{name:`拖动《${work.title}》`,exact:true}).count()>0,'interference search');
+  await pages[i].getByLabel('搜索干扰作品').fill(work.fullTitle);const choose=pages[i].locator('.draft-candidates').getByRole('button',{name:work.title,exact:true});await choose.waitFor();await until(async()=>await choose.locator('..').locator('.draft-grab').count()>0,'interference search');
   if(i===0){
    await choose.scrollIntoViewIfNeeded();const source=await choose.boundingBox(),target=await pages[i].locator('.draft-drop-zones [data-drop="interfere"]').boundingBox();assert.ok(source&&target);
    await pages[i].mouse.move(source.x+source.width/2,source.y+source.height/2);await pages[i].mouse.down();await pages[i].mouse.move(target.x+target.width/2,target.y+target.height/2,{steps:15});
