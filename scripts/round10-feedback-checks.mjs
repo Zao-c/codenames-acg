@@ -7,7 +7,7 @@ export async function feedbackSettingsChecks(t){
  const expected=['大厅','创建房间','文字题库','动画题库','图片图库','个人资料'];
  assert.deepEqual(await host.locator('.app-nav .nav-links>button').allTextContents(),expected);
  assert.equal(await host.locator('.nav-room-label').count(),0);
- const home=await pages[1].context().newPage();await home.goto(process.env.PLAYTEST_BASE_URL);await home.locator('.app-nav .nav-links>button').first().waitFor();
+ const home=await pages[1].context().newPage();await home.goto(process.env.PLAYTEST_BASE_URL);await until(async()=>await home.locator('.app-nav .nav-links>button').count()===expected.length,'home features loaded');
  assert.deepEqual(await home.locator('.app-nav .nav-links>button').allTextContents(),expected);await home.close();
  assert.equal(await host.locator('.nav-preferences').innerText(),'偏好设置');assert.equal(await host.locator('.room-management-trigger').innerText(),'房间管理');
  await button(host,'房间管理').click();let dialog=host.getByRole('dialog',{name:'房间管理',exact:true});assert.equal(await dialog.getByRole('button',{name:'转让房主',exact:true}).count(),1);assert.equal(await host.getByText('转让社长',{exact:true}).count(),0);await shot(host,'feedback-room-management-1440-light','host');await button(dialog,'关闭房间管理').click();

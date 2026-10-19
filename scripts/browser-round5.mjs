@@ -308,6 +308,7 @@ try {
     await tab(captain, '棋盘');
     await tab(operative, '棋盘');
     if (!room.clue) {
+      await captain.waitForTimeout(3400); // Preserve the existing 3 clues / 10 seconds limit.
       const input = captain.getByPlaceholder('例如：机甲 / 学园 / 主角团');
       await visible(input);
       await input.fill(`线索${rounds}`);

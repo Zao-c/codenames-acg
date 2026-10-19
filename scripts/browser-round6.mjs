@@ -249,6 +249,8 @@ try {
 
   // Mobile: a short swipe scrolls; only a 350ms hold becomes a drag.
   await tab(blueCaptain,'准备');await button(blueCaptain,'候选池').click();
+  await blueCaptain.bringToFront();
+  await blueCaptain.evaluate(()=>{window.__r6Touch=[];for(const type of ['pointerdown','pointermove','pointercancel','pointerup','blur'])addEventListener(type,e=>window.__r6Touch.push({type,x:e.clientX,y:e.clientY,drag:document.body.classList.contains('draft-drag-active')}));});
   const cdp=await blueCaptain.context().newCDPSession(blueCaptain);
   const touch=async(type,x,y)=>cdp.send('Input.dispatchTouchEvent',{type,touchPoints:type==='touchEnd'?[]:[{x,y}]});
   await candidate(blueCaptain,e).scrollIntoViewIfNeeded();
@@ -260,10 +262,12 @@ try {
   await candidate(blueCaptain,e).scrollIntoViewIfNeeded();rect=await candidate(blueCaptain,e).boundingBox();x=rect.x+rect.width/2;y=rect.y+45;
   await touch('touchStart',x,y);await blueCaptain.waitForTimeout(420);
   await visible(blueCaptain.locator('.draft-drag-ghost'));
+  await blueCaptain.waitForFunction(()=>getComputedStyle(document.querySelector('.draft-dock')).transform==='none'&&document.body.classList.contains('draft-drag-active'));
   const dock=await blueCaptain.locator('.draft-dock [data-drop="take"]').boundingBox();
-  await touch('touchMove',dock.x+dock.width/2,dock.y+dock.height/2);await blueCaptain.waitForTimeout(120);
+  assert.equal(await blueCaptain.evaluate(({x,y})=>document.elementFromPoint(x,y)?.closest('[data-drop]')?.getAttribute('data-drop'),{x:dock.x+dock.width/2,y:dock.y+dock.height/2}),'take','touch target is actually reachable');
+  for(let step=1;step<=12;step++){await touch('touchMove',x+(dock.x+dock.width/2-x)*step/12,y+(dock.y+dock.height/2-y)*step/12);await blueCaptain.waitForTimeout(16);}await blueCaptain.waitForTimeout(120);
   await blueCaptain.screenshot({path:path.join(artifacts,'D07-mobile-longpress-dock-ghost.png')});
-  await touch('touchEnd',dock.x,dock.y);await until(()=>claims()[e]?.team==='blue','touch take');
+  await touch('touchEnd',dock.x+dock.width/2,dock.y+dock.height/2);console.log('CDP touch trace',JSON.stringify(await blueCaptain.evaluate(()=>window.__r6Touch)));await until(()=>claims()[e]?.team==='blue','touch take');
   await cdp.detach();
   // Replacement button/preview remains a keyboard/tap alternative.
   await candidate(blueCaptain,f).click();await button(blueCaptain,'领取这张').click();await until(()=>claims()[f]?.team==='blue','mobile tap alternative');
