@@ -1,3 +1,4 @@
+import {feedbackSettingsChecks} from './round10-feedback-checks.mjs';
 import {browserProxy} from './browser-network.mjs';
 import { settingsChecks, flipChecks, tailChecks } from './round10-checks.mjs';
 import {randomBytes} from 'node:crypto';
@@ -10,7 +11,7 @@ import {chromium} from 'playwright';
 import {readRoomState} from './room-observer.mjs';
 import {theme} from './browser-support.mjs';
 const baseline=process.env.ROUND10_BASELINE==='1',base=process.env.PLAYTEST_BASE_URL,api=process.env.PLAYTEST_API_URL;
-const out=path.resolve(`output/playwright/round10/${baseline?'before':process.env.ROUND10_SETTINGS_ONLY==='1'?'settings-debug':'after'}`);await fs.mkdir(out,{recursive:true});const attempt=path.join(out,'attempts',new Date().toISOString().replaceAll(':','-'));for(const name of await fs.readdir(out))if(name.startsWith('failure')){await fs.mkdir(attempt,{recursive:true});await fs.rename(path.join(out,name),path.join(attempt,name));}
+const out=path.resolve(`output/playwright/${process.env.ROUND10_REVIEW_DIR??'round10'}/${baseline?'before':process.env.ROUND10_SETTINGS_ONLY==='1'?'settings-debug':'after'}`);await fs.mkdir(out,{recursive:true});const attempt=path.join(out,'attempts',new Date().toISOString().replaceAll(':','-'));for(const name of await fs.readdir(out))if(name.startsWith('failure')){await fs.mkdir(attempt,{recursive:true});await fs.rename(path.join(out,name),path.join(attempt,name));}
 let browser;for(const channel of ['chromium','msedge','chrome',undefined])try{browser=await chromium.launch({channel,headless:true,...browserProxy()});break;}catch{}
 assert.ok(browser);const extraSpectators=[];const pages=[],states=[],sessions=[],checks=[],errors=[],screens=[],geometry=[],catalogRequests=[],noticeLog=[];
 const button=(p,name)=>p.getByRole('button',{name,exact:true});
@@ -27,7 +28,7 @@ async function clue(i,text,count=1){const r=await ack(pages[i],'submit_clue',{ro
 try{
 const host=await newPlayer(0);await button(host,'＋ 创建房间').click();const create=host.getByRole('dialog',{name:'创建一间房间'});await button(create,'动画组牌').click();await button(create,'创建房间 →').click();await until(()=>states[0]?.nextPlan,'create');
 for(let i=1;i<11;i++)await newPlayer(i,i>=8);await setupRoster();const id=states[0].id;for(let i=0;i<17;i++){const socket=io(api,{transports:['websocket'],forceNew:true,autoConnect:false});extraSpectators.push(socket);await new Promise((resolve,reject)=>{socket.once('connect',resolve);socket.once('connect_error',reject);socket.connect();});socket.emit('enable_room_deltas');const joined=new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(new Error('spectator join timeout')),10000);socket.once('session',value=>{clearTimeout(timer);resolve(value);});socket.once('error_message',value=>{clearTimeout(timer);reject(new Error(value.message));});});socket.emit('join_spectator',{roomId:id,nickname:'R9旁观长昵称'+i,identityKey:randomBytes(32).toString('hex')});await joined;}await until(()=>states[0].spectators.length===20,'20 spectators');
-await settingsChecks({host,pages,states,baseline,checks,shot,button,until,ack,matrix});await matrix(host,'lobby','host');
+await settingsChecks({host,pages,states,baseline,checks,shot,button,until,ack,matrix});if(process.env.ROUND10_FEEDBACK==='1'&&!baseline)await feedbackSettingsChecks({host,pages,states,checks,button,until,shot});await matrix(host,'lobby','host');
 if(!baseline){
  const target=sessions[2].participantId,member=host.locator(`[data-player-id="${target}"]`),blue=host.locator('.v2-team.blue');await host.waitForTimeout(500);await member.locator('.v2-member-main').dragTo(blue,{sourcePosition:{x:18,y:16},targetPosition:{x:50,y:24}});await until(()=>states[2].viewer.team==='blue','host real drag team');
  await member.locator('summary').click();await button(member,'移到红队').click();await until(()=>states[2].viewer.team==='red','host menu team');await member.locator('summary').focus();await host.keyboard.press('Enter');await button(member,'任命队长').focus();await host.keyboard.press('Enter');await until(()=>states[2].viewer.role==='spymaster','appoint');assert.equal(states[0].players.filter(p=>p.team==='red'&&p.role==='spymaster').length,1);

@@ -207,7 +207,7 @@ try {
   const quarterly = options.find(value => /^\d{4}-Q[1-4]$/.test(value));
   assert.ok(quarterly, 'quarterly pool available');
   await poolSelect.selectOption(quarterly);
-  await settings.getByLabel('历局作品轮换 · 排除已玩系列').uncheck();
+  await settings.getByLabel('历局作品轮换').uncheck();
   await button(settings, '保存并返回准备大厅').click();
   await until(() => states[0].nextPlan?.variant === 'anime', 'anime configured');
   await pressureAndSeatChecks(host, roomId, join);

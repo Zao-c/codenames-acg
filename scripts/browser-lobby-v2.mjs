@@ -96,7 +96,7 @@ try{
   for(const p of capPages()){await tab(p,'准备');await button(p,'确认就绪，开始组牌').click();}
   await until(()=>states[0].nextPlan.stage==='draft','draft');assert.ok(states[0].nextPlan.endsAt>Date.now()+175000);
   for(const p of capPages()){const b=button(p,'选牌与操作');if(await b.isVisible())await b.click();await button(p,'手选完成，剩余随机补齐').click();}
-  await until(()=>states[0].nextPlan.stage==='sealed','sealed');await shot(host,'11-sealed-desktop');await openMemberTools(host);assert.ok(await button(host,'全员重新随机').isDisabled());assert.equal(await button(host,'进入队长预览 →').count(),0);
+  await until(()=>states[0].nextPlan.stage==='sealed','sealed');await shot(host,'11-sealed-desktop');await openMemberTools(host);assert.ok(await button(host,'全员重新随机').isDisabled());assert.equal(await button(host,'进入队长预览 →').count(),0);await button(host.getByRole('dialog',{name:'分队与队长管理'}),'完成并返回大厅').click();
   await button(host,'开始五秒倒计时').click();await host.locator('.start-countdown').waitFor();await button(host,'取消开始').click();await until(()=>!states[0].countdown,'cancel countdown');assert.equal(states[0].nextPlan.stage,'sealed');
   await button(host,'开始五秒倒计时').click();await until(()=>states[0].phase==='playing','anime playing');assert.equal(states[0].board.length,36);
   checks.push('planning/guide/draft/sealed/countdown/playing server stages, preview cannot take, one-captain no timer, cancel/reset, both ready starts 180s, sealed locks and countdown cancel');

@@ -1,8 +1,9 @@
+import {feedbackResultChecks} from './round10-feedback-checks.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import sharp from 'sharp';
-import {theme} from './browser-support.mjs';
+import {theme,showResultBoard} from './browser-support.mjs';
 
 async function fault(page,mode){await page.evaluate(async mode=>{
   const socket=(await import('/src/lib/socket.ts')).getSocket();
@@ -63,7 +64,7 @@ export async function flipChecks(t){
  let c=states[0].currentTeam==='red'?0:4;await guess(states[c].board.find(x=>x.role===(states[0].currentTeam==='red'?'blue':'red')&&!x.revealed));
  c=states[0].currentTeam==='red'?0:4;await clue(c,'中立视觉检查'+size,2);await guess(states[c].board.find(x=>x.role==='neutral'&&!x.revealed));
  c=states[0].currentTeam==='red'?0:4;await clue(c,'刺客视觉检查'+size,2);await guess(states[c].board.find(x=>x.role==='assassin'&&!x.revealed));await until(()=>states[0].phase==='finished'&&states[0].replayId,'terminal assassin');
- const p=pages[1];await p.locator('.result-board>summary').click();for(const text of [false,true]){if(text)await button(p,'纯文字显示').click();await matrix(p,`${text?'text':'flips'}-${size}`,'red operative');if(text)await button(p,'封面显示').click();}
+ const p=pages[1];if(process.env.ROUND10_FEEDBACK==='1'&&!baseline)await feedbackResultChecks({page:p,room:states[0],size,checks});await showResultBoard(p);for(const text of [false,true]){if(text)await button(p,'纯文字显示').click();await matrix(p,`${text?'text':'flips'}-${size}`,'red operative');if(text)await button(p,'封面显示').click();}
  if(!baseline){assert.equal(await p.locator('.anime-board-card.is-revealed .card-reveal-tint').count(),4);assert.equal(await host.locator('.anime-board-card:not(.is-revealed) .card-reveal-tint').count(),0);}
  const replay=await p.context().newPage();await replay.goto(process.env.PLAYTEST_BASE_URL+'/replay/'+states[0].replayId);await replay.locator('.replay-board-card').first().waitFor();await matrix(replay,`replay-${size}`,'public replay');
  if(!baseline)assert.equal(await replay.locator('.replay-board-card.is-revealed .card-reveal-tint').count(),4);
@@ -75,7 +76,7 @@ export async function flipChecks(t){
    const gray=await sharp({create:{width:180,height:260,channels:3,background:{r:128,g:128,b:128}}}).png().toBuffer();
    const roles=['red','blue','neutral','assassin'];const cards=roles.map(role=>states[0].board.find(x=>x.revealed&&x.role===role));
    for(const card of cards)await p.route(card.anime.cover,r=>r.fulfill({contentType:'image/png',body:gray}));
-   await p.setViewportSize({width:1440,height:900});await p.reload();await p.locator('.result-board>summary').click();await p.locator('.anime-board-card').first().waitFor();
+   await p.setViewportSize({width:1440,height:900});await p.reload();await showResultBoard(p);await p.locator('.anime-board-card').first().waitFor();
    for(const light of [true,false]){await theme(p,light);for(const card of cards){const tile=p.locator('.anime-board-card').nth(states[0].board.findIndex(x=>x.id===card.id));await tile.scrollIntoViewIfNeeded();await until(async()=>await tile.locator('img').evaluate(i=>i.complete&&i.naturalWidth>0),'fixture cover');const css=await tile.locator('.card-reveal-tint').evaluate(e=>({color:getComputedStyle(e).backgroundColor,opacity:getComputedStyle(e).opacity,rect:e.getBoundingClientRect().toJSON()}));assert.equal(css.opacity,'1');assert.ok(css.rect.width>0&&css.rect.height>0);const pixels=await sharp(await tile.screenshot()).raw().toBuffer({resolveWithObject:true});const {width,height,channels}=pixels.info;const sample=y=>Array.from(pixels.data.subarray((Math.floor(height*y)*width+width-5)*channels,(Math.floor(height*y)*width+width-5)*channels+3));assert.deepEqual(sample(.3),sample(.75),'single alpha at upper/lower cover sample');}}
    for(const card of cards)await p.unroute(card.anime.cover);
  }
