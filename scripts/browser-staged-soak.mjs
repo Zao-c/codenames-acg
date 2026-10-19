@@ -14,6 +14,7 @@ let browser;for(const channel of ['chromium','msedge','chrome'])try{browser=awai
 assert.ok(browser);const pages=[],states=[],cdps=[],acks=Array.from({length:8},()=>new Map()),checks=[],errors=[],rounds=[];
 const counters={snapshots:0,deltas:0,roomBytes:0,imageResponses:0,imageHttpErrors:0,imageNetworkErrors:0,guesses:0,clues:0,reconnections:0};
 const coverChecks=[];
+const catalogRequests=Array(8).fill(0);
 let serial=1000000000,started=0,sampling=false,lastChat=0,lastSample=0;const latency=[],uiLatency=[];
 const sleep=ms=>new Promise(r=>setTimeout(r,ms)),button=(p,name)=>p.getByRole('button',{name,exact:true});
 const percentile=(values,p)=>[...values].sort((a,b)=>a-b)[Math.min(values.length-1,Math.floor(values.length*p))]??0;
@@ -28,7 +29,7 @@ async function wire(i,event,payload,wantAck=true){
 }
 async function plan(i,kind,extra={}){const p=states[i].nextPlan;await wire(i,'plan_action',{roomId:states[i].id,version:p.version,planId:p.id,stageVersion:p.stageVersion??0,draftProtocol:2,requestId:crypto.randomUUID(),kind,...extra});await sleep(100);}
 async function tab(p,name){const n=p.getByRole('navigation',{name:'房间导航'});if(await n.isVisible())await button(n,name).click();}
-async function shot(i,name){const p=pages[i];await p.evaluate(()=>document.fonts.ready);await p.screenshot({path:path.join(out,name+'.png'),fullPage:true});assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),name+' overflow');}
+async function shot(i,name){const p=pages[i];await p.evaluate(()=>document.fonts.ready);const dialog=p.getByRole('dialog',{name:'本局设置',exact:true});await p.screenshot({path:path.join(out,name+'.png'),fullPage:!await dialog.isVisible()});assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),name+' overflow');}
 async function sample(label='heartbeat'){
  if(sampling||!started)return;sampling=true;
  try{
@@ -56,6 +57,7 @@ async function pulse(){
 async function connectEight(){
  for(let i=0;i<8;i++){
   const context=await browser.newContext({viewport:{width:i===7?390:1440,height:i===7?844:900},hasTouch:i===7});const p=await context.newPage();pages[i]=p;p.setDefaultTimeout(45000);
+  p.on('request',r=>{if(new URL(r.url()).pathname==='/api/anime/catalog')catalogRequests[i]++;});
   await p.addInitScript(()=>{
    const Native=window.WebSocket;window.WebSocket=class extends Native{constructor(...args){super(...args);if(String(args[0]).includes('/socket.io/'))window.__soakSocket=this;}};
    window.__soakLongTasks=[];try{new PerformanceObserver(list=>{for(const e of list.getEntries())if(window.__soakLongTasks.length<1000)window.__soakLongTasks.push(e.duration);}).observe({type:'longtask',buffered:true});}catch{}
@@ -85,33 +87,54 @@ async function connectEight(){
   await wire(i,'set_team',{roomId:states[0].id,team:i<4?'red':'blue'},false);await until(()=>states[i].viewer.team===(i<4?'red':'blue'),'team '+i);
   if(i===0||i===4){await wire(i,'set_role',{roomId:states[0].id,role:'spymaster'},false);await until(()=>states[i].viewer.role==='spymaster','captain '+i);}
  }
- assert.equal(states[0].nextPlan.settings.animeDraft.version,2);checks.push('eight separate named-account browser contexts, avatars, real player seats, two captains and production compiled frontend');
+ assert.equal(states[0].nextPlan.settings.animeDraft.version,2);assert.equal(states[0].nextPlan.poolSummary.source,0);assert.equal(states[0].nextPlan.candidates.length,0);assert.equal(catalogRequests[0],0);checks.push('eight named browser seats; new anime room has no chosen pool, no candidates and no full catalog request');
 }
 async function dragTake(i,work){
  const p=pages[i],source=p.locator(`.draft-candidates .draft-tile[data-replace-id="${work.id}"] .draft-tile-main`),target=p.locator('.draft-selected-panel[data-drop="take"]');
- await source.scrollIntoViewIfNeeded();const a=await source.boundingBox(),b=await target.boundingBox();assert.ok(a&&b);await p.mouse.move(a.x+a.width/2,a.y+a.height/2);await p.mouse.down();await p.mouse.move(a.x+a.width/2+20,a.y+a.height/2+10,{steps:4});await p.waitForTimeout(120);await p.mouse.move(b.x+b.width/2,b.y+b.height/2,{steps:12});await p.mouse.up();
- await until(()=>states[i].nextPlan.captainView.claims[work.id]?.team===states[i].viewer.team,'real draft drag');
+ await source.scrollIntoViewIfNeeded();const a=await source.boundingBox(),b=await target.boundingBox();assert.ok(a&&b);await p.mouse.move(a.x+a.width/2,a.y+a.height/2);await p.mouse.down();await p.mouse.move(a.x+a.width/2+20,a.y+a.height/2+10,{steps:4});await p.waitForTimeout(120);await p.mouse.move(b.x+b.width/2,b.y+b.height/2,{steps:12});await p.locator('.draft-drag-ghost').waitFor();await sleep(60);assert.equal(await p.locator('.draft-drag-ghost').evaluate(e=>getComputedStyle(e).position),'fixed');if(rounds.length<2)await p.screenshot({path:path.join(out,`drag-desktop-${rounds.length}.png`)});await p.mouse.up();
+ await until(()=>states[i].nextPlan.captainView.claims[work.id]?.team===states[i].viewer.team,'real draft drag');await p.locator('.draft-drag-ghost').waitFor({state:'detached'});assert.equal(await p.locator('body').evaluate(e=>e.classList.contains('draft-drag-active')),false);
+}
+async function touchTake(i,work){
+ const p=pages[i];await p.setViewportSize({width:390,height:844});await cdps[i].send('Emulation.setTouchEmulationEnabled',{enabled:true});
+ const handle=p.locator(`.draft-candidates .draft-tile[data-replace-id="${work.id}"] .draft-grab`);await handle.scrollIntoViewIfNeeded();const a=await handle.boundingBox();assert.ok(a);
+ await cdps[i].send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:a.x+a.width/2,y:a.y+a.height/2}]});await p.locator('.draft-drag-ghost').waitFor();
+ const target=p.locator('.draft-dock [data-drop="take"]');await target.waitFor({state:'visible'});const b=await target.boundingBox();assert.ok(b);
+ await p.screenshot({path:path.join(out,'touch-grab-mobile.png')});
+ for(let n=1;n<=8;n++){await cdps[i].send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:a.x+a.width/2+(b.x+b.width/2-a.x-a.width/2)*n/8,y:a.y+a.height/2+(b.y+b.height/2-a.y-a.height/2)*n/8}]});await sleep(40);}
+ await cdps[i].send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await until(()=>states[i].nextPlan.captainView.claims[work.id]?.team===states[i].viewer.team,'real mobile handle drag');
+ await p.locator('.draft-drag-ghost').waitFor({state:'detached'});assert.equal(await p.locator('body').evaluate(e=>e.classList.contains('draft-drag-active')),false);assert.equal(await target.isVisible(),false);
+ await handle.scrollIntoViewIfNeeded();const cancel=await handle.boundingBox();await cdps[i].send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:cancel.x+cancel.width/2,y:cancel.y+cancel.height/2}]});await p.locator('.draft-drag-ghost').waitFor();await cdps[i].send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});await p.locator('.draft-drag-ghost').waitFor({state:'detached'});assert.equal(await target.isVisible(),false,'cancelled touch does not leave targets over the cards');
+ const grid=p.locator('.draft-candidates'),before=await grid.evaluate(e=>e.scrollTop),box=await grid.boundingBox();
+ const x=box.x+box.width/2,y=box.y+box.height*.7;await cdps[i].send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
+ for(let step=1;step<=8;step++){await cdps[i].send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y:y-step*14}]});await sleep(20);}
+ await cdps[i].send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await sleep(200);assert.ok(await grid.evaluate(e=>e.scrollTop)>before,'normal cover swipe still scrolls instead of picking a card');
+ await p.setViewportSize({width:1440,height:900});await cdps[i].send('Emulation.setTouchEmulationEnabled',{enabled:false});checks.push('real browser touch handle lifts a visible ghost, drops into two-target dock and clears ghost/dock on release');
 }
 async function configureRound(number){
  const size=number%2?'6x6':'5x5',selection=[180,240,300][number%3],interference=[30,60,null][number%3];
  await button(pages[0],'修改设置').click();const dialog=pages[0].getByRole('dialog',{name:'本局设置'});
+ if(states[0].nextPlan.poolSummary.source===0){const picker=dialog.getByLabel('动画作品池',{exact:true});assert.equal(await picker.inputValue(),'');await picker.locator('option[value="all"]').waitFor({state:'attached'});await picker.selectOption('all');}
  await dialog.getByLabel('棋盘',{exact:true}).selectOption(size);await dialog.getByLabel('选牌时间',{exact:true}).selectOption(String(selection));await dialog.getByLabel('干扰时间',{exact:true}).selectOption(interference===null?'unlimited':String(interference));
  if(number<2){for(const width of [1440,390])for(const light of [true,false]){await pages[0].setViewportSize({width,height:width===390?844:900});await pages[0].evaluate(light=>{document.documentElement.classList.toggle('light',light);},light);await shot(0,`round-${number}-settings-${width}-${light?'light':'dark'}`);}await pages[0].setViewportSize({width:1440,height:900});}
  const save=dialog.getByRole('button',{name:/^(保存并返回准备大厅|返回准备大厅)$/});await save.click();await dialog.waitFor({state:'hidden'});
  assert.equal(states[0].nextPlan.settings.animeDraft.selectionSeconds,selection);assert.equal(states[0].nextPlan.settings.animeDraft.interferenceSeconds,interference);
+ assert.equal(catalogRequests[0],0,'opening settings and choosing a preset never downloads the full works catalog');
  await button(pages[0],'进入队长预览 →').click();await until(()=>states[0].nextPlan.stage==='guide','guide');
  for(const i of [0,4]){await tab(pages[i],'准备');await button(pages[i],'确认就绪，开始组牌').click();}
  await until(()=>states[0].nextPlan.stage==='draft','draft');await pages[0].locator('.draft-workspace').waitFor();
  const candidates=states[0].nextPlan.candidates;await dragTake(0,candidates[0]);
+ if(number===0)await touchTake(4,candidates[1]);
  const quota=(team)=>size==='6x6'?(states[0].nextPlan.startingTeam===team?10:9):(states[0].nextPlan.startingTeam===team?7:6);
  for(const i of [0,4]){const team=i===0?'red':'blue';while(Object.values(states[i].nextPlan.captainView.claims).filter(c=>c.team===team&&c.kind==='manual').length<quota(team)){const p=states[i].nextPlan,w=p.candidates.find(w=>!p.captainView.claims[w.id]);await plan(i,'take',{workId:w.id});}}
  if(number<2){await shot(0,`round-${number}-draft-desktop`);await tab(pages[7],'准备');await shot(7,`round-${number}-draft-mobile`);}
- let changed=false,reconnected=false,lastBookmark=0;
+ if(number===0){const badge=pages[7].locator('.draft-public-badge').first();await badge.waitFor();const style=await badge.evaluate(e=>{const s=getComputedStyle(e);return {height:e.getBoundingClientRect().height,left:s.left,color:s.color};});assert.ok(style.height<25);assert.equal(style.left,'auto');assert.notEqual(style.color,'rgb(255, 255, 255)');assert.equal(await pages[7].locator('.draft-grab').count(),0);checks.push('operative selected badges use a compact neutral theme label and reveal no drag controls or team affiliation');}
+ let changed=false,reconnected=false,lastBookmark=0,earlyFinished=false;
  while(states[0].nextPlan.stage==='draft'){
   await pulse();const p=states[0].nextPlan,secondsLeft=(p.endsAt-states[0].serverNow)/1000;
   if(!changed&&secondsLeft<selection-20&&secondsLeft>25){const claims=p.captainView.claims,own=Object.keys(claims).find(id=>claims[id].team==='red'),other=Object.keys(claims).find(id=>claims[id].team==='blue');await plan(0,'take',{workId:Number(other),replaceId:Number(own)});const free=states[4].nextPlan.candidates.find(w=>!states[4].nextPlan.captainView.claims[w.id]);await plan(4,'take',{workId:free.id});changed=true;}
   if(secondsLeft>3&&Date.now()-lastBookmark>15000){await plan(0,'bookmark',{workId:p.candidates[number%p.candidates.length].id});lastBookmark=Date.now();}
   if(!reconnected&&secondsLeft<selection-35&&secondsLeft>30){const participant=states[6].viewer.participantId;await pages[6].evaluate(()=>window.__soakSocket.close());await until(()=>states[0].players.find(p=>p.id===participant)?.connected===false,'drop client');await until(()=>states[6].viewer?.participantId===participant&&states[0].players.find(p=>p.id===participant)?.connected===true,'recover same seat');counters.reconnections++;reconnected=true;}
+  if(number%2===1&&secondsLeft<=selection-120&&secondsLeft>25){await button(pages[0],'组牌完毕').click();await button(pages[0],'取消完成').waitFor();await button(pages[0],'取消完成').click();await button(pages[0],'组牌完毕').click();await button(pages[4],'组牌完毕').click();earlyFinished=true;await until(()=>states[0].nextPlan.stage==='interference','both captains skip remaining selection time');break;}
   await sleep(700);
  }
  assert.equal(states[0].nextPlan.stage,'interference');await pages[0].getByRole('region',{name:'独立干扰阶段'}).waitFor();
@@ -127,6 +150,7 @@ async function configureRound(number){
  }
  while(states[0].nextPlan.stage!=='sealed'){await pulse();await sleep(500);}
  assert.equal(states[0].nextPlan.randomSwapCompleted,true);await button(pages[0],'开始五秒倒计时').click();await until(()=>states.every(s=>s.phase==='playing'),'eight clients playing');
+ assert.equal(await pages[0].getByRole('button',{name:'放大棋盘',exact:true}).count(),0);assert.equal(await pages[0].locator('.anime-board-panel').getByRole('button',{name:'重置视图',exact:true}).count(),0);
  for(let i=0;i<8;i++){
   await tab(pages[i],'棋盘');const cards=pages[i].locator('.anime-board-card');await cards.last().scrollIntoViewIfNeeded();await cards.first().scrollIntoViewIfNeeded();
  }
@@ -143,7 +167,7 @@ async function configureRound(number){
  const coverCheck={round:number+1,size,waitSeconds:(performance.now()-imageStart)/1000,passed:unresolved.length===0,unresolved};coverChecks.push(coverCheck);await log('cover-checks.jsonl',coverCheck);
  assert.equal(unresolved.length,0,'visible board covers must recover within 90 seconds; see cover-checks.jsonl');
  await tab(pages[7],'棋盘');if(number<2)await shot(7,`round-${number}-board-mobile`);
- return {size,selectionSeconds:selection,interferenceSeconds:interference,changed,reconnected};
+ return {size,selectionSeconds:selection,interferenceSeconds:interference,changed,reconnected,earlyFinished};
 }
 async function playNormally(number){
  let turn=0,lastClue=0;
