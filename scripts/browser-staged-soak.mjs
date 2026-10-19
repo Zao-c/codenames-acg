@@ -15,19 +15,20 @@ assert.ok(browser);const pages=[],states=[],cdps=[],acks=Array.from({length:8},(
 const counters={snapshots:0,deltas:0,roomBytes:0,imageResponses:0,imageHttpErrors:0,imageNetworkErrors:0,guesses:0,clues:0,reconnections:0};
 const coverChecks=[];
 const catalogRequests=Array(8).fill(0);
+const receivedAt=Array(8).fill(0);
 let serial=1000000000,started=0,sampling=false,lastChat=0,lastSample=0;const latency=[],uiLatency=[];
 const sleep=ms=>new Promise(r=>setTimeout(r,ms)),button=(p,name)=>p.getByRole('button',{name,exact:true});
 const percentile=(values,p)=>[...values].sort((a,b)=>a-b)[Math.min(values.length-1,Math.floor(values.length*p))]??0;
 async function log(file,value){await fs.appendFile(path.join(out,file),JSON.stringify({at:new Date().toISOString(),...value})+'\n');}
 async function until(fn,label,seconds=45){const end=performance.now()+seconds*1000;while(performance.now()<end){if(await fn())return;await sleep(100);}throw new Error(label);}
-async function wire(i,event,payload,wantAck=true){
+async function wire(i,event,payload,wantAck=true,allowStageChange=false){
  const key=++serial,begin=performance.now();
  const promise=wantAck?new Promise((resolve,reject)=>{const timer=setTimeout(()=>{acks[i].delete(key);reject(new Error(`ACK timeout ${i} ${event}`));},12000);acks[i].set(key,{resolve:value=>{clearTimeout(timer);resolve(value);}});}):undefined;
  await pages[i].evaluate(packet=>{if(window.__soakSocket?.readyState!==1)throw new Error('Browser WebSocket is not connected');window.__soakSocket.send(packet);},`42${wantAck?key:''}${JSON.stringify([event,payload])}`);
  if(!wantAck)return;
- const result=await promise;latency.push(performance.now()-begin);if(latency.length>10000)latency.shift();assert.ok(result?.ok,`${event}: ${result?.message}`);return result;
+ const result=await promise;latency.push(performance.now()-begin);if(latency.length>10000)latency.shift();if(allowStageChange&&!result?.ok&&result?.message?.includes('阶段已更新'))return result;assert.ok(result?.ok,`${event}: ${result?.message}`);return result;
 }
-async function plan(i,kind,extra={}){const p=states[i].nextPlan;await wire(i,'plan_action',{roomId:states[i].id,version:p.version,planId:p.id,stageVersion:p.stageVersion??0,draftProtocol:2,requestId:crypto.randomUUID(),kind,...extra});await sleep(100);}
+async function plan(i,kind,extra={}){const p=states[i].nextPlan;await wire(i,'plan_action',{roomId:states[i].id,version:p.version,planId:p.id,stageVersion:p.stageVersion??0,draftProtocol:2,requestId:crypto.randomUUID(),kind,...extra},true,kind==='bookmark');await sleep(100);}
 async function tab(p,name){const n=p.getByRole('navigation',{name:'房间导航'});if(await n.isVisible())await button(n,name).click();}
 async function shot(i,name){const p=pages[i];await p.evaluate(()=>document.fonts.ready);const dialog=p.getByRole('dialog',{name:'本局设置',exact:true});await p.screenshot({path:path.join(out,name+'.png'),fullPage:!await dialog.isVisible()});assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),name+' overflow');}
 async function sample(label='heartbeat'){
@@ -67,7 +68,7 @@ async function connectEight(){
   });
   p.on('pageerror',e=>{errors.push({i,message:e.message});void log('errors.jsonl',{i,message:e.message});});
   const packet=raw=>{try{
-   if(raw.startsWith('42[')){const [event,data]=JSON.parse(raw.slice(2));if(event==='room_state'||event==='room_state_delta'){states[i]=readRoomState(event,data,states[i]);counters[event==='room_state'?'snapshots':'deltas']++;counters.roomBytes+=Buffer.byteLength(JSON.stringify(data));}}
+   if(raw.startsWith('42[')){const [event,data]=JSON.parse(raw.slice(2));if(event==='room_state'||event==='room_state_delta'){states[i]=readRoomState(event,data,states[i]);receivedAt[i]=performance.now();counters[event==='room_state'?'snapshots':'deltas']++;counters.roomBytes+=Buffer.byteLength(JSON.stringify(data));}}
    const match=raw.match(/^43(\d+)(\[.*)$/s);if(match){const item=acks[i].get(Number(match[1]));if(item){acks[i].delete(Number(match[1]));item.resolve(JSON.parse(match[2])[0]);}}
   }catch(e){errors.push({i,message:'observer: '+e.message});}};
   p.on('websocket',ws=>ws.on('framereceived',frame=>packet(String(frame.payload))));
@@ -113,7 +114,7 @@ async function touchTake(i,work){
 async function configureRound(number){
  const size=number%2?'6x6':'5x5',selection=[180,240,300][number%3],interference=[30,60,null][number%3];
  await button(pages[0],'修改设置').click();const dialog=pages[0].getByRole('dialog',{name:'本局设置'});
- if(states[0].nextPlan.poolSummary.source===0){const picker=dialog.getByLabel('动画作品池',{exact:true});assert.equal(await picker.inputValue(),'');await picker.locator('option[value="all"]').waitFor({state:'attached'});await picker.selectOption('all');}
+ if(states[0].nextPlan.poolSummary.source===0){const picker=dialog.getByLabel('动画作品池',{exact:true});assert.equal(await picker.inputValue(),'');await shot(0,'new-room-empty-pool');await picker.locator('option[value="all"]').waitFor({state:'attached'});await picker.selectOption('all');}
  await dialog.getByLabel('棋盘',{exact:true}).selectOption(size);await dialog.getByLabel('选牌时间',{exact:true}).selectOption(String(selection));await dialog.getByLabel('干扰时间',{exact:true}).selectOption(interference===null?'unlimited':String(interference));
  if(number<2){for(const width of [1440,390])for(const light of [true,false]){await pages[0].setViewportSize({width,height:width===390?844:900});await pages[0].evaluate(light=>{document.documentElement.classList.toggle('light',light);},light);await shot(0,`round-${number}-settings-${width}-${light?'light':'dark'}`);}await pages[0].setViewportSize({width:1440,height:900});}
  const save=dialog.getByRole('button',{name:/^(保存并返回准备大厅|返回准备大厅)$/});await save.click();await dialog.waitFor({state:'hidden'});
@@ -127,12 +128,12 @@ async function configureRound(number){
  const quota=(team)=>size==='6x6'?(states[0].nextPlan.startingTeam===team?10:9):(states[0].nextPlan.startingTeam===team?7:6);
  for(const i of [0,4]){const team=i===0?'red':'blue';while(Object.values(states[i].nextPlan.captainView.claims).filter(c=>c.team===team&&c.kind==='manual').length<quota(team)){const p=states[i].nextPlan,w=p.candidates.find(w=>!p.captainView.claims[w.id]);await plan(i,'take',{workId:w.id});}}
  if(number<2){await shot(0,`round-${number}-draft-desktop`);await tab(pages[7],'准备');await shot(7,`round-${number}-draft-mobile`);}
- if(number===0){const badge=pages[7].locator('.draft-public-badge').first();await badge.waitFor();const style=await badge.evaluate(e=>{const s=getComputedStyle(e);return {height:e.getBoundingClientRect().height,left:s.left,color:s.color};});assert.ok(style.height<25);assert.equal(style.left,'auto');assert.notEqual(style.color,'rgb(255, 255, 255)');assert.equal(await pages[7].locator('.draft-grab').count(),0);checks.push('operative selected badges use a compact neutral theme label and reveal no drag controls or team affiliation');}
+ if(number===0){const badge=pages[7].locator('.draft-public-badge').first();await badge.waitFor();const style=await badge.evaluate(e=>{const s=getComputedStyle(e);return {height:e.getBoundingClientRect().height,rightGap:e.parentElement.getBoundingClientRect().right-e.getBoundingClientRect().right,color:s.color};});assert.ok(style.height<25);assert.ok(style.rightGap>=4&&style.rightGap<=10);assert.notEqual(style.color,'rgb(255, 255, 255)');assert.equal(await pages[7].locator('.draft-grab').count(),0);checks.push('operative selected badges use a compact neutral theme label and reveal no drag controls or team affiliation');}
  let changed=false,reconnected=false,lastBookmark=0,earlyFinished=false;
  while(states[0].nextPlan.stage==='draft'){
-  await pulse();const p=states[0].nextPlan,secondsLeft=(p.endsAt-states[0].serverNow)/1000;
+  await pulse();const p=states[0].nextPlan,secondsLeft=(p.endsAt-states[0].serverNow-(performance.now()-receivedAt[0]))/1000;
   if(!changed&&secondsLeft<selection-20&&secondsLeft>25){const claims=p.captainView.claims,own=Object.keys(claims).find(id=>claims[id].team==='red'),other=Object.keys(claims).find(id=>claims[id].team==='blue');await plan(0,'take',{workId:Number(other),replaceId:Number(own)});const free=states[4].nextPlan.candidates.find(w=>!states[4].nextPlan.captainView.claims[w.id]);await plan(4,'take',{workId:free.id});changed=true;}
-  if(secondsLeft>3&&Date.now()-lastBookmark>15000){await plan(0,'bookmark',{workId:p.candidates[number%p.candidates.length].id});lastBookmark=Date.now();}
+  if(secondsLeft>5&&Date.now()-lastBookmark>15000){await plan(0,'bookmark',{workId:p.candidates[number%p.candidates.length].id});lastBookmark=Date.now();}
   if(!reconnected&&secondsLeft<selection-35&&secondsLeft>30){const participant=states[6].viewer.participantId;await pages[6].evaluate(()=>window.__soakSocket.close());await until(()=>states[0].players.find(p=>p.id===participant)?.connected===false,'drop client');await until(()=>states[6].viewer?.participantId===participant&&states[0].players.find(p=>p.id===participant)?.connected===true,'recover same seat');counters.reconnections++;reconnected=true;}
   if(number%2===1&&secondsLeft<=selection-120&&secondsLeft>25){await button(pages[0],'组牌完毕').click();await button(pages[0],'取消完成').waitFor();await button(pages[0],'取消完成').click();await button(pages[0],'组牌完毕').click();await button(pages[4],'组牌完毕').click();earlyFinished=true;await until(()=>states[0].nextPlan.stage==='interference','both captains skip remaining selection time');break;}
   await sleep(700);

@@ -4,7 +4,7 @@ set -Eeuo pipefail
 umask 077
 sha=${1:?commit SHA required}
 bundle=${2:?absolute bundle path required}
-expected=${3:-a73ad5afb87522ad472b5c4bc2f529e3eec5e169}
+expected=${3:-8c9aa272d74b7379a023fe07249522ae18ffdec7}
 [[ "$sha" =~ ^[0-9a-f]{40}$ && "$expected" =~ ^[0-9a-f]{40}$ && "$bundle" = /opt/* ]] || exit 2
 repo=/opt/codenames-acg
 stage=/opt/codenames-releases/staged-draft-${sha:0:12}-$(date -u +%Y%m%dT%H%M%SZ)

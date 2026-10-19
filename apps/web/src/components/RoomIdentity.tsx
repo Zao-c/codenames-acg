@@ -14,7 +14,7 @@ export function RoomIdentity({room}:{room:PublicRoomState}) {
  let title='好友入座，准备开局';
  let detail=spectator?'你可以聊天、观看公共信息，并按席位状态加入或候补。':'在「我的席位」选择队伍和身份，等待房主开始。';
  if(room.phase==='lobby'&&stage==='guide'){title='双方队长预览中';detail=captain?'浏览候选作品，确认就绪后双方同时开始组牌。':'你可以浏览候选作品，等待双方队长确认。';}
- if(room.phase==='lobby'&&stage==='draft'){title='双方队长同时组牌中';detail=captain?'拖到阵容区领取；拖回候选池撤回。干扰牌需再次确认。':'实时观看匿名公共已选，浏览候选作品；可切换至聊天。';}
+ if(room.phase==='lobby'&&stage==='draft'){title='双方队长同时组牌中';detail=captain?room.nextPlan?.settings.animeDraft?'拖动选牌；双方组牌完毕或计时结束后选择干扰牌。':'拖到阵容区领取；拖回候选池撤回。干扰牌需再次确认。':'实时观看匿名公共已选，浏览候选作品；可切换至聊天。';}
  if(room.phase==='lobby'&&stage==='sealed'){title='组牌已封存';detail='等待房主发起五秒开局。';}
  if(room.countdown){title='即将开始对局';detail='倒计时结束后自动进入棋盘。';}
  if(room.phase==='playing'){
