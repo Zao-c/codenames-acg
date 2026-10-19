@@ -14,6 +14,7 @@ let browser;for(const channel of ['chromium','msedge','chrome'])try{browser=awai
 assert.ok(browser);const pages=[],states=[],cdps=[],acks=Array.from({length:8},()=>new Map()),checks=[],errors=[],rounds=[];
 const counters={snapshots:0,deltas:0,roomBytes:0,imageResponses:0,imageHttpErrors:0,imageNetworkErrors:0,guesses:0,clues:0,reconnections:0};
 const coverChecks=[];
+const coverFaults=[],blockedGuessLatency=[];let coverFaultActive=false;
 const catalogRequests=Array(8).fill(0);
 const receivedAt=Array(8).fill(0);
 let serial=1000000000,started=0,sampling=false,lastChat=0,lastSample=0;const latency=[],uiLatency=[];
@@ -198,7 +199,7 @@ async function playNormally(number){
   await pages[ci].getByPlaceholder('例如：机甲 / 学园 / 主角团').fill(`长测${number}回合${turn}`);await pages[ci].getByLabel('数字',{exact:true}).fill('2');await button(pages[ci],'提交提示').click();await until(()=>!!states[0].clue,'submitted actual clue');lastClue=performance.now();counters.clues++;
   for(let k=0;k<2&&states[0].phase==='playing'&&states[0].currentTeam===team;k++){
    const card=states[ci].board.find(c=>!c.revealed&&c.role===team);assert.ok(card);const begin=performance.now();
-   await pages[oi].locator('.anime-board-card').nth(states[0].board.findIndex(c=>c.id===card.id)).click();const dialog=pages[oi].getByRole('dialog').last();await button(dialog,'猜牌').click();await button(dialog,'确认猜牌').click();await until(()=>states[0].board.find(c=>c.id===card.id).revealed,'actual UI guess');uiLatency.push(performance.now()-begin);counters.guesses++;await sleep(1000);
+   await pages[oi].locator('.anime-board-card').nth(states[0].board.findIndex(c=>c.id===card.id)).click();const dialog=pages[oi].getByRole('dialog').last();await button(dialog,'猜牌').click();await button(dialog,'确认猜牌').click();await until(()=>states[0].board.find(c=>c.id===card.id).revealed,'actual UI guess');uiLatency.push(performance.now()-begin);if(coverFaultActive&&oi===1)blockedGuessLatency.push(performance.now()-begin);counters.guesses++;await sleep(1000);
   }
   if(states[0].phase==='playing'&&states[0].currentTeam===team){await wire(oi,'end_turn',{roomId:states[0].id},false);await until(()=>states[0].currentTeam!==team,'end turn');}
  }
@@ -208,12 +209,23 @@ try{
  await connectEight();started=performance.now();lastSample=Date.now();await fs.writeFile(path.join(out,'started.json'),JSON.stringify({startedAt:new Date().toISOString(),targetSeconds:duration,eightContexts:true,compiled:true},null,2));await sample('start');
  let number=0;
  do{
-  const begin=performance.now(),match=await configureRound(number);await playNormally(number);
+  const begin=performance.now(),match=await configureRound(number);
+  if(number===0&&process.env.COVER_FAULT_PROBE==='1'){
+   await pages[1].route('**/*',route=>route.request().resourceType()==='image'&&(/lain\.(bgm|bangumi)\.tv|\.cos\.[a-z0-9-]+\.myqcloud\.com|\/api\/anime\/cover\//.test(route.request().url()))?route.abort():route.continue());
+   await pages[1].reload();await until(()=>states[1].phase==='playing'&&!!states[1].viewer,'blocked-image same-seat recovery');await pages[1].locator('.anime-board-card').first().waitFor();coverFaultActive=true;
+  }
+  await playNormally(number);
+  if(coverFaultActive){
+   assert.ok(blockedGuessLatency.length>0,'real operative guesses were confirmed while all cover sources were blocked');assert.ok(percentile(blockedGuessLatency,.95)<3000,'cover failure must not gate guessing');
+   const missing=await pages[1].locator('.anime-board-card img').evaluateAll(images=>images.filter(i=>!i.naturalWidth).length);assert.ok(missing>0);await shot(1,'guessing-with-all-cover-sources-blocked');
+   await pages[1].unroute('**/*');await pages[1].reload();await pages[1].locator('.anime-board-card').first().waitFor();await until(async()=>await pages[1].locator('.anime-board-card img').evaluateAll(images=>images.filter(i=>{const r=i.getBoundingClientRect();return r.width&&r.height&&r.top<innerHeight&&r.bottom>0;}).every(i=>i.complete&&i.naturalWidth>0)),'visible covers recover after unblocking',90);await shot(1,'covers-recovered-after-unblocking');
+   coverFaults.push({allSourcesBlocked:true,actualOperativeGuesses:blockedGuessLatency.length,uiGuessP95Ms:percentile(blockedGuessLatency,.95),recovered:true});checks.push('operative confirms real guesses with BGM/COS/local covers blocked; names and team/reveal states stay usable; images recover after unblocking');coverFaultActive=false;
+  }
   rounds.push({number:++number,...match,seconds:(performance.now()-begin)/1000,winner:states[0].winner});await log('rounds.jsonl',rounds.at(-1));await sample('completed-game');
   if(number<=2)await shot(0,`round-${number}-result`);await button(pages[0],'返回房间').click();await until(()=>states.every(s=>s.phase==='lobby'),'one-click return all eight');
  }while(performance.now()-started<duration*1000);
  const elapsed=(performance.now()-started)/1000;await sample('final');assert.deepEqual(errors,[]);assert.ok(rounds.length>0);assert.ok(elapsed>=duration);
- const report={passed:true,threeHourComplete:full&&elapsed>=10800,requestedSeconds:duration,elapsedSeconds:elapsed,players:8,browserContexts:8,compiled:true,checks,rounds,counters,coverChecks,ackMs:{p50:percentile(latency,.5),p95:percentile(latency,.95),max:Math.max(0,...latency)},uiGuessMs:{p95:percentile(uiLatency,.95)},errors,scope:full?'Real wall-clock three-hour multi-game run; ordinary drafting uses real 180/240/300 second deadlines.':'Short diagnostic only; this is not a three-hour acceptance.'};
+ const report={passed:true,threeHourComplete:full&&elapsed>=10800,requestedSeconds:duration,elapsedSeconds:elapsed,players:8,browserContexts:8,compiled:true,checks,rounds,counters,coverChecks,coverFaults,ackMs:{p50:percentile(latency,.5),p95:percentile(latency,.95),max:Math.max(0,...latency)},uiGuessMs:{p95:percentile(uiLatency,.95)},errors,scope:full?'Real wall-clock three-hour multi-game run; ordinary drafting uses real 180/240/300 second deadlines.':'Short diagnostic only; this is not a three-hour acceptance.'};
  await fs.writeFile(path.join(out,'report.json'),JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));
 }catch(error){
  await fs.writeFile(path.join(out,'failure.json'),JSON.stringify({passed:false,threeHourComplete:false,message:error.stack,elapsedSeconds:started?(performance.now()-started)/1000:0,counters,errors,rounds},null,2));
