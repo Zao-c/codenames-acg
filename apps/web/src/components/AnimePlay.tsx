@@ -5,7 +5,7 @@ export { AnimeBoard } from './AnimeBoard';
 import { Dialog } from './UI';
 import { DraftWorkspace } from './DraftWorkspace';
 import type { DropAction } from './DraftTile';
-import { getAnimeCatalog, getPlanPool, getPublicWordPackDetail, getCommunityPool, listCommunityPools } from '../lib/api';
+import { getAnimeCatalog, getPlanPool, getPlanPoolPreview, getPublicWordPackDetail, getCommunityPool, listCommunityPools } from '../lib/api';
 import { privateIdentityKey } from '../lib/private-identity';
 import { useNavigate } from 'react-router-dom';
 import type { CommunityPoolSummary } from '@acg-codenames/shared';
@@ -69,6 +69,14 @@ export function NextMatchPanel({ room, mode = 'full', onConfigured, embedded=fal
   const [communityPools, setCommunityPools] = useState<CommunityPoolSummary[]>([]);
   const [poolPreview,setPoolPreview]=useState(false);
   const [previewWorks,setPreviewWorks]=useState<AnimeWork[]>([]),[previewBusy,setPreviewBusy]=useState(false),[previewError,setPreviewError]=useState('');
+  const [previewRetry,setPreviewRetry]=useState(0);
+  const [overviewCovers,setOverviewCovers]=useState<AnimeWork[]>([]),[overviewBusy,setOverviewBusy]=useState(false),[overviewError,setOverviewError]=useState('');
+  useEffect(()=>{
+    if(mode!=='settings'||variant!=='anime'||poolId!=='current'||!plan)return;
+    let live=true;setOverviewBusy(true);setOverviewError('');setOverviewCovers([]);
+    getPlanPoolPreview(room.id,plan.id,plan.version).then(value=>{if(live)setOverviewCovers(value.works);}).catch(error=>{if(live)setOverviewError(error.message);}).finally(()=>{if(live)setOverviewBusy(false);});
+    return()=>{live=false;};
+  },[mode,variant,poolId,room.id,plan?.id,plan?.version,previewRetry]);
   useEffect(()=>{
     if(!poolPreview||!plan)return;
     let live=true;setPreviewBusy(true);setPreviewError('');setPreviewWorks([]);
@@ -251,14 +259,24 @@ export function NextMatchPanel({ room, mode = 'full', onConfigured, embedded=fal
         {plan.stage === 'sealed' && <p className="draft-sealed">准备已封存，等待房主五秒开局。{plan.randomSwapCompleted?'已完成随机互换。':''}</p>}
         {room.viewer?.isHost && plan.stage !== 'planning' && !room.countdown && <button onClick={() => { if (window.confirm('取消本次准备并保留配置？')) send({kind:'cancel'}); }}>取消本次准备</button>}
   </>;
-  const content = <div className="next-plan-content">
+  const poolOverview=useMemo(()=>{
+    if(poolId==='current')return {name:plan?.poolName??'当前作品池',works:overviewCovers,source:plan?.poolSummary?.source,series:plan?.poolSummary?.series,excluded:seriesRotation===plan?.settings.animeSeriesRotation?plan?.poolSummary?.excluded:seriesRotation?undefined:0};
+    const community=communityPools.find(p=>poolId===`community:${p.id}`),pool=[...pools,...savedPools].find(p=>p.id===poolId);
+    const ids=poolId==='custom'?customIds:community?.previewWorkIds??pool?.workIds??[];
+    const selected=new Set(ids),works=catalog.filter(w=>selected.has(w.id));
+    return {name:poolId==='custom'?poolName:community?.name??pool?.name??'请选择作品池',works,source:community?.workCount??ids.length,series:community?.seriesCount??new Set(works.map(w=>w.seriesId)).size,excluded:seriesRotation?undefined:0};
+  },[poolId,plan?.poolName,plan?.poolSummary,plan?.settings.animeSeriesRotation,overviewCovers,communityPools,pools,savedPools,customIds,catalog,poolName,seriesRotation]);
+  const content = <div className={`next-plan-content ${mode==='settings'?'settings-layout':''}`}>
       {mode !== 'preview' && room.viewer?.isHost && !locked && !room.countdown && <details className="anime-config" open={mode === 'settings' || !plan || (room.phase !== 'playing' && plan.stage === 'planning')}>
         <summary>配置{room.phase === 'playing' ? '下一局' : '本次准备'}</summary>
+        {mode==='settings'&&<header className="settings-editor-heading"><h3>修改本局设置</h3><span className="tag">房主专用</span></header>}
+        <section className="settings-core"><h4>核心玩法</h4>
         <div className="anime-toolbar"><label>玩法 <select aria-label="玩法" value={variant} onChange={e => { setVariant(e.target.value as 'classic'|'anime'); if(e.target.value==='anime'&&plan?.variant!=='anime'){setRandomSwap(true);setSeriesRotation(true);} setSize('5x5'); }}><option value="classic">经典词牌</option><option value="anime">动画组牌</option></select></label>
           <label>棋盘 <select aria-label="棋盘" value={size} onChange={e => setSize(e.target.value as BoardMode)}>{(variant === 'anime' ? ['5x5','6x6'] : ['5x5','7x7','9x9']).map(s => <option key={s}>{s}</option>)}</select></label>
           <label>计分 <select aria-label="下一局计分" value={score === 'gamble' ? 'scoring' : score} onChange={e => setScore(e.target.value as typeof score)}><option value="classic">胜场制</option><option value="scoring">积分制</option></select></label>
+          {mode==='settings'&&variant==='anime'&&<label>选牌时间<output className="settings-readonly">180 秒</output></label>}
         </div>
-        {variant==='anime'&&<div className="anime-option-flags"><label><input type="checkbox" checked={randomSwap} onChange={e=>setRandomSwap(e.target.checked)}/>随机互换 A · 封存时双方各一张</label><label><input type="checkbox" checked={seriesRotation} onChange={e=>setSeriesRotation(e.target.checked)}/>历局作品轮换 · 排除已玩系列</label></div>}
+        </section><section className="settings-pool"><h4>{variant==='anime'?'动画作品池':'文字题库'}</h4>
         {variant === 'classic' ? <><label>文字题库 <select value={wordPackId} onChange={e => setWordPackId(e.target.value)}><option value="">沿用上次</option>{wordPackSummaries.map(p => <option key={p.id} value={`builtin:${p.id}`}>{p.name}</option>)}{accountPacks.map(p => <option key={p.id} value={`mine:${p.id}`}>{p.name}</option>)}{publicPacks.map(p => <option key={p.publicId} value={`public:${p.publicId}`}>{p.name} · {p.ownerUsername}</option>)}{uploadedPack&&<option value="upload">上传：{uploadedPack.name}</option>}</select></label>{mode==='settings'&&<label>上传文字题库<input type="file" accept=".txt,.json" onChange={async e=>{const file=e.target.files?.[0];if(!file)return;try{const data=await parseCustomWordFile(file);setUploadedPack(data.kind==='candidate'?autoExportCandidatePack(data.pack):data.pack);setWordPackId('upload');setError('');}catch(error){setError((error as Error).message);}}}/></label>}</> : <>
           <label>动画作品池 <select aria-label="动画作品池" aria-busy={catalogState==='loading'} disabled={catalogState==='loading'} value={poolId} onChange={e => {setPoolId(e.target.value);setError('');}}> {!poolId&&<option value="">作品池失效，请重新选择</option>}{plan?.variant === 'anime' && <option value="current">沿用：{plan.poolName}</option>}{[...pools,...savedPools].map(p => <option key={p.id} value={p.id}>{p.name}（{p.workIds.length} 部{(sourceSeriesCounts.get(p.id)??0)<BOARD_MODE_CONFIG[size].size?' · 系列不足，建议合并年份':''}）</option>)}{communityPools.map(p => <option key={`community:${p.id}`} value={`community:${p.id}`}>社区 · {p.name}（{p.workCount} 部）</option>)}<option value="custom">自定义作品池</option></select></label>
           {catalogState==='loading'&&<p className="hint-text" role="status">正在读取作品目录…</p>}{catalogState==='error'&&<button onClick={()=>{setError('');setCatalogRetry(n=>n+1);}}>重试读取目录</button>}
@@ -270,11 +288,16 @@ export function NextMatchPanel({ room, mode = 'full', onConfigured, embedded=fal
           </div>}
           {savedPools.some(p => p.id === poolId) && <><button onClick={() => { const p = savedPools.find(p => p.id === poolId)!; setCustomIds(p.workIds); setPoolName(p.name); setPoolId('custom'); }}>编辑此题库</button><button onClick={() => { const next = savedPools.filter(p => p.id !== poolId); setSavedPools(next); localStorage.setItem(storageKey,JSON.stringify(next)); setPoolId('all'); }}>删除此题库</button></>}
         </>}
+        {mode==='settings'&&variant==='anime'&&<div className="settings-selected-pool"><div className="settings-cover-strip" aria-label="已选作品池封面">{poolOverview.works.slice(0,3).map(work=><span className="settings-cover" key={work.id}><Cover work={work}/></span>)}</div><div><strong>{poolOverview.name}</strong><small>{poolOverview.source??'—'} 部 · {dirty?'草稿，尚未保存':'已选择，已保存'}</small></div>{plan?.variant==='anime'&&<button onClick={()=>setPoolPreview(true)}>查看作品</button>}</div>}
+        </section><section className="settings-extra"><h4>额外规则</h4>
+        {variant==='anime'&&<div className="anime-option-flags"><label className="settings-switch"><span><strong>随机互换</strong><small>封存时双方各互换一张</small></span><input type="checkbox" role="switch" aria-label="随机互换" checked={randomSwap} onChange={e=>setRandomSwap(e.target.checked)}/></label><label className="settings-switch"><span><strong>历局不重复</strong><small>排除本房间已经玩过的作品系列</small></span><input type="checkbox" role="switch" aria-label="历局作品轮换" checked={seriesRotation} onChange={e=>setSeriesRotation(e.target.checked)}/></label></div>}
         {mode==='settings'&&variant==='classic'&&<details className="v2-advanced"><summary>经典进阶设置</summary><label>回合计时<select aria-label="经典回合计时" value={advanced.timerMode} onChange={e=>setAdvanced(v=>({...v,timerMode:e.target.value as 'timed'|'unlimited'}))}><option value="unlimited">不限时</option><option value="timed">限时</option></select></label>{advanced.timerMode==='timed'&&(['timerClueSeconds','timerGuessSeconds'] as const).map((k,i)=><label key={k}>{i?'猜词时间':'提示时间'}<select value={advanced[k]} onChange={e=>setAdvanced(v=>({...v,[k]:Number(e.target.value)}))}>{[60,90,120].map(n=><option key={n} value={n}>{n} 秒</option>)}</select></label>)}<label>翻牌显示<select aria-label="经典翻牌显示" value={advanced.flipMode} onChange={e=>setAdvanced(v=>({...v,flipMode:e.target.value as 'word-color'|'color-only'}))}><option value="word-color">词语与阵营</option><option value="color-only">仅阵营颜色</option></select></label></details>}
-        {mode==='settings'&&variant==='anime'&&<p className="hint-text">选牌时长：180 秒；干扰牌仍在选牌期间投放。独立干扰阶段与新时长未启用。</p>}
+        {mode==='settings'&&variant==='anime'&&<div className="settings-fixed-rule"><span>干扰方式</span><strong>选牌期间 · 每队一张</strong></div>}
+        </section>
         <div className="settings-actions">{mode==='settings'&&<button disabled={configuring} onClick={onCancel}>取消</button>}<button className="primary-button" disabled={configuring||(mode!=='settings'||dirty)&&needsCatalog&&catalogState==='loading'} onClick={configure}>{configuring?'保存中／核对服务端版本…':mode==='settings'?uncertain?'核对最新状态':dirty?'保存并返回准备大厅':'返回准备大厅':'保存配置并更新候选池'}</button></div>{configNotice&&<p role="status" className="hint-text">{configNotice}</p>}
       </details>}
-      {plan?.variant==='anime'&&room.viewer?.isHost&&<div className="pool-current-summary"><strong>{plan.poolName}</strong><p>作品 {plan.poolSummary?.source} · 系列 {plan.poolSummary?.series} · 历局排除 {plan.poolSummary?.excluded} · 当前可用 {plan.poolSummary?.available} / 需要 {plan.poolSummary?.required}</p><button onClick={()=>setPoolPreview(true)}>查看当前作品池</button>{plan.stage==='planning'&&room.phase!=='playing'&&<button onClick={()=>{if(window.confirm('重置本房间已玩系列记录？下一局可能再次出现之前玩过的作品；原作品池不会被删除。'))send({kind:'reset-series-history'});}}>重置本房间轮换历史</button>}</div>}
+      {mode==='settings'&&<aside className="settings-overview"><section className="settings-pool-overview"><header><h3>{variant==='anime'?'作品池概览':'本局规则'}</h3><span className="tag">{variant==='anime'?poolOverview.name:'经典词牌'}</span></header>{variant==='anime'?<><div className="settings-preview-covers" aria-label="作品池预览封面">{poolOverview.works.slice(0,4).map(work=><span className="settings-cover" key={work.id}><Cover work={work}/></span>)}</div>{poolId==='current'&&overviewBusy&&<p role="status" className="hint-text">正在读取封面…</p>}{poolId==='current'&&overviewError&&<p role="alert">{overviewError}<button onClick={()=>setPreviewRetry(n=>n+1)}>重试预览</button></p>}<dl className="settings-pool-stats"><div><dd>{poolOverview.source??'—'}</dd><dt>作品</dt></div><div><dd>{poolOverview.series??'—'}</dd><dt>系列</dt></div><div><dd>{poolOverview.excluded??'待核算'}</dd><dt>历局排除</dt></div></dl>{plan?.variant==='anime'&&<><button onClick={()=>setPoolPreview(true)}>查看当前作品池</button>{plan.stage==='planning'&&room.phase!=='playing'&&<button className="v2-text-button" onClick={()=>{if(window.confirm('重置本房间已玩系列记录？下一局可能再次出现之前玩过的作品；原作品池不会被删除。'))send({kind:'reset-series-history'});}}>重置本房间轮换历史</button>}</>}{poolId!=='current'&&<p className="hint-text">预览为当前草稿；保存后由服务器核算可用系列。浏览和轮换历史操作对应已保存的作品池。</p>}</>:<p>棋盘 {size.replace('x','×')} · {score==='classic'?'胜场制':'积分制'} · {advanced.timerMode==='timed'?'限时回合':'不限时回合'}</p>}</section><section className="settings-sharing-note"><h3>设置如何显示给队友？</h3><p>保存后，准备大厅的「本局玩法」会同步显示玩法、棋盘、题库和额外规则，所有成员都能查看。</p></section></aside>}
+      {mode!=='settings'&&plan?.variant==='anime'&&room.viewer?.isHost&&<div className="pool-current-summary"><strong>{plan.poolName}</strong><p>作品 {plan.poolSummary?.source} · 系列 {plan.poolSummary?.series} · 历局排除 {plan.poolSummary?.excluded} · 当前可用 {plan.poolSummary?.available} / 需要 {plan.poolSummary?.required}</p><button onClick={()=>setPoolPreview(true)}>查看当前作品池</button>{plan.stage==='planning'&&room.phase!=='playing'&&<button onClick={()=>{if(window.confirm('重置本房间已玩系列记录？下一局可能再次出现之前玩过的作品；原作品池不会被删除。'))send({kind:'reset-series-history'});}}>重置本房间轮换历史</button>}</div>}
       {mode !== 'settings' && plan && <>
         <DraftWorkspace plan={plan} team={team} time={time} remaining={remaining} controls={mode === 'preview' ? null : controls} works={visible} query={query} setQuery={setQuery} typeFilter={typeFilter} setTypeFilter={setTypeFilter} claimFilter={claimFilter} setClaimFilter={setClaimFilter} onlyBookmarks={onlyBookmarks} setOnlyBookmarks={setOnlyBookmarks}
           onDrop={dropWork} onPreview={setPreview} replacement={replacement} onChooseReplacement={setReplacement} onBookmark={team ? w=>send({kind:'bookmark',workId:w.id}) : undefined}/>
@@ -315,7 +338,7 @@ export function NextMatchPanel({ room, mode = 'full', onConfigured, embedded=fal
   return <section className={`panel next-match-panel ${room.phase==='playing'?'next-plan-during-game':''} ${plan?.variant==='anime'?'has-anime-plan':''}`}>
 
     {mode === 'full' && !embedded && <div className="panel-heading"><div><p className="eyebrow">{room.phase==='playing'?'下一局 · 独立准备':'准备工作区'}</p><h2>{room.phase==='playing'?'下一局计划':'玩法与组牌'}</h2></div><button onClick={()=>setOpen(!open)}>{open?'收起准备':'查看准备'}</button></div>}
-    {!plan && !room.viewer?.isHost && <div className="plan-readonly"><strong>经典词牌 · {room.settings.boardMode}</strong><p>{room.wordPackSummary.name}</p><p className="hint-text">社长正在配置玩法。选择队伍与席位后，等待社长开局。</p></div>}
+    {!plan && !room.viewer?.isHost && <div className="plan-readonly"><strong>经典词牌 · {room.settings.boardMode}</strong><p>{room.wordPackSummary.name}</p><p className="hint-text">房主正在配置玩法。选择队伍与席位后，等待房主开局。</p></div>}
     {plan && room.phase!=='playing' && <p className="hint-text">{plan.variant==='anime'?'动画组牌':'经典词牌'} · {plan.settings.boardMode} · {plan.poolName} · {TEAM_LABELS[plan.startingTeam]}先手</p>}
     {open && (!embedded && room.phase==='playing'?<Dialog title="下一局计划" close={()=>setOpen(false)} wide>{content}</Dialog>:content)}
     {overlay}

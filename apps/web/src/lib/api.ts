@@ -13,6 +13,7 @@ export function getAnimeCatalog(): Promise<AnimeCatalog> { const key=privateIden
 export function getHomeCovers() { return homeCache.get('public',()=>request<{works:Pick<AnimeWork,'id'|'title'|'fullTitle'|'cover'>[]}>('/api/anime/home-covers')); }
 async function catalogMutation<T>(operation:Promise<T>) { const value=await operation;catalogCache.clear();return value; }
 export function getPlanPool(roomId:string,planId:string,version:number):Promise<{planId:string;version:number;works:AnimeWork[]}>{return request(`/api/rooms/${encodeURIComponent(roomId)}/plan-pool?${new URLSearchParams({planId,version:String(version)})}`,{headers:communityHeaders()});}
+export function getPlanPoolPreview(roomId:string,planId:string,version:number):Promise<{planId:string;version:number;works:AnimeWork[]}>{return request(`/api/rooms/${encodeURIComponent(roomId)}/plan-pool?${new URLSearchParams({planId,version:String(version),preview:'1'})}`,{headers:communityHeaders()});}
 export function listManualWorks(scope: 'mine'|'public' = 'mine', q = '', page = 1): Promise<import('@acg-codenames/shared').ManualAnimePage> {
   return request(`/api/anime/manual?${new URLSearchParams({ scope, q, page: String(page) })}`, { headers: communityHeaders() });
 }
