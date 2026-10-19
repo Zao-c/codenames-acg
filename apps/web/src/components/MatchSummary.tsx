@@ -1,11 +1,10 @@
 import { RoundHistory } from './RoundHistory';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TEAM_LABELS, type PublicRoomState } from '@acg-codenames/shared';
 import { useGame } from '../context/GameContext';
 import { AvatarBadge } from './AvatarBadge';
 import { Dialog } from './UI';
-import { NextMatchPanel } from './AnimePlay';
 import { AnimeBoard } from './AnimeBoard';
 import { PrivateReview } from './PrivateReview';
 
@@ -21,24 +20,24 @@ export function MatchManagement(){
 }
 
 export function MatchResult({room}:{room:PublicRoomState}) {
-  const g=useGame();const navigate=useNavigate();const [next,setNext]=useState(false);
-  const anime=room.nextPlan?.variant==='anime'||room.settings.variant==='anime';
+  const g=useGame();const navigate=useNavigate();const [returning,setReturning]=useState(false);
+  const returnToRoom=()=>{if(returning)return;setReturning(true);g.socket.emit('return_to_lobby',{roomId:room.id});};
+  useEffect(()=>{if(g.error)setReturning(false);},[g.error]);
+  useEffect(()=>{if(!returning)return;const timer=setTimeout(()=>setReturning(false),8000);return()=>clearTimeout(timer);},[returning]);
   return <section className="match-result">
     <header className="result-room-strip"><strong className="room-code">{room.id}</strong><span className="soft-chip">第 {room.roundNumber} 局 · {room.settings.variant==='anime'?'动画组牌':'经典词牌'} · {room.settings.boardMode}</span></header>
     <section className={`result-hero-card winner-${room.winner??'none'}`}>
       <p className="eyebrow">MATCH COMPLETE · 第 {room.roundNumber} 局</p>
       <h1>{room.endReason==='aborted'?'本局已中止':room.winner?`${TEAM_LABELS[room.winner]}${room.endReason==='forfeit'?'获胜 · 对方认输':'胜利'}`:'对局结束'}</h1><p className="hint-text">{room.lastEvent}</p>
       <div className="result-team-scores"><div className="red"><span>红队</span><strong>{room.scores.red}</strong></div><span>—</span><div className="blue"><span>蓝队</span><strong>{room.scores.blue}</strong></div></div>
-      <div className="result-main-actions">{anime?<button className="primary-button" onClick={()=>setNext(true)}>准备下一局</button>:room.viewer?.canRestartGame&&<button className="primary-button" onClick={g.restartGame}>再来一局</button>}{room.replayId?<button onClick={()=>navigate(`/replay/${room.replayId}`)}>查看本局复盘</button>:<span className="hint-text">复盘生成中…</span>}</div>
+      <div className="result-main-actions">{room.viewer?.canReturnToLobby?<button className="primary-button" disabled={returning} onClick={returnToRoom}>{returning?'正在返回房间…':'返回房间'}</button>:<span className="hint-text">等待房主返回房间，即可重新分队与准备。</span>}{room.replayId?<button onClick={()=>navigate(`/replay/${room.replayId}`)}>查看本局复盘</button>:<span className="hint-text">复盘生成中…</span>}</div>
     </section>
     <section className="panel result-board" aria-label="本局终局棋盘"><div className="result-board-heading"><h2>本局棋盘</h2><p className="hint-text">已翻标记为实际翻牌；未翻卡的阵营仅为赛后归属。</p></div>{room.settings.variant==='anime'?<AnimeBoard room={room}/>:<div className="result-classic-board" style={{gridTemplateColumns:`repeat(${Number(room.settings.boardMode[0])},minmax(0,1fr))`}}>{room.board.map(c=><div className={`card-tile result-classic-card role-${c.role} ${c.revealed?'is-revealed':''}`} key={c.id}><strong>{c.word}</strong><small>{c.revealed?'已翻':'未翻 · 赛后归属'} · {c.role==='red'?'红队':c.role==='blue'?'蓝队':c.role==='neutral'?'中立':'刺客'}</small></div>)}</div>}</section>
     <div className="result-two-columns"><section className="panel"><h2>本局称号</h2><div className="result-honors">{room.achievements?.map(a=><article key={a.id}><strong>{a.title}</strong><small>{a.nickname} · {a.description}</small></article>)}</div>{!room.achievements?.length&&<p className="hint-text">本局暂无称号，默契留待下一局。</p>}</section><ResultHighlights room={room}/></div>
-    <section className="result-next-entry"><div><h2>下一局计划</h2><p>选择玩法、队长与作品池，进入完整工作区继续准备。</p></div><button onClick={()=>setNext(true)}>{anime?'打开下一局设置':'准备下一局'}</button></section>
     <PrivateReview room={room}/>
     <RoundHistory records={room.clueRecords??[]}/>
     <details className="panel result-fold"><summary>详细积分</summary>{room.roundScoreHistory?.map((s,i)=><p key={i}>回合 {i+1} · {TEAM_LABELS[s.team]} · {s.totalRound} 分（己方 +{s.ownPoints} / 中立 -{s.neutralPenalty} / 刺客 -{s.assassinPenalty} / 超时 -{s.timeoutPenalty??0} / 精准 +{s.precisionBonus} / 胜利 +{s.victoryBonus}）</p>)}</details>
     {g.error&&<p className="error-text" role="alert">{g.error}</p>}
-    {next&&<Dialog title="下一局计划" close={()=>setNext(false)} wide><NextMatchPanel room={room} embedded/></Dialog>}
   </section>;
 }
 
