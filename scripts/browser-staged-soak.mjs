@@ -154,7 +154,7 @@ async function configureRound(number){
   const work=(i===4?data.works.find(w=>p.candidates.some(c=>c.id===w.id)):data.works.find(w=>!p.candidates.some(c=>c.id===w.id)))??data.works[0];assert.ok(work);
   await pages[i].getByLabel('搜索干扰作品').fill(work.fullTitle);const choose=pages[i].locator('.draft-candidates').getByRole('button',{name:work.title,exact:true});await choose.waitFor();await until(async()=>await choose.locator('..').locator('.draft-grab').count()>0,'interference search');
   if(i===0){
-   await choose.scrollIntoViewIfNeeded();const source=await choose.boundingBox(),target=await pages[i].locator('.draft-drop-zones [data-drop="interfere"]').boundingBox();assert.ok(source&&target);
+   const zone=pages[i].locator('.draft-drop-zones [data-drop="interfere"]');await zone.scrollIntoViewIfNeeded();await choose.scrollIntoViewIfNeeded();const source=await choose.boundingBox(),target=await zone.boundingBox();assert.ok(source&&target);assert.ok(target.y+target.height/2<pages[i].viewportSize().height,'drag target must be inside the viewport');
    await pages[i].mouse.move(source.x+source.width/2,source.y+source.height/2);await pages[i].mouse.down();await pages[i].mouse.move(target.x+target.width/2,target.y+target.height/2,{steps:15});
    assert.equal(await pages[i].locator('.draft-drag-ghost').count(),1);if(number<2)await shot(i,`round-${number}-interference-grab`);await pages[i].mouse.up();
   }else await choose.click();
