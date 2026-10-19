@@ -1,3 +1,4 @@
+import {planActionEnvelope} from '../lib/plan-action';
 import { useNavigate } from 'react-router-dom';
 import { MemberManagement, canManageMembers, useMemberManagement } from './MemberManagement';
 import { RoomIdentity } from './RoomIdentity';
@@ -30,7 +31,7 @@ export function PreparationLobby({room}:{room:PublicRoomState}) {
   const plan = room.nextPlan;
   const stage = plan?.stage ?? 'planning';
   const host = room.viewer?.isHost;
-  const locked = !!room.countdown || stage === 'sealed' || stage === 'draft';
+  const locked = !!room.countdown || stage === 'sealed' || stage === 'draft' || stage==='interference';
   const anime = plan?.variant === 'anime';
   const config = plan?.settings ?? room.settings;
   const self = room.players.find(p=>p.id===room.viewer?.participantId);
@@ -41,18 +42,18 @@ export function PreparationLobby({room}:{room:PublicRoomState}) {
   const offlineCaptains=(['red','blue'] as const).filter(t=>!room.players.some(p=>p.id===captain(t)&&(p.connected||p.isBot)));
   const myTeam = plan?.myTeam;
   const ready = myTeam ? plan?.captainView?.ready[myTeam] : false;
-  const send = (action:Omit<PlanAction,'roomId'|'version'>) => g.socket.emit('plan_action',{roomId:room.id,version:plan?.version,...action});
+  const send = (action:Omit<PlanAction,'roomId'|'version'>) => g.socket.emit('plan_action',planActionEnvelope(room,action));
   useEffect(()=>{if(stage!=='guide')setPreview(false);},[stage]);
   useEffect(()=>{g.setSideTab('chat');},[]);
   let title = anime ? '下一步：队长预览' : '下一步：开始对局';
-  let description = !balanced ? '至少 4 名玩家，每队至少 2 人。邀请好友并完成分队。' : missing.length ? `请先指定${missing.map(t=>TEAM_LABELS[t]).join('、')}队长。` : anime ? '双方队长先浏览候选作品，确认后再开始 180 秒组牌。' : '队伍与设置已就位，由房主发起五秒开局。';
+  let description = !balanced ? '至少 4 名玩家，每队至少 2 人。邀请好友并完成分队。' : missing.length ? `请先指定${missing.map(t=>TEAM_LABELS[t]).join('、')}队长。` : anime ? `双方队长先浏览候选作品，确认后再开始 ${config.animeDraft?.selectionSeconds??180} 秒组牌。` : '队伍与设置已就位，由房主发起五秒开局。';
   let label = host ? anime ? '进入队长预览 →' : '开始游戏' : '等待房主开始';
   let action = () => anime ? send({kind:'prepare'}) : g.startGame();
   let disabled = !host || !rosterReady || g.connectionState!=='ready';
   if(anime&&stage==='planning'&&plan?.poolSummary&&plan.poolSummary.available<plan.poolSummary.required){disabled=true;description=`当前可用 ${plan.poolSummary.available} / 需要 ${plan.poolSummary.required} 个系列。请更换作品池，或在设置中确认重置轮换历史。`;}
   if(stage==='guide') {
     title='下一步：双方队长确认';
-    description=missing.length?'请先指定两队队长，再浏览候选作品。':myTeam?'先预览候选作品；双方确认后才开始服务端 180 秒计时。':'双方队长正在预览候选作品，确认后将进入限时组牌。';
+    description=missing.length?'请先指定两队队长，再浏览候选作品。':myTeam?`先预览候选作品；双方确认后才开始服务端 ${config.animeDraft?.selectionSeconds??180} 秒计时。`:'双方队长正在预览候选作品，确认后将进入限时组牌。';
     label=myTeam?(ready?'已确认，等待另一队':'确认就绪，开始组牌'):'等待队长确认';
     action=()=>send({kind:'ready'});disabled=!myTeam||!!ready||!rosterReady;
   } else if(stage==='sealed') {
@@ -72,7 +73,7 @@ export function PreparationLobby({room}:{room:PublicRoomState}) {
     <StartCountdown room={room}/>
     <div className="v2-lobby-grid">
       <section className="v2-panel v2-mode"><div className="v2-panel-heading"><div><p className="eyebrow">01 · PLAY MODE</p><h2>本局玩法</h2></div>{host&&<button disabled={locked} onClick={()=>setSettings(true)}>修改设置</button>}</div><div className="v2-mode-summary"><span className="v2-field-title">已生效设置 · 全员可见</span><h3>{anime?'动画组牌':'经典词牌'} · {config.boardMode.replace('x','×')}</h3></div>
-        <dl className="lobby-rule-summary"><div><dt>{anime?'作品池':'文字题库'}</dt><dd>{anime?plan?.poolName:plan?.wordPackName??room.wordPackSummary.name}{anime&&plan?.poolSummary&&<small>{plan.poolSummary.source} 部 · {plan.poolSummary.available} 个可用系列</small>}</dd></div><div><dt>计分方式</dt><dd>{config.scoringMode==='classic'?'胜场制':'积分制'}</dd></div>{anime?<><div><dt>选牌时长</dt><dd>180 秒</dd></div><div><dt>随机互换</dt><dd>{config.animeRandomSwap?'开启':'关闭'}</dd></div><div><dt>历局作品轮换</dt><dd>{config.animeSeriesRotation?'开启':'关闭'}</dd></div><div><dt>干扰方式</dt><dd>选牌期间 · 每队一张</dd></div></>:<><div><dt>回合计时</dt><dd>{config.timerMode==='timed'?`提示 ${config.timerClueSeconds} 秒 / 猜词 ${config.timerGuessSeconds} 秒`:'不限时'}</dd></div><div><dt>翻牌显示</dt><dd>{config.flipMode==='color-only'?'仅阵营颜色':'词语与阵营'}</dd></div></>}</dl>
+        <dl className="lobby-rule-summary"><div><dt>{anime?'作品池':'文字题库'}</dt><dd>{anime?plan?.poolName:plan?.wordPackName??room.wordPackSummary.name}{anime&&plan?.poolSummary&&<small>{plan.poolSummary.source} 部 · {plan.poolSummary.available} 个可用系列</small>}</dd></div><div><dt>计分方式</dt><dd>{config.scoringMode==='classic'?'胜场制':'积分制'}</dd></div>{anime?<><div><dt>选牌时长</dt><dd>{config.animeDraft?.selectionSeconds??180} 秒</dd></div><div><dt>随机互换</dt><dd>{config.animeRandomSwap?'开启':'关闭'}</dd></div><div><dt>历局作品轮换</dt><dd>{config.animeSeriesRotation?'开启':'关闭'}</dd></div><div><dt>干扰方式</dt><dd>{config.animeDraft?`独立阶段 · ${config.animeDraft.interferenceSeconds===null?'不限时':`${config.animeDraft.interferenceSeconds} 秒`}`:'选牌期间 · 每队一张'}</dd></div></>:<><div><dt>回合计时</dt><dd>{config.timerMode==='timed'?`提示 ${config.timerClueSeconds} 秒 / 猜词 ${config.timerGuessSeconds} 秒`:'不限时'}</dd></div><div><dt>翻牌显示</dt><dd>{config.flipMode==='color-only'?'仅阵营颜色':'词语与阵营'}</dd></div></>}</dl>
         <footer className="v2-panel-footer"><span>配置保存后同步至所有成员</span><span>{stage==='guide'?'队长预览':stage==='sealed'?'已封存':'等待准备'}</span></footer></section>
       <section className="v2-panel v2-players"><div className="v2-panel-heading"><div><p className="eyebrow">02 · TEAMS</p><h2>队伍与成员</h2></div><span className="tag">{room.players.length} / {MAX_PLAYERS} 人</span></div><div className="v2-team-grid">{(['red','blue'] as const).map(t=><div className={`v2-team ${t} ${dropTeam===t?'host-drop-target':''}`} key={t} {...dropProps(t)}><div className="v2-team-heading"><strong>{TEAM_LABELS[t]}</strong><span>{room.players.filter(p=>p.team===t).length} 人</span></div>{room.players.filter(p=>p.team===t).map(member)}{!room.players.some(p=>p.team===t)&&<p className="hint-text">等待成员入座</p>}</div>)}</div>
         <section className="v2-seat-tools" aria-label="我的席位"><h3>我的席位</h3>      {self&&!locked&&<div className="v2-self-controls"><select aria-label="我的队伍" value={self.team??''} onChange={e=>g.chooseTeam((e.target.value||null) as Team|null)}><option value="">待分队</option><option value="red">红队</option><option value="blue">蓝队</option></select><select aria-label="我的身份" disabled={!self.team} value={!!self.team&&captain(self.team)===self.id?'spymaster':'operative'} onChange={e=>g.chooseRole(e.target.value as 'spymaster'|'operative')}><option value="operative">队员</option><option value="spymaster">队长</option></select></div>}{!self&&<p className="hint-text">旁观者 · 只读与聊天</p>}{self&&locked&&<p className="hint-text">本局席位已锁定，等待下一局可调整。</p>}</section>

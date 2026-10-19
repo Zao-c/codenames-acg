@@ -136,3 +136,5 @@ export function logoutNamedUser(username: string, sessionToken: string): Promise
     }
   });
 }
+
+export function getInterferencePool(roomId:string,planId:string,stageVersion:number,q:string,page:number):Promise<import('@acg-codenames/shared').InterferencePoolPage>{return request(`/api/rooms/${encodeURIComponent(roomId)}/interference-pool?${new URLSearchParams({planId,stageVersion:String(stageVersion),q,page:String(page)})}`,{headers:communityHeaders(),cache:'no-store'});}
