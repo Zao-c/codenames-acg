@@ -29,16 +29,22 @@ function DraftTileView({work,claim,time,bookmark,canEdit,allow,onPreview,onBookm
   const bookmarkTimer=useRef<ReturnType<typeof setTimeout>|undefined>(undefined);
   useEffect(()=>{setStar(!!bookmark);setBookmarkStatus('');clearTimeout(bookmarkTimer.current);},[bookmark]);
   useEffect(()=>()=>clearTimeout(bookmarkTimer.current),[]);
-  const [ghost, setGhost] = useState<{ x: number; y: number } | null>(null);
+  const [ghost, setGhost] = useState<{ x: number; y: number; width:number;cover:string } | null>(null);
   const suppress = useRef(false);
   const cleanup = useRef<() => void>(() => {});
   useEffect(() => () => cleanup.current(), []);
 
-  const handlePointerDown = (e: ReactPointerEvent<HTMLButtonElement>) => {
+  const handlePointerDown = (e: ReactPointerEvent<HTMLButtonElement>,immediate=false) => {
     suppress.current = false;
     if (!canEdit || gestureActive || (e.pointerType === 'mouse' && e.button !== 0)) return;
     gestureActive = true;
     const touch = e.pointerType !== 'mouse';
+    const source=e.currentTarget.closest('.draft-tile')!,bounds=source.getBoundingClientRect();
+    const cover=source.querySelector<HTMLImageElement>('img');
+    const imageSource=cover?.currentSrc||cover?.src||work.cover;
+    const width=Math.max(96,Math.min(170,bounds.width));
+    const capture=e.currentTarget;
+    try{capture.setPointerCapture(e.pointerId);}catch{/* Older browsers still use window listeners. */}
     const startX = e.clientX, startY = e.clientY;
     let lastX = startX, lastY = startY;
     let dragging = false, frame = 0, done = false, zone: HTMLElement | null = null;
@@ -58,7 +64,7 @@ function DraftTileView({work,claim,time,bookmark,canEdit,allow,onPreview,onBookm
       dragging = true; suppress.current = true;
       document.body.classList.add('draft-drag-active');
       document.addEventListener('touchmove', blockScroll, { passive: false });
-      setGhost({ x: lastX, y: lastY });
+      setGhost({ x: lastX, y: lastY,width,cover:imageSource });
     };
     const blockScroll = (ev: TouchEvent) => ev.preventDefault();
     const move = (ev: PointerEvent) => {
@@ -66,10 +72,10 @@ function DraftTileView({work,claim,time,bookmark,canEdit,allow,onPreview,onBookm
       lastX = ev.clientX; lastY = ev.clientY;
       if (!dragging) {
         if (Math.hypot(lastX - startX, lastY - startY) <= (touch ? 8 : 6)) return;
-        if (touch) { stop(); return; } // 长按前滑动记为页面滚动
+        if (touch) { suppress.current=true;stop(); return; } // 长按前滑动记为页面滚动
         begin();
       }
-      if (!frame) frame = window.requestAnimationFrame(() => { frame = 0; setGhost({ x: lastX, y: lastY }); highlight(); });
+      if (!frame) frame = window.requestAnimationFrame(() => { frame = 0; setGhost({ x: lastX, y: lastY,width,cover:imageSource }); highlight(); });
     };
     const up = (ev: PointerEvent) => {
       if (ev.pointerId !== e.pointerId || done) return;
@@ -97,17 +103,19 @@ function DraftTileView({work,claim,time,bookmark,canEdit,allow,onPreview,onBookm
       if (frame) { window.cancelAnimationFrame(frame); frame = 0; }
       zone?.classList.remove('drop-hot'); zone = null;
       document.body.classList.remove('draft-drag-active');
+      try{if(capture.hasPointerCapture(e.pointerId))capture.releasePointerCapture(e.pointerId);}catch{}
       setGhost(null);
       cleanup.current = () => {};
       refreshHighlight.current=()=>{};
     }
-    const timer = touch ? window.setTimeout(begin, 350) : 0;
+    const timer = touch&&!immediate ? window.setTimeout(begin, 350) : 0;
     cleanup.current = stop;
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
     window.addEventListener('pointercancel', cancel);
     window.addEventListener('blur', onBlur);
     document.addEventListener('visibilitychange', onVisibility);
+    if(immediate)begin();
   };
 
   return <article className={`draft-tile ${compact?'draft-tile-compact':''} role-${claim?.team ?? 'hidden'} ${ghost ? 'is-dragging' : ''} ${publicSelected ? 'is-public-selected' : ''}`} data-drop={compact&&canEdit&&claim?.kind==='manual'?'replace':undefined} data-replace-id={work.id}>
@@ -118,11 +126,12 @@ function DraftTileView({work,claim,time,bookmark,canEdit,allow,onPreview,onBookm
       {publicSelected && <span className="draft-public-badge">已选入</span>}
       {claim && <small>{TEAM_LABELS[claim.team]}{claim.kind === 'interference' ? ' · 干扰' : ''}{claim.protectedUntil > time ? ` · 保护 ${Math.ceil((claim.protectedUntil-time)/1000)}s` : ''}</small>}
     </button>
+    {canEdit&&<button type="button" className="draft-grab" aria-label={`拖动《${work.title}》`} onPointerDown={e=>handlePointerDown(e,true)} onClick={e=>e.preventDefault()} onContextMenu={e=>e.preventDefault()}>⠿<span>拖动</span></button>}
     {onBookmark && <button type="button" className={`draft-star ${star ? 'is-on' : ''}`} aria-pressed={star}
       aria-label={`${star ? '取消' : '添加'}书签 ${work.title}`} onClick={() => {const next=!star;setStar(next);setBookmarkStatus(next?'已收藏 · 私人书签':'已取消收藏');onBookmark();clearTimeout(bookmarkTimer.current);bookmarkTimer.current=setTimeout(()=>{if(actualBookmark.current!==next){setStar(actualBookmark.current);setBookmarkStatus('收藏未同步，请重试');}},3000);}}>{star ? '★' : '☆'}</button>}
     {bookmarkStatus&&<span className="draft-bookmark-status" role="status">{bookmarkStatus}</span>}
     {dropStatus&&<span className="draft-bookmark-status" role="status">{dropStatus}</span>}
-    {ghost && createPortal(<div className="draft-drag-ghost" style={{ left: ghost.x, top: ghost.y }} aria-hidden="true"><Cover work={work}/><span>{work.title}</span></div>, document.body)}
+    {ghost && createPortal(<div className="draft-drag-ghost" style={{ left: ghost.x, top: ghost.y,width:ghost.width }} aria-hidden="true"><img src={ghost.cover} alt="" draggable={false} referrerPolicy="no-referrer"/><span>{work.title}</span></div>, document.body)}
   </article>;
 }
 

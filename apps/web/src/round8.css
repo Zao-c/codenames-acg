@@ -27,7 +27,6 @@
 .battle-expand{font-size:11px;justify-self:end}.battle-timeline{width:100%;min-width:0}
 .round-highlight-toast{max-width:min(600px,calc(100vw - 28px));padding:9px 14px;pointer-events:none;min-height:0;gap:8px}
 .round-highlight-toast-text{font-size:12px;overflow-wrap:anywhere}.round-highlight-toast-icon{font-size:17px}
-.draft-public-badge{top:4px;right:4px;left:auto;bottom:auto;background:#17212a8c!important;border:1px solid #ffffff5c!important;color:#fff!important;padding:2px 5px!important;font-size:9px!important;box-shadow:none!important;width:auto!important;border-radius:4px}
 .draft-tile.is-public-selected{box-shadow:none!important;border-color:var(--line)!important}
 .captain-management{width:100%;font-size:12px}.captain-management>summary{cursor:pointer}.captain-management .anime-toolbar{padding-top:8px}
 .anime-option-flags{display:flex;gap:8px 16px;flex-wrap:wrap}.anime-option-flags label{display:flex;align-items:center;gap:6px;font-size:12px}.anime-option-flags input{width:auto}
