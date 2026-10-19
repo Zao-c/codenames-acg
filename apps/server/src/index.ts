@@ -1315,7 +1315,7 @@ async function bootstrap(): Promise<void> {
           ? await game.leaveRoom(roomId, participantId, participantType)
           : await game.markDisconnected(roomId, participantId, participantType,()=>![...socketSessions.entries()].some(([id,s])=>id!==socket.id&&s.roomId===roomId&&s.participantId===participantId));
 
-        if (boundSession && socketSessions.get(socket.id) === boundSession) socketSessions.delete(socket.id);
+        if (boundSession?.roomId === roomId && socketSessions.get(socket.id) === boundSession) socketSessions.delete(socket.id);
         socket.leave(roomId);
         socket.leave(`member:${participantId}`);
         if(isLobby)for(const [id,bound] of socketSessions){if(bound.roomId===roomId&&bound.participantId===participantId){socketSessions.delete(id);const client=io.sockets.sockets.get(id);client?.leave(roomId);client?.leave(`member:${participantId}`);client?.emit('room_closed',{roomId,reason:'已退出房间'});}}
