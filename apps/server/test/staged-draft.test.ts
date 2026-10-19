@@ -30,6 +30,7 @@ try{
  assert.equal((await current()).nextPlan!.pool.length,0,'a new v2 room never silently chooses the whole catalog');
  assert.equal((await current()).nextPlan!.candidates.length,0);
  await assert.rejects(act(0,{kind:'prepare'}),/当前可用 0/);
+ await assert.rejects(act(0,{kind:'configure',variant:'anime',poolIds:[],poolName:'空的自定义作品池'}),/当前可用 0/);
  await assert.rejects(act(0,{kind:'configure',variant:'anime',animePoolId:'does-not-exist'}),/预设作品池已失效/);
  await assert.rejects(act(0,{kind:'configure',variant:'anime',animePoolId:'all',poolIds:[pool[0].id]}),/引用无效/);
  await act(0,{kind:'configure',variant:'anime',animePoolId:'all'});
