@@ -193,6 +193,7 @@ export function RoomPage() {
             {room.phase === "playing" ? (
               <>
                 <button onClick={enterFocusMode}>专注模式</button>
+                {(room.animeEnabled||room.nextPlan)&&<NextMatchPanel room={room}/>}
                 {viewer?.isHost ? (
                   <MatchManagement/>
                 ) : null}
@@ -204,7 +205,7 @@ export function RoomPage() {
       )}
 
       <StartCountdown room={room} />
-      {(room.animeEnabled || room.nextPlan) && <NextMatchPanel room={room} />}
+      {room.phase!=='playing'&&(room.animeEnabled || room.nextPlan) && <NextMatchPanel room={room} />}
 
       {isLobby && !focusMode ? <>
         <button className="mobile-lobby-roster" onClick={()=>g.setMobileRoomTab("players")}>红队 {room.players.filter(p=>p.team==="red").length} 人 · 蓝队 {room.players.filter(p=>p.team==="blue").length} 人 <span>选择队伍与席位 →</span></button>

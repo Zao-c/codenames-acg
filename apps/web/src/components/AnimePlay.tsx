@@ -335,6 +335,7 @@ export function NextMatchPanel({ room, mode = 'full', onConfigured, embedded=fal
     </Dialog>}
   </>;
   if (mode === 'settings') return <div className="lobby-config-form"><fieldset disabled={configuring} className="settings-fields">{content}</fieldset>{overlay}</div>;
+  if(mode==='full'&&!embedded&&room.phase==='playing')return <><button onClick={()=>setOpen(true)}>查看准备</button>{open&&<Dialog title="下一局计划" close={()=>setOpen(false)} wide>{content}</Dialog>}{overlay}</>;
   return <section className={`panel next-match-panel ${room.phase==='playing'?'next-plan-during-game':''} ${plan?.variant==='anime'?'has-anime-plan':''}`}>
 
     {mode === 'full' && !embedded && <div className="panel-heading"><div><p className="eyebrow">{room.phase==='playing'?'下一局 · 独立准备':'准备工作区'}</p><h2>{room.phase==='playing'?'下一局计划':'玩法与组牌'}</h2></div><button onClick={()=>setOpen(!open)}>{open?'收起准备':'查看准备'}</button></div>}
