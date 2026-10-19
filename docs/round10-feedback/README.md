@@ -22,18 +22,64 @@
 ## 验证
 
 <!-- RESULTS -->
-完整命令退出码／耗时见 `test-results.json`；专项见 `browser-after.json`。类型、构建、规则与异步保存恢复，以及历轮兼容回归按顺序执行。新专项检查六项全局导航一致、弹窗队长任命同步、非房主预览拒绝、固定 180 秒、草稿取消、按钮可见、终局棋盘位置和实际猜牌详情。
+
+**25／25 条命令通过，本轮 23 项专项、156 张截图。** 测试提交 `7f9bfdafff1e116b69fbf058ac062f7de1f8afe9`。
+
+| 命令 | 结果 | 秒 |
+| --- | --- | --- |
+| `npm run test:rules` | 通过 | 30.76 |
+| `npm run test:round10:unit` | 通过 | 3.74 |
+| `npm run test:e2e:local` | 通过 | 58.09 |
+| `npm run test:stability:local` | 通过 | 58.25 |
+| `npm run test:mixed:local` | 通过 | 62.96 |
+| `npm run test:lobby:local` | 通过 | 30.49 |
+| `npm run test:browser:local` | 通过 | 67.54 |
+| `npm run test:phase2:local` | 通过 | 23.68 |
+| `npm run test:bangumi:local` | 通过 | 109.63 |
+| `npm run test:concentrated:local` | 通过 | 133.31 |
+| `npm run test:round6:roles:local` | 通过 | 27.36 |
+| `npm run test:round7:ui:local` | 通过 | 81.06 |
+| `npm run test:round7:faults:local` | 通过 | 57.92 |
+| `npm run test:round7:load` | 通过 | 56.97 |
+| `npm run test:performance:unit` | 通过 | 3.79 |
+| `npm run test:performance:browser` | 通过 | 242.15 |
+| `npm run test:round9:local` | 通过 | 115.78 |
+| `npm run test:performance:load` | 通过 | 74.56 |
+| `npm run test:round10:local` | 通过 | 355.94 |
+| `npm run test:round5:local` | 通过 | 66.68 |
+| `npm run test:round6:local` | 通过 | 341.83 |
+| `npm run test:round8:local` | 通过 | 106.21 |
+| `npm run test:round8:large:local` | 通过 | 101.93 |
+| `npm run typecheck` | 通过 | 11.9 |
+| `npm run build` | 通过 | 14.29 |
+
+完整记录见 [test-results.json](test-results.json)、[browser-after.json](browser-after.json) 和 [性能对比](performance-comparison.json)。手机弱网、61 秒慢图和增量同步保留专项通过。
+
 <!-- END RESULTS -->
 
 兼容回归中的早期失败没有计为通过。Round 5 的快速模拟出题触发原有每 10 秒 3 次限制，测试增加真实等待，保留原限流。Round 6 在手机触控前聚焦页面、等待原有 dock 动画稳定，再使用连续触点移动并核对真实落点；仍检查短滑不选中、长按幽灵和实际入牌，没有修改产品手势实现。Round 8 在受控导出前读取四张实际 CDN CORS 封面，记录网络可达性，再执行原 PNG 封面断言；没有用占位图替代真实导出，也没有修改产品超时或故障恢复规则。
 
 手机使用 Chromium 触屏模拟；没有实体 iOS／Android 或三小时公网长测。大于 500KB 的既有 chunk 提示保留。测试使用隔离数据和端口；生产验证不会创建测试账号或房间。
 
+相邻串行 loopback 性能比较使用 8 人、180 候选、240 次操作和 5000 条额外目录夹具：房间传输 `1,970,853 → 1,970,873 bytes`（约 +0.001%），ACK P95 `55 → 52ms`。传输 ≤105%、P95 ≤基线×1.25＋20ms 的门禁均通过；这是同机回归数据，不是公网速度保证。仓库未配置托管 CI，25 条通过记录来自本地执行。
+
 ## 对照与交付
 
 前图来自上一轮真实应用截图，源码 `20a30b1`，应用内容与当时生产 `0e09d0a` 一致。后图来自本轮真实组件及真实多人操作，不使用附件模拟数据代替验收。对照图、权限、视口和哈希记录在 `screens/manifest.json`，本地完整索引为 `output/playwright/round10-feedback/review.html`。附件原图和 HTML 演示素材留在本地。
 
 <!-- SCREENS -->
+
+| 场景 | 修改前 | 修改后 |
+| --- | --- | --- |
+| feedback-settings-1440-light.png | ![修改前](screens/before-feedback-settings-1440-light.png) | ![修改后](screens/after-feedback-settings-1440-light.png) |
+| feedback-settings-390-dark.png | ![修改前](screens/before-feedback-settings-390-dark.png) | ![修改后](screens/after-feedback-settings-390-dark.png) |
+| feedback-team-management-1440-light.png | ![修改前](screens/before-feedback-team-management-1440-light.png) | ![修改后](screens/after-feedback-team-management-1440-light.png) |
+| feedback-room-management-1440-light.png | ![修改前](screens/before-feedback-room-management-1440-light.png) | ![修改后](screens/after-feedback-room-management-1440-light.png) |
+| lobby-1440-light.png | ![修改前](screens/before-lobby-1440-light.png) | ![修改后](screens/after-lobby-1440-light.png) |
+| lobby-390-dark.png | ![修改前](screens/before-lobby-390-dark.png) | ![修改后](screens/after-lobby-390-dark.png) |
+| flips-6x6-1440-dark.png | ![修改前](screens/before-flips-6x6-1440-dark.png) | ![修改后](screens/after-flips-6x6-1440-dark.png) |
+| flips-5x5-390-light.png | ![修改前](screens/before-flips-5x5-390-light.png) | ![修改后](screens/after-flips-5x5-390-light.png) |
+
 <!-- END SCREENS -->
 
 发布与实际运行 SHA 见 [部署记录](DEPLOYMENT.md)。只在测试通过、PR 可审阅且生产空房时，按本会话已有的部署授权发布；先停写做一致性备份，失败只回滚代码，保留最新用户数据。
