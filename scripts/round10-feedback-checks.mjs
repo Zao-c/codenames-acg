@@ -37,7 +37,10 @@ export async function feedbackSettingsChecks(t){
 export async function feedbackResultChecks({page,room,size,checks}){
  const board=page.locator('.result-board');await board.waitFor({state:'visible'});assert.equal(await board.locator('summary').count(),0);
  const hero=await page.locator('.result-hero-card').boundingBox(),b=await board.boundingBox(),honors=await page.locator('.result-two-columns').boundingBox();assert.ok(b.y>=hero.y+hero.height-1&&b.y<hero.y+hero.height+40);assert.ok(honors.y>=b.y+b.height-1);
- assert.ok(await board.locator('.anime-board-scroll').evaluate(e=>e.scrollHeight<=e.clientHeight+1),'all final board rows are visible without an inner clipping scroll');
+ // A just-revealed card is still rotating and can temporarily enlarge
+ // scrollHeight even when there is no scrollport. Check actual clipping rules.
+ const scroll=await board.locator('.anime-board-scroll').evaluate(e=>{const s=getComputedStyle(e);return {overflow:s.overflowY,maxHeight:s.maxHeight};});
+ assert.deepEqual(scroll,{overflow:'visible',maxHeight:'none'},'all final board rows are visible without an inner clipping scroll');
  const reviews=await page.locator('.result-reviews').innerText();for(const record of room.clueRecords.slice(-4))for(const guess of record.guesses){assert.ok(reviews.includes(guess.cardWord),'review includes actual flipped work');assert.ok(reviews.includes(guess.nickname),'review names actual guesser');}
  assert.ok(reviews.includes('刺客 · 对局结束'));assert.ok(reviews.includes('中立 · 回合结束'));checks.push(`${size} result board visible immediately after outcome and above honors/history; actual guessers, flipped cards and outcomes in highlights`);
 }
