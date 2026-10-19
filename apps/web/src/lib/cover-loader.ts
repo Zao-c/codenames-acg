@@ -7,14 +7,15 @@ const abortError=()=>new DOMException('Aborted','AbortError');
 export function coverVersion(source:string){let hash=2166136261;for(const c of source)hash=Math.imul(hash^c.charCodeAt(0),16777619);return String(hash>>>0);}
 const isBgm=(source:string)=>/^https:\/\/lain\.(bgm|bangumi)\.tv\//.test(source);
 const metadata=new Map<number,{value:Location;expires:number}>(),waiting=new Map<number,((value?:Location)=>void)[]>();
-let metadataTimer:ReturnType<typeof setTimeout>|undefined,metadataUnavailableUntil=0;
+let metadataTimer:ReturnType<typeof setTimeout>|undefined,metadataUnavailableUntil=0,metadataReading=false;
 function coverLocation(work:Work):Promise<Location|undefined>{
  if(!isBgm(work.cover)||Date.now()<metadataUnavailableUntil)return Promise.resolve(undefined);
  const cached=metadata.get(work.id);if(cached&&cached.expires>Date.now()&&cached.value.source===work.cover)return Promise.resolve(cached.value);
  if(waiting.size>=256&&!waiting.has(work.id))return Promise.resolve(undefined);
- return new Promise(resolve=>{const callbacks=waiting.get(work.id)??[];callbacks.push(value=>resolve(value?.source===work.cover?value:undefined));waiting.set(work.id,callbacks);if(!metadataTimer)metadataTimer=setTimeout(()=>{metadataTimer=undefined;void readLocations();},15);});
+ return new Promise(resolve=>{const callbacks=waiting.get(work.id)??[];callbacks.push(value=>resolve(value?.source===work.cover?value:undefined));waiting.set(work.id,callbacks);if(!metadataTimer&&!metadataReading)metadataTimer=setTimeout(()=>{metadataTimer=undefined;void readLocations();},15);});
 }
 async function readLocations(){
+ if(metadataReading||!waiting.size)return;metadataReading=true;
  const ids=[...waiting.keys()].slice(0,60),callbacks=ids.map(id=>({id,callbacks:waiting.get(id)!}));ids.forEach(id=>waiting.delete(id));
  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),350);let entries:Location[]=[];
  try{
@@ -22,7 +23,7 @@ async function readLocations(){
   if(!response.ok){if(response.status===404)metadataUnavailableUntil=Date.now()+60000;throw new Error('No cover service');}
   const body=await response.json();entries=Array.isArray(body.works)?body.works:[];
   for(const value of entries)if(Number.isSafeInteger(value.id)&&typeof value.source==='string'&&isBgm(value.source)&&value.version===coverVersion(value.source)&&(!value.cdn||/^https:\/\//.test(value.cdn))){while(metadata.size>=512)metadata.delete(metadata.keys().next().value!);metadata.set(value.id,{value,expires:Date.now()+(value.cdn?3600000:2000)});}
- }catch{}finally{clearTimeout(timer);for(const item of callbacks)item.callbacks.forEach(done=>done(entries.find(value=>value.id===item.id)));if(waiting.size&&!metadataTimer)metadataTimer=setTimeout(()=>{metadataTimer=undefined;void readLocations();},15);}
+ }catch{}finally{clearTimeout(timer);metadataReading=false;for(const item of callbacks)item.callbacks.forEach(done=>done(entries.find(value=>value.id===item.id)));if(waiting.size&&!metadataTimer)metadataTimer=setTimeout(()=>{metadataTimer=undefined;void readLocations();},15);}
 }
 
 const requests=new ImageRequestQueue();
