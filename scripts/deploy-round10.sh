@@ -28,7 +28,7 @@ for name in shared server web; do
   if [[ "$name" = shared ]]; then target=../../packages/shared; else target=../../apps/$name; fi
   ln -sfn "$target" "$link"
 done
-(cd "$stage" && env -u VITE_SERVER_URL npm run build > build.log 2>&1 && node --check apps/server/dist/index.js && find apps/server/dist apps/web/dist packages/shared/dist -type f -print0 | sort -z | xargs -0 sha256sum > ARTIFACT_SHA256)
+(cd "$stage" && env -u VITE_SERVER_URL npm run build > build.log 2>&1 && node --check apps/server/dist/apps/server/src/index.js && find apps/server/dist apps/web/dist packages/shared/dist -type f -print0 | sort -z | xargs -0 sha256sum > ARTIFACT_SHA256)
 chmod -R a+rX "$stage/apps/web/dist" "$stage/apps/server/dist" "$stage/packages/shared/dist"
 # Prepare code-only rollback before stopping, even if a later data backup fails.
 cp "$repo/release.json" "$backup/release.json.before"
@@ -69,7 +69,7 @@ rollback(){
 }
 trap rollback ERR EXIT
 mkdir -p "$stage/smoke-data"
-(cd "$stage" && PORT=3199 USE_MEMORY_STORE=1 REDIS_URL='' ENABLE_ANIME_DRAFT=1 ENABLE_MATCH_ANALYSIS=1 USER_STORE_FILE="$stage/smoke-data/users.json" ANIME_POOL_STORE_FILE="$stage/smoke-data/pools.json" ANIME_IMPORT_FILE="$stage/smoke-data/imports.json" MANUAL_WORK_STORE_FILE="$stage/smoke-data/manual.json" ANIME_COVER_DIR="$stage/smoke-data/covers" REVEAL_IMAGE_DIR="$stage/smoke-data/images" exec node apps/server/dist/index.js) > "$stage/smoke.log" 2>&1 &
+(cd "$stage/apps/server" && PORT=3199 USE_MEMORY_STORE=1 REDIS_URL='' ENABLE_ANIME_DRAFT=1 ENABLE_MATCH_ANALYSIS=1 USER_STORE_FILE="$stage/smoke-data/users.json" ANIME_POOL_STORE_FILE="$stage/smoke-data/pools.json" ANIME_IMPORT_FILE="$stage/smoke-data/imports.json" MANUAL_WORK_STORE_FILE="$stage/smoke-data/manual.json" ANIME_COVER_DIR="$stage/smoke-data/covers" REVEAL_IMAGE_DIR="$stage/smoke-data/images" exec node dist/apps/server/src/index.js) > "$stage/smoke.log" 2>&1 &
 smoke_pid=$!
 for n in $(seq 1 60); do kill -0 "$smoke_pid"; if curl -fsS http://127.0.0.1:3199/health > /dev/null; then break; fi; sleep 1; done
 curl -fsS http://127.0.0.1:3199/health > "$backup/linux-smoke-health.json"

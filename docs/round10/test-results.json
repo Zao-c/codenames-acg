@@ -1,0 +1,177 @@
+[
+  {
+    "command": "npm run test:rules",
+    "passed": true,
+    "code": 0,
+    "seconds": 35.22,
+    "log": "test-rules.log"
+  },
+  {
+    "command": "npm run test:round10:unit",
+    "passed": true,
+    "code": 0,
+    "seconds": 4.72,
+    "log": "test-round10-unit.log"
+  },
+  {
+    "command": "npm run test:e2e:local",
+    "passed": true,
+    "code": 0,
+    "seconds": 55.93,
+    "log": "test-e2e-local.log"
+  },
+  {
+    "command": "npm run test:stability:local",
+    "passed": true,
+    "code": 0,
+    "seconds": 58.28,
+    "log": "test-stability-local.log"
+  },
+  {
+    "command": "npm run test:mixed:local",
+    "passed": true,
+    "code": 0,
+    "seconds": 63.68,
+    "log": "test-mixed-local.log"
+  },
+  {
+    "command": "npm run test:browser:local",
+    "passed": true,
+    "code": 0,
+    "seconds": 68.67,
+    "log": "test-browser-local.log"
+  },
+  {
+    "command": "npm run test:phase2:local",
+    "passed": true,
+    "code": 0,
+    "seconds": 23.79,
+    "log": "test-phase2-local.log"
+  },
+  {
+    "command": "npm run test:bangumi:local",
+    "passed": true,
+    "code": 0,
+    "seconds": 110.34,
+    "log": "test-bangumi-local.log"
+  },
+  {
+    "command": "npm run test:round6:local",
+    "passed": true,
+    "code": 0,
+    "seconds": 343.61,
+    "log": "test-round6-local.log"
+  },
+  {
+    "command": "npm run test:round6:roles:local",
+    "passed": true,
+    "code": 0,
+    "seconds": 29.7,
+    "log": "test-round6-roles-local.log"
+  },
+  {
+    "command": "npm run test:round7:ui:local",
+    "passed": true,
+    "code": 0,
+    "seconds": 80.53,
+    "log": "test-round7-ui-local.log"
+  },
+  {
+    "command": "npm run test:round7:faults:local",
+    "passed": true,
+    "code": 0,
+    "seconds": 59.03,
+    "log": "test-round7-faults-local.log"
+  },
+  {
+    "command": "npm run test:round7:load",
+    "passed": true,
+    "code": 0,
+    "seconds": 56.89,
+    "log": "test-round7-load.log"
+  },
+  {
+    "command": "npm run test:performance:unit",
+    "passed": true,
+    "code": 0,
+    "seconds": 3.45,
+    "log": "test-performance-unit.log"
+  },
+  {
+    "command": "npm run test:performance:browser",
+    "passed": true,
+    "code": 0,
+    "seconds": 238.2,
+    "log": "test-performance-browser.log"
+  },
+  {
+    "command": "npm run test:round9:local",
+    "passed": true,
+    "code": 0,
+    "seconds": 127.51,
+    "log": "test-round9-local.log"
+  },
+  {
+    "command": "npm run test:performance:load",
+    "passed": true,
+    "code": 0,
+    "seconds": 73.89,
+    "log": "test-performance-load.log"
+  },
+  {
+    "command": "npm run test:round5:local",
+    "passed": true,
+    "code": 0,
+    "seconds": 47.99,
+    "log": "test-round5-local.log"
+  },
+  {
+    "command": "npm run test:concentrated:local",
+    "passed": true,
+    "code": 0,
+    "seconds": 131.65,
+    "log": "test-concentrated-local.log"
+  },
+  {
+    "command": "npm run typecheck",
+    "passed": true,
+    "code": 0,
+    "seconds": 13.47,
+    "log": "typecheck.log"
+  },
+  {
+    "command": "npm run build",
+    "passed": true,
+    "code": 0,
+    "seconds": 14.42,
+    "log": "build.log"
+  },
+  {
+    "command": "npm run test:lobby:local",
+    "passed": true,
+    "code": 0,
+    "seconds": 29.19,
+    "log": "test-lobby-local.log"
+  },
+  {
+    "command": "npm run test:round8:local",
+    "passed": true,
+    "code": 0,
+    "seconds": 122.32,
+    "log": "test-round8-local.log"
+  },
+  {
+    "command": "npm run test:round8:large:local",
+    "passed": true,
+    "code": 0,
+    "seconds": 112.24,
+    "log": "test-round8-large-local.log"
+  },
+  {
+    "command": "npm run test:round10:local",
+    "passed": true,
+    "code": 0,
+    "seconds": 304.54,
+    "log": "test-round10-local.log"
+  }
+]

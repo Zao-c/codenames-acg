@@ -1,0 +1,94 @@
+{
+  "passed": true,
+  "before": {
+    "sha": "59f2bd1aad922bad41d42b63ca0857b0102ad0b1",
+    "passed": true,
+    "players": 8,
+    "candidates": 180,
+    "extraCatalogWorks": 5000,
+    "avatarSourceBytes": [
+      9023,
+      9051,
+      9027,
+      9007,
+      8955,
+      9015,
+      8991,
+      8999
+    ],
+    "seconds": 67.694,
+    "actions": 240,
+    "snapshots": 0,
+    "deltas": 2160,
+    "actualRoomBytes": 1970893,
+    "previousFullStateEstimateBytes": 397884890,
+    "reductionPercent": 99.50465749026056,
+    "catalog": {
+      "uncompressed": 2164033,
+      "gzip": 486709,
+      "home": 3725
+    },
+    "latencyMs": {
+      "p50": 39,
+      "p95": 55,
+      "max": 84
+    },
+    "server": {
+      "maxRssMiB": 247.5703125,
+      "eventLoopP99Ms": 82.509823
+    },
+    "scope": "Loopback synthetic benchmark; previous bytes reconstruct full state and original data-URI avatars; not an internet speed or 3-hour soak guarantee."
+  },
+  "after": {
+    "sha": "20a30b1c9cea445b3417b1371c0bc97575460a5c",
+    "passed": true,
+    "players": 8,
+    "candidates": 180,
+    "extraCatalogWorks": 5000,
+    "avatarSourceBytes": [
+      9039,
+      9007,
+      9023,
+      9019,
+      8983,
+      9023,
+      9031,
+      9011
+    ],
+    "seconds": 67.38,
+    "actions": 240,
+    "snapshots": 0,
+    "deltas": 2160,
+    "actualRoomBytes": 1972312,
+    "previousFullStateEstimateBytes": 397505751,
+    "reductionPercent": 99.50382805908133,
+    "catalog": {
+      "uncompressed": 2164033,
+      "gzip": 486709,
+      "home": 3725
+    },
+    "latencyMs": {
+      "p50": 38,
+      "p95": 47,
+      "max": 60
+    },
+    "server": {
+      "maxRssMiB": 256.0859375,
+      "eventLoopP99Ms": 61.243391
+    },
+    "scope": "Loopback synthetic benchmark; previous bytes reconstruct full state and original data-URI avatars; not an internet speed or 3-hour soak guarantee."
+  },
+  "guardrails": {
+    "roomBytes": {
+      "limit": 2069437.6500000001,
+      "actual": 1972312,
+      "passed": true
+    },
+    "ackP95": {
+      "limit": 88.75,
+      "actual": 47,
+      "passed": true
+    }
+  },
+  "scope": "Adjacent serial loopback runs on the same machine with no browser/build workload; 8 players, 180 candidates, 240 operations, 5000 extra catalog works. These are not public-network latency or three-hour soak results."
+}
