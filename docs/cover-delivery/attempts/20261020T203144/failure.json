@@ -1,0 +1,42 @@
+{
+  "passed": false,
+  "threeHourComplete": false,
+  "message": "AssertionError [ERR_ASSERTION]: visible board covers must recover within 90 seconds; see cover-checks.jsonl\n\n8 !== 0\n\n    at configureRound (file:///D:/work/Ai%E7%BC%96%E7%A8%8B/007games/.worktrees/cover-delivery/scripts/browser-staged-soak.mjs:189:9)\n    at async file:///D:/work/Ai%E7%BC%96%E7%A8%8B/007games/.worktrees/cover-delivery/scripts/browser-staged-soak.mjs:212:39",
+  "elapsedSeconds": 861.7943771,
+  "counters": {
+    "snapshots": 24,
+    "deltas": 2058,
+    "roomBytes": 37300747,
+    "imageResponses": 1119,
+    "imageHttpErrors": 56,
+    "imageNetworkErrors": 233,
+    "guesses": 40,
+    "clues": 20,
+    "reconnections": 3
+  },
+  "errors": [],
+  "rounds": [
+    {
+      "number": 1,
+      "size": "5x5",
+      "selectionSeconds": 180,
+      "interferenceSeconds": 30,
+      "changed": true,
+      "reconnected": true,
+      "earlyFinished": false,
+      "seconds": 256.9483941,
+      "winner": "red"
+    },
+    {
+      "number": 2,
+      "size": "6x6",
+      "selectionSeconds": 240,
+      "interferenceSeconds": 60,
+      "changed": true,
+      "reconnected": true,
+      "earlyFinished": true,
+      "seconds": 200.83148340000002,
+      "winner": "blue"
+    }
+  ]
+}

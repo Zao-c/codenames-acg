@@ -1,10 +1,14 @@
 {
   "frontendSha": "633ddfd1fa2110bc44315f80cf7240d8d22bae99",
-  "coverWorkerSha": "c2d0153002f862dc591c26114f8bbc420acc7d87",
+  "coverWorkerSha": "5ca8a3da9667f4ecd5fd85b294abb5d5163ebea0",
   "gameRuntimeSha": "37537ea1d351956c226456ad4c5685509f8e04df",
   "webStage": "/opt/codenames-releases/staged-draft-633ddfd1fa21-web",
-  "workerStage": "/opt/codenames-releases/cover-c2d0153002f8-review",
+  "workerStage": "/opt/codenames-releases/cover-5ca8a3da9667-original",
   "testRun": "/opt/codenames-test-runs/cover-c2d0153002f8-review",
+  "productionGamePid": 2886573,
+  "productionWorkerPid": 612735,
+  "testCoverService": "cipai-cover-soak-5ca8a3d.service",
+  "testWorkerPid": 616091,
   "requestedSeconds": 10800,
   "workerLimits": {
     "cpuQuota": "50%",
@@ -13,7 +17,7 @@
   },
   "isolation": "separate data/accounts/ports; no production test rooms",
   "started": {
-    "startedAt": "2026-10-20T07:48:30.421Z",
+    "startedAt": "2026-10-20T20:31:44.722Z",
     "targetSeconds": 10800,
     "eightContexts": true,
     "compiled": true

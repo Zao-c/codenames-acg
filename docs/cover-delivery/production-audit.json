@@ -1,13 +1,13 @@
 {
   "sha": "633ddfd1fa2110bc44315f80cf7240d8d22bae99",
   "frontendSha": "633ddfd1fa2110bc44315f80cf7240d8d22bae99",
-  "coverWorkerSha": "c2d0153002f862dc591c26114f8bbc420acc7d87",
+  "coverWorkerSha": "5ca8a3da9667f4ecd5fd85b294abb5d5163ebea0",
   "serverRuntimeSha": "37537ea1d351956c226456ad4c5685509f8e04df",
   "deployedAt": "2026-10-19T19:27:41.966372+00:00",
-  "deployment": "frontend-only",
+  "deployment": "isolated-cover-worker-only",
   "serviceRestarted": false,
   "mainPid": 2886573,
-  "coverWorkerPid": 3246246,
+  "coverWorkerPid": 612735,
   "gameArtifactsUnchanged": true,
   "gameConfigUnchanged": true,
   "credentialsAbsentFromPublicArtifacts": true,
@@ -26,7 +26,7 @@
     "published": 0,
     "publishFailed": 0,
     "catalog": 4893,
-    "cdn": 304,
+    "cdn": 772,
     "active": 0,
     "queued": 0,
     "pending": 0,
@@ -38,5 +38,9 @@
   "activeRooms": [],
   "runtimeArtifactsUnchanged": true,
   "configUnchanged": true,
-  "coverWorkerStagePath": "/opt/codenames-releases/cover-c2d0153002f8-review"
+  "coverWorkerStagePath": "/opt/codenames-releases/cover-5ca8a3da9667-original",
+  "coverWorkerDeployedAt": "2026-10-20T20:25:22.395668+00:00",
+  "webArtifactsUnchanged": true,
+  "coverWorkerBackupPath": "/opt/codenames-backups/worker-5ca8a3da9667-20261020T202517Z",
+  "coverHealthMeasuredAt": "2026-10-20T20:29:34.209746+00:00"
 }
