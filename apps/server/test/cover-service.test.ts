@@ -4,6 +4,7 @@ import path from 'node:path';
 import sharp from 'sharp';
 import {CoverService,bgmCover,coverVersion,type CoverRemote,type CoverWork} from '../src/cover-service.js';
 import {CoverUpstreams,cosConfiguration} from '../src/cover-upstreams.js';
+await mkdir(path.resolve('output'),{recursive:true});
 const temp=await mkdtemp(path.resolve('output/cover-service-test-'));
 const png=await sharp({create:{width:64,height:90,channels:3,background:'#469'}}).png().toBuffer();
 const works=Array.from({length:12},(_,i)=>({id:i+1,cover:`https://lain.bgm.tv/pic/cover/l/a/b/${i+1}.jpg`}));
