@@ -28,7 +28,9 @@ export class CoverUpstreams implements CoverRemote {
  private cos?:COS;private proxy?:Dispatcher;private badCdn=new Set<string>();
  constructor(private config?:CosConfig,proxyUrl?:string,private fetcher:typeof fetch=fetch){
   if(config)this.cos=new COS({SecretId:config.secretId,SecretKey:config.secretKey,Timeout:3500,ChunkRetryTimes:0,FileParallelLimit:1,ChunkParallelLimit:1,FollowRedirect:false});
-  if(proxyUrl)this.proxy=new ProxyAgent({uri:proxyUrl,connections:2,pipelining:1,connect:{timeout:2000}});
+  // Two cold jobs can each hedge an original and a resized image; a stalled
+  // resizer must not occupy both proxy connections ahead of its own fallback.
+  if(proxyUrl)this.proxy=new ProxyAgent({uri:proxyUrl,connections:4,pipelining:1,connect:{timeout:2000}});
  }
  validCdn(source:string){
   if(!this.config)return false;
@@ -48,10 +50,14 @@ export class CoverUpstreams implements CoverRemote {
   const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),6500);
   const attempt=async(source:string,delay:number,proxy=false)=>{
    if(delay)await new Promise<void>((resolve,reject)=>{const stop=()=>{clearTimeout(timer);reject(new Error('Cancelled'));};const timer=setTimeout(()=>{controller.signal.removeEventListener('abort',stop);resolve();},delay);if(controller.signal.aborted)stop();else controller.signal.addEventListener('abort',stop,{once:true});});
-   controller.signal.throwIfAborted();return this.download(source,controller.signal,proxy);
+   controller.signal.throwIfAborted();return this.download(source,AbortSignal.any([controller.signal,AbortSignal.timeout(proxy?3500:4000)]),proxy);
   };
-  const alternate=new URL(work.cover);alternate.hostname=alternate.hostname==='lain.bgm.tv'?'lain.bangumi.tv':'lain.bgm.tv';
-  try{return await Promise.any([attempt(work.cover,0),attempt(alternate.href,750),...(this.proxy?[attempt(work.cover,1200,true)]:[])]);}
+  // Bangumi's /r/<size>/ service can fail while the original is healthy. Keep
+  // the exact filename/fingerprint, bypass only resizing, and resize locally.
+  const original=new URL(work.cover);original.pathname=original.pathname.replace(/^\/r\/\d+\/pic\/cover\//,'/pic/cover/');
+  const different=original.href!==work.cover;
+  const alternate=new URL(original);alternate.hostname=alternate.hostname==='lain.bgm.tv'?'lain.bangumi.tv':'lain.bgm.tv';
+  try{return await Promise.any([attempt(work.cover,0),...(different?[attempt(original.href,350)]:[]),attempt(alternate.href,750),...(this.proxy?[attempt(original.href,0,true),...(different?[attempt(work.cover,1000,true)]:[])]:[])]);}
   finally{clearTimeout(timeout);controller.abort();}
  }
  async publish(work:CoverWork,data:Buffer){

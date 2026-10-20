@@ -37,6 +37,21 @@ try{
  await assert.rejects(failing.cover(1),/upstream/);await assert.rejects(failing.cover(1),/cooldown/);assert.equal(failures,1,'negative cache prevents a failed-source stampede');
  let fetches=0;const upstream=new CoverUpstreams(undefined,undefined,(async()=>{fetches++;throw new Error('not expected');}) as typeof fetch);
  await assert.rejects(upstream.load({id:1,cover:'http://127.0.0.1/secret'}));assert.equal(fetches,0,'arbitrary URLs are rejected before network I/O');
+ const seen:string[]=[];let abortedResize=false;
+ const resized='https://lain.bgm.tv/r/400/pic/cover/l/a/b/7106_same.jpg';
+ const resizerDown=new CoverUpstreams(undefined,undefined,(async(input,options)=>{
+  const url=String(input);seen.push(url);
+  if(url.includes('/r/400/'))return new Promise<Response>((_,reject)=>options?.signal?.addEventListener('abort',()=>{abortedResize=true;reject(new Error('Aborted'));},{once:true}));
+  assert.equal(url,'https://lain.bgm.tv/pic/cover/l/a/b/7106_same.jpg','fallback retains the exact original filename');
+  return new Response(new Uint8Array(png),{headers:{'Content-Type':'image/png'}});
+ }) as typeof fetch);
+ assert.ok((await resizerDown.load({id:7106,cover:resized})).equals(png),'stalled resizer cannot hide a healthy original');
+ assert.ok(abortedResize,'winning original cancels the stalled resize request');assert.equal(seen.length,2);
+ const invalidOriginal=new CoverUpstreams(undefined,undefined,(async(input)=>{
+  if(String(input).includes('/r/400/'))throw new Error('Resize unavailable');
+  return new Response('not an image',{headers:{'Content-Type':'text/html'}});
+ }) as typeof fetch);
+ await assert.rejects(invalidOriginal.load({id:7106,cover:resized}),'fallback still rejects non-image responses');
  const config=cosConfiguration({COS_SECRET_ID:'unit',COS_SECRET_KEY:'unit',COS_BUCKET:'unit-1234',COS_REGION:'ap-shanghai'});const cos=new CoverUpstreams(config);
  assert.ok(cos.validCdn('https://unit-1234.cos.ap-shanghai.myqcloud.com/animatch/covers/a.webp'));
  assert.equal(cos.validCdn('https://unit-1234.cos.ap-shanghai.myqcloud.com/private/a.webp'),false);
