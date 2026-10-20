@@ -1,0 +1,203 @@
+{
+  "startedAt": "2026-10-20T07:48:30.421Z",
+  "elapsedSeconds": 1596.8147786999998,
+  "reportPresent": false,
+  "artifactVerification": true,
+  "browser": {
+    "samples": 31,
+    "clients": [
+      {
+        "index": 0,
+        "firstHeapBytes": 6217928,
+        "lastHeapBytes": 11188464,
+        "maxHeapBytes": 14951772,
+        "firstNodes": 1218,
+        "lastNodes": 2297,
+        "maxNodes": 4574,
+        "longTasks": 11,
+        "maxLongTaskMs": 606
+      },
+      {
+        "index": 1,
+        "firstHeapBytes": 6341264,
+        "lastHeapBytes": 9357840,
+        "maxHeapBytes": 13685788,
+        "firstNodes": 893,
+        "lastNodes": 1400,
+        "maxNodes": 3392,
+        "longTasks": 14,
+        "maxLongTaskMs": 581
+      },
+      {
+        "index": 2,
+        "firstHeapBytes": 7633200,
+        "lastHeapBytes": 10944260,
+        "maxHeapBytes": 11962780,
+        "firstNodes": 882,
+        "lastNodes": 2357,
+        "maxNodes": 5793,
+        "longTasks": 13,
+        "maxLongTaskMs": 624
+      },
+      {
+        "index": 3,
+        "firstHeapBytes": 7574384,
+        "lastHeapBytes": 10924812,
+        "maxHeapBytes": 14068676,
+        "firstNodes": 871,
+        "lastNodes": 2351,
+        "maxNodes": 5793,
+        "longTasks": 14,
+        "maxLongTaskMs": 657
+      },
+      {
+        "index": 4,
+        "firstHeapBytes": 6274776,
+        "lastHeapBytes": 8456312,
+        "maxHeapBytes": 16670972,
+        "firstNodes": 860,
+        "lastNodes": 2326,
+        "maxNodes": 4630,
+        "longTasks": 12,
+        "maxLongTaskMs": 549
+      },
+      {
+        "index": 5,
+        "firstHeapBytes": 6229168,
+        "lastHeapBytes": 10959368,
+        "maxHeapBytes": 11302224,
+        "firstNodes": 847,
+        "lastNodes": 2368,
+        "maxNodes": 3359,
+        "longTasks": 13,
+        "maxLongTaskMs": 631
+      },
+      {
+        "index": 6,
+        "firstHeapBytes": 6778928,
+        "lastHeapBytes": 11173952,
+        "maxHeapBytes": 11290776,
+        "firstNodes": 836,
+        "lastNodes": 2338,
+        "maxNodes": 4122,
+        "longTasks": 15,
+        "maxLongTaskMs": 683
+      },
+      {
+        "index": 7,
+        "firstHeapBytes": 6619628,
+        "lastHeapBytes": 10448648,
+        "maxHeapBytes": 12564896,
+        "firstNodes": 816,
+        "lastNodes": 2045,
+        "maxNodes": 5937,
+        "longTasks": 4,
+        "maxLongTaskMs": 544
+      }
+    ],
+    "ackSampleP95Ms": 334.6408999999985
+  },
+  "server": {
+    "samples": 320,
+    "first": {
+      "at": 1792482511395,
+      "uptime": 47317.640650862,
+      "memory": {
+        "rss": 175288320,
+        "heapTotal": 50274304,
+        "heapUsed": 31575056,
+        "external": 4152198,
+        "arrayBuffers": 391489
+      },
+      "cpu": {
+        "user": 262433191,
+        "system": 18939338
+      },
+      "loopP95Ms": 20.889599,
+      "loopP99Ms": 21.266431,
+      "loopMaxMs": 21.397503
+    },
+    "last": {
+      "at": 1792484106985,
+      "uptime": 48913.229982283,
+      "memory": {
+        "rss": 210239488,
+        "heapTotal": 58269696,
+        "heapUsed": 49277608,
+        "external": 3858072,
+        "arrayBuffers": 97363
+      },
+      "cpu": {
+        "user": 345038155,
+        "system": 22567013
+      },
+      "loopP95Ms": 21.118975,
+      "loopP99Ms": 21.135359,
+      "loopMaxMs": 21.250047
+    },
+    "maxRssBytes": 228298752,
+    "maxHeapBytes": 66477904,
+    "loopP99Ms": {
+      "median": 21.217279,
+      "p95": 106.102783,
+      "max": 154.664959
+    },
+    "maxLoopPauseMs": 236.584959
+  },
+  "coverWorker": {
+    "samples": 319,
+    "first": {
+      "at": 1792482512354,
+      "uptime": 46137.035641394,
+      "memory": {
+        "rss": 153952256,
+        "heapTotal": 22478848,
+        "heapUsed": 20309440,
+        "external": 12401502,
+        "arrayBuffers": 962176
+      },
+      "cpu": {
+        "user": 231043857,
+        "system": 23993839
+      },
+      "loopP95Ms": 20.234239,
+      "loopP99Ms": 21.200895,
+      "loopMaxMs": 21.774335
+    },
+    "last": {
+      "at": 1792484102420,
+      "uptime": 47727.102121211,
+      "memory": {
+        "rss": 164687872,
+        "heapTotal": 23527424,
+        "heapUsed": 21137464,
+        "external": 12438799,
+        "arrayBuffers": 2696615
+      },
+      "cpu": {
+        "user": 249235729,
+        "system": 25564686
+      },
+      "loopP95Ms": 21.184511,
+      "loopP99Ms": 21.200895,
+      "loopMaxMs": 21.528575
+    },
+    "maxRssBytes": 182939648,
+    "maxHeapBytes": 38006536,
+    "loopP99Ms": {
+      "median": 21.200895,
+      "p95": 23.511039,
+      "max": 58.687487
+    },
+    "maxLoopPauseMs": 309.067775
+  },
+  "caveats": [
+    "Image HTTP/network error counts include deliberately aborted fault probes and cancelled off-screen work.",
+    "Browser heap samples include garbage collection cycles; first/last differences alone are not proof of a memory leak.",
+    "Eight isolated browser contexts are not eight physical phones or a guarantee for every network.",
+    "The legacy PNG export matrix remains outside this soak acceptance."
+  ],
+  "passed": false,
+  "failure": "AssertionError [ERR_ASSERTION]: visible board covers must recover within 90 seconds; see cover-checks.jsonl\n\n8 !== 0\n\n    at configureRound (file:///D:/work/Ai%E7%BC%96%E7%A8%8B/007games/.worktrees/cover-delivery/scripts/browser-staged-soak.mjs:189:9)\n    at async file:///D:/work/Ai%E7%BC%96%E7%A8%8B/007games/.worktrees/cover-delivery/scripts/browser-staged-soak.mjs:212:39",
+  "completedGames": 4
+}

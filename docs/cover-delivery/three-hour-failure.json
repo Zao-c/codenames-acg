@@ -1,0 +1,64 @@
+{
+  "passed": false,
+  "threeHourComplete": false,
+  "message": "AssertionError [ERR_ASSERTION]: visible board covers must recover within 90 seconds; see cover-checks.jsonl\n\n8 !== 0\n\n    at configureRound (file:///D:/work/Ai%E7%BC%96%E7%A8%8B/007games/.worktrees/cover-delivery/scripts/browser-staged-soak.mjs:189:9)\n    at async file:///D:/work/Ai%E7%BC%96%E7%A8%8B/007games/.worktrees/cover-delivery/scripts/browser-staged-soak.mjs:212:39",
+  "elapsedSeconds": 1596.8147786999998,
+  "counters": {
+    "snapshots": 28,
+    "deltas": 3660,
+    "roomBytes": 73874627,
+    "imageResponses": 2630,
+    "imageHttpErrors": 634,
+    "imageNetworkErrors": 407,
+    "guesses": 80,
+    "clues": 40,
+    "reconnections": 5
+  },
+  "errors": [],
+  "rounds": [
+    {
+      "number": 1,
+      "size": "5x5",
+      "selectionSeconds": 180,
+      "interferenceSeconds": 30,
+      "changed": true,
+      "reconnected": true,
+      "earlyFinished": false,
+      "seconds": 299.65823220000004,
+      "winner": "blue"
+    },
+    {
+      "number": 2,
+      "size": "6x6",
+      "selectionSeconds": 240,
+      "interferenceSeconds": 60,
+      "changed": true,
+      "reconnected": true,
+      "earlyFinished": true,
+      "seconds": 216.981496,
+      "winner": "red"
+    },
+    {
+      "number": 3,
+      "size": "5x5",
+      "selectionSeconds": 300,
+      "interferenceSeconds": null,
+      "changed": true,
+      "reconnected": true,
+      "earlyFinished": false,
+      "seconds": 409.94840059999996,
+      "winner": "blue"
+    },
+    {
+      "number": 4,
+      "size": "6x6",
+      "selectionSeconds": 180,
+      "interferenceSeconds": 30,
+      "changed": true,
+      "reconnected": true,
+      "earlyFinished": true,
+      "seconds": 267.01124510000005,
+      "winner": "blue"
+    }
+  ]
+}
