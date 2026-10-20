@@ -10,6 +10,11 @@ const docs=path.join(root,'docs/cover-delivery'),manifest=JSON.parse(await fs.re
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const read=async name=>{try{return JSON.parse(await fs.readFile(path.join(run,name),'utf8'));}catch(error){if(error.code==='ENOENT')return;throw error;}};
 const command=(file,args,options={})=>execFileSync(file,args,{cwd:root,encoding:'utf8',timeout:120000,maxBuffer:16*1024*1024,...options}).trim();
+async function retryCommand(file,args,options={}){
+ for(let attempt=0;attempt<3;attempt++){
+  try{return command(file,args,options);}catch(error){if(attempt===2)throw error;await sleep(5000);}
+ }
+}
 const percentile=(values,p)=>[...values].sort((a,b)=>a-b)[Math.min(values.length-1,Math.floor(values.length*p))]??0;
 const jsonl=async name=>(await fs.readFile(path.join(run,name),'utf8')).trim().split(/\r?\n/).filter(Boolean).map(line=>JSON.parse(line));
 let report,failure;
@@ -71,7 +76,7 @@ audit['productionCoverHealth']=json.loads(output(['curl','--fail','--silent','ht
 print(json.dumps(audit))
 `;
 // No shell interpolation: the Python program goes to the remote interpreter's stdin.
-const audit=JSON.parse(command('ssh',['-o','BatchMode=yes','-o','ConnectTimeout=15','my-server','python3','-'],{input:auditCode}));
+const audit=JSON.parse(await retryCommand('ssh',['-o','BatchMode=yes','-o','ConnectTimeout=15','my-server','python3','-'],{input:auditCode}));
 await fs.writeFile(path.join(docs,'three-hour-artifact-audit.json'),JSON.stringify(audit,null,2)+'\n');
 const samples=await jsonl('samples.jsonl');
 const summary={startedAt:manifest.started.startedAt,elapsedSeconds:elapsed,reportPresent:!!report,artifactVerification:true,
@@ -111,6 +116,6 @@ const body=`图片故障不应阻塞游戏。公共封面采用独立图片服�
 const bodyFile=path.join(root,'output','cover-pr-final.md');await fs.writeFile(bodyFile,body);
 command('git',['add','--','docs/cover-delivery']);
 command('git',['commit','-m',accepted?'docs: record verified eight-player three-hour cover soak':'docs: record cover soak failure without claiming acceptance']);
-command('git',['push','origin','codex/cipai-cover-delivery']);
-command('gh',['pr','edit','20','--body-file',bodyFile]);
+await retryCommand('git',['-c','http.version=HTTP/1.1','-c','http.postBuffer=524288000','push','origin','codex/cipai-cover-delivery']);
+await retryCommand('gh',['pr','edit','20','--body-file',bodyFile]);
 console.log(JSON.stringify({accepted,completedGames:summary.completedGames,elapsedSeconds:elapsed,commit:command('git',['rev-parse','HEAD']),pr:20}));
