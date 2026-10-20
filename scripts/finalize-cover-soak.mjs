@@ -93,7 +93,7 @@ const summary={startedAt:manifest.started.startedAt,elapsedSeconds:elapsed,repor
 let accepted=false;
 if(report){
  assert.ok(report.passed&&report.threeHourComplete&&report.elapsedSeconds>=10800);
- assert.ok(Date.now()-start>=10800000);assert.equal(report.players,8);assert.equal(report.browserContexts,8);
+ assert.ok(Date.now()-start>=10800000);assert.equal(report.players,8);assert.equal(report.browserContexts,8);assert.equal(report.compiled,true);
  assert.deepEqual(report.errors,[]);assert.ok(report.rounds.some(r=>r.size==='5x5')&&report.rounds.some(r=>r.size==='6x6'));
  assert.equal(report.coverChecks.length,report.rounds.length);assert.ok(report.coverChecks.every(c=>c.passed&&c.unresolved.length===0));
  assert.ok(report.coverFaults.some(f=>f.allSourcesBlocked&&f.actualOperativeGuesses>0&&f.recovered));
@@ -112,7 +112,8 @@ await fs.writeFile(path.join(docs,'ACCEPTANCE.md'),`# 封面交付验收\n\n${me
 // Refuse to publish acceptance for a branch whose runtime sources have changed.
 assert.equal(command('git',['branch','--show-current']),'codex/cipai-cover-delivery');
 assert.equal(command('git',['diff',manifest.frontendSha,'--','apps/server/src','apps/web/src','packages/shared/src','package-lock.json']),'');
-const body=`图片故障不应阻塞游戏。公共封面采用独立图片服务、浏览器有界队列、COS/BGM/同源缓存降级及后台补齐；现有游戏同步、权限与规则保持原状。\n\n已部署：前端 ${manifest.frontendSha.slice(0,7)}，图片服务 ${manifest.coverWorkerSha.slice(0,7)}。游戏运行版本 ${manifest.gameRuntimeSha.slice(0,7)} 和进程保持不变。类型检查、构建、缓存与取消单测、八人两局故障短测均通过。\n\n${message}\n\n基于 PR #19。审计和截图：[评审报告](https://github.com/Zao-c/codenames-acg/blob/codex/cipai-cover-delivery/docs/cover-delivery/README.md)。历史 PNG 导出矩阵不在本次通过范围。\n`;
+const prMessage=message.replace(/\]\(([^)]+)\)/g,(_,file)=>`](https://github.com/Zao-c/codenames-acg/blob/codex/cipai-cover-delivery/docs/cover-delivery/${file})`);
+const body=`图片故障不应阻塞游戏。公共封面采用独立图片服务、浏览器有界队列、COS/BGM/同源缓存降级及后台补齐；现有游戏同步、权限与规则保持原状。\n\n已部署：前端 ${manifest.frontendSha.slice(0,7)}，图片服务 ${manifest.coverWorkerSha.slice(0,7)}。游戏运行版本 ${manifest.gameRuntimeSha.slice(0,7)} 和进程保持不变。类型检查、构建、缓存与取消单测、八人两局故障短测均通过。\n\n${prMessage}\n\n基于 PR #19。审计和截图：[评审报告](https://github.com/Zao-c/codenames-acg/blob/codex/cipai-cover-delivery/docs/cover-delivery/README.md)。历史 PNG 导出矩阵不在本次通过范围。\n`;
 const bodyFile=path.join(root,'output','cover-pr-final.md');await fs.writeFile(bodyFile,body);
 command('git',['add','--','docs/cover-delivery']);
 command('git',['commit','-m',accepted?'docs: record verified eight-player three-hour cover soak':'docs: record cover soak failure without claiming acceptance']);
