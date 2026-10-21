@@ -98,6 +98,7 @@ const summary={startedAt:manifest.started.startedAt,elapsedSeconds:elapsed,repor
   'The legacy PNG export matrix remains outside this soak acceptance.']};
 let accepted=false;
 if(report){
+ try{
  assert.ok(report.passed&&report.threeHourComplete&&report.elapsedSeconds>=10800);
  assert.ok(Date.now()-start>=10800000);assert.equal(report.players,8);assert.equal(report.browserContexts,8);assert.equal(report.compiled,true);
  assert.ok(maxSampleGapSeconds<=180,'a suspended desktop cannot count as continuous browser activity');
@@ -106,12 +107,14 @@ if(report){
  assert.ok(report.coverFaults.some(f=>f.allSourcesBlocked&&f.actualOperativeGuesses>0&&f.recovered));
  summary.passed=true;summary.completedGames=report.rounds.length;summary.ackMs=report.ackMs;summary.uiGuessMs=report.uiGuessMs;
  summary.counters=report.counters;summary.maxCoverWaitSeconds=Math.max(...report.coverChecks.map(c=>c.waitSeconds));accepted=true;
+ }catch(error){summary.passed=false;summary.completedGames=report.rounds?.length??0;summary.validationFailure=String(error.message).slice(0,1000);}
 }else{summary.passed=false;summary.failure=failure.message;summary.completedGames=failure.rounds.length;}
 await fs.writeFile(path.join(docs,'three-hour-summary.json'),JSON.stringify(summary,null,2)+'\n');
 await fs.writeFile(path.join(attemptDocs,'summary.json'),JSON.stringify(summary,null,2)+'\n');
 const message=accepted
  ? `八个独立浏览器持续 ${elapsed.toFixed(1)} 秒，完成 ${report.rounds.length} 局 5×5／6×6 正常对局，三小时通过。ACK P95 ${report.ackMs.p95.toFixed(1)} ms，猜牌界面 P95 ${report.uiGuessMs.p95.toFixed(1)} ms。逐局可见封面检查通过；故障注入中封面全部不可用仍能真实猜牌，解除后恢复。网页、图片服务、正式游戏产物及进程复核通过。详见 [三小时报告](three-hour-report.json)、[指标摘要](three-hour-summary.json)、[产物与资源核验](three-hour-artifact-audit.json)。`
- : `本次八浏览器长测运行 ${elapsed.toFixed(1)} 秒、完成 ${failure.rounds.length} 局后失败，未记作三小时通过。详见 [失败记录](three-hour-failure.json)、[指标摘要](three-hour-summary.json)、[产物核验](three-hour-artifact-audit.json)。`;
+ : failure?`本次八浏览器长测运行 ${elapsed.toFixed(1)} 秒、完成 ${failure.rounds.length} 局后失败，未记作三小时通过。详见 [失败记录](three-hour-failure.json)、[指标摘要](three-hour-summary.json)、[产物核验](three-hour-artifact-audit.json)。`
+ : `本次测量运行 ${elapsed.toFixed(1)} 秒，但验收条件未满足，未记作三小时通过。原因：${summary.validationFailure}。详见 [原始测量](three-hour-report.json)、[验收摘要](three-hour-summary.json)、[产物核验](three-hour-artifact-audit.json)。`;
 const readmePath=path.join(docs,'README.md');let readme=await fs.readFile(readmePath,'utf8');
 readme=readme.replace(/<!-- SOAK_STATUS -->[\s\S]*?<!-- \/SOAK_STATUS -->/,`<!-- SOAK_STATUS -->\n${message}\n<!-- /SOAK_STATUS -->`);
 readme=readme.replace('最终产物正在继续长测。','最终产物的长测结果见下文。').replace('结束后核验网页、图片服务及游戏产物，再补充内存、事件循环、延迟、逐局封面恢复和错误统计。','结束后已核验网页、图片服务及游戏产物，并记录内存、事件循环、延迟、逐局封面恢复和错误统计。');
@@ -122,7 +125,7 @@ assert.equal(command('git',['branch','--show-current']),'codex/cipai-cover-deliv
 assert.equal(command('git',['diff',manifest.coverWorkerSha,'--','apps/server/src','packages/shared/src','package-lock.json']),'');
 assert.equal(command('git',['diff',manifest.frontendSha,'--','apps/web/src']),'');
 const prMessage=message.replace(/\]\(([^)]+)\)/g,(_,file)=>`](https://github.com/Zao-c/codenames-acg/blob/codex/cipai-cover-delivery/docs/cover-delivery/${file})`);
-const body=`图片故障不应阻塞游戏。公共封面采用独立图片服务、浏览器有界队列、COS/BGM/同源缓存降级及后台补齐；现有游戏同步、权限与规则保持原状。\n\n已部署：前端 ${manifest.frontendSha.slice(0,7)}，图片服务 ${manifest.coverWorkerSha.slice(0,7)}。游戏运行版本 ${manifest.gameRuntimeSha.slice(0,7)} 和进程保持不变。类型检查、构建、缓存与取消单测、八人两局故障短测均通过。\n\n${prMessage}\n\n基于 PR #19。审计和截图：[评审报告](https://github.com/Zao-c/codenames-acg/blob/codex/cipai-cover-delivery/docs/cover-delivery/README.md)。历史 PNG 导出矩阵不在本次通过范围。\n`;
+const body=`图片故障不应阻塞游戏。公共封面采用独立图片服务、浏览器有界队列、COS/BGM/独立公共图片缓存/同源缓存降级及后台补齐；现有游戏同步、权限与规则保持原状。公共图片备选不携带用户、房间、凭据或签名查询。\n\n已部署：前端 ${manifest.frontendSha.slice(0,7)}，图片服务 ${manifest.coverWorkerSha.slice(0,7)}。游戏运行版本 ${manifest.gameRuntimeSha.slice(0,7)} 和进程保持不变。类型检查、构建、缓存与取消单测、八人两局故障短测均通过。\n\n${prMessage}\n\n基于 PR #19。审计和截图：[评审报告](https://github.com/Zao-c/codenames-acg/blob/codex/cipai-cover-delivery/docs/cover-delivery/README.md)。历史 PNG 导出矩阵不在本次通过范围。\n`;
 const bodyFile=path.join(root,'output','cover-pr-final.md');await fs.writeFile(bodyFile,body);
 command('git',['add','--','docs/cover-delivery']);
 command('git',['commit','-m',accepted?'docs: record verified eight-player three-hour cover soak':'docs: record cover soak failure without claiming acceptance']);

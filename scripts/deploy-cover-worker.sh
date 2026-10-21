@@ -64,6 +64,7 @@ repo,stage,sha,backup,pid=sys.argv[1:]
 audit=json.loads(pathlib.Path(backup,'release.before.json').read_text())
 audit.update(coverWorkerSha=sha,coverWorkerStagePath=stage,coverWorkerPid=int(subprocess.check_output(['systemctl','show','codenames-covers.service','-p','MainPID','--value'],text=True)),coverWorkerDeployedAt=datetime.datetime.now(datetime.timezone.utc).isoformat(),deployment='isolated-cover-worker-only',serviceRestarted=False,mainPid=int(pid),gameArtifactsUnchanged=True,gameConfigUnchanged=True,webArtifactsUnchanged=True,coverWorkerBackupPath=backup)
 audit['coverHealth']=json.loads(pathlib.Path(backup,'cover-health.json').read_text())
+audit['coverHealthMeasuredAt']=audit['coverWorkerDeployedAt']
 pathlib.Path(repo,'release.json').write_text(json.dumps(audit,indent=2)+'\n')
 pathlib.Path(backup,'audit.json').write_text(json.dumps(audit,indent=2)+'\n')
 print(json.dumps(audit))
