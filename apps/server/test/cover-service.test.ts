@@ -52,6 +52,19 @@ try{
   return new Response('not an image',{headers:{'Content-Type':'text/html'}});
  }) as typeof fetch);
  await assert.rejects(invalidOriginal.load({id:7106,cover:resized}),'fallback still rejects non-image responses');
+ const mirrored:string[]=[];
+ const originOffline=new CoverUpstreams(undefined,undefined,(async(input,options)=>{
+  const url=new URL(String(input));mirrored.push(url.href);
+  if(url.hostname!=='images.weserv.nl')throw new Error('BGM network offline');
+  assert.equal(url.searchParams.get('url'),'https://lain.bgm.tv/pic/cover/l/a/b/7106_same.jpg');
+  assert.equal(url.searchParams.get('w'),'400');assert.equal(url.searchParams.get('output'),'webp');
+  const headers=new Headers(options?.headers);assert.equal(headers.has('authorization'),false);assert.equal(headers.has('cookie'),false);
+  return new Response(new Uint8Array(png),{headers:{'Content-Type':'image/png'}});
+ }) as typeof fetch);
+ assert.ok((await originOffline.load({id:7106,cover:resized})).equals(png),'independent public cache survives failure of all original-image routes');
+ assert.equal(mirrored.filter(u=>new URL(u).hostname==='images.weserv.nl').length,1,'one bounded mirror attempt per cold job');
+ const beforePrivate=mirrored.length;await assert.rejects(originOffline.load({id:7106,cover:resized+'?signed=private-fixture'}));
+ assert.ok(mirrored.slice(beforePrivate).every(u=>new URL(u).hostname!=='images.weserv.nl'),'query-bearing URLs never leave the original hosts');
  const config=cosConfiguration({COS_SECRET_ID:'unit',COS_SECRET_KEY:'unit',COS_BUCKET:'unit-1234',COS_REGION:'ap-shanghai'});const cos=new CoverUpstreams(config);
  assert.ok(cos.validCdn('https://unit-1234.cos.ap-shanghai.myqcloud.com/animatch/covers/a.webp'));
  assert.equal(cos.validCdn('https://unit-1234.cos.ap-shanghai.myqcloud.com/private/a.webp'),false);

@@ -15,7 +15,7 @@ async function catalog(){
  const files=await Promise.all([resourceFile,importFile].map(async file=>{try{return JSON.parse(await fs.readFile(file,'utf8')).works as CoverWork[];}catch(error){if((error as NodeJS.ErrnoException).code==='ENOENT')return [];throw error;}}));
  return [...new Map(files.flat().filter(w=>w&&typeof w.cover==='string').map(w=>[w.id,{id:w.id,cover:w.cover}])).values()];
 }
-const upstreams=new CoverUpstreams(cosConfiguration(process.env),process.env.COVER_OUTBOUND_PROXY_URL);
+const upstreams=new CoverUpstreams(cosConfiguration(process.env),process.env.COVER_OUTBOUND_PROXY_URL,fetch,process.env.COVER_PUBLIC_MIRROR_ENABLED!=='0');
 const service=new CoverService(directory,path.join(directory,'manifest.json'),upstreams);
 await service.initialize(await catalog());
 setInterval(()=>{void catalog().then(works=>service.setCatalog(works)).catch(()=>{});},60000).unref();
@@ -24,7 +24,7 @@ const server=http.createServer(async(req,res)=>{
  res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Cross-Origin-Resource-Policy','cross-origin');
  const url=new URL(req.url||'/','http://127.0.0.1');
  if(req.method!=='GET'){res.writeHead(405).end();return;}
- if(url.pathname==='/health'){res.setHeader('Content-Type','application/json');res.end(JSON.stringify({ok:true,...service.stats()}));return;}
+ if(url.pathname==='/health'){res.setHeader('Content-Type','application/json');res.end(JSON.stringify({ok:true,...service.stats(),upstreams:upstreams.metrics}));return;}
  // Nginx forwards only these two public paths; health/metrics stay loopback-only.
  const peer=req.socket.remoteAddress||'local',counter=requestCounts.get(peer),now=Date.now();
  if(counter&&counter.at+60000>now){if(++counter.count>6000){res.writeHead(429,{'Retry-After':'5'}).end();return;}}
