@@ -6,7 +6,9 @@ import path from 'node:path';
 import {spawn} from 'node:child_process';
 
 const root=process.cwd(),stamp=new Date().toISOString().replace(/[-:]/g,'').slice(0,15);
-const run=path.join(root,'output/playwright/cover-delivery',`soak-633ddfd-${stamp}`);
+const template=JSON.parse(await fs.readFile(process.argv[2]??'output/cover-soak-template.json','utf8'));
+if(!/^[a-f0-9]{40}$/.test(template.coverWorkerSha))throw new Error('Verified worker manifest required');
+const run=path.join(root,'output/playwright/cover-delivery',`soak-${template.coverWorkerSha.slice(0,7)}-${stamp}`);
 await fs.mkdir(run,{recursive:true});
 await fs.writeFile('output/active-cover-soak.json',JSON.stringify({supervisorPid:process.pid,run,launchedAt:new Date().toISOString()},null,2));
 const env={...process.env,SOAK_BASE_URL:'http://127.0.0.1:5396',SOAK_SECONDS:'10800',SOAK_OUT:run,COVER_FAULT_PROBE:'1'};
@@ -35,8 +37,7 @@ try{
   await sleep(1000);
  }
  if(!started)throw new Error('Browser driver did not start within two minutes');
- const manifest={frontendSha:'633ddfd1fa2110bc44315f80cf7240d8d22bae99',coverWorkerSha:'c2d0153002f862dc591c26114f8bbc420acc7d87',gameRuntimeSha:'37537ea1d351956c226456ad4c5685509f8e04df',
-  webStage:'/opt/codenames-releases/staged-draft-633ddfd1fa21-web',workerStage:'/opt/codenames-releases/cover-c2d0153002f8-review',testRun:'/opt/codenames-test-runs/cover-c2d0153002f8-review',
+ const manifest={...template,
   requestedSeconds:10800,workerLimits:{cpuQuota:'50%',memoryMax:402653184,nodeHeapMiB:192},isolation:'separate data/accounts/ports; no production test rooms',started};
  await fs.writeFile(path.join(run,'manifest.json'),JSON.stringify(manifest,null,2));
  await fs.copyFile(path.join(run,'manifest.json'),'docs/cover-delivery/soak-manifest.json');

@@ -179,7 +179,7 @@ async function configureRound(number){
  do{
   unresolved=[];
   for(let i=0;i<8;i++){
-   const missing=await pages[i].locator('.anime-board-card img').evaluateAll(imgs=>imgs.filter(img=>{const r=img.getBoundingClientRect();return r.width>0&&r.height>0&&r.bottom>0&&r.top<innerHeight&&(!img.complete||!img.naturalWidth);}).map(img=>img.currentSrc||img.src));
+   const missing=await pages[i].locator('.anime-board-card img').evaluateAll(imgs=>imgs.filter(img=>{const r=img.getBoundingClientRect();return r.width>0&&r.height>0&&r.bottom>0&&r.top<innerHeight&&(!img.complete||!img.naturalWidth);}).map(img=>({url:img.currentSrc||img.src,card:img.closest('.anime-board-card')?.textContent?.slice(0,240),state:img.dataset.coverState})));
    if(missing.length)unresolved.push({i,urls:missing});
   }
   if(!unresolved.length)break;
