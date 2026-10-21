@@ -1,6 +1,6 @@
 # 封面加载与游戏流畅性修订
 
-已部署：前端 **633ddfd1fa2110bc44315f80cf7240d8d22bae99**；独立图片服务 **5ca8a3da9667f4ecd5fd85b294abb5d5163ebea0**。北京时间 2026-10-21 04:25 仅更新图片进程，增加绕过 BGM 缩略图服务的原图降级，并合并已发布的公共 COS 清单（772 张匹配封面）。正式游戏进程仍为 **37537ea / PID 2886573**，没有重启。网页、游戏编译文件和游戏配置逐文件核验未变。见 [生产审计](production-audit.json)。
+已部署：前端 **633ddfd1fa2110bc44315f80cf7240d8d22bae99**；独立图片服务 **f609fa4b3faa1a459659583f9bb6832b9cf674a9**。北京时间 2026-10-21 19:17 仅更新图片工作进程，增加独立公共图片缓存备选，公共 COS 清单已有 986 张匹配封面，失败样本随后也发布成功。正式游戏进程仍为 **37537ea / PID 2886573**，没有重启。网页、游戏编译文件和游戏配置逐文件核验未变。见 [生产审计](production-audit.json)。
 
 优先级按用户要求执行：游戏体验、流畅性、出图率。组牌、抢夺、干扰、倒计时、线索、猜牌和翻牌都不等待封面完成。
 
@@ -13,6 +13,7 @@ flowchart LR
   Q --> COS[COS 公共封面]
   Q --> BGM[BGM 原图]
   Q --> LOCAL[独立图片服务：磁盘与内存缓存]
+  LOCAL --> MIRROR[独立公共图片缓存：仅公共封面]
   LOCAL -.后台补齐.-> COS
 ```
 
@@ -55,10 +56,18 @@ COS 后台在短测中补齐 102 张封面，无上传失败。正式冷样本 9
 
 模拟缩略图一直挂起时，原图分支能成功且会取消挂起请求；非图片响应继续拒绝。五张实际缺图样本绕过本地/COS 缓存下载并解码全部成功，约 0.6–1.4 秒。这个结果不能代替完整长测。[五张样本记录](original-fallback-cold-samples.json)。
 
+## 独立公共图片缓存备选
+
+原图旁路版在 861.8 秒、完成两局后，第三局的作品 413619（非人哉 第二季 13-24集）仍未恢复。这次只剩一张缺图，但影响八个浏览器，也没有记作三小时通过。[失败记录](attempts/20261020T203144/failure.json)、[逐局记录](attempts/20261020T203144/cover-checks.jsonl)。
+
+进一步探测时，BGM 原图、缩略图、备用域名及现有代理均发生连接超时。新版增加 Weserv 独立公共图片缓存作为备选，成功后仍返回本地缩略图并后台发布到本项目 COS 命名空间。只传目录中公共 BGM 封面地址，不传用户、房间、Cookie、授权头、带签名查询或片段的 URL；私有/自建图片沿用原权限路径。可用 `COVER_PUBLIC_MIRROR_ENABLED=0` 关闭该备选。该服务定位为后备线路，不能代替已有本地/COS 缓存。[服务说明](https://wsrv.nl/faq/)。
+
+真实故障注入中，BGM 路线全部强制失败、绕过本地/COS 后，同一作品仍在约 2.84 秒返回有效 WebP。正式图片接口再复核，约 2.44 秒返回 200，独立缓存取图计数增加 1，随后后台发布成功且 COS 公开访问为 200。浏览器再同时屏蔽外部图源，约 1.70 秒由正式同源缓存显示作品，未发生脚本错误。[真实取图验证](mirror-real-recovery.json)、[正式发布记录](mirror-production-publication.json)、[浏览器恢复记录](mirror-production-recovery.json)。
+
 ## 三小时测试
 
 <!-- SOAK_STATUS -->
-本次八浏览器长测运行 861.8 秒、完成 2 局后失败，未记作三小时通过。详见 [失败记录](three-hour-failure.json)、[指标摘要](three-hour-summary.json)、[产物核验](three-hour-artifact-audit.json)。
+正式图片工作进程 f609fa4 与前端 633ddfd 已于北京时间 **2026-10-21 19:21:44** 从零启动八浏览器 10800 秒隔离长测，预计 22:22 以后结束当前局并生成结果。当前前五局 5×5／6×6 均完成，可见封面均恢复；**尚未完成三小时验收。** 每次任务单独计时，之前的中断、失败不合并。收集器会核对真实产物、进程、连续采样间隔和资源，保留每次结果后更新此报告与 PR。
 <!-- /SOAK_STATUS -->
 
 结束后已核验网页、图片服务及游戏产物，并记录内存、事件循环、延迟、逐局封面恢复和错误统计。原矩阵的 PNG 导出停滞另有历史记录，本轮未将它记作完整通过。
@@ -70,3 +79,5 @@ COS 后台在短测中补齐 102 张封面，无上传失败。正式冷样本 9
 - [全封面源屏蔽时仍完成猜牌](screens/guessing-with-all-cover-sources-blocked.png)、[解除屏蔽后恢复](screens/covers-recovered-after-unblocking.png)
 - 正式缓存回退：[桌面深色](screens/production-cache-fallback-desktop.png)、[手机浅色](screens/production-cache-fallback-mobile.png)
 - 旧失败样本的新恢复验证：[桌面](screens/baseline-misses-recovery-desktop.png)、[手机](screens/baseline-misses-recovery-mobile.png)。恢复截图使用同一图片样本，不是同一对局的截图。
+
+- 最新失败样本对照：[修复前棋盘缺图](screens/old-failure-413619-board.png)、[恢复后桌面浅色](screens/mirror-recovery-desktop-light.png)、[恢复后手机深色](screens/mirror-recovery-mobile-dark.png)。后两张使用同一作品的只读首页夹具，并非同一局棋盘。
