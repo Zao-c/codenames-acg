@@ -1,5 +1,5 @@
 {
-  "atUtc": "2026-10-20T20:46:10Z",
+  "atUtc": "2026-10-21T13:21:18Z",
   "verification": {
     "webStageFiles": 79,
     "workerStageFiles": 69,
@@ -10,24 +10,24 @@
     "codenames.service": {
       "MainPID": "2886573",
       "NRestarts": "0",
-      "MemoryCurrent": "75034624",
+      "MemoryCurrent": "53686272",
       "MemoryPeak": "161517568",
       "CPUQuotaPerSecUSec": "infinity",
       "MemoryMax": "infinity"
     },
     "codenames-covers.service": {
-      "MainPID": "612735",
+      "MainPID": "1649058",
       "NRestarts": "0",
-      "MemoryCurrent": "35368960",
-      "MemoryPeak": "57466880",
+      "MemoryCurrent": "65748992",
+      "MemoryPeak": "104099840",
       "CPUQuotaPerSecUSec": "500ms",
       "MemoryMax": "402653184"
     },
-    "cipai-cover-soak-5ca8a3d.service": {
-      "MainPID": "616091",
+    "cipai-cover-soak-f609fa4.service": {
+      "MainPID": "1653470",
       "NRestarts": "0",
-      "MemoryCurrent": "187949056",
-      "MemoryPeak": "209891328",
+      "MemoryCurrent": "147705856",
+      "MemoryPeak": "176963584",
       "CPUQuotaPerSecUSec": "500ms",
       "MemoryMax": "402653184"
     }
@@ -35,13 +35,13 @@
   "release": {
     "sha": "633ddfd1fa2110bc44315f80cf7240d8d22bae99",
     "frontendSha": "633ddfd1fa2110bc44315f80cf7240d8d22bae99",
-    "coverWorkerSha": "5ca8a3da9667f4ecd5fd85b294abb5d5163ebea0",
+    "coverWorkerSha": "f609fa4b3faa1a459659583f9bb6832b9cf674a9",
     "serverRuntimeSha": "37537ea1d351956c226456ad4c5685509f8e04df",
     "deployedAt": "2026-10-19T19:27:41.966372+00:00",
     "deployment": "isolated-cover-worker-only",
     "serviceRestarted": false,
     "mainPid": 2886573,
-    "coverWorkerPid": 612735,
+    "coverWorkerPid": 1649058,
     "gameArtifactsUnchanged": true,
     "gameConfigUnchanged": true,
     "credentialsAbsentFromPublicArtifacts": true,
@@ -60,152 +60,167 @@
       "published": 0,
       "publishFailed": 0,
       "catalog": 4893,
-      "cdn": 772,
+      "cdn": 986,
       "active": 0,
       "queued": 0,
       "pending": 0,
       "memoryBytes": 0,
-      "uploadQueue": 0
+      "uploadQueue": 0,
+      "upstreams": {
+        "cdnLoads": 0,
+        "originalLoads": 0,
+        "mirrorLoads": 0
+      }
     },
     "backupPath": "/opt/codenames-backups/web-633ddfd1fa21-20261019T192741Z",
     "stagePath": "/opt/codenames-releases/staged-draft-633ddfd1fa21-web",
     "activeRooms": [],
     "runtimeArtifactsUnchanged": true,
     "configUnchanged": true,
-    "coverWorkerStagePath": "/opt/codenames-releases/cover-5ca8a3da9667-original",
-    "coverWorkerDeployedAt": "2026-10-20T20:25:22.395668+00:00",
+    "coverWorkerStagePath": "/opt/codenames-releases/cover-f609fa4b3faa-mirror",
+    "coverWorkerDeployedAt": "2026-10-21T11:17:45.740868+00:00",
     "webArtifactsUnchanged": true,
-    "coverWorkerBackupPath": "/opt/codenames-backups/worker-5ca8a3da9667-20261020T202517Z",
-    "coverHealthMeasuredAt": "2026-10-20T20:29:34.209746+00:00"
+    "coverWorkerBackupPath": "/opt/codenames-backups/worker-f609fa4b3faa-20261021T111740Z",
+    "coverHealthMeasuredAt": "2026-10-21T11:17:45.740868+00:00"
   },
   "testGame": {
-    "samples": 172,
+    "samples": 1434,
     "first": {
-      "at": 1792528308274,
-      "uptime": 93114.51922114,
+      "at": 1792581704992,
+      "uptime": 146511.237273752,
       "memory": {
-        "rss": 204402688,
-        "heapTotal": 81633280,
-        "heapUsed": 49426544,
-        "external": 3899305,
-        "arrayBuffers": 138596
+        "rss": 119173120,
+        "heapTotal": 50491392,
+        "heapUsed": 35768768,
+        "external": 5888194,
+        "arrayBuffers": 2121201
       },
       "cpu": {
-        "user": 370008640,
-        "system": 31762045
+        "user": 444107300,
+        "system": 45142214
       },
-      "loopP95Ms": 21.151743,
-      "loopP99Ms": 64.389119,
-      "loopMaxMs": 110.100479
+      "loopP95Ms": 21.741567,
+      "loopP99Ms": 29.491199,
+      "loopMaxMs": 60.424191
     },
     "last": {
-      "at": 1792529163539,
-      "uptime": 93969.784730464,
+      "at": 1792588874135,
+      "uptime": 153680.380222174,
       "memory": {
-        "rss": 163528704,
-        "heapTotal": 49651712,
-        "heapUsed": 40242904,
-        "external": 3849432,
-        "arrayBuffers": 88723
+        "rss": 185704448,
+        "heapTotal": 102899712,
+        "heapUsed": 76432048,
+        "external": 3899191,
+        "arrayBuffers": 138482
       },
       "cpu": {
-        "user": 414567650,
-        "system": 33797269
+        "user": 968491644,
+        "system": 65760649
       },
-      "loopP95Ms": 21.135359,
-      "loopP99Ms": 21.135359,
-      "loopMaxMs": 21.430271
+      "loopP95Ms": 52.133887,
+      "loopP99Ms": 125.435903,
+      "loopMaxMs": 353.370111
     },
-    "maxRssBytes": 222748672,
-    "maxHeapBytes": 64513248,
+    "maxRssBytes": 191975424,
+    "maxHeapBytes": 77114520,
     "loopP99Ms": {
-      "median": 21.184511,
-      "p95": 105.775103,
-      "max": 210.632703
+      "median": 21.479423,
+      "p95": 124.125183,
+      "max": 326.631423
     },
-    "maxLoopPauseMs": 277.086207
+    "maxLoopPauseMs": 400.031743
   },
   "testCover": {
-    "samples": 173,
+    "samples": 1434,
     "first": {
-      "at": 1792528306064,
-      "uptime": 250.050448225,
+      "at": 1792581708711,
+      "uptime": 80.050949449,
       "memory": {
-        "rss": 101384192,
-        "heapTotal": 25206784,
-        "heapUsed": 15777312,
-        "external": 4172143,
-        "arrayBuffers": 315459
+        "rss": 108167168,
+        "heapTotal": 32989184,
+        "heapUsed": 31089784,
+        "external": 4875547,
+        "arrayBuffers": 1010745
       },
       "cpu": {
-        "user": 1814317,
-        "system": 206126
+        "user": 1097253,
+        "system": 145564
       },
-      "loopP95Ms": 21.184511,
-      "loopP99Ms": 21.463039,
-      "loopMaxMs": 26.443775
+      "loopP95Ms": 21.168127,
+      "loopP99Ms": 21.282815,
+      "loopMaxMs": 32.210943
     },
     "last": {
-      "at": 1792529166090,
-      "uptime": 1110.07733408,
+      "at": 1792588874137,
+      "uptime": 7245.477360882,
       "memory": {
-        "rss": 239755264,
-        "heapTotal": 22216704,
-        "heapUsed": 19731264,
-        "external": 9931613,
-        "arrayBuffers": 2249407
+        "rss": 179818496,
+        "heapTotal": 24576000,
+        "heapUsed": 22198904,
+        "external": 12438197,
+        "arrayBuffers": 1878127
       },
       "cpu": {
-        "user": 13719634,
-        "system": 1053490
+        "user": 107785392,
+        "system": 8510708
       },
       "loopP95Ms": 21.184511,
-      "loopP99Ms": 21.184511,
-      "loopMaxMs": 21.708799
+      "loopP99Ms": 21.889023,
+      "loopMaxMs": 23.789567
     },
-    "maxRssBytes": 259174400,
-    "maxHeapBytes": 35914168,
+    "maxRssBytes": 208060416,
+    "maxHeapBytes": 37983336,
     "loopP99Ms": {
-      "median": 21.184511,
-      "p95": 37.650431,
-      "max": 80.543743
+      "median": 21.200895,
+      "p95": 26.738687,
+      "max": 78.381055
     },
-    "maxLoopPauseMs": 317.456383
+    "maxLoopPauseMs": 422.838271
   },
   "coverHealth": {
     "ok": true,
-    "diskHits": 52,
-    "memoryHits": 694,
-    "loads": 93,
-    "failed": 4,
+    "diskHits": 429,
+    "memoryHits": 2876,
+    "loads": 837,
+    "failed": 22,
     "busy": 0,
-    "coalesced": 788,
-    "published": 85,
+    "coalesced": 9784,
+    "published": 753,
     "publishFailed": 0,
     "catalog": 4893,
-    "cdn": 857,
+    "cdn": 1740,
     "active": 0,
     "queued": 0,
     "pending": 0,
-    "memoryBytes": 5929892,
-    "uploadQueue": 0
+    "memoryBytes": 8350392,
+    "uploadQueue": 0,
+    "upstreams": {
+      "cdnLoads": 62,
+      "originalLoads": 29,
+      "mirrorLoads": 724
+    }
   },
   "productionCoverHealth": {
     "ok": true,
-    "diskHits": 0,
-    "memoryHits": 0,
-    "loads": 0,
+    "diskHits": 40,
+    "memoryHits": 5,
+    "loads": 24,
     "failed": 0,
     "busy": 0,
     "coalesced": 0,
-    "published": 0,
+    "published": 14,
     "publishFailed": 0,
     "catalog": 4893,
-    "cdn": 772,
+    "cdn": 1000,
     "active": 0,
     "queued": 0,
     "pending": 0,
-    "memoryBytes": 0,
-    "uploadQueue": 0
+    "memoryBytes": 3103014,
+    "uploadQueue": 0,
+    "upstreams": {
+      "cdnLoads": 10,
+      "originalLoads": 0,
+      "mirrorLoads": 14
+    }
   }
 }

@@ -1,196 +1,196 @@
 {
-  "startedAt": "2026-10-20T20:31:44.722Z",
-  "elapsedSeconds": 861.7943771,
+  "startedAt": "2026-10-21T11:21:44.393Z",
+  "elapsedSeconds": 7169.8264492,
   "reportPresent": false,
   "artifactVerification": true,
   "browser": {
-    "samples": 17,
-    "maxSampleGapSeconds": 61.767,
+    "samples": 145,
+    "maxSampleGapSeconds": 63.989,
     "clients": [
       {
         "index": 0,
-        "firstHeapBytes": 5437264,
-        "lastHeapBytes": 11976244,
-        "maxHeapBytes": 12818356,
-        "firstNodes": 1210,
-        "lastNodes": 1957,
-        "maxNodes": 4710,
-        "longTasks": 13,
-        "maxLongTaskMs": 665
+        "firstHeapBytes": 6099448,
+        "lastHeapBytes": 12954128,
+        "maxHeapBytes": 16823348,
+        "firstNodes": 1218,
+        "lastNodes": 4880,
+        "maxNodes": 5122,
+        "longTasks": 24,
+        "maxLongTaskMs": 428
       },
       {
         "index": 1,
-        "firstHeapBytes": 7593176,
-        "lastHeapBytes": 10246400,
-        "maxHeapBytes": 14084412,
-        "firstNodes": 925,
-        "lastNodes": 1793,
-        "maxNodes": 3256,
-        "longTasks": 9,
-        "maxLongTaskMs": 204
+        "firstHeapBytes": 6677876,
+        "lastHeapBytes": 14726004,
+        "maxHeapBytes": 18230540,
+        "firstNodes": 888,
+        "lastNodes": 3516,
+        "maxNodes": 6876,
+        "longTasks": 51,
+        "maxLongTaskMs": 200
       },
       {
         "index": 2,
-        "firstHeapBytes": 6877640,
-        "lastHeapBytes": 9159948,
-        "maxHeapBytes": 12056640,
-        "firstNodes": 882,
-        "lastNodes": 1701,
-        "maxNodes": 5799,
-        "longTasks": 10,
-        "maxLongTaskMs": 655
+        "firstHeapBytes": 6817072,
+        "lastHeapBytes": 10836444,
+        "maxHeapBytes": 15312044,
+        "firstNodes": 877,
+        "lastNodes": 3507,
+        "maxNodes": 6259,
+        "longTasks": 34,
+        "maxLongTaskMs": 474
       },
       {
         "index": 3,
-        "firstHeapBytes": 7546532,
-        "lastHeapBytes": 9447936,
-        "maxHeapBytes": 12176116,
-        "firstNodes": 871,
-        "lastNodes": 1701,
-        "maxNodes": 5781,
-        "longTasks": 12,
-        "maxLongTaskMs": 694
+        "firstHeapBytes": 7309840,
+        "lastHeapBytes": 10614604,
+        "maxHeapBytes": 15422948,
+        "firstNodes": 829,
+        "lastNodes": 3507,
+        "maxNodes": 6253,
+        "longTasks": 45,
+        "maxLongTaskMs": 490
       },
       {
         "index": 4,
-        "firstHeapBytes": 6804492,
-        "lastHeapBytes": 8965096,
-        "maxHeapBytes": 13944112,
+        "firstHeapBytes": 7010148,
+        "lastHeapBytes": 12109720,
+        "maxHeapBytes": 14958328,
         "firstNodes": 860,
-        "lastNodes": 1868,
-        "maxNodes": 4121,
-        "longTasks": 11,
-        "maxLongTaskMs": 622
+        "lastNodes": 4776,
+        "maxNodes": 5509,
+        "longTasks": 40,
+        "maxLongTaskMs": 518
       },
       {
         "index": 5,
-        "firstHeapBytes": 6226596,
-        "lastHeapBytes": 9249900,
-        "maxHeapBytes": 10485724,
-        "firstNodes": 805,
-        "lastNodes": 1706,
-        "maxNodes": 3967,
-        "longTasks": 11,
-        "maxLongTaskMs": 690
+        "firstHeapBytes": 6960728,
+        "lastHeapBytes": 11058760,
+        "maxHeapBytes": 16353140,
+        "firstNodes": 847,
+        "lastNodes": 3526,
+        "maxNodes": 6800,
+        "longTasks": 54,
+        "maxLongTaskMs": 573
       },
       {
         "index": 6,
-        "firstHeapBytes": 6793688,
-        "lastHeapBytes": 8738008,
-        "maxHeapBytes": 11334284,
-        "firstNodes": 836,
-        "lastNodes": 1121,
-        "maxNodes": 3180,
-        "longTasks": 12,
-        "maxLongTaskMs": 634
+        "firstHeapBytes": 6917140,
+        "lastHeapBytes": 11996852,
+        "maxHeapBytes": 15201092,
+        "firstNodes": 831,
+        "lastNodes": 3511,
+        "maxNodes": 6251,
+        "longTasks": 49,
+        "maxLongTaskMs": 449
       },
       {
         "index": 7,
-        "firstHeapBytes": 6700584,
-        "lastHeapBytes": 8391800,
-        "maxHeapBytes": 12183988,
-        "firstNodes": 816,
-        "lastNodes": 1616,
-        "maxNodes": 5784,
-        "longTasks": 10,
-        "maxLongTaskMs": 657
+        "firstHeapBytes": 6907260,
+        "lastHeapBytes": 12351296,
+        "maxHeapBytes": 16457592,
+        "firstNodes": 774,
+        "lastNodes": 5884,
+        "maxNodes": 5979,
+        "longTasks": 14,
+        "maxLongTaskMs": 362
       }
     ],
-    "ackSampleP95Ms": 1106.0712999999996
+    "ackSampleP95Ms": 300.8935000002384
   },
   "server": {
-    "samples": 172,
+    "samples": 1434,
     "first": {
-      "at": 1792528308274,
-      "uptime": 93114.51922114,
+      "at": 1792581704992,
+      "uptime": 146511.237273752,
       "memory": {
-        "rss": 204402688,
-        "heapTotal": 81633280,
-        "heapUsed": 49426544,
-        "external": 3899305,
-        "arrayBuffers": 138596
+        "rss": 119173120,
+        "heapTotal": 50491392,
+        "heapUsed": 35768768,
+        "external": 5888194,
+        "arrayBuffers": 2121201
       },
       "cpu": {
-        "user": 370008640,
-        "system": 31762045
+        "user": 444107300,
+        "system": 45142214
       },
-      "loopP95Ms": 21.151743,
-      "loopP99Ms": 64.389119,
-      "loopMaxMs": 110.100479
+      "loopP95Ms": 21.741567,
+      "loopP99Ms": 29.491199,
+      "loopMaxMs": 60.424191
     },
     "last": {
-      "at": 1792529163539,
-      "uptime": 93969.784730464,
+      "at": 1792588874135,
+      "uptime": 153680.380222174,
       "memory": {
-        "rss": 163528704,
-        "heapTotal": 49651712,
-        "heapUsed": 40242904,
-        "external": 3849432,
-        "arrayBuffers": 88723
+        "rss": 185704448,
+        "heapTotal": 102899712,
+        "heapUsed": 76432048,
+        "external": 3899191,
+        "arrayBuffers": 138482
       },
       "cpu": {
-        "user": 414567650,
-        "system": 33797269
+        "user": 968491644,
+        "system": 65760649
       },
-      "loopP95Ms": 21.135359,
-      "loopP99Ms": 21.135359,
-      "loopMaxMs": 21.430271
+      "loopP95Ms": 52.133887,
+      "loopP99Ms": 125.435903,
+      "loopMaxMs": 353.370111
     },
-    "maxRssBytes": 222748672,
-    "maxHeapBytes": 64513248,
+    "maxRssBytes": 191975424,
+    "maxHeapBytes": 77114520,
     "loopP99Ms": {
-      "median": 21.184511,
-      "p95": 105.775103,
-      "max": 210.632703
+      "median": 21.479423,
+      "p95": 124.125183,
+      "max": 326.631423
     },
-    "maxLoopPauseMs": 277.086207
+    "maxLoopPauseMs": 400.031743
   },
   "coverWorker": {
-    "samples": 173,
+    "samples": 1434,
     "first": {
-      "at": 1792528306064,
-      "uptime": 250.050448225,
+      "at": 1792581708711,
+      "uptime": 80.050949449,
       "memory": {
-        "rss": 101384192,
-        "heapTotal": 25206784,
-        "heapUsed": 15777312,
-        "external": 4172143,
-        "arrayBuffers": 315459
+        "rss": 108167168,
+        "heapTotal": 32989184,
+        "heapUsed": 31089784,
+        "external": 4875547,
+        "arrayBuffers": 1010745
       },
       "cpu": {
-        "user": 1814317,
-        "system": 206126
+        "user": 1097253,
+        "system": 145564
       },
-      "loopP95Ms": 21.184511,
-      "loopP99Ms": 21.463039,
-      "loopMaxMs": 26.443775
+      "loopP95Ms": 21.168127,
+      "loopP99Ms": 21.282815,
+      "loopMaxMs": 32.210943
     },
     "last": {
-      "at": 1792529166090,
-      "uptime": 1110.07733408,
+      "at": 1792588874137,
+      "uptime": 7245.477360882,
       "memory": {
-        "rss": 239755264,
-        "heapTotal": 22216704,
-        "heapUsed": 19731264,
-        "external": 9931613,
-        "arrayBuffers": 2249407
+        "rss": 179818496,
+        "heapTotal": 24576000,
+        "heapUsed": 22198904,
+        "external": 12438197,
+        "arrayBuffers": 1878127
       },
       "cpu": {
-        "user": 13719634,
-        "system": 1053490
+        "user": 107785392,
+        "system": 8510708
       },
       "loopP95Ms": 21.184511,
-      "loopP99Ms": 21.184511,
-      "loopMaxMs": 21.708799
+      "loopP99Ms": 21.889023,
+      "loopMaxMs": 23.789567
     },
-    "maxRssBytes": 259174400,
-    "maxHeapBytes": 35914168,
+    "maxRssBytes": 208060416,
+    "maxHeapBytes": 37983336,
     "loopP99Ms": {
-      "median": 21.184511,
-      "p95": 37.650431,
-      "max": 80.543743
+      "median": 21.200895,
+      "p95": 26.738687,
+      "max": 78.381055
     },
-    "maxLoopPauseMs": 317.456383
+    "maxLoopPauseMs": 422.838271
   },
   "caveats": [
     "Image HTTP/network error counts include deliberately aborted fault probes and cancelled off-screen work.",
@@ -199,6 +199,6 @@
     "The legacy PNG export matrix remains outside this soak acceptance."
   ],
   "passed": false,
-  "failure": "AssertionError [ERR_ASSERTION]: visible board covers must recover within 90 seconds; see cover-checks.jsonl\n\n8 !== 0\n\n    at configureRound (file:///D:/work/Ai%E7%BC%96%E7%A8%8B/007games/.worktrees/cover-delivery/scripts/browser-staged-soak.mjs:189:9)\n    at async file:///D:/work/Ai%E7%BC%96%E7%A8%8B/007games/.worktrees/cover-delivery/scripts/browser-staged-soak.mjs:212:39",
-  "completedGames": 2
+  "failure": "locator.waitFor: Error: strict mode violation: locator('.draft-candidates').getByRole('button', { name: 'X战记', exact: true }) resolved to 2 elements:\n    1) <button type=\"button\" aria-label=\"X战记\" aria-haspopup=\"dialog\" class=\"draft-tile-main\">…</button> aka getByRole('button', { name: 'X战记' }).first()\n    2) <button type=\"button\" aria-label=\"X战记\" aria-haspopup=\"dialog\" class=\"draft-tile-main\">…</button> aka getByRole('button', { name: 'X战记' }).nth(1)\n\nCall log:\n\u001b[2m  - waiting for locator('.draft-candidates').getByRole('button', { name: 'X战记', exact: true }) to be visible\u001b[22m\n\n    at configureRound (D:\\work\\Ai编程\\007games\\.worktrees\\cover-delivery\\scripts\\browser-staged-soak.mjs:156:383)\n    at async file:///D:/work/Ai%E7%BC%96%E7%A8%8B/007games/.worktrees/cover-delivery/scripts/browser-staged-soak.mjs:212:39",
+  "completedGames": 27
 }

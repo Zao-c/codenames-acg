@@ -1,7 +1,7 @@
 # 封面交付验收
 
-本次八浏览器长测运行 861.8 秒、完成 2 局后失败，未记作三小时通过。详见 [失败记录](three-hour-failure.json)、[指标摘要](three-hour-summary.json)、[产物核验](three-hour-artifact-audit.json)。
+本次八浏览器长测运行 7169.8 秒、完成 27 局后失败，未记作三小时通过。详见 [失败记录](three-hour-failure.json)、[指标摘要](three-hour-summary.json)、[产物核验](three-hour-artifact-audit.json)。
 
-正式前端：633ddfd1fa2110bc44315f80cf7240d8d22bae99；独立图片服务：5ca8a3da9667f4ecd5fd85b294abb5d5163ebea0；游戏运行版本：37537ea1d351956c226456ad4c5685509f8e04df。本收集脚本没有部署或重启任何服务。
+正式前端：633ddfd1fa2110bc44315f80cf7240d8d22bae99；独立图片服务：f609fa4b3faa1a459659583f9bb6832b9cf674a9；游戏运行版本：37537ea1d351956c226456ad4c5685509f8e04df。本收集脚本没有部署或重启任何服务。
 
 图片错误统计包含故障注入和取消请求，不等于永久缺图数。内存记录包含 GC 波动，需结合峰值、队列与最终状态审阅。实体手机及所有网络条件不在本次保证范围；历史 PNG 导出矩阵未被算作本次通过。
