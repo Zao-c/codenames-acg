@@ -7,6 +7,7 @@ import {chromium} from 'playwright';
 import {readRoomState} from './room-observer.mjs';
 import {browserProxy} from './browser-network.mjs';
 import {theme} from './browser-support.mjs';
+import {observeSoakNetwork} from './soak-network-observer.mjs';
 
 const base=process.env.SOAK_BASE_URL??'http://127.0.0.1:5394',out=path.resolve(process.env.SOAK_OUT??'output/playwright/staged-draft/smoke');
 const duration=Number(process.env.SOAK_SECONDS??10800),full=duration>=10800;await fs.mkdir(out,{recursive:true});
@@ -47,7 +48,7 @@ async function sample(label='heartbeat'){
    const s=states[i];assert.equal(s.players.length,8);if(i!==0&&i!==4)assert.equal(s.nextPlan?.captainView,undefined,'operative receives no private draft claims');
    clients.push({index:i,phase:s.phase,stage:s.nextPlan?.stage,heapBytes:m.JSHeapUsedSize,nodes:m.Nodes,taskSeconds:m.TaskDuration,...view});
   }
-  const record={label,elapsedSeconds:(performance.now()-started)/1000,completedGames:rounds.length,ackP95Ms:percentile(latency,.95),uiP95Ms:percentile(uiLatency,.95),counters:{...counters},clients};
+  const record={label,elapsedSeconds:(performance.now()-started)/1000,completedGames:rounds.length,ackP95Ms:percentile(latency,.95),uiP95Ms:percentile(uiLatency,.95),counters:{...counters},driverMemory:process.memoryUsage(),clients};
   await log('samples.jsonl',record);await fs.writeFile(path.join(out,'progress.json'),JSON.stringify(record,null,2));
   console.log(`SOAK_PROGRESS ${Math.round(record.elapsedSeconds)}/${duration}s games=${rounds.length} phase=${states[0].phase}/${states[0].nextPlan?.stage} ackP95=${Math.round(record.ackP95Ms)}ms`);
  }finally{sampling=false;}
@@ -59,7 +60,6 @@ async function pulse(){
 async function connectEight(){
  for(let i=0;i<8;i++){
   const context=await browser.newContext({viewport:{width:i===7?390:1440,height:i===7?844:900},hasTouch:i===7});const p=await context.newPage();pages[i]=p;p.setDefaultTimeout(45000);
-  p.on('request',r=>{if(new URL(r.url()).pathname==='/api/anime/catalog')catalogRequests[i]++;});
   await p.addInitScript(()=>{
    const Native=window.WebSocket;window.WebSocket=class extends Native{constructor(...args){super(...args);if(String(args[0]).includes('/socket.io/'))window.__soakSocket=this;}};
    window.__soakLongTasks=[];try{new PerformanceObserver(list=>{for(const e of list.getEntries())if(window.__soakLongTasks.length<1000)window.__soakLongTasks.push(e.duration);}).observe({type:'longtask',buffered:true});}catch{}
@@ -73,12 +73,12 @@ async function connectEight(){
    const match=raw.match(/^43(\d+)(\[.*)$/s);if(match){const item=acks[i].get(Number(match[1]));if(item){acks[i].delete(Number(match[1]));item.resolve(JSON.parse(match[2])[0]);}}
   }catch(e){errors.push({i,message:'observer: '+e.message});}};
   p.on('websocket',ws=>ws.on('framereceived',frame=>packet(String(frame.payload))));
-  p.on('response',async response=>{
-   if(response.url().includes('/socket.io/')&&response.request().method()==='GET')try{for(const part of(await response.text()).split('\x1e'))packet(part);}catch{}
-   if(response.request().resourceType()==='image'){counters.imageResponses++;if(response.status()>=400)counters.imageHttpErrors++;void log('images.jsonl',{i,url:response.url(),status:response.status(),ms:Date.now()-response.request().timing().startTime});}
-  });
-  p.on('requestfailed',request=>{if(request.resourceType()==='image'&&!request.failure()?.errorText.includes('ERR_ABORTED')){counters.imageNetworkErrors++;void log('images.jsonl',{i,url:request.url(),error:request.failure()?.errorText});}});
   cdps[i]=await context.newCDPSession(p);await cdps[i].send('Performance.enable');
+  await observeSoakNetwork(cdps[i],{onCatalog:()=>catalogRequests[i]++,onPacket:packet,onImage:image=>{
+   if(image.error)counters.imageNetworkErrors++;
+   else{counters.imageResponses++;if(image.status>=400)counters.imageHttpErrors++;}
+   void log('images.jsonl',{i,...image});
+  }});
   console.log('SOAK_JOIN '+i);await p.goto(base+'/login',{waitUntil:'domcontentloaded'});await p.getByPlaceholder('输入用户名').fill(`长测${Date.now().toString().slice(-6)}${i}`);await button(p,'进入结社').click();await button(p,'＋ 创建房间').waitFor();
   const identity=await p.evaluate(()=>JSON.parse(localStorage.getItem('acg-codenames-identity')));
   const avatar=await sharp(crypto.randomBytes(96*96*3),{raw:{width:96,height:96,channels:3}}).webp({quality:80}).toBuffer();
