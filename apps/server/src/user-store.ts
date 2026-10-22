@@ -23,6 +23,8 @@ import type { UserStore } from "./types.js";
 
 interface UserDatabase {
   users: Record<string, NamedUserAccount>;
+  /** One-time existing-public-pack privacy cutover marker. */
+  wordPackPrivacyVersion?: number;
 }
 
 function now(): number {
@@ -165,6 +167,7 @@ export class JsonUserStore implements UserStore {
   private users = new Map<string, NamedUserAccount>();
   private readonly sessions = new Map<string, { userKey: string; expiresAt: number }>();
   private loaded = false;
+  private wordPackPrivacyVersion = 0;
   private loading?: Promise<void>;
   private writeChain: Promise<void> = Promise.resolve();
 
@@ -432,22 +435,25 @@ export class JsonUserStore implements UserStore {
           }
         }
       }
-      let revoked = 0;
-      for (const account of this.users.values()) {
-        for (const pack of account.customWordPacks) {
-          if (pack.isPublic === true) {
-            pack.isPublic = false;
-            pack.publishedAt = undefined;
-            revoked++;
+      if (source && this.wordPackPrivacyVersion < 1) {
+        let revoked = 0;
+        for (const account of this.users.values()) {
+          for (const pack of account.customWordPacks) {
+            if (pack.isPublic === true) {
+              pack.isPublic = false;
+              pack.publishedAt = undefined;
+              revoked++;
+            }
           }
         }
-      }
-      if (revoked > 0) {
-        // One-time, server-side migration: preserve the original private data before changing visibility.
-        if (!source) throw new Error('文字题库隐私迁移缺少原始存储文件');
+        // The marker is persisted even if no pack needed changing. Later explicit
+        // opt-ins must survive restarts; only pre-migration publicity is revoked.
         await fs.copyFile(source, `${this.filePath}.before-wordpack-privacy-${Date.now()}.bak`);
+        this.wordPackPrivacyVersion = 1;
         await this.persist();
-        console.info(`Made ${revoked} existing user word packs private`);
+        console.info(`Word-pack privacy cutover completed: ${revoked} old public packs made private`);
+      } else if (!source) {
+        this.wordPackPrivacyVersion = 1;
       }
       this.loaded = true;
     })();
@@ -458,6 +464,7 @@ export class JsonUserStore implements UserStore {
   private async tryLoadFile(filePath: string): Promise<void> {
     const raw = await fs.readFile(filePath, "utf8");
     const parsed = JSON.parse(raw) as UserDatabase;
+    this.wordPackPrivacyVersion = parsed.wordPackPrivacyVersion === 1 ? 1 : 0;
     for (const account of Object.values(parsed.users ?? {})) {
       this.users.set(userKey(account.username), {
         ...defaultUser(account.username),
@@ -474,7 +481,8 @@ export class JsonUserStore implements UserStore {
     this.writeChain = previous.then(async () => {
       await fs.mkdir(path.dirname(this.filePath), { recursive: true });
       const payload: UserDatabase = {
-        users: Object.fromEntries(this.users.entries())
+        users: Object.fromEntries(this.users.entries()),
+        wordPackPrivacyVersion: this.wordPackPrivacyVersion
       };
       const content = JSON.stringify(payload, null, 2);
       await fs.writeFile(this.filePath, content, "utf8");
