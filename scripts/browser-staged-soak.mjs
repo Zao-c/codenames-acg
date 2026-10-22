@@ -219,6 +219,7 @@ try{
   }
   await playNormally(number);
   if(coverFaultActive){
+   await fs.writeFile(path.join(out,'cover-fault-latency.json'),JSON.stringify({actualOperativeGuesses:blockedGuessLatency.length,uiGuessP95Ms:percentile(blockedGuessLatency,.95),samplesMs:blockedGuessLatency},null,2));
    assert.ok(blockedGuessLatency.length>0,'real operative guesses were confirmed while all cover sources were blocked');assert.ok(percentile(blockedGuessLatency,.95)<3000,'cover failure must not gate guessing');
    const missing=await pages[1].locator('.anime-board-card img').evaluateAll(images=>images.filter(i=>!i.naturalWidth).length);assert.ok(missing>0);await shot(1,'guessing-with-all-cover-sources-blocked');
    await pages[1].unroute('**/*');await pages[1].reload();await pages[1].locator('.anime-board-card').first().waitFor();await until(async()=>await pages[1].locator('.anime-board-card img').evaluateAll(images=>images.filter(i=>{const r=i.getBoundingClientRect();return r.width&&r.height&&r.top<innerHeight&&r.bottom>0;}).every(i=>i.complete&&i.naturalWidth>0)),'visible covers recover after unblocking',90);await shot(1,'covers-recovered-after-unblocking');
@@ -231,7 +232,7 @@ try{
  const report={passed:true,threeHourComplete:full&&elapsed>=10800,requestedSeconds:duration,elapsedSeconds:elapsed,players:8,browserContexts:8,compiled:true,checks,rounds,counters,coverChecks,coverFaults,ackMs:{p50:percentile(latency,.5),p95:percentile(latency,.95),max:Math.max(0,...latency)},uiGuessMs:{p95:percentile(uiLatency,.95)},errors,scope:full?'Real wall-clock three-hour multi-game run; ordinary drafting uses real 180/240/300 second deadlines.':'Short diagnostic only; this is not a three-hour acceptance.'};
  await fs.writeFile(path.join(out,'report.json'),JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));
 }catch(error){
- await fs.writeFile(path.join(out,'failure.json'),JSON.stringify({passed:false,threeHourComplete:false,message:error.stack,elapsedSeconds:started?(performance.now()-started)/1000:0,counters,errors,rounds},null,2));
+ await fs.writeFile(path.join(out,'failure.json'),JSON.stringify({passed:false,threeHourComplete:false,message:error.stack,elapsedSeconds:started?(performance.now()-started)/1000:0,counters,errors,rounds,ackMs:{p95:percentile(latency,.95)},uiGuessMs:{p95:percentile(uiLatency,.95)},blockedGuessMs:{p95:percentile(blockedGuessLatency,.95),samplesMs:blockedGuessLatency}},null,2));
  for(const [i,p] of pages.entries())try{await fs.writeFile(path.join(out,`failure-${i}.txt`),await p.locator('body').innerText());if(i===0||i===4)await p.screenshot({path:path.join(out,`failure-${i}.png`),fullPage:true});}catch{}
  throw error;
 }finally{await browser.close();}
