@@ -1,80 +1,19 @@
 {
   "passed": false,
   "threeHourComplete": false,
-  "message": "Local supervisor and browser driver no longer exist. Last progress at about 01:55 CST; no driver exit or completion report was written. Cause of process termination is unknown. Only measured active time is counted.",
-  "elapsedSeconds": 1344.2106554999998,
+  "message": "AssertionError [ERR_ASSERTION]: cover failure must not gate guessing\n    at file:///opt/codenames-test-runs/cover-f609fa4-server-20261022T080002/scripts/browser-staged-soak.mjs:222:128",
+  "elapsedSeconds": 314.707197386,
   "counters": {
-    "snapshots": 28,
-    "deltas": 4011,
-    "roomBytes": 79588719,
-    "imageResponses": 1851,
+    "snapshots": 14,
+    "deltas": 710,
+    "roomBytes": 10894343,
+    "imageResponses": 406,
     "imageHttpErrors": 0,
-    "imageNetworkErrors": 221,
-    "guesses": 96,
-    "clues": 48,
-    "reconnections": 5
+    "imageNetworkErrors": 454,
+    "guesses": 16,
+    "clues": 8,
+    "reconnections": 1
   },
   "errors": [],
-  "rounds": [
-    {
-      "at": "2026-10-21T17:37:49.022Z",
-      "number": 1,
-      "size": "5x5",
-      "selectionSeconds": 180,
-      "interferenceSeconds": 30,
-      "changed": true,
-      "reconnected": true,
-      "earlyFinished": false,
-      "seconds": 257.448842,
-      "winner": "red"
-    },
-    {
-      "at": "2026-10-21T17:40:54.635Z",
-      "number": 2,
-      "size": "6x6",
-      "selectionSeconds": 240,
-      "interferenceSeconds": 60,
-      "changed": true,
-      "reconnected": true,
-      "earlyFinished": true,
-      "seconds": 184.83797860000004,
-      "winner": "red"
-    },
-    {
-      "at": "2026-10-21T17:46:40.416Z",
-      "number": 3,
-      "size": "5x5",
-      "selectionSeconds": 300,
-      "interferenceSeconds": null,
-      "changed": true,
-      "reconnected": true,
-      "earlyFinished": false,
-      "seconds": 345.04684690000005,
-      "winner": "blue"
-    },
-    {
-      "at": "2026-10-21T17:49:42.522Z",
-      "number": 4,
-      "size": "6x6",
-      "selectionSeconds": 180,
-      "interferenceSeconds": 30,
-      "changed": true,
-      "reconnected": true,
-      "earlyFinished": true,
-      "seconds": 181.8130127000001,
-      "winner": "red"
-    },
-    {
-      "at": "2026-10-21T17:55:23.924Z",
-      "number": 5,
-      "size": "5x5",
-      "selectionSeconds": 240,
-      "interferenceSeconds": 60,
-      "changed": true,
-      "reconnected": true,
-      "earlyFinished": false,
-      "seconds": 341.14006420000015,
-      "winner": "red"
-    }
-  ]
+  "rounds": []
 }

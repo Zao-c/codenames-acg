@@ -1,5 +1,5 @@
 {
-  "atUtc": "2026-10-22T07:51:49Z",
+  "atUtc": "2026-10-22T08:18:50Z",
   "verification": {
     "webStageFiles": 79,
     "workerStageFiles": 69,
@@ -10,7 +10,7 @@
     "codenames.service": {
       "MainPID": "2886573",
       "NRestarts": "0",
-      "MemoryCurrent": "67223552",
+      "MemoryCurrent": "68800512",
       "MemoryPeak": "161517568",
       "CPUQuotaPerSecUSec": "infinity",
       "MemoryMax": "infinity"
@@ -18,7 +18,7 @@
     "codenames-covers.service": {
       "MainPID": "1649058",
       "NRestarts": "0",
-      "MemoryCurrent": "68939776",
+      "MemoryCurrent": "69447680",
       "MemoryPeak": "104099840",
       "CPUQuotaPerSecUSec": "500ms",
       "MemoryMax": "402653184"
@@ -26,7 +26,7 @@
     "cipai-cover-soak-f609fa4.service": {
       "MainPID": "1653470",
       "NRestarts": "0",
-      "MemoryCurrent": "45400064",
+      "MemoryCurrent": "151064576",
       "MemoryPeak": "238145536",
       "CPUQuotaPerSecUSec": "500ms",
       "MemoryMax": "402653184"
@@ -84,119 +84,119 @@
     "coverHealthMeasuredAt": "2026-10-21T11:17:45.740868+00:00"
   },
   "testGame": {
-    "samples": 269,
+    "samples": 63,
     "first": {
-      "at": 1792604015037,
-      "uptime": 168821.282022496,
+      "at": 1792656312533,
+      "uptime": 221118.778813986,
       "memory": {
-        "rss": 151515136,
-        "heapTotal": 97091584,
-        "heapUsed": 73288600,
-        "external": 3948295,
-        "arrayBuffers": 187586
+        "rss": 100962304,
+        "heapTotal": 61079552,
+        "heapUsed": 41148560,
+        "external": 3877338,
+        "arrayBuffers": 116629
       },
       "cpu": {
-        "user": 980327313,
-        "system": 69455933
+        "user": 1107087912,
+        "system": 84455062
       },
-      "loopP95Ms": 43.712511,
-      "loopP99Ms": 379.584511,
-      "loopMaxMs": 489.947135
+      "loopP95Ms": 21.692415,
+      "loopP99Ms": 39.223295,
+      "loopMaxMs": 111.607807
     },
     "last": {
-      "at": 1792605355700,
-      "uptime": 170161.945219807,
+      "at": 1792656622541,
+      "uptime": 221428.786876298,
       "memory": {
-        "rss": 124522496,
-        "heapTotal": 62201856,
-        "heapUsed": 51817512,
-        "external": 3849613,
-        "arrayBuffers": 88904
+        "rss": 175607808,
+        "heapTotal": 91824128,
+        "heapUsed": 53049424,
+        "external": 3857920,
+        "arrayBuffers": 97211
       },
       "cpu": {
-        "user": 1075393791,
-        "system": 73463106
+        "user": 1120118944,
+        "system": 85118541
       },
-      "loopP95Ms": 20.250623,
-      "loopP99Ms": 24.002559,
-      "loopMaxMs": 40.271871
+      "loopP95Ms": 20.463615,
+      "loopP99Ms": 21.266431,
+      "loopMaxMs": 125.829119
     },
-    "maxRssBytes": 188837888,
-    "maxHeapBytes": 85143720,
+    "maxRssBytes": 175607808,
+    "maxHeapBytes": 78026088,
     "loopP99Ms": {
-      "median": 21.282815,
-      "p95": 114.491391,
-      "max": 379.584511
+      "median": 21.938175,
+      "p95": 117.047295,
+      "max": 342.097919
     },
-    "maxLoopPauseMs": 489.947135
+    "maxLoopPauseMs": 702.545919
   },
   "testCover": {
-    "samples": 269,
+    "samples": 63,
     "first": {
-      "at": 1792604014714,
-      "uptime": 22386.0540287,
+      "at": 1792656311761,
+      "uptime": 74683.100708675,
       "memory": {
-        "rss": 68493312,
-        "heapTotal": 36659200,
-        "heapUsed": 33213040,
-        "external": 12348543,
-        "arrayBuffers": 1868657
+        "rss": 52383744,
+        "heapTotal": 24838144,
+        "heapUsed": 22055824,
+        "external": 12349955,
+        "arrayBuffers": 3731861
       },
       "cpu": {
-        "user": 183244198,
-        "system": 16663302
+        "user": 443968815,
+        "system": 43243528
       },
-      "loopP95Ms": 21.184511,
-      "loopP99Ms": 21.413887,
-      "loopMaxMs": 274.726911
+      "loopP95Ms": 21.659647,
+      "loopP99Ms": 21.987327,
+      "loopMaxMs": 22.069247
     },
     "last": {
-      "at": 1792605354796,
-      "uptime": 23726.136066556,
+      "at": 1792656621775,
+      "uptime": 74993.114910649,
       "memory": {
-        "rss": 208551936,
+        "rss": 148160512,
         "heapTotal": 24838144,
-        "heapUsed": 22012848,
-        "external": 12405790,
-        "arrayBuffers": 3750398
+        "heapUsed": 22012976,
+        "external": 12372583,
+        "arrayBuffers": 4400109
       },
       "cpu": {
-        "user": 200792940,
-        "system": 18164557
+        "user": 447827327,
+        "system": 43812641
       },
-      "loopP95Ms": 20.135935,
-      "loopP99Ms": 21.184511,
-      "loopMaxMs": 21.184511
+      "loopP95Ms": 20.889599,
+      "loopP99Ms": 21.544959,
+      "loopMaxMs": 22.003711
     },
-    "maxRssBytes": 241770496,
-    "maxHeapBytes": 40148144,
+    "maxRssBytes": 161591296,
+    "maxHeapBytes": 37655872,
     "loopP99Ms": {
-      "median": 21.184511,
-      "p95": 32.079871,
-      "max": 80.216063
+      "median": 21.626879,
+      "p95": 50.561023,
+      "max": 77.332479
     },
-    "maxLoopPauseMs": 297.533439
+    "maxLoopPauseMs": 257.425407
   },
   "coverHealth": {
     "ok": true,
-    "diskHits": 632,
-    "memoryHits": 3486,
-    "loads": 960,
+    "diskHits": 665,
+    "memoryHits": 3903,
+    "loads": 981,
     "failed": 22,
     "busy": 0,
-    "coalesced": 10784,
-    "published": 867,
+    "coalesced": 10959,
+    "published": 886,
     "publishFailed": 0,
     "catalog": 4893,
-    "cdn": 1854,
+    "cdn": 1873,
     "active": 0,
     "queued": 0,
     "pending": 0,
-    "memoryBytes": 8355338,
+    "memoryBytes": 8333310,
     "uploadQueue": 0,
     "upstreams": {
-      "cdnLoads": 71,
-      "originalLoads": 135,
+      "cdnLoads": 73,
+      "originalLoads": 154,
       "mirrorLoads": 732
     }
   },
@@ -222,5 +222,19 @@
       "originalLoads": 0,
       "mirrorLoads": 16
     }
+  },
+  "browserService": {
+    "unit": "cipai-cover-browser-f609fa4-20261022T080002.service",
+    "MainPID": "0",
+    "Result": "exit-code",
+    "MemoryCurrent": "[not set]",
+    "MemoryPeak": "841793536",
+    "CPUWeight": "1",
+    "CPUQuotaPerSecUSec": "600ms",
+    "MemoryHigh": "838860800",
+    "MemoryMax": "1073741824",
+    "MemorySwapMax": "134217728",
+    "Nice": "19",
+    "ActiveState": "failed"
   }
 }

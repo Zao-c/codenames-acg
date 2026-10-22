@@ -1,0 +1,19 @@
+{
+  "passed": false,
+  "threeHourComplete": false,
+  "message": "AssertionError [ERR_ASSERTION]: cover failure must not gate guessing\n    at file:///opt/codenames-test-runs/cover-f609fa4-server-20261022T080002/scripts/browser-staged-soak.mjs:222:128",
+  "elapsedSeconds": 314.707197386,
+  "counters": {
+    "snapshots": 14,
+    "deltas": 710,
+    "roomBytes": 10894343,
+    "imageResponses": 406,
+    "imageHttpErrors": 0,
+    "imageNetworkErrors": 454,
+    "guesses": 16,
+    "clues": 8,
+    "reconnections": 1
+  },
+  "errors": [],
+  "rounds": []
+}
