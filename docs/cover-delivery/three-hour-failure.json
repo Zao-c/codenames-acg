@@ -1,19 +1,105 @@
 {
   "passed": false,
   "threeHourComplete": false,
-  "message": "AssertionError [ERR_ASSERTION]: cover failure must not gate guessing\n    at file:///opt/codenames-test-runs/cover-f609fa4-server-20261022T080002/scripts/browser-staged-soak.mjs:222:128",
-  "elapsedSeconds": 314.707197386,
+  "message": "locator.scrollIntoViewIfNeeded: Timeout 44806.72899999982ms exceeded.\nCall log:\n  - attempting scroll into view action\n    - waiting for element to be stable\n\n    at configureRound (/opt/codenames-test-runs/cover-f609fa4-server-20261022T082447/scripts/browser-staged-soak.mjs:179:97)\n    at async file:///opt/codenames-test-runs/cover-f609fa4-server-20261022T082447/scripts/browser-staged-soak.mjs:215:39",
+  "elapsedSeconds": 2343.1711396,
   "counters": {
-    "snapshots": 14,
-    "deltas": 710,
-    "roomBytes": 10894343,
-    "imageResponses": 406,
+    "snapshots": 46,
+    "deltas": 5082,
+    "roomBytes": 111183617,
+    "imageResponses": 2463,
     "imageHttpErrors": 0,
-    "imageNetworkErrors": 454,
-    "guesses": 16,
-    "clues": 8,
-    "reconnections": 1
+    "imageNetworkErrors": 263,
+    "guesses": 120,
+    "clues": 60,
+    "reconnections": 7
   },
   "errors": [],
-  "rounds": []
+  "rounds": [
+    {
+      "number": 1,
+      "size": "5x5",
+      "selectionSeconds": 180,
+      "interferenceSeconds": 30,
+      "changed": true,
+      "reconnected": true,
+      "earlyFinished": false,
+      "seconds": 276.376191114,
+      "winner": "red"
+    },
+    {
+      "number": 2,
+      "size": "6x6",
+      "selectionSeconds": 240,
+      "interferenceSeconds": 60,
+      "changed": true,
+      "reconnected": true,
+      "earlyFinished": true,
+      "seconds": 199.065638767,
+      "winner": "blue"
+    },
+    {
+      "number": 3,
+      "size": "5x5",
+      "selectionSeconds": 300,
+      "interferenceSeconds": null,
+      "changed": true,
+      "reconnected": true,
+      "earlyFinished": false,
+      "seconds": 354.56819567700006,
+      "winner": "blue"
+    },
+    {
+      "number": 4,
+      "size": "6x6",
+      "selectionSeconds": 180,
+      "interferenceSeconds": 30,
+      "changed": true,
+      "reconnected": true,
+      "earlyFinished": true,
+      "seconds": 215.25367994400008,
+      "winner": "blue"
+    },
+    {
+      "number": 5,
+      "size": "5x5",
+      "selectionSeconds": 240,
+      "interferenceSeconds": 60,
+      "changed": true,
+      "reconnected": true,
+      "earlyFinished": false,
+      "seconds": 367.932342126,
+      "winner": "red"
+    },
+    {
+      "number": 6,
+      "size": "6x6",
+      "selectionSeconds": 300,
+      "interferenceSeconds": null,
+      "changed": true,
+      "reconnected": true,
+      "earlyFinished": true,
+      "seconds": 311.79663754200004,
+      "winner": "blue"
+    }
+  ],
+  "ackMs": {
+    "p95": 537.3461460000835
+  },
+  "uiGuessMs": {
+    "p95": 2808.698984999908
+  },
+  "blockedGuessMs": {
+    "p95": 710.3877280000015,
+    "samplesMs": [
+      710.3877280000015,
+      449.66213199999765,
+      579.9623119999887,
+      589.2518179999897,
+      586.8918260000064,
+      205.6462200000533,
+      554.2241009999998,
+      329.4543319999939
+    ]
+  }
 }

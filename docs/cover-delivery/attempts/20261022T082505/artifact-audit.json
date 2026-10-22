@@ -1,0 +1,240 @@
+{
+  "atUtc": "2026-10-22T09:04:46Z",
+  "verification": {
+    "webStageFiles": 79,
+    "workerStageFiles": 69,
+    "productionWebFiles": 10,
+    "productionGameFiles": 66
+  },
+  "services": {
+    "codenames.service": {
+      "MainPID": "2886573",
+      "NRestarts": "0",
+      "MemoryCurrent": "51093504",
+      "MemoryPeak": "161517568",
+      "CPUQuotaPerSecUSec": "infinity",
+      "MemoryMax": "infinity"
+    },
+    "codenames-covers.service": {
+      "MainPID": "1649058",
+      "NRestarts": "0",
+      "MemoryCurrent": "75010048",
+      "MemoryPeak": "104099840",
+      "CPUQuotaPerSecUSec": "500ms",
+      "MemoryMax": "402653184"
+    },
+    "cipai-cover-soak-f609fa4.service": {
+      "MainPID": "1653470",
+      "NRestarts": "0",
+      "MemoryCurrent": "216440832",
+      "MemoryPeak": "251482112",
+      "CPUQuotaPerSecUSec": "500ms",
+      "MemoryMax": "402653184"
+    }
+  },
+  "release": {
+    "sha": "633ddfd1fa2110bc44315f80cf7240d8d22bae99",
+    "frontendSha": "633ddfd1fa2110bc44315f80cf7240d8d22bae99",
+    "coverWorkerSha": "f609fa4b3faa1a459659583f9bb6832b9cf674a9",
+    "serverRuntimeSha": "37537ea1d351956c226456ad4c5685509f8e04df",
+    "deployedAt": "2026-10-19T19:27:41.966372+00:00",
+    "deployment": "isolated-cover-worker-only",
+    "serviceRestarted": false,
+    "mainPid": 2886573,
+    "coverWorkerPid": 1649058,
+    "gameArtifactsUnchanged": true,
+    "gameConfigUnchanged": true,
+    "credentialsAbsentFromPublicArtifacts": true,
+    "assetHashes": {
+      "/assets/index-C8ef2pcv.js": "69b50860fe65d340931089b6a17eff91a6ec6c2aa7807fb5692ae8bc64222497",
+      "/assets/index-DEpMagbK.css": "a6b3960d10401eb9b4a589af5378977ee40d95c0bc99d5fa3d82827992252646"
+    },
+    "coverHealth": {
+      "ok": true,
+      "diskHits": 0,
+      "memoryHits": 0,
+      "loads": 0,
+      "failed": 0,
+      "busy": 0,
+      "coalesced": 0,
+      "published": 0,
+      "publishFailed": 0,
+      "catalog": 4893,
+      "cdn": 986,
+      "active": 0,
+      "queued": 0,
+      "pending": 0,
+      "memoryBytes": 0,
+      "uploadQueue": 0,
+      "upstreams": {
+        "cdnLoads": 0,
+        "originalLoads": 0,
+        "mirrorLoads": 0
+      }
+    },
+    "backupPath": "/opt/codenames-backups/web-633ddfd1fa21-20261019T192741Z",
+    "stagePath": "/opt/codenames-releases/staged-draft-633ddfd1fa21-web",
+    "activeRooms": [],
+    "runtimeArtifactsUnchanged": true,
+    "configUnchanged": true,
+    "coverWorkerStagePath": "/opt/codenames-releases/cover-f609fa4b3faa-mirror",
+    "coverWorkerDeployedAt": "2026-10-21T11:17:45.740868+00:00",
+    "webArtifactsUnchanged": true,
+    "coverWorkerBackupPath": "/opt/codenames-backups/worker-f609fa4b3faa-20261021T111740Z",
+    "coverHealthMeasuredAt": "2026-10-21T11:17:45.740868+00:00"
+  },
+  "testGame": {
+    "samples": 468,
+    "first": {
+      "at": 1792657507569,
+      "uptime": 222313.814047543,
+      "memory": {
+        "rss": 178630656,
+        "heapTotal": 96083968,
+        "heapUsed": 65522264,
+        "external": 3948417,
+        "arrayBuffers": 187382
+      },
+      "cpu": {
+        "user": 1123256098,
+        "system": 85426126
+      },
+      "loopP95Ms": 21.741567,
+      "loopP99Ms": 46.333951,
+      "loopMaxMs": 183.238655
+    },
+    "last": {
+      "at": 1792659844362,
+      "uptime": 224650.607194899,
+      "memory": {
+        "rss": 161857536,
+        "heapTotal": 54616064,
+        "heapUsed": 49073912,
+        "external": 3858400,
+        "arrayBuffers": 97691
+      },
+      "cpu": {
+        "user": 1267067197,
+        "system": 92393954
+      },
+      "loopP95Ms": 21.135359,
+      "loopP99Ms": 21.331967,
+      "loopMaxMs": 21.921791
+    },
+    "maxRssBytes": 191733760,
+    "maxHeapBytes": 86084824,
+    "loopP99Ms": {
+      "median": 21.430271,
+      "p95": 178.388991,
+      "max": 229.375999
+    },
+    "maxLoopPauseMs": 310.116351
+  },
+  "testCover": {
+    "samples": 469,
+    "first": {
+      "at": 1792657506797,
+      "uptime": 75878.137119503,
+      "memory": {
+        "rss": 148439040,
+        "heapTotal": 24576000,
+        "heapUsed": 22068912,
+        "external": 12331460,
+        "arrayBuffers": 4358986
+      },
+      "cpu": {
+        "user": 452204884,
+        "system": 44255897
+      },
+      "loopP95Ms": 21.069823,
+      "loopP99Ms": 21.528575,
+      "loopMaxMs": 22.315007
+    },
+    "last": {
+      "at": 1792659846983,
+      "uptime": 78218.323313849,
+      "memory": {
+        "rss": 220274688,
+        "heapTotal": 25100288,
+        "heapUsed": 22587288,
+        "external": 12344757,
+        "arrayBuffers": 3973985
+      },
+      "cpu": {
+        "user": 481304556,
+        "system": 47169642
+      },
+      "loopP95Ms": 21.151743,
+      "loopP99Ms": 21.200895,
+      "loopMaxMs": 21.594111
+    },
+    "maxRssBytes": 251068416,
+    "maxHeapBytes": 38669736,
+    "loopP99Ms": {
+      "median": 21.233663,
+      "p95": 26.263551,
+      "max": 81.330175
+    },
+    "maxLoopPauseMs": 340.525055
+  },
+  "coverHealth": {
+    "ok": true,
+    "diskHits": 774,
+    "memoryHits": 5710,
+    "loads": 1128,
+    "failed": 22,
+    "busy": 0,
+    "coalesced": 12087,
+    "published": 1024,
+    "publishFailed": 0,
+    "catalog": 4893,
+    "cdn": 2011,
+    "active": 0,
+    "queued": 0,
+    "pending": 0,
+    "memoryBytes": 8346606,
+    "uploadQueue": 0,
+    "upstreams": {
+      "cdnLoads": 82,
+      "originalLoads": 278,
+      "mirrorLoads": 746
+    }
+  },
+  "productionCoverHealth": {
+    "ok": true,
+    "diskHits": 80,
+    "memoryHits": 72,
+    "loads": 27,
+    "failed": 0,
+    "busy": 0,
+    "coalesced": 2,
+    "published": 16,
+    "publishFailed": 0,
+    "catalog": 4893,
+    "cdn": 1002,
+    "active": 0,
+    "queued": 0,
+    "pending": 0,
+    "memoryBytes": 5037982,
+    "uploadQueue": 0,
+    "upstreams": {
+      "cdnLoads": 11,
+      "originalLoads": 0,
+      "mirrorLoads": 16
+    }
+  },
+  "browserService": {
+    "unit": "cipai-cover-browser-f609fa4-20261022T082447.service",
+    "MainPID": "3156831",
+    "Result": "success",
+    "MemoryCurrent": "1266638848",
+    "MemoryPeak": "1278578688",
+    "CPUWeight": "1",
+    "CPUQuotaPerSecUSec": "1.500000s",
+    "MemoryHigh": "1258291200",
+    "MemoryMax": "1468006400",
+    "MemorySwapMax": "134217728",
+    "Nice": "19",
+    "ActiveState": "active"
+  }
+}
