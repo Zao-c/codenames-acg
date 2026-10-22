@@ -31,7 +31,7 @@ try{
   if(!started)throw new Error('Eight browser contexts did not start within three minutes');
   const manifest={...template,requestedSeconds:10800,started,
     workerLimits:{cpuQuota:'50%',memoryMax:402653184,nodeHeapMiB:192},
-    browserLimits:{cpuQuota:'150%',memoryMax:1468006400,memoryHigh:1258291200,memorySwapMax:134217728,nice:19},
+    browserLimits:{cpuQuota:'150%',memoryMax:2147483648,memoryHigh:1939865600,memorySwapMax:134217728,nice:19},
     isolation:'server-side browser supervisor; separate data/accounts/ports; no production test rooms'};
   await fs.writeFile(path.join(out,'manifest.json'),JSON.stringify(manifest,null,2)+'\n');
   console.log(JSON.stringify({status:'running',pid:process.pid,driverPid:driver.pid,startedAt:started.startedAt}));

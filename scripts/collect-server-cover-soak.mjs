@@ -17,7 +17,7 @@ run=pathlib.Path(${JSON.stringify(remote)})
 results=run/'results'
 read=lambda name: json.loads((results/name).read_text()) if (results/name).exists() else None
 status=subprocess.check_output(['systemctl','show',${JSON.stringify(active.unit)},'-p','ActiveState','-p','SubState','-p','Result','-p','MemoryCurrent','-p','MemoryPeak'],text=True).strip()
-print(json.dumps({'report':bool(read('report.json')),'failure':bool(read('failure.json')),
+print(json.dumps({'report':bool(read('report.json')),'failure':bool(read('failure.json')),'driverExit':read('driver-exit.json'),
  'supervisorFailure':read('supervisor-failure.json'),'manifest':read('manifest.json'),
  'progress':read('progress.json'),'service':status}))
 `;
@@ -30,7 +30,7 @@ while(true){
     await fs.writeFile(path.join(local,'remote-status.json'),JSON.stringify(state,null,2)+'\n');
     console.log(JSON.stringify({at:new Date().toISOString(),report:state.report,failure:state.failure,
       elapsedSeconds:state.progress?.elapsedSeconds,completedGames:state.progress?.completedGames,service:state.service}));
-    if(state.report||state.failure)break;
+    if((state.report||state.failure)&&(state.driverExit||!state.service.includes('ActiveState=active')))break;
     if(state.supervisorFailure||!state.service.includes('ActiveState=active'))throw new Error('Remote browser service stopped without a driver report; inspect remote-status.json');
     if(!wait){console.log('Still running; no three-hour completion is claimed.');process.exit(0);}
   }catch(error){

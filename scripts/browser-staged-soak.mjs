@@ -176,7 +176,10 @@ async function configureRound(number){
  assert.equal(await pages[0].getByText(/阵营标签为队长视角；深色蒙层/).count(),0);
  assert.equal(await pages[0].locator('.anime-board-panel').getByText(/点卡片查看作品，猜牌需再次确认/).count(),0);
  for(let i=0;i<8;i++){
-  await tab(pages[i],'棋盘');const cards=pages[i].locator('.anime-board-card');await cards.last().scrollIntoViewIfNeeded();await cards.first().scrollIntoViewIfNeeded();
+  await tab(pages[i],'棋盘');const cards=pages[i].locator('.anime-board-card');await cards.last().waitFor({state:'visible'});
+  // This scroll only exposes images for preload checks; card clicks still use real UI actions.
+  // Native scrolling does not require the entire animated board to stay still for two frames.
+  for(const card of [cards.last(),cards.first()])await card.evaluate(el=>el.scrollIntoView({block:'nearest',inline:'nearest',behavior:'instant'}));
  }
  const imageStart=performance.now();let unresolved=[];
  do{
@@ -233,6 +236,6 @@ try{
  await fs.writeFile(path.join(out,'report.json'),JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));
 }catch(error){
  await fs.writeFile(path.join(out,'failure.json'),JSON.stringify({passed:false,threeHourComplete:false,message:error.stack,elapsedSeconds:started?(performance.now()-started)/1000:0,counters,errors,rounds,ackMs:{p95:percentile(latency,.95)},uiGuessMs:{p95:percentile(uiLatency,.95)},blockedGuessMs:{p95:percentile(blockedGuessLatency,.95),samplesMs:blockedGuessLatency}},null,2));
- for(const [i,p] of pages.entries())try{await fs.writeFile(path.join(out,`failure-${i}.txt`),await p.locator('body').innerText());if(i===0||i===4)await p.screenshot({path:path.join(out,`failure-${i}.png`),fullPage:true});}catch{}
+ for(const [i,p] of pages.entries())try{await fs.writeFile(path.join(out,`failure-${i}.txt`),await p.locator('body').innerText({timeout:3000}));if(i===0||i===4)await p.screenshot({path:path.join(out,`failure-${i}.png`),fullPage:true,timeout:5000,animations:'disabled'});}catch{}
  throw error;
 }finally{await browser.close();}
