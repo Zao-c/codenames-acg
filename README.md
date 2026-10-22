@@ -45,7 +45,7 @@
 | ![准备大厅](https://raw.githubusercontent.com/Zao-c/codenames-acg/9b969958f7a4d134f79d363e88af09282862a2c8/docs/round10/screens/after-lobby-1440-light.png) | ![动画队长组牌](docs/round6/screenshots/desktop-draft-light.png) |
 | 邀请、分队和本局规则集中在同一处 | 拖放或点击挑选作品，双方准备后进入对局 |
 
-| 封面与文字棋盘 | 回合记录与赛后复盘 |
+| 移动端封面棋盘 | 回合记录与赛后复盘 |
 | :---: | :---: |
 | ![动画封面棋盘](https://raw.githubusercontent.com/Zao-c/codenames-acg/9b969958f7a4d134f79d363e88af09282862a2c8/docs/round10/screens/after-flips-6x6-390-dark.png) | ![赛后复盘](https://raw.githubusercontent.com/Zao-c/codenames-acg/9b969958f7a4d134f79d363e88af09282862a2c8/docs/round10/screens/after-replay-6x6-390-light.png) |
 | 不同屏幕尺寸与深浅主题 | 回看每轮线索、猜牌和最终归属 |
