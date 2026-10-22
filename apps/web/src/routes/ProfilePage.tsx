@@ -89,12 +89,12 @@ export function ProfilePage() {
       <section className="panel profile-panel profile-section">
         <div className="section-heading"><h2>称号与成就</h2><span className="soft-chip">{titles.length} / 7 已解锁</span></div>
         <div className="achievement-grid">
-          {unlockedTitles(stats).map((entry, index) => (
-            <div key={entry.id} className={`achievement-card${index === 0 ? " featured" : ""}`}>
+          {unlockedTitles(stats).map((entry) => (
+            <div key={entry.id} className={`achievement-card${entry.title === equippedTitle ? " featured" : ""}`}>
               <span className="achievement-icon">{entry.title === equippedTitle ? "★" : "🏆"}</span>
               <div className="achievement-body">
                 <strong className="achievement-title">{entry.title}</strong>
-                <span className="achievement-desc">{entry.description} · 已解锁</span>
+                <span className="achievement-desc">{entry.description}</span>
               </div>
               {entry.title === equippedTitle ? <span className="soft-chip">佩戴中</span> : <button onClick={() => void equip(entry.title)} disabled={titleBusy}>佩戴</button>}
             </div>
@@ -107,9 +107,9 @@ export function ProfilePage() {
         <div className="section-heading"><h2>生涯概览</h2></div>
         {stats && stats.gamesPlayed > 0 ? (
           <div className="recent-grid">
-            <div className="recent-stat"><strong>{stats.gamesPlayed} 场 · {stats.wins} 胜</strong><span>以下为生涯累计数据，不是“最近十场”。</span></div>
-            <div className="recent-stat"><strong>{stats.roomsHosted} 间房间</strong><span>主持数据归入生涯统计，不影响称号解锁优先级。</span></div>
-            <div className="recent-stat"><strong>{stats.losses} 场未胜</strong><span>仅统计已正常结算的对局；终止或弃权不计为胜场。</span></div>
+            <div className="recent-stat"><strong>{stats.gamesPlayed} 场 · {stats.wins} 胜</strong></div>
+            <div className="recent-stat"><strong>{stats.roomsHosted} 间房间</strong></div>
+            <div className="recent-stat"><strong>{stats.losses} 场未胜</strong></div>
           </div>
         ) : (
           <p className="empty-text">还没有生涯战绩，去开一局留下记录吧。</p>
@@ -129,7 +129,7 @@ export function ProfilePage() {
       <section className="panel profile-panel profile-section">
         <details className="profile-security" open>
           <summary>身份与安全</summary>
-          <p className="hint-text">头像、身份备份与账户切换都放在这里，不出现在公共作品池广场。</p>
+          
           <div className="profile-actions">
             {namedAccount ? <>
               <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => { void handleAvatarUpload(e.target.files?.[0] ?? null); }} />
@@ -145,12 +145,12 @@ export function ProfilePage() {
       {error ? <p className="error-text">{error}</p> : null}
 
       {titleDialog && <Dialog title="选择佩戴称号" close={() => setTitleDialog(false)}>
-        <p className="hint-text">只能佩戴已解锁的称号；用户名账户的佩戴结果会保存到服务器，刷新后仍生效。</p>
+        
         <div className="title-choice-list">
           {unlockedTitles(stats).map(entry => <button key={entry.id} className={entry.title === equippedTitle ? "selected" : ""} aria-pressed={entry.title === equippedTitle} disabled={titleBusy} onClick={() => void equip(entry.title)}><strong>{entry.title}</strong><small>{entry.description}</small>{entry.title === equippedTitle && <span className="soft-chip">当前</span>}</button>)}
         </div>
         {titleError && <p className="error-text" role="alert">{titleError}</p>}
-        {canChooseTitle && <p className="hint-text">未解锁的称号不会出现在这里；即使伪造请求，服务端也会拒绝。</p>}
+        
       </Dialog>}
     </>
   );
