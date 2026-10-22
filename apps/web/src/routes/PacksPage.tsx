@@ -102,7 +102,7 @@ export function PacksPage() {
             accountPacks.length === 0 ? (
               <p className="empty-text">还没有个人题库，来「上传」页导入吧。</p>
             ) : (
-              <div className="pack-list">
+              <div className="pack-list word-pack-list">
                 {accountPacks.filter(p => filter(p.name)).map((pack) => (
                   <div className="pack-row" key={pack.id}>
                     <div className="pack-row-info">
@@ -111,8 +111,13 @@ export function PacksPage() {
                     </div>
                     <div className="pack-row-actions">
                       <button onClick={() => { navigate(`/create`); chooseAccountPackForCreate(pack.id); }}>用于开房</button>
-                      <button onClick={() => setModalPack(pack)}>详情</button>
-                      <button onClick={() => { setEditingPack(pack); setSavedPackName(pack.name); setSavedPackEntries(pack.entries.join("\n")); setTab("import"); }}>编辑</button>
+                      <details className="pack-action-menu">
+                        <summary aria-label={`更多操作：${pack.name}`}>更多</summary>
+                        <div className="pack-action-menu-list">
+                          <button onClick={() => setModalPack(pack)}>详情</button>
+                          <button onClick={() => { setEditingPack(pack); setSavedPackName(pack.name); setSavedPackEntries(pack.entries.join("\n")); setTab("import"); }}>编辑</button>
+                        </div>
+                      </details>
                     </div>
                   </div>
                 ))}
@@ -131,7 +136,7 @@ export function PacksPage() {
           {publicPacks.length === 0 ? (
             <p className="empty-text">还没有公开题库。</p>
           ) : (
-            <div className="pack-list">
+            <div className="pack-list word-pack-list">
               {publicPacks.filter(p => filter(p.name)).map((pack) => (
                 <div className="pack-row" key={makePublicPackKey(pack)}>
                   <div className="pack-row-info">
