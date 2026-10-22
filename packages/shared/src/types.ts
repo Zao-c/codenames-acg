@@ -890,6 +890,8 @@ export interface UpdateNamedUserPayload {
   avatarUrl?: string | null;
   title?: string | null;
   customWordPacks?: SavedWordPack[];
+  /** Require explicit owner publication intent; ordinary edits cannot republish old private packs. */
+  publishWordPackIds?: string[];
   customImagePacks?: SavedImagePack[];
 }
 
