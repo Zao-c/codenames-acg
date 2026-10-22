@@ -1,0 +1,422 @@
+[
+  {
+    "file": "before-feedback-settings-1440-light.png",
+    "role": "host",
+    "width": 1440,
+    "height": 900,
+    "coverState": {
+      "total": 0,
+      "loaded": 0
+    },
+    "phase": "lobby",
+    "boardMode": "5x5",
+    "viewer": {
+      "participantType": "player",
+      "team": "red",
+      "role": "spymaster",
+      "isHost": true,
+      "canGuess": false,
+      "canSubmitClue": false
+    },
+    "sourceFile": "settings-1440-light.png",
+    "sourceSha": "20a30b1c9cea445b3417b1371c0bc97575460a5c",
+    "pixelWidth": 1440,
+    "pixelHeight": 900,
+    "sha256": "7940bfa065a5e8c1f9ae89e698a05dc92937faf15ce1f5d5c667dbc878410225"
+  },
+  {
+    "file": "after-feedback-settings-1440-light.png",
+    "role": "host",
+    "width": 1440,
+    "height": 900,
+    "coverState": {
+      "total": 0,
+      "loaded": 0
+    },
+    "phase": "lobby",
+    "boardMode": "5x5",
+    "viewer": {
+      "participantType": "player",
+      "team": "red",
+      "role": "spymaster",
+      "isHost": true,
+      "canGuess": false,
+      "canSubmitClue": false
+    },
+    "sourceFile": "feedback-settings-1440-light.png",
+    "sourceSha": "7f9bfdafff1e116b69fbf058ac062f7de1f8afe9",
+    "pixelWidth": 1440,
+    "pixelHeight": 900,
+    "sha256": "158080997be5c18a22b8ee6d62fafadbb02bf5773057e87cf9da3bb76bc740fc"
+  },
+  {
+    "file": "before-feedback-settings-390-dark.png",
+    "role": "host",
+    "width": 390,
+    "height": 844,
+    "coverState": {
+      "total": 0,
+      "loaded": 0
+    },
+    "phase": "lobby",
+    "boardMode": "5x5",
+    "viewer": {
+      "participantType": "player",
+      "team": "red",
+      "role": "spymaster",
+      "isHost": true,
+      "canGuess": false,
+      "canSubmitClue": false
+    },
+    "sourceFile": "settings-390-dark.png",
+    "sourceSha": "20a30b1c9cea445b3417b1371c0bc97575460a5c",
+    "pixelWidth": 390,
+    "pixelHeight": 844,
+    "sha256": "177cfcf834677285dfd375e0f29c9830961999adc9cf323eb2367916189da324"
+  },
+  {
+    "file": "after-feedback-settings-390-dark.png",
+    "role": "host",
+    "width": 390,
+    "height": 844,
+    "coverState": {
+      "total": 0,
+      "loaded": 0
+    },
+    "phase": "lobby",
+    "boardMode": "5x5",
+    "viewer": {
+      "participantType": "player",
+      "team": "red",
+      "role": "spymaster",
+      "isHost": true,
+      "canGuess": false,
+      "canSubmitClue": false
+    },
+    "sourceFile": "feedback-settings-390-dark.png",
+    "sourceSha": "7f9bfdafff1e116b69fbf058ac062f7de1f8afe9",
+    "pixelWidth": 390,
+    "pixelHeight": 844,
+    "sha256": "1930e8e121fef307c29841fafd3879b0b73859d70bd1ac8280d460b05bcf1fee"
+  },
+  {
+    "file": "before-feedback-team-management-1440-light.png",
+    "role": "host",
+    "width": 1440,
+    "height": 900,
+    "coverState": {
+      "total": 0,
+      "loaded": 0
+    },
+    "phase": "lobby",
+    "boardMode": "5x5",
+    "viewer": {
+      "participantType": "player",
+      "team": "red",
+      "role": "spymaster",
+      "isHost": true,
+      "canGuess": false,
+      "canSubmitClue": false
+    },
+    "sourceFile": "lobby-1440-light.png",
+    "sourceSha": "20a30b1c9cea445b3417b1371c0bc97575460a5c",
+    "pixelWidth": 1440,
+    "pixelHeight": 1314,
+    "sha256": "7b078c9734f0670a4055d1d64511b9a84ea177fe2b8ca61d436d19ee1b6444ff"
+  },
+  {
+    "file": "after-feedback-team-management-1440-light.png",
+    "role": "host",
+    "width": 1440,
+    "height": 900,
+    "coverState": {
+      "total": 0,
+      "loaded": 0
+    },
+    "phase": "lobby",
+    "boardMode": "5x5",
+    "viewer": {
+      "participantType": "player",
+      "team": "red",
+      "role": "spymaster",
+      "isHost": true,
+      "canGuess": false,
+      "canSubmitClue": false
+    },
+    "sourceFile": "feedback-team-management-1440-light.png",
+    "sourceSha": "7f9bfdafff1e116b69fbf058ac062f7de1f8afe9",
+    "pixelWidth": 1440,
+    "pixelHeight": 1307,
+    "sha256": "998cc9a2d1fcc4de67b4ee9b06de3241e5a4323aa72076d27f88ea0cfafca416"
+  },
+  {
+    "file": "before-feedback-room-management-1440-light.png",
+    "role": "host",
+    "width": 1440,
+    "height": 900,
+    "coverState": {
+      "total": 0,
+      "loaded": 0
+    },
+    "phase": "lobby",
+    "boardMode": "5x5",
+    "viewer": {
+      "participantType": "player",
+      "team": "red",
+      "role": "spymaster",
+      "isHost": true,
+      "canGuess": false,
+      "canSubmitClue": false
+    },
+    "sourceFile": "lobby-1440-light.png",
+    "sourceSha": "20a30b1c9cea445b3417b1371c0bc97575460a5c",
+    "pixelWidth": 1440,
+    "pixelHeight": 1314,
+    "sha256": "7b078c9734f0670a4055d1d64511b9a84ea177fe2b8ca61d436d19ee1b6444ff"
+  },
+  {
+    "file": "after-feedback-room-management-1440-light.png",
+    "role": "host",
+    "width": 1440,
+    "height": 900,
+    "coverState": {
+      "total": 0,
+      "loaded": 0
+    },
+    "phase": "lobby",
+    "boardMode": "5x5",
+    "viewer": {
+      "participantType": "player",
+      "team": "red",
+      "role": "spymaster",
+      "isHost": true,
+      "canGuess": false,
+      "canSubmitClue": false
+    },
+    "sourceFile": "feedback-room-management-1440-light.png",
+    "sourceSha": "7f9bfdafff1e116b69fbf058ac062f7de1f8afe9",
+    "pixelWidth": 1440,
+    "pixelHeight": 1307,
+    "sha256": "6cd038482753b56194142a2258f597036b15bee3734865bdbab3efe9c7cfdc30"
+  },
+  {
+    "file": "before-lobby-1440-light.png",
+    "role": "host",
+    "width": 1440,
+    "height": 900,
+    "coverState": {
+      "total": 0,
+      "loaded": 0
+    },
+    "phase": "lobby",
+    "boardMode": "5x5",
+    "viewer": {
+      "participantType": "player",
+      "team": "red",
+      "role": "spymaster",
+      "isHost": true,
+      "canGuess": false,
+      "canSubmitClue": false
+    },
+    "sourceFile": "lobby-1440-light.png",
+    "sourceSha": "20a30b1c9cea445b3417b1371c0bc97575460a5c",
+    "pixelWidth": 1440,
+    "pixelHeight": 1314,
+    "sha256": "7b078c9734f0670a4055d1d64511b9a84ea177fe2b8ca61d436d19ee1b6444ff"
+  },
+  {
+    "file": "after-lobby-1440-light.png",
+    "role": "host",
+    "width": 1440,
+    "height": 900,
+    "coverState": {
+      "total": 0,
+      "loaded": 0
+    },
+    "phase": "lobby",
+    "boardMode": "5x5",
+    "viewer": {
+      "participantType": "player",
+      "team": "red",
+      "role": "spymaster",
+      "isHost": true,
+      "canGuess": false,
+      "canSubmitClue": false
+    },
+    "sourceFile": "lobby-1440-light.png",
+    "sourceSha": "7f9bfdafff1e116b69fbf058ac062f7de1f8afe9",
+    "pixelWidth": 1440,
+    "pixelHeight": 1307,
+    "sha256": "1cd74623bd96fe0ee2afa03602f5c29e24bbdbbc1b7c50d6ee6c62b145ff1cd3"
+  },
+  {
+    "file": "before-lobby-390-dark.png",
+    "role": "host",
+    "width": 390,
+    "height": 844,
+    "coverState": {
+      "total": 0,
+      "loaded": 0
+    },
+    "phase": "lobby",
+    "boardMode": "5x5",
+    "viewer": {
+      "participantType": "player",
+      "team": "red",
+      "role": "spymaster",
+      "isHost": true,
+      "canGuess": false,
+      "canSubmitClue": false
+    },
+    "sourceFile": "lobby-390-dark.png",
+    "sourceSha": "20a30b1c9cea445b3417b1371c0bc97575460a5c",
+    "pixelWidth": 390,
+    "pixelHeight": 2054,
+    "sha256": "df5496c9c344bfabd95bf6664580e4fd8dbc5ba5d0b110d903f3afbc3c49e857"
+  },
+  {
+    "file": "after-lobby-390-dark.png",
+    "role": "host",
+    "width": 390,
+    "height": 844,
+    "coverState": {
+      "total": 0,
+      "loaded": 0
+    },
+    "phase": "lobby",
+    "boardMode": "5x5",
+    "viewer": {
+      "participantType": "player",
+      "team": "red",
+      "role": "spymaster",
+      "isHost": true,
+      "canGuess": false,
+      "canSubmitClue": false
+    },
+    "sourceFile": "lobby-390-dark.png",
+    "sourceSha": "7f9bfdafff1e116b69fbf058ac062f7de1f8afe9",
+    "pixelWidth": 390,
+    "pixelHeight": 2092,
+    "sha256": "192d25ffa670ead0b4c8ceb239554ec7947b71becc4a79376489649ee02a713a"
+  },
+  {
+    "file": "before-flips-6x6-1440-dark.png",
+    "role": "red operative",
+    "width": 1440,
+    "height": 900,
+    "coverState": {
+      "total": 36,
+      "loaded": 36
+    },
+    "phase": "finished",
+    "boardMode": "6x6",
+    "viewer": {
+      "participantType": "player",
+      "team": "red",
+      "role": "operative",
+      "isHost": false,
+      "canGuess": false,
+      "canSubmitClue": false
+    },
+    "sourceFile": "flips-6x6-1440-dark.png",
+    "sourceSha": "20a30b1c9cea445b3417b1371c0bc97575460a5c",
+    "pixelWidth": 1440,
+    "pixelHeight": 2742,
+    "sha256": "ad9a7cecbaf0b59e229af946605b0c012039776b14965f1b9a2229c8eac4ffb9"
+  },
+  {
+    "file": "after-flips-6x6-1440-dark.png",
+    "role": "red operative",
+    "width": 1440,
+    "height": 900,
+    "coverState": {
+      "total": 36,
+      "loaded": 31
+    },
+    "phase": "finished",
+    "boardMode": "6x6",
+    "viewer": {
+      "participantType": "player",
+      "team": "red",
+      "role": "operative",
+      "isHost": false,
+      "canGuess": false,
+      "canSubmitClue": false
+    },
+    "sourceFile": "flips-6x6-1440-dark.png",
+    "sourceSha": "7f9bfdafff1e116b69fbf058ac062f7de1f8afe9",
+    "pixelWidth": 1440,
+    "pixelHeight": 3214,
+    "sha256": "13d51a05b95e75777d4f211bb759738dd3cc69e27da4195447a76beaf63a6789"
+  },
+  {
+    "file": "before-flips-5x5-390-light.png",
+    "role": "red operative",
+    "width": 390,
+    "height": 844,
+    "coverState": {
+      "total": 25,
+      "loaded": 25
+    },
+    "phase": "finished",
+    "boardMode": "5x5",
+    "viewer": {
+      "participantType": "player",
+      "team": "red",
+      "role": "operative",
+      "isHost": false,
+      "canGuess": false,
+      "canSubmitClue": false
+    },
+    "sourceFile": "flips-5x5-390-light.png",
+    "sourceSha": "20a30b1c9cea445b3417b1371c0bc97575460a5c",
+    "pixelWidth": 390,
+    "pixelHeight": 2948,
+    "sha256": "8290d153fabca533cd7f2a5fb0a62849ace4c9dae818fd3812bf335417cfc668"
+  },
+  {
+    "file": "after-flips-5x5-390-light.png",
+    "role": "red operative",
+    "width": 390,
+    "height": 844,
+    "coverState": {
+      "total": 25,
+      "loaded": 25
+    },
+    "phase": "finished",
+    "boardMode": "5x5",
+    "viewer": {
+      "participantType": "player",
+      "team": "red",
+      "role": "operative",
+      "isHost": false,
+      "canGuess": false,
+      "canSubmitClue": false
+    },
+    "sourceFile": "flips-5x5-390-light.png",
+    "sourceSha": "7f9bfdafff1e116b69fbf058ac062f7de1f8afe9",
+    "pixelWidth": 390,
+    "pixelHeight": 3337,
+    "sha256": "d5e7e6f97ce68da216ba021112a01fd0161f047f9b30a80a54c805b88be86f4e"
+  },
+  {
+    "file": "production-desktop-dark.png",
+    "role": "public home; local guest identity; no room created",
+    "width": 1440,
+    "height": 900,
+    "pixelWidth": 1440,
+    "pixelHeight": 900,
+    "sourceSha": "89b5f70485b7c0a9ca1e70e2e414b9ed6731da6b",
+    "sha256": "16f5078997a07a3bb1877db22deaea2cb314ea0b6115c7c35be131fd66642842"
+  },
+  {
+    "file": "production-mobile-light.png",
+    "role": "public home; local guest identity; no room created",
+    "width": 390,
+    "height": 844,
+    "pixelWidth": 390,
+    "pixelHeight": 1101,
+    "sourceSha": "89b5f70485b7c0a9ca1e70e2e414b9ed6731da6b",
+    "sha256": "ac74084d77ac7da6ca79f2727b10596a1537565e64005a7565299b5316cd124b"
+  }
+]

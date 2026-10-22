@@ -1,0 +1,24 @@
+{
+  "passed": true,
+  "id": 413619,
+  "frontendSha": "633ddfd1fa2110bc44315f80cf7240d8d22bae99",
+  "workerSha": "f609fa4b3faa1a459659583f9bb6832b9cf674a9",
+  "gamePid": 2886573,
+  "remoteImagesBlocked": 2,
+  "localImages": [
+    {
+      "url": "http://182.61.136.105/api/anime/cover/413619?v=2656327532",
+      "status": 200
+    }
+  ],
+  "maxConcurrentLocalImageRequests": 1,
+  "desktopVisibleCoverSeconds": 1.6978095999999998,
+  "errors": [],
+  "blockedMutations": [
+    "/socket.io/",
+    "/socket.io/",
+    "/socket.io/",
+    "/socket.io/"
+  ],
+  "scope": "Read-only production home; BGM/COS/public-mirror browser requests blocked. The previously failed real work renders via the production isolated cache. No room/account mutation allowed."
+}

@@ -9,6 +9,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "dev": "tsx watch src/index.ts",
     "start": "node dist/apps/server/src/index.js",
+    "start:covers": "node dist/apps/server/src/cover-server.js",
     "test": "node --experimental-strip-types test/e2e.ts && node --experimental-strip-types test/reveal-guess.e2e.ts",
     "test:e2e": "node --experimental-strip-types test/e2e.ts && node --experimental-strip-types test/reveal-guess.e2e.ts"
   },
@@ -16,6 +17,7 @@
     "@acg-codenames/shared": "0.1.0",
     "compression": "^1.8.2",
     "cors": "^2.8.5",
+    "cos-nodejs-sdk-v5": "^3.0.0",
     "dotenv": "^16.4.5",
     "express": "^4.21.2",
     "express-rate-limit": "^8.5.1",
@@ -23,7 +25,8 @@
     "redis": "^5.8.2",
     "sharp": "^0.35.5",
     "socket.io": "^4.8.1",
-    "socket.io-client": "^4.8.1"
+    "socket.io-client": "^4.8.1",
+    "undici": "^6.29.1"
   },
   "devDependencies": {
     "@types/compression": "^1.8.1",

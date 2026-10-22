@@ -1,0 +1,6 @@
+{
+  "passed": true,
+  "scenario": "two distinct catalog works share X战记; each click selects the requested ID",
+  "requestedIds": [100, 200],
+  "scope": "Real Chromium-compatible browser with a two-card DOM fixture; validates the selector extracted from the soak driver, not a complete multiplayer run."
+}

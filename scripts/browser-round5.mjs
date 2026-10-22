@@ -123,7 +123,7 @@ try {
   const quarterly = options.find(value => /^\d{4}-Q[1-4]$/.test(value));
   assert.ok(quarterly, 'quarterly pool available');
   await poolSelect.selectOption(quarterly);
-  await button(settings, '保存设置').click();
+  await button(settings, '保存并返回准备大厅').click();
   await until(() => states[0].nextPlan?.variant === 'anime', 'anime configured');
   await host.getByRole('button', { name: /进入队长预览/ }).click();
   await until(() => states[0].nextPlan?.stage === 'guide', 'guide');
@@ -143,6 +143,7 @@ try {
     await button(pages[i], '确认就绪，开始组牌').click();
   }
   await until(() => states[0].nextPlan?.stage === 'draft', 'draft');
+  await until(() => [0,1,2,3,4].every(index=>states[index]?.nextPlan?.stage==='draft'), 'all participant draft snapshots');
   const candidates = states[0].nextPlan.candidates;
   const [a, b, c, d, e] = candidates.map(work => work.id);
 
@@ -307,6 +308,7 @@ try {
     await tab(captain, '棋盘');
     await tab(operative, '棋盘');
     if (!room.clue) {
+      await captain.waitForTimeout(3400); // Preserve the existing 3 clues / 10 seconds limit.
       const input = captain.getByPlaceholder('例如：机甲 / 学园 / 主角团');
       await visible(input);
       await input.fill(`线索${rounds}`);

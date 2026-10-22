@@ -1,0 +1,211 @@
+{
+  "atUtc": "2026-10-20T20:46:10Z",
+  "verification": {
+    "webStageFiles": 79,
+    "workerStageFiles": 69,
+    "productionWebFiles": 10,
+    "productionGameFiles": 66
+  },
+  "services": {
+    "codenames.service": {
+      "MainPID": "2886573",
+      "NRestarts": "0",
+      "MemoryCurrent": "75034624",
+      "MemoryPeak": "161517568",
+      "CPUQuotaPerSecUSec": "infinity",
+      "MemoryMax": "infinity"
+    },
+    "codenames-covers.service": {
+      "MainPID": "612735",
+      "NRestarts": "0",
+      "MemoryCurrent": "35368960",
+      "MemoryPeak": "57466880",
+      "CPUQuotaPerSecUSec": "500ms",
+      "MemoryMax": "402653184"
+    },
+    "cipai-cover-soak-5ca8a3d.service": {
+      "MainPID": "616091",
+      "NRestarts": "0",
+      "MemoryCurrent": "187949056",
+      "MemoryPeak": "209891328",
+      "CPUQuotaPerSecUSec": "500ms",
+      "MemoryMax": "402653184"
+    }
+  },
+  "release": {
+    "sha": "633ddfd1fa2110bc44315f80cf7240d8d22bae99",
+    "frontendSha": "633ddfd1fa2110bc44315f80cf7240d8d22bae99",
+    "coverWorkerSha": "5ca8a3da9667f4ecd5fd85b294abb5d5163ebea0",
+    "serverRuntimeSha": "37537ea1d351956c226456ad4c5685509f8e04df",
+    "deployedAt": "2026-10-19T19:27:41.966372+00:00",
+    "deployment": "isolated-cover-worker-only",
+    "serviceRestarted": false,
+    "mainPid": 2886573,
+    "coverWorkerPid": 612735,
+    "gameArtifactsUnchanged": true,
+    "gameConfigUnchanged": true,
+    "credentialsAbsentFromPublicArtifacts": true,
+    "assetHashes": {
+      "/assets/index-C8ef2pcv.js": "69b50860fe65d340931089b6a17eff91a6ec6c2aa7807fb5692ae8bc64222497",
+      "/assets/index-DEpMagbK.css": "a6b3960d10401eb9b4a589af5378977ee40d95c0bc99d5fa3d82827992252646"
+    },
+    "coverHealth": {
+      "ok": true,
+      "diskHits": 0,
+      "memoryHits": 0,
+      "loads": 0,
+      "failed": 0,
+      "busy": 0,
+      "coalesced": 0,
+      "published": 0,
+      "publishFailed": 0,
+      "catalog": 4893,
+      "cdn": 772,
+      "active": 0,
+      "queued": 0,
+      "pending": 0,
+      "memoryBytes": 0,
+      "uploadQueue": 0
+    },
+    "backupPath": "/opt/codenames-backups/web-633ddfd1fa21-20261019T192741Z",
+    "stagePath": "/opt/codenames-releases/staged-draft-633ddfd1fa21-web",
+    "activeRooms": [],
+    "runtimeArtifactsUnchanged": true,
+    "configUnchanged": true,
+    "coverWorkerStagePath": "/opt/codenames-releases/cover-5ca8a3da9667-original",
+    "coverWorkerDeployedAt": "2026-10-20T20:25:22.395668+00:00",
+    "webArtifactsUnchanged": true,
+    "coverWorkerBackupPath": "/opt/codenames-backups/worker-5ca8a3da9667-20261020T202517Z",
+    "coverHealthMeasuredAt": "2026-10-20T20:29:34.209746+00:00"
+  },
+  "testGame": {
+    "samples": 172,
+    "first": {
+      "at": 1792528308274,
+      "uptime": 93114.51922114,
+      "memory": {
+        "rss": 204402688,
+        "heapTotal": 81633280,
+        "heapUsed": 49426544,
+        "external": 3899305,
+        "arrayBuffers": 138596
+      },
+      "cpu": {
+        "user": 370008640,
+        "system": 31762045
+      },
+      "loopP95Ms": 21.151743,
+      "loopP99Ms": 64.389119,
+      "loopMaxMs": 110.100479
+    },
+    "last": {
+      "at": 1792529163539,
+      "uptime": 93969.784730464,
+      "memory": {
+        "rss": 163528704,
+        "heapTotal": 49651712,
+        "heapUsed": 40242904,
+        "external": 3849432,
+        "arrayBuffers": 88723
+      },
+      "cpu": {
+        "user": 414567650,
+        "system": 33797269
+      },
+      "loopP95Ms": 21.135359,
+      "loopP99Ms": 21.135359,
+      "loopMaxMs": 21.430271
+    },
+    "maxRssBytes": 222748672,
+    "maxHeapBytes": 64513248,
+    "loopP99Ms": {
+      "median": 21.184511,
+      "p95": 105.775103,
+      "max": 210.632703
+    },
+    "maxLoopPauseMs": 277.086207
+  },
+  "testCover": {
+    "samples": 173,
+    "first": {
+      "at": 1792528306064,
+      "uptime": 250.050448225,
+      "memory": {
+        "rss": 101384192,
+        "heapTotal": 25206784,
+        "heapUsed": 15777312,
+        "external": 4172143,
+        "arrayBuffers": 315459
+      },
+      "cpu": {
+        "user": 1814317,
+        "system": 206126
+      },
+      "loopP95Ms": 21.184511,
+      "loopP99Ms": 21.463039,
+      "loopMaxMs": 26.443775
+    },
+    "last": {
+      "at": 1792529166090,
+      "uptime": 1110.07733408,
+      "memory": {
+        "rss": 239755264,
+        "heapTotal": 22216704,
+        "heapUsed": 19731264,
+        "external": 9931613,
+        "arrayBuffers": 2249407
+      },
+      "cpu": {
+        "user": 13719634,
+        "system": 1053490
+      },
+      "loopP95Ms": 21.184511,
+      "loopP99Ms": 21.184511,
+      "loopMaxMs": 21.708799
+    },
+    "maxRssBytes": 259174400,
+    "maxHeapBytes": 35914168,
+    "loopP99Ms": {
+      "median": 21.184511,
+      "p95": 37.650431,
+      "max": 80.543743
+    },
+    "maxLoopPauseMs": 317.456383
+  },
+  "coverHealth": {
+    "ok": true,
+    "diskHits": 52,
+    "memoryHits": 694,
+    "loads": 93,
+    "failed": 4,
+    "busy": 0,
+    "coalesced": 788,
+    "published": 85,
+    "publishFailed": 0,
+    "catalog": 4893,
+    "cdn": 857,
+    "active": 0,
+    "queued": 0,
+    "pending": 0,
+    "memoryBytes": 5929892,
+    "uploadQueue": 0
+  },
+  "productionCoverHealth": {
+    "ok": true,
+    "diskHits": 0,
+    "memoryHits": 0,
+    "loads": 0,
+    "failed": 0,
+    "busy": 0,
+    "coalesced": 0,
+    "published": 0,
+    "publishFailed": 0,
+    "catalog": 4893,
+    "cdn": 772,
+    "active": 0,
+    "queued": 0,
+    "pending": 0,
+    "memoryBytes": 0,
+    "uploadQueue": 0
+  }
+}

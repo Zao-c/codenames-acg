@@ -992,11 +992,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!session || !room || !pendingCreateConfigRef.current) return;
+    // Old-room broadcasts can arrive while create_room is in flight. Apply the
+    // queued initial settings only after the new seat and matching room agree.
+    if (createAttemptRef.current || session.roomId !== room.id) return;
     const hostPlayer = room.players.find((p) => p.id === session.participantId);
     if (!hostPlayer?.isHost || room.phase !== "lobby") return;
     const pending = pendingCreateConfigRef.current;
     pendingCreateConfigRef.current = null;
-    if (pending.variant === 'anime') { socket.emit('plan_action',{roomId:session.roomId,kind:'configure',variant:'anime',boardMode:pending.boardMode}); return; }
+    if (pending.variant === 'anime') { socket.emit('plan_action',{roomId:session.roomId,kind:'configure',draftProtocol:2,variant:'anime',boardMode:pending.boardMode,poolIds:import.meta.env.VITE_DEFAULT_STAGED_DRAFT==='0'?undefined:[],animeDraft:import.meta.env.VITE_DEFAULT_STAGED_DRAFT==='0'?undefined:{version:2,selectionSeconds:pending.boardMode==='6x6'?300:180,interferenceSeconds:30}}); return; }
     socket.emit("update_room_settings", { roomId: session.roomId, boardMode: pending.boardMode, builtinWordPackId: pending.builtinWordPackId, customWordPack: pending.customWordPack, scoringMode: pending.scoringMode, timerMode: pending.timerMode, timerClueSeconds: pending.timerClueSeconds, timerGuessSeconds: pending.timerGuessSeconds, neutralCount: pending.neutralCount, flipMode: pending.flipMode });
   }, [room, session, socket]);
   useEffect(() => { setTransferHostTargetId((cur) => { if (cur && hostTransferCandidates.some((p) => p.id === cur)) return cur; return hostTransferCandidates[0]?.id ?? ""; }); }, [hostTransferCandidates]);
@@ -1171,12 +1174,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
     } catch (e) { setNamedAccount(prev); setError(e instanceof Error ? e.message : "保存图库失败"); throw e; }
   }
 
-  async function saveAccountPacksInternal(nextPacks: SavedWordPack[]) {
+  async function saveAccountPacksInternal(nextPacks: SavedWordPack[], publishWordPackId?: string) {
     if (!namedAccount) throw new Error("请先使用用户名登录");
     const prev = namedAccount;
     setNamedAccount({ ...namedAccount, customWordPacks: nextPacks, updatedAt: Date.now() });
     try {
-      const updated = await updateNamedUser(namedAccount.username, requireNamedUserSessionToken(identity), { customWordPacks: nextPacks });
+      const updated = await updateNamedUser(namedAccount.username, requireNamedUserSessionToken(identity), { customWordPacks: nextPacks, ...(publishWordPackId ? { publishWordPackIds: [publishWordPackId] } : {}) });
       setNamedAccount({ ...updated, customWordPacks: updated.customWordPacks.length > 0 ? updated.customWordPacks : nextPacks });
       void refreshPublicPacks(); setError("");
     } catch (e) { setNamedAccount(prev); throw e; }
@@ -1219,12 +1222,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
   async function toggleAccountPackPublic(packId: string) {
     if (!namedAccount) return;
     const ts = Date.now();
+    const explicitPublish = namedAccount.customWordPacks.find(p => p.id === packId)?.isPublic !== true;
     try {
       await saveAccountPacksInternal(namedAccount.customWordPacks.map((p) => {
         if (p.id !== packId) return p;
         const nextIsPublic = p.isPublic !== true;
         return { ...p, isPublic: nextIsPublic, publishedAt: nextIsPublic ? p.publishedAt ?? ts : undefined, updatedAt: ts };
-      }));
+      }), explicitPublish ? packId : undefined);
     } catch (e) { setError(e instanceof Error ? e.message : "更新题库公开状态失败"); }
   }
 
@@ -1508,7 +1512,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   function hostTakeover(kind: 'request'|'approve'|'reject'|'cancel') {
     if(!session)return;
     socket.emit('host_takeover',{roomId:session.roomId,kind},result=>{
-      if(!result?.ok)setError(result?.message??'社长接任未完成');
+      if(!result?.ok)setError(result?.message??'房主接任未完成');
       else setError('');
     });
   }

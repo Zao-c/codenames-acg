@@ -1,0 +1,18 @@
+{
+  "sha": "6613e67a90c0d0e7963ba9cadffb64293127d53c",
+  "frontendSha": "6613e67a90c0d0e7963ba9cadffb64293127d53c",
+  "serverRuntimeSha": "37537ea1d351956c226456ad4c5685509f8e04df",
+  "deployedAt": "2026-10-19T17:00:43.039264+00:00",
+  "deployment": "frontend-only",
+  "serviceRestarted": false,
+  "mainPid": 2886573,
+  "backupPath": "/opt/codenames-backups/web-6613e67a90c0-20261019T170042Z",
+  "stagePath": "/opt/codenames-releases/staged-draft-6613e67a90c0-soak",
+  "assetHashes": {
+    "/assets/index-CaFx7_AJ.js": "4dd2ecc02a1b64dbae203e23c8b468fae98d4effd31f4d26171ed440e35361a1",
+    "/assets/index-DEpMagbK.css": "a6b3960d10401eb9b4a589af5378977ee40d95c0bc99d5fa3d82827992252646"
+  },
+  "runtimeArtifactsUnchanged": true,
+  "configUnchanged": true,
+  "activeRooms": []
+}

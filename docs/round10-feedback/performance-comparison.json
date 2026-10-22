@@ -1,0 +1,94 @@
+{
+  "passed": true,
+  "before": {
+    "sha": "59f2bd1aad922bad41d42b63ca0857b0102ad0b1",
+    "passed": true,
+    "players": 8,
+    "candidates": 180,
+    "extraCatalogWorks": 5000,
+    "avatarSourceBytes": [
+      9015,
+      9031,
+      9007,
+      9019,
+      9007,
+      9019,
+      9027,
+      9047
+    ],
+    "seconds": 67.944,
+    "actions": 240,
+    "snapshots": 0,
+    "deltas": 2160,
+    "actualRoomBytes": 1970853,
+    "previousFullStateEstimateBytes": 394653479,
+    "reductionPercent": 99.50061177593217,
+    "catalog": {
+      "uncompressed": 2164033,
+      "gzip": 486709,
+      "home": 3725
+    },
+    "latencyMs": {
+      "p50": 40,
+      "p95": 55,
+      "max": 86
+    },
+    "server": {
+      "maxRssMiB": 250.875,
+      "eventLoopP99Ms": 83.755007
+    },
+    "scope": "Loopback synthetic benchmark; previous bytes reconstruct full state and original data-URI avatars; not an internet speed or 3-hour soak guarantee."
+  },
+  "after": {
+    "sha": "7f9bfdafff1e116b69fbf058ac062f7de1f8afe9",
+    "passed": true,
+    "players": 8,
+    "candidates": 180,
+    "extraCatalogWorks": 5000,
+    "avatarSourceBytes": [
+      8999,
+      9039,
+      9015,
+      8983,
+      9019,
+      8983,
+      8983,
+      9031
+    ],
+    "seconds": 67.84,
+    "actions": 240,
+    "snapshots": 0,
+    "deltas": 2160,
+    "actualRoomBytes": 1970873,
+    "previousFullStateEstimateBytes": 394443990,
+    "reductionPercent": 99.50034148067512,
+    "catalog": {
+      "uncompressed": 2164033,
+      "gzip": 486709,
+      "home": 3725
+    },
+    "latencyMs": {
+      "p50": 39,
+      "p95": 52,
+      "max": 71
+    },
+    "server": {
+      "maxRssMiB": 253.27734375,
+      "eventLoopP99Ms": 68.354047
+    },
+    "scope": "Loopback synthetic benchmark; previous bytes reconstruct full state and original data-URI avatars; not an internet speed or 3-hour soak guarantee."
+  },
+  "guardrails": {
+    "roomBytes": {
+      "limit": 2069395.6500000001,
+      "actual": 1970873,
+      "passed": true
+    },
+    "ackP95": {
+      "limit": 88.75,
+      "actual": 52,
+      "passed": true
+    }
+  },
+  "scope": "Adjacent serial loopback runs, same host, no browser or build workload; not public internet or three-hour soak data."
+}

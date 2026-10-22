@@ -1,0 +1,5 @@
+
+> acg_codenames@0.1.0 test:broadcast:unit
+> node node_modules/tsx/dist/cli.mjs apps/server/test/room-broadcast.test.ts
+
+Room broadcast PASS: fresh burst batching, mid-pass updates, bounded ACK wait, room isolation and failure recovery

@@ -1,0 +1,3307 @@
+{
+  "passed": true,
+  "sha": "db8b61a27ff103f6c004062463d07efdd0313a21",
+  "baseline": false,
+  "checks": [
+    "settings cancel/discard preserves confirmed values; unchanged return sends zero configuration requests",
+    "delayed real ACK: controls locked, one request, all 8 players and 3 browser spectators receive authoritative summary",
+    "local ACK rejection injection: error preserves draft and confirmed server settings, explicit retry succeeds",
+    "lost real ACK: timeout performs read-only sync, verifies saved version and closes without repeating write",
+    "settings full-screen on 390px, paged 6810-work picker, 1440px aligned tall columns and 1024px next-step row",
+    "same six global navigation entries on home and room; distinct preferences/room management; host terminology; one member menu indicator; real captain changes in desktop/mobile dialog",
+    "reference-style two-column settings with three groups, four-cover bounded authorized preview, non-host denied, fixed 180s, light/dark desktop/mobile and cancelled rule draft",
+    "system presets with fewer than 50 unique works hidden; current room selection preserved; no catalog deletion",
+    "real desktop drag, click/keyboard/mobile menus, unique captain appointment, forged non-host rejected",
+    "dev-module render counter: unchanged memoized candidate views render 0 times across 2.2 seconds of countdown",
+    "desktop/mobile/light/dark countdown cancel contrast >=4.5; cancel returns immediately and preserves sealed board",
+    "captain sees four distinct solid color affiliations without redundant prefix; operative receives no unopened role label",
+    "local fault injection: duplicate highlight + achievement around real guess; single queue, scoped IDs deduplicated",
+    "10 actual socket flaps preserve seat/token; aggregated diagnostics accurate",
+    "8 players + 3 browser spectators + 17 Socket spectators, 5x5, source pool 171 / catalog case 171, 4 clues, real guess, privacy and delta sync",
+    "5x5 result board visible immediately after outcome and above honors/history; actual guessers, flipped cards and outcomes in highlights",
+    "8-player 5x5: preview/draft/seal/countdown, actual red/blue/neutral/assassin guesses, cover/text/light/dark/desktop/mobile/replay/PNG; uniform pixel tint and no tint on unopened affiliation",
+    "5x5: host one-click return preserves room, players and score, all browser clients sync, captain reassignment immediately available; non-host reset not exposed",
+    "captain sees four distinct solid color affiliations without redundant prefix; operative receives no unopened role label",
+    "8 players + 3 browser spectators + 17 Socket spectators, 6x6, source pool 500 / catalog case 500, 4 clues, real guess, privacy and delta sync",
+    "6x6 result board visible immediately after outcome and above honors/history; actual guessers, flipped cards and outcomes in highlights",
+    "8-player 6x6: preview/draft/seal/countdown, actual red/blue/neutral/assassin guesses, cover/text/light/dark/desktop/mobile/replay/PNG; uniform pixel tint and no tint on unopened affiliation",
+    "6x6: host one-click return preserves room, players and score, all browser clients sync, captain reassignment immediately available; non-host reset not exposed",
+    "captain sees four distinct solid color affiliations without redundant prefix; operative receives no unopened role label",
+    "actual cover + backup failure: placeholder click opens preview and real confirmed guess still succeeds",
+    "102 real spectator messages within existing rate limits: badges 0→3→99+ keep fixed tab widths",
+    "20-spectator scroll list retains real flower action behind interaction menu",
+    "8 players + 3 browser spectators + 17 Socket spectators, 6x6, source pool 500 / catalog case 5000, 4 clues, real guess, privacy and delta sync",
+    "confirmed host-menu online removal broadcasts room_closed, browser refresh cannot reclaim old seat",
+    "after direct return and host removal, existing spectator joins the same room through the player-seat button; capacity remains eight",
+    "4-seat final lobby and SPA room switch: delayed old real ACK cannot close/overwrite a new room settings draft"
+  ],
+  "screens": [
+    {
+      "file": "lobby-unequal-1440-light.png",
+      "role": "host",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "lobby",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "lobby-unequal-1440-dark.png",
+      "role": "host",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "lobby",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "lobby-unequal-1920-light.png",
+      "role": "host",
+      "width": 1920,
+      "height": 1080,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "lobby",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "lobby-unequal-1920-dark.png",
+      "role": "host",
+      "width": 1920,
+      "height": 1080,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "lobby",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "lobby-unequal-390-light.png",
+      "role": "host",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "lobby",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "lobby-unequal-390-dark.png",
+      "role": "host",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "lobby",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "settings-1440-light.png",
+      "role": "host",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "lobby",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "settings-1440-light.png",
+      "role": "host",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "lobby",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "settings-1440-dark.png",
+      "role": "host",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "lobby",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "settings-390-light.png",
+      "role": "host",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "lobby",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "settings-390-dark.png",
+      "role": "host",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "lobby",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "lobby-1024-light.png",
+      "role": "host",
+      "width": 1024,
+      "height": 900,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "lobby",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "feedback-room-management-1440-light.png",
+      "role": "host",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "lobby",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "feedback-team-management-1440-light.png",
+      "role": "host",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "lobby",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "feedback-team-management-390-light.png",
+      "role": "host",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "lobby",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "feedback-settings-1440-light.png",
+      "role": "host",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "lobby",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "feedback-settings-1440-dark.png",
+      "role": "host",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "lobby",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "feedback-settings-390-light.png",
+      "role": "host",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "lobby",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "feedback-settings-390-dark.png",
+      "role": "host",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "lobby",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "lobby-1440-light.png",
+      "role": "host",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "lobby",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "lobby-1440-dark.png",
+      "role": "host",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "lobby",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "lobby-1920-light.png",
+      "role": "host",
+      "width": 1920,
+      "height": 1080,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "lobby",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "lobby-1920-dark.png",
+      "role": "host",
+      "width": 1920,
+      "height": 1080,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "lobby",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "lobby-390-light.png",
+      "role": "host",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "lobby",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "lobby-390-dark.png",
+      "role": "host",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "lobby",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "host-menu-mobile.png",
+      "role": "host",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "lobby",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "draft-1440-light.png",
+      "role": "red captain",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "lobby",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "draft-1440-dark.png",
+      "role": "red captain",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "lobby",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "draft-1920-light.png",
+      "role": "red captain",
+      "width": 1920,
+      "height": 1080,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "lobby",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "draft-1920-dark.png",
+      "role": "red captain",
+      "width": 1920,
+      "height": 1080,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "lobby",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "draft-390-light.png",
+      "role": "red captain",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "lobby",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "draft-390-dark.png",
+      "role": "red captain",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "lobby",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "countdown-1440-light.png",
+      "role": "host",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "lobby",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "countdown-1440-dark.png",
+      "role": "host",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "lobby",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "countdown-390-light.png",
+      "role": "host",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "lobby",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "countdown-390-dark.png",
+      "role": "host",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "lobby",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "board-5x5-1440-light.png",
+      "role": "operative",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 25,
+        "loaded": 25
+      },
+      "phase": "playing",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "board-5x5-battle-1440-light.png",
+      "role": "operative",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 25,
+        "loaded": 25
+      },
+      "phase": "playing",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "board-5x5-spectators-1440-light.png",
+      "role": "operative",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 25,
+        "loaded": 25
+      },
+      "phase": "playing",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "board-5x5-score-1440-light.png",
+      "role": "operative",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 25,
+        "loaded": 25
+      },
+      "phase": "playing",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "board-5x5-1440-dark.png",
+      "role": "operative",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 25,
+        "loaded": 25
+      },
+      "phase": "playing",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "board-5x5-battle-1440-dark.png",
+      "role": "operative",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 25,
+        "loaded": 25
+      },
+      "phase": "playing",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "board-5x5-spectators-1440-dark.png",
+      "role": "operative",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 25,
+        "loaded": 25
+      },
+      "phase": "playing",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "board-5x5-score-1440-dark.png",
+      "role": "operative",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 25,
+        "loaded": 25
+      },
+      "phase": "playing",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "board-5x5-1920-light.png",
+      "role": "operative",
+      "width": 1920,
+      "height": 1080,
+      "coverState": {
+        "total": 25,
+        "loaded": 25
+      },
+      "phase": "playing",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "board-5x5-battle-1920-light.png",
+      "role": "operative",
+      "width": 1920,
+      "height": 1080,
+      "coverState": {
+        "total": 25,
+        "loaded": 25
+      },
+      "phase": "playing",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "board-5x5-spectators-1920-light.png",
+      "role": "operative",
+      "width": 1920,
+      "height": 1080,
+      "coverState": {
+        "total": 25,
+        "loaded": 25
+      },
+      "phase": "playing",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "board-5x5-score-1920-light.png",
+      "role": "operative",
+      "width": 1920,
+      "height": 1080,
+      "coverState": {
+        "total": 25,
+        "loaded": 25
+      },
+      "phase": "playing",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "board-5x5-1920-dark.png",
+      "role": "operative",
+      "width": 1920,
+      "height": 1080,
+      "coverState": {
+        "total": 25,
+        "loaded": 25
+      },
+      "phase": "playing",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "board-5x5-battle-1920-dark.png",
+      "role": "operative",
+      "width": 1920,
+      "height": 1080,
+      "coverState": {
+        "total": 25,
+        "loaded": 25
+      },
+      "phase": "playing",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "board-5x5-spectators-1920-dark.png",
+      "role": "operative",
+      "width": 1920,
+      "height": 1080,
+      "coverState": {
+        "total": 25,
+        "loaded": 25
+      },
+      "phase": "playing",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "board-5x5-score-1920-dark.png",
+      "role": "operative",
+      "width": 1920,
+      "height": 1080,
+      "coverState": {
+        "total": 25,
+        "loaded": 25
+      },
+      "phase": "playing",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "board-5x5-390-light.png",
+      "role": "operative",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 25,
+        "loaded": 25
+      },
+      "phase": "playing",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "board-5x5-battle-390-light.png",
+      "role": "operative",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 25,
+        "loaded": 25
+      },
+      "phase": "playing",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "board-5x5-spectators-390-light.png",
+      "role": "operative",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 25,
+        "loaded": 25
+      },
+      "phase": "playing",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "board-5x5-score-390-light.png",
+      "role": "operative",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 25,
+        "loaded": 25
+      },
+      "phase": "playing",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "board-5x5-390-dark.png",
+      "role": "operative",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 25,
+        "loaded": 25
+      },
+      "phase": "playing",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "board-5x5-battle-390-dark.png",
+      "role": "operative",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 25,
+        "loaded": 25
+      },
+      "phase": "playing",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "board-5x5-spectators-390-dark.png",
+      "role": "operative",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 25,
+        "loaded": 25
+      },
+      "phase": "playing",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "board-5x5-score-390-dark.png",
+      "role": "operative",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 25,
+        "loaded": 25
+      },
+      "phase": "playing",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "captain-5x5-1440-light.png",
+      "role": "red captain",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 25,
+        "loaded": 25
+      },
+      "phase": "playing",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "captain-5x5-1440-dark.png",
+      "role": "red captain",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 25,
+        "loaded": 25
+      },
+      "phase": "playing",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "captain-5x5-1920-light.png",
+      "role": "red captain",
+      "width": 1920,
+      "height": 1080,
+      "coverState": {
+        "total": 25,
+        "loaded": 25
+      },
+      "phase": "playing",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "captain-5x5-1920-dark.png",
+      "role": "red captain",
+      "width": 1920,
+      "height": 1080,
+      "coverState": {
+        "total": 25,
+        "loaded": 25
+      },
+      "phase": "playing",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "captain-5x5-390-light.png",
+      "role": "red captain",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 25,
+        "loaded": 25
+      },
+      "phase": "playing",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "captain-5x5-390-dark.png",
+      "role": "red captain",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 25,
+        "loaded": 25
+      },
+      "phase": "playing",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "focus-5x5-1440-light.png",
+      "role": "operative",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 25,
+        "loaded": 25
+      },
+      "phase": "playing",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "focus-5x5-1440-dark.png",
+      "role": "operative",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 25,
+        "loaded": 25
+      },
+      "phase": "playing",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "focus-5x5-1920-light.png",
+      "role": "operative",
+      "width": 1920,
+      "height": 1080,
+      "coverState": {
+        "total": 25,
+        "loaded": 25
+      },
+      "phase": "playing",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "focus-5x5-1920-dark.png",
+      "role": "operative",
+      "width": 1920,
+      "height": 1080,
+      "coverState": {
+        "total": 25,
+        "loaded": 25
+      },
+      "phase": "playing",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "revealed-5x5-1440-light.png",
+      "role": "operative",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 25,
+        "loaded": 25
+      },
+      "phase": "playing",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "revealed-5x5-1440-dark.png",
+      "role": "operative",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 25,
+        "loaded": 25
+      },
+      "phase": "playing",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "revealed-5x5-1920-light.png",
+      "role": "operative",
+      "width": 1920,
+      "height": 1080,
+      "coverState": {
+        "total": 25,
+        "loaded": 25
+      },
+      "phase": "playing",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "revealed-5x5-1920-dark.png",
+      "role": "operative",
+      "width": 1920,
+      "height": 1080,
+      "coverState": {
+        "total": 25,
+        "loaded": 25
+      },
+      "phase": "playing",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "revealed-5x5-390-light.png",
+      "role": "operative",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 25,
+        "loaded": 25
+      },
+      "phase": "playing",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "revealed-5x5-390-dark.png",
+      "role": "operative",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 25,
+        "loaded": 25
+      },
+      "phase": "playing",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "flips-5x5-1440-light.png",
+      "role": "red operative",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 25,
+        "loaded": 25
+      },
+      "phase": "finished",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "flips-5x5-1440-dark.png",
+      "role": "red operative",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 25,
+        "loaded": 25
+      },
+      "phase": "finished",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "flips-5x5-1920-light.png",
+      "role": "red operative",
+      "width": 1920,
+      "height": 1080,
+      "coverState": {
+        "total": 25,
+        "loaded": 25
+      },
+      "phase": "finished",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "flips-5x5-1920-dark.png",
+      "role": "red operative",
+      "width": 1920,
+      "height": 1080,
+      "coverState": {
+        "total": 25,
+        "loaded": 25
+      },
+      "phase": "finished",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "flips-5x5-390-light.png",
+      "role": "red operative",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 25,
+        "loaded": 25
+      },
+      "phase": "finished",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "flips-5x5-390-dark.png",
+      "role": "red operative",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 25,
+        "loaded": 25
+      },
+      "phase": "finished",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "text-5x5-1440-light.png",
+      "role": "red operative",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "finished",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "text-5x5-1440-dark.png",
+      "role": "red operative",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "finished",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "text-5x5-1920-light.png",
+      "role": "red operative",
+      "width": 1920,
+      "height": 1080,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "finished",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "text-5x5-1920-dark.png",
+      "role": "red operative",
+      "width": 1920,
+      "height": 1080,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "finished",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "text-5x5-390-light.png",
+      "role": "red operative",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "finished",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "text-5x5-390-dark.png",
+      "role": "red operative",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "finished",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "replay-5x5-1440-light.png",
+      "role": "public replay",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "viewer": null
+    },
+    {
+      "file": "replay-5x5-1440-dark.png",
+      "role": "public replay",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "viewer": null
+    },
+    {
+      "file": "replay-5x5-1920-light.png",
+      "role": "public replay",
+      "width": 1920,
+      "height": 1080,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "viewer": null
+    },
+    {
+      "file": "replay-5x5-1920-dark.png",
+      "role": "public replay",
+      "width": 1920,
+      "height": 1080,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "viewer": null
+    },
+    {
+      "file": "replay-5x5-390-light.png",
+      "role": "public replay",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "viewer": null
+    },
+    {
+      "file": "replay-5x5-390-dark.png",
+      "role": "public replay",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "viewer": null
+    },
+    {
+      "file": "return-5x5-result.png",
+      "role": "host",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 25,
+        "loaded": 25
+      },
+      "phase": "finished",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "return-5x5-lobby.png",
+      "role": "host",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "lobby",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "board-6x6-1440-light.png",
+      "role": "operative",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 36,
+        "loaded": 36
+      },
+      "phase": "playing",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "board-6x6-battle-1440-light.png",
+      "role": "operative",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 36,
+        "loaded": 36
+      },
+      "phase": "playing",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "board-6x6-spectators-1440-light.png",
+      "role": "operative",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 36,
+        "loaded": 36
+      },
+      "phase": "playing",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "board-6x6-score-1440-light.png",
+      "role": "operative",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 36,
+        "loaded": 36
+      },
+      "phase": "playing",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "board-6x6-1440-dark.png",
+      "role": "operative",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 36,
+        "loaded": 36
+      },
+      "phase": "playing",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "board-6x6-battle-1440-dark.png",
+      "role": "operative",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 36,
+        "loaded": 36
+      },
+      "phase": "playing",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "board-6x6-spectators-1440-dark.png",
+      "role": "operative",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 36,
+        "loaded": 36
+      },
+      "phase": "playing",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "board-6x6-score-1440-dark.png",
+      "role": "operative",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 36,
+        "loaded": 36
+      },
+      "phase": "playing",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "board-6x6-1920-light.png",
+      "role": "operative",
+      "width": 1920,
+      "height": 1080,
+      "coverState": {
+        "total": 36,
+        "loaded": 36
+      },
+      "phase": "playing",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "board-6x6-battle-1920-light.png",
+      "role": "operative",
+      "width": 1920,
+      "height": 1080,
+      "coverState": {
+        "total": 36,
+        "loaded": 36
+      },
+      "phase": "playing",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "board-6x6-spectators-1920-light.png",
+      "role": "operative",
+      "width": 1920,
+      "height": 1080,
+      "coverState": {
+        "total": 36,
+        "loaded": 36
+      },
+      "phase": "playing",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "board-6x6-score-1920-light.png",
+      "role": "operative",
+      "width": 1920,
+      "height": 1080,
+      "coverState": {
+        "total": 36,
+        "loaded": 36
+      },
+      "phase": "playing",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "board-6x6-1920-dark.png",
+      "role": "operative",
+      "width": 1920,
+      "height": 1080,
+      "coverState": {
+        "total": 36,
+        "loaded": 36
+      },
+      "phase": "playing",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "board-6x6-battle-1920-dark.png",
+      "role": "operative",
+      "width": 1920,
+      "height": 1080,
+      "coverState": {
+        "total": 36,
+        "loaded": 36
+      },
+      "phase": "playing",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "board-6x6-spectators-1920-dark.png",
+      "role": "operative",
+      "width": 1920,
+      "height": 1080,
+      "coverState": {
+        "total": 36,
+        "loaded": 36
+      },
+      "phase": "playing",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "board-6x6-score-1920-dark.png",
+      "role": "operative",
+      "width": 1920,
+      "height": 1080,
+      "coverState": {
+        "total": 36,
+        "loaded": 36
+      },
+      "phase": "playing",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "board-6x6-390-light.png",
+      "role": "operative",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 36,
+        "loaded": 36
+      },
+      "phase": "playing",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "board-6x6-battle-390-light.png",
+      "role": "operative",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 36,
+        "loaded": 36
+      },
+      "phase": "playing",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "board-6x6-spectators-390-light.png",
+      "role": "operative",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 36,
+        "loaded": 36
+      },
+      "phase": "playing",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "board-6x6-score-390-light.png",
+      "role": "operative",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 36,
+        "loaded": 36
+      },
+      "phase": "playing",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "board-6x6-390-dark.png",
+      "role": "operative",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 36,
+        "loaded": 36
+      },
+      "phase": "playing",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "board-6x6-battle-390-dark.png",
+      "role": "operative",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 36,
+        "loaded": 36
+      },
+      "phase": "playing",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "board-6x6-spectators-390-dark.png",
+      "role": "operative",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 36,
+        "loaded": 36
+      },
+      "phase": "playing",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "board-6x6-score-390-dark.png",
+      "role": "operative",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 36,
+        "loaded": 36
+      },
+      "phase": "playing",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "captain-6x6-1440-light.png",
+      "role": "red captain",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 36,
+        "loaded": 36
+      },
+      "phase": "playing",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "captain-6x6-1440-dark.png",
+      "role": "red captain",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 36,
+        "loaded": 36
+      },
+      "phase": "playing",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "captain-6x6-1920-light.png",
+      "role": "red captain",
+      "width": 1920,
+      "height": 1080,
+      "coverState": {
+        "total": 36,
+        "loaded": 36
+      },
+      "phase": "playing",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "captain-6x6-1920-dark.png",
+      "role": "red captain",
+      "width": 1920,
+      "height": 1080,
+      "coverState": {
+        "total": 36,
+        "loaded": 36
+      },
+      "phase": "playing",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "captain-6x6-390-light.png",
+      "role": "red captain",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 36,
+        "loaded": 36
+      },
+      "phase": "playing",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "captain-6x6-390-dark.png",
+      "role": "red captain",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 36,
+        "loaded": 36
+      },
+      "phase": "playing",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "focus-6x6-1440-light.png",
+      "role": "operative",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 36,
+        "loaded": 36
+      },
+      "phase": "playing",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "focus-6x6-1440-dark.png",
+      "role": "operative",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 36,
+        "loaded": 36
+      },
+      "phase": "playing",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "focus-6x6-1920-light.png",
+      "role": "operative",
+      "width": 1920,
+      "height": 1080,
+      "coverState": {
+        "total": 36,
+        "loaded": 36
+      },
+      "phase": "playing",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "focus-6x6-1920-dark.png",
+      "role": "operative",
+      "width": 1920,
+      "height": 1080,
+      "coverState": {
+        "total": 36,
+        "loaded": 36
+      },
+      "phase": "playing",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "revealed-6x6-1440-light.png",
+      "role": "operative",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 36,
+        "loaded": 36
+      },
+      "phase": "playing",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "revealed-6x6-1440-dark.png",
+      "role": "operative",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 36,
+        "loaded": 36
+      },
+      "phase": "playing",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "revealed-6x6-1920-light.png",
+      "role": "operative",
+      "width": 1920,
+      "height": 1080,
+      "coverState": {
+        "total": 36,
+        "loaded": 36
+      },
+      "phase": "playing",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "revealed-6x6-1920-dark.png",
+      "role": "operative",
+      "width": 1920,
+      "height": 1080,
+      "coverState": {
+        "total": 36,
+        "loaded": 36
+      },
+      "phase": "playing",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "revealed-6x6-390-light.png",
+      "role": "operative",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 36,
+        "loaded": 36
+      },
+      "phase": "playing",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "revealed-6x6-390-dark.png",
+      "role": "operative",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 36,
+        "loaded": 36
+      },
+      "phase": "playing",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": true,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "flips-6x6-1440-light.png",
+      "role": "red operative",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 36,
+        "loaded": 36
+      },
+      "phase": "finished",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "flips-6x6-1440-dark.png",
+      "role": "red operative",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 36,
+        "loaded": 36
+      },
+      "phase": "finished",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "flips-6x6-1920-light.png",
+      "role": "red operative",
+      "width": 1920,
+      "height": 1080,
+      "coverState": {
+        "total": 36,
+        "loaded": 36
+      },
+      "phase": "finished",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "flips-6x6-1920-dark.png",
+      "role": "red operative",
+      "width": 1920,
+      "height": 1080,
+      "coverState": {
+        "total": 36,
+        "loaded": 36
+      },
+      "phase": "finished",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "flips-6x6-390-light.png",
+      "role": "red operative",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 36,
+        "loaded": 36
+      },
+      "phase": "finished",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "flips-6x6-390-dark.png",
+      "role": "red operative",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 36,
+        "loaded": 36
+      },
+      "phase": "finished",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "text-6x6-1440-light.png",
+      "role": "red operative",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "finished",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "text-6x6-1440-dark.png",
+      "role": "red operative",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "finished",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "text-6x6-1920-light.png",
+      "role": "red operative",
+      "width": 1920,
+      "height": 1080,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "finished",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "text-6x6-1920-dark.png",
+      "role": "red operative",
+      "width": 1920,
+      "height": 1080,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "finished",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "text-6x6-390-light.png",
+      "role": "red operative",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "finished",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "text-6x6-390-dark.png",
+      "role": "red operative",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "finished",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "replay-6x6-1440-light.png",
+      "role": "public replay",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "viewer": null
+    },
+    {
+      "file": "replay-6x6-1440-dark.png",
+      "role": "public replay",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "viewer": null
+    },
+    {
+      "file": "replay-6x6-1920-light.png",
+      "role": "public replay",
+      "width": 1920,
+      "height": 1080,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "viewer": null
+    },
+    {
+      "file": "replay-6x6-1920-dark.png",
+      "role": "public replay",
+      "width": 1920,
+      "height": 1080,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "viewer": null
+    },
+    {
+      "file": "replay-6x6-390-light.png",
+      "role": "public replay",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "viewer": null
+    },
+    {
+      "file": "replay-6x6-390-dark.png",
+      "role": "public replay",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "viewer": null
+    },
+    {
+      "file": "return-6x6-result.png",
+      "role": "host",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 36,
+        "loaded": 36
+      },
+      "phase": "finished",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "return-6x6-lobby.png",
+      "role": "host",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "lobby",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "unread-99-plus-1440.png",
+      "role": "red operative",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 36,
+        "loaded": 31
+      },
+      "phase": "playing",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "operative",
+        "isHost": false,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "lobby-four-1440-light.png",
+      "role": "host",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "lobby",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "lobby-four-1440-dark.png",
+      "role": "host",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "lobby",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "lobby-four-1920-light.png",
+      "role": "host",
+      "width": 1920,
+      "height": 1080,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "lobby",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "lobby-four-1920-dark.png",
+      "role": "host",
+      "width": 1920,
+      "height": 1080,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "lobby",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "lobby-four-390-light.png",
+      "role": "host",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "lobby",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "lobby-four-390-dark.png",
+      "role": "host",
+      "width": 390,
+      "height": 844,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "lobby",
+      "boardMode": "6x6",
+      "viewer": {
+        "participantType": "player",
+        "team": "red",
+        "role": "spymaster",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    },
+    {
+      "file": "settings-crossroom-safe.png",
+      "role": "host",
+      "width": 1440,
+      "height": 900,
+      "coverState": {
+        "total": 0,
+        "loaded": 0
+      },
+      "phase": "lobby",
+      "boardMode": "5x5",
+      "viewer": {
+        "participantType": "player",
+        "team": null,
+        "role": "operative",
+        "isHost": true,
+        "canGuess": false,
+        "canSubmitClue": false
+      }
+    }
+  ],
+  "geometry": [
+    {
+      "size": "5x5",
+      "width": 1440,
+      "normal": {
+        "x": 225,
+        "y": 393.828125,
+        "width": 870,
+        "height": 510.828125
+      },
+      "focus": {
+        "x": 45,
+        "y": 451.515625,
+        "width": 1350,
+        "height": 785.125
+      }
+    },
+    {
+      "size": "5x5",
+      "width": 1920,
+      "normal": {
+        "x": 305,
+        "y": 393.828125,
+        "width": 1190,
+        "height": 693.71875
+      },
+      "focus": {
+        "x": 125,
+        "y": 451.515625,
+        "width": 1670,
+        "height": 968.015625
+      }
+    },
+    {
+      "size": "6x6",
+      "width": 1440,
+      "normal": {
+        "x": 225,
+        "y": 448.625,
+        "width": 870,
+        "height": 592.96875
+      },
+      "focus": {
+        "x": 45,
+        "y": 451.515625,
+        "width": 1350,
+        "height": 912.9375
+      }
+    },
+    {
+      "size": "6x6",
+      "width": 1920,
+      "normal": {
+        "x": 305,
+        "y": 448.625,
+        "width": 1190,
+        "height": 806.34375
+      },
+      "focus": {
+        "x": 125,
+        "y": 451.515625,
+        "width": 1670,
+        "height": 1126.3125
+      }
+    }
+  ],
+  "catalogRequests": [
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "catalogWorks": 6810,
+  "noticeLog": [
+    {
+      "count": 1,
+      "text": "✨红队 · 第 1 局 / 4 回合 · 队列高光 / 团队协作"
+    },
+    {
+      "count": 1,
+      "text": "🏆红队 · 第 1 局 / 4 回合 · 测试成员 获得成就：队列成就"
+    },
+    {
+      "count": 0,
+      "text": ""
+    }
+  ],
+  "errors": []
+}

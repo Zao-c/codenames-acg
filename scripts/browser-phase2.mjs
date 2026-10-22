@@ -80,7 +80,7 @@ try {
   for (let i = 0; i < 4; i++) { await mobileTab(pages[i], '玩家'); await pages[i].getByLabel('我的队伍',{exact:true}).selectOption(i<2?'red':'blue'); if(i%2===0) await pages[i].getByLabel('我的身份',{exact:true}).selectOption('spymaster'); await mobileTab(pages[i], '准备'); }
   await button(host,'修改设置').click(); const config = host.locator('.anime-config'); if (!(await config.getAttribute('open') !== null)) await config.locator('summary').click();
   await config.getByLabel('玩法', { exact: true }).selectOption('anime'); await config.getByLabel('棋盘', { exact: true }).selectOption('6x6');
-  await config.getByLabel('动画作品池', { exact: true }).selectOption(`community:${poolId}`); await button(host, '保存设置').click();
+  await config.getByLabel('动画作品池', { exact: true }).selectOption(`community:${poolId}`); await button(host, '保存并返回准备大厅').click();
   await until(() => states[0]?.nextPlan?.sourcePool?.id === poolId, 'versioned community snapshot');
   await button(host, '进入队长预览 →').click(); await button(host, '确认就绪，开始组牌').click();
   const blue = pages[2]; await mobileTab(blue,'准备'); await button(blue, '确认就绪，开始组牌').click(); await button(blue,'选牌与操作').click();

@@ -1,0 +1,29 @@
+{
+  "passed": true,
+  "navigation": [
+    "大厅",
+    "创建房间",
+    "文字题库",
+    "动画题库",
+    "图片图库",
+    "个人资料"
+  ],
+  "url": "http://182.61.136.105/",
+  "title": "词牌结社",
+  "assets": [
+    {
+      "path": "/assets/index-DDUU21BX.css",
+      "status": 200
+    },
+    {
+      "path": "/assets/index-DSNESOlk.js",
+      "status": 200
+    }
+  ],
+  "errors": [],
+  "screens": [
+    "production-desktop-dark.png",
+    "production-mobile-light.png"
+  ],
+  "scope": "Read-only public home with local guest identity; no production room, account or game created. Multiplayer regression ran on isolated local services."
+}

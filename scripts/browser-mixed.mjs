@@ -204,7 +204,7 @@ try {
   const pickCard = picker.locator('.pool-picker-list article').filter({ hasText: `混合动画池 ${stamp}` });
   await visible(pickCard);
   await button(pickCard, '选择').click();
-  await button(settings, '保存设置').click();
+  await button(settings, '保存并返回准备大厅').click();
   await until(() => states[0].nextPlan?.sourcePool, 'mixed community pool applied');
   assert.ok(states[0].nextPlan.poolIds.some(id => id < 0), 'mixed pool includes a manual work');
   checks.push('manual upload + mixed 5x5 pool applied in a real room');

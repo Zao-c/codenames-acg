@@ -1,0 +1,24 @@
+import assert from 'node:assert/strict';
+import type { PublicRoomState, PlanAction } from '@acg-codenames/shared';
+import { configurationMatches, confirmConfiguration, ConfigurationError } from '../src/lib/room-configuration.js';
+const base={id:'ROOM1',updatedAt:10,nextPlan:{id:'PLAN1',version:4,variant:'anime',settings:{boardMode:'5x5',scoringMode:'classic',animeRandomSwap:true,animeSeriesRotation:true},poolName:'原作品池',poolSummary:{source:100}}} as PublicRoomState;
+const payload:PlanAction={roomId:'ROOM1',kind:'configure',version:4,variant:'anime',boardMode:'6x6',scoringMode:'classic',animeRandomSwap:false,animeSeriesRotation:true};
+function saved(){const room=structuredClone(base);room.updatedAt=11;room.nextPlan!.version=5;room.nextPlan!.settings.boardMode='6x6';room.nextPlan!.settings.animeRandomSwap=false;return room;}
+assert.ok(configurationMatches(base,saved(),payload));assert.equal(configurationMatches(base,{...saved(),id:'ROOM2'},payload),false);
+let current=base,active=true,writes=0,syncs=0;
+const common={base,payload,readRoom:()=>current,active:()=>active,ackTimeout:100,syncTimeout:80,onChecking:()=>{},synchronize:()=>{syncs++;}};
+const delayed=await confirmConfiguration({...common,emit:reply=>{writes++;setTimeout(()=>reply({ok:true}),10);setTimeout(()=>{current=saved();},20);}});
+assert.equal(delayed.nextPlan!.version,5);assert.equal(writes,1);
+current=base;writes=0;syncs=0;
+await confirmConfiguration({...common,ackTimeout:40,emit:()=>{writes++;},synchronize:()=>{syncs++;current=saved();}});
+assert.equal(writes,1);assert.equal(syncs,1,'lost ACK causes read-only reconciliation, never an automatic second write');
+current=base;
+await assert.rejects(confirmConfiguration({...common,emit:reply=>reply({ok:false,message:'只有房主可以配置下一局'})}),/房主/);
+await assert.rejects(confirmConfiguration({...common,ackTimeout:40,emit:reply=>reply({ok:true})}),error=>error instanceof ConfigurationError&&error.uncertain,'bare success ACK without saved snapshot is insufficient');
+current=saved();current.nextPlan!.version=6;
+await assert.rejects(confirmConfiguration({...common,ackTimeout:40,emit:reply=>reply({ok:true})}),/尚未核对/);
+current=base;active=true;
+await assert.rejects(confirmConfiguration({...common,emit:reply=>{setTimeout(()=>{active=false;current={...base,id:'ROOM2'};},10);setTimeout(()=>reply({ok:true}),20);}}),/房间已切换/);
+active=false;writes=0;
+await assert.rejects(confirmConfiguration({...common,emit:()=>{writes++;}}),/房间已切换/);assert.equal(writes,0);
+console.log('Round10 configuration PASS: delayed ACK/state ordering, lost ACK reconciliation without resend, rejected authority, bare/stale ACK, room switch before/after send');

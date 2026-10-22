@@ -1,0 +1,31 @@
+{
+  "gitSha": "59f2bd1aad922bad41d42b63ca0857b0102ad0b1",
+  "runtimeSha": "59f2bd1aad922bad41d42b63ca0857b0102ad0b1",
+  "mainPid": 1007817,
+  "cwd": "/opt/codenames-acg/apps/server",
+  "roomCount": 0,
+  "players": 0,
+  "dataPaths": {
+    "USER_STORE_FILE": "/opt/codenames-acg/apps/server/data/users.json",
+    "ANIME_POOL_STORE_FILE": "/opt/codenames-acg/apps/server/data/anime-pools.json",
+    "ANIME_IMPORT_FILE": "/opt/codenames-acg/apps/server/data/anime-imports.json",
+    "MANUAL_WORK_STORE_FILE": "/opt/codenames-acg/apps/server/data/manual-works.json",
+    "ANIME_COVER_DIR": "/opt/codenames-acg/apps/server/data/anime-covers",
+    "REVEAL_IMAGE_DIR": "/opt/codenames-acg/apps/server/apps/server/data/reveal-images"
+  },
+  "pathsExist": {
+    "USER_STORE_FILE": true,
+    "ANIME_POOL_STORE_FILE": true,
+    "ANIME_IMPORT_FILE": true,
+    "MANUAL_WORK_STORE_FILE": true,
+    "ANIME_COVER_DIR": true,
+    "REVEAL_IMAGE_DIR": true
+  },
+  "configPresent": true,
+  "memoryStore": true,
+  "redisConfigured": false,
+  "diskFreeBytes": 21889437696,
+  "node": "v22.22.2",
+  "rsync": true,
+  "trackedClean": true
+}

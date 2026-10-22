@@ -1,0 +1,18 @@
+The bundle contains this ref:
+89b5f70485b7c0a9ca1e70e2e414b9ed6731da6b refs/heads/codex/cipai-round10-v2
+The bundle requires this ref:
+0e09d0aae15bccf8b94687184fffa4c1c79581a5 
+The bundle uses this hash algorithm: sha1
+/opt/codenames-releases/uploads/round10-feedback-89b5f70.bundle is okay
+From /opt/codenames-releases/uploads/round10-feedback-89b5f70.bundle
+   0e09d0a..89b5f70  codex/cipai-round10-v2 -> round10-review/head
+curl: (7) Failed to connect to 127.0.0.1 port 3199 after 0 ms: Couldn't connect to server
+app-before.tar.gz: OK
+system-before.tar.gz: OK
+Previous HEAD position was 0e09d0a docs(round10): publish acceptance, visual evidence and guarded release tooling
+HEAD is now at 89b5f70 docs(round10): publish feedback acceptance and visual comparison evidence
+curl: (7) Failed to connect to 127.0.0.1 port 3001 after 0 ms: Couldn't connect to server
+curl: (7) Failed to connect to 127.0.0.1 port 3001 after 0 ms: Couldn't connect to server
+DEPLOYED_SHA=89b5f70485b7c0a9ca1e70e2e414b9ed6731da6b
+BACKUP=/opt/codenames-backups/round10-feedback-20261019T080815Z-89b5f70485b7
+MAIN_PID=2267745

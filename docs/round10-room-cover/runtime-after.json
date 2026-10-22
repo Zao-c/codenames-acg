@@ -1,0 +1,46 @@
+{
+  "passed": true,
+  "gitSha": "a73ad5afb87522ad472b5c4bc2f529e3eec5e169",
+  "runtimeSha": "a73ad5afb87522ad472b5c4bc2f529e3eec5e169",
+  "release": {
+    "sha": "a73ad5afb87522ad472b5c4bc2f529e3eec5e169",
+    "branch": "detached",
+    "sourceBranch": "codex/cipai-round10-v2",
+    "previousSha": "89b5f70485b7c0a9ca1e70e2e414b9ed6731da6b",
+    "backupPath": "/opt/codenames-backups/round10-room-cover-20261019T101346Z-a73ad5afb875",
+    "deployedAt": "2026-10-19T10:14:29.425188+00:00",
+    "feature": "round10-room-cover-return-cover-reveal",
+    "memoryRoomsCleared": false
+  },
+  "mainPid": 2459853,
+  "node": "v22.22.2",
+  "health": {
+    "ok": true
+  },
+  "roomCount": 0,
+  "trackedClean": true,
+  "publicAssets": {
+    "/assets/index-BBbiMbfn.js": "d6208565810908effddfb2c5555379ee200d077df205bc81eb64ad598980f5be",
+    "/assets/index-B1joaJ7m.css": "e4d0dfee97682bbdd9f1e213913eb43ce612e97ca24b1ed0bcffe28ea0e40d35"
+  },
+  "configurationUnchanged": true,
+  "backupVerified": true,
+  "backupEntries": 765,
+  "backupArchives": {
+    "app-before.tar.gz": 78386962,
+    "system-before.tar.gz": 11975
+  },
+  "dataFilesVerifiedBeforeRestart": 53,
+  "compiledFilesVerified": 74,
+  "durablePaths": {
+    "USER_STORE_FILE": "/opt/codenames-acg/apps/server/data/users.json",
+    "ANIME_POOL_STORE_FILE": "/opt/codenames-acg/apps/server/data/anime-pools.json",
+    "ANIME_IMPORT_FILE": "/opt/codenames-acg/apps/server/data/anime-imports.json",
+    "MANUAL_WORK_STORE_FILE": "/opt/codenames-acg/apps/server/data/manual-works.json",
+    "ANIME_COVER_DIR": "/opt/codenames-acg/apps/server/data/anime-covers",
+    "REVEAL_IMAGE_DIR": "/opt/codenames-acg/apps/server/apps/server/data/reveal-images"
+  },
+  "isolatedLinuxSmokeHealth": {
+    "ok": true
+  }
+}

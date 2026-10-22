@@ -1,0 +1,7 @@
+
+> acg_codenames@0.1.0 test:covers:unit
+> node node_modules/tsx/dist/cli.mjs apps/server/test/cover-service.test.ts && node node_modules/tsx/dist/cli.mjs apps/web/test/image-request-queue.test.ts && node scripts/test-cover-metadata-scroll.mjs
+
+Cover service PASS: single-flight, disk hits under saturation, foreground priority, nonblocking COS publication, source fingerprint, negative caching and exact origin/prefix validation
+Image request queue PASS: connection budget, visible priority, queued and active cancellation, no slot leaks
+{"passed":true,"maxMetadataRequests":1,"requests":3,"stats":{"started":240,"cancelled":0,"maxLocal":1,"maxRemote":3,"active":{"bgm":0,"remote":0,"local":0},"queued":0,"resolved":0,"inFlight":0}}

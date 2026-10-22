@@ -1,0 +1,10 @@
+The bundle contains this ref:
+a73ad5afb87522ad472b5c4bc2f529e3eec5e169 refs/heads/codex/cipai-round10-v2
+The bundle requires this ref:
+89b5f70485b7c0a9ca1e70e2e414b9ed6731da6b 
+The bundle uses this hash algorithm: sha1
+app-before.tar.gz: OK
+system-before.tar.gz: OK
+DEPLOYED_SHA=a73ad5afb87522ad472b5c4bc2f529e3eec5e169
+BACKUP=/opt/codenames-backups/round10-room-cover-20261019T101346Z-a73ad5afb875
+MAIN_PID=2459853

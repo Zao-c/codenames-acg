@@ -1,0 +1,83 @@
+{
+  "passed": true,
+  "before": {
+    "passed": true,
+    "players": 8,
+    "candidates": 180,
+    "extraCatalogWorks": 5000,
+    "avatarSourceBytes": [
+      9031,
+      8999,
+      9015,
+      9055,
+      9015,
+      8999,
+      8999,
+      9039
+    ],
+    "seconds": 67.837,
+    "actions": 240,
+    "snapshots": 0,
+    "deltas": 2160,
+    "actualRoomBytes": 1971480,
+    "previousFullStateEstimateBytes": 395905493,
+    "reductionPercent": 99.502032673237,
+    "catalog": {
+      "uncompressed": 2164033,
+      "gzip": 486709,
+      "home": 3725
+    },
+    "latencyMs": {
+      "p50": 37,
+      "p95": 51,
+      "max": 385
+    },
+    "server": {
+      "maxRssMiB": 257.04296875,
+      "eventLoopP99Ms": 387.973119
+    },
+    "scope": "Loopback synthetic benchmark; previous bytes reconstruct full state and original data-URI avatars; not an internet speed or 3-hour soak guarantee."
+  },
+  "after": {
+    "passed": true,
+    "players": 8,
+    "candidates": 180,
+    "extraCatalogWorks": 5000,
+    "avatarSourceBytes": [
+      9011,
+      9019,
+      8975,
+      9007,
+      8999,
+      9035,
+      8967,
+      9003
+    ],
+    "seconds": 67.201,
+    "actions": 240,
+    "snapshots": 0,
+    "deltas": 2160,
+    "actualRoomBytes": 1971800,
+    "previousFullStateEstimateBytes": 394411499,
+    "reductionPercent": 99.50006528587545,
+    "catalog": {
+      "uncompressed": 2164033,
+      "gzip": 486709,
+      "home": 3725
+    },
+    "latencyMs": {
+      "p50": 36,
+      "p95": 45,
+      "max": 62
+    },
+    "server": {
+      "maxRssMiB": 246.72265625,
+      "eventLoopP99Ms": 60.522495
+    },
+    "scope": "Loopback synthetic benchmark; previous bytes reconstruct full state and original data-URI avatars; not an internet speed or 3-hour soak guarantee."
+  },
+  "roomBytesChangePercent": 0.016231460628568506,
+  "ackP95ChangeMs": -6,
+  "latencyGuardPassed": true,
+  "scope": "Adjacent loopback runs, identical 8-player 240-action workloads; not production capacity or internet latency."
+}

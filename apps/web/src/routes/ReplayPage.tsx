@@ -6,11 +6,13 @@ import { TEAM_LABELS, type GameReplay, type Team } from "@acg-codenames/shared";
 import { ReplayExport } from '../components/ReplayExport';
 import { cumulativeReplayBoard, replayCardId, roleLabel } from '../lib/replay-board';
 import { Cover } from "../components/AnimeBoard";
+import { CardRevealTint } from '../components/CardRevealTint';
 
 function ReplayBoard({ replay, turn, guessCount, focused }: { replay:GameReplay; turn:number|null; guessCount?:number; focused:string|null }) {
   const board=cumulativeReplayBoard(replay,turn,guessCount);
   return <div className="replay-board" style={{gridTemplateColumns:`repeat(${Math.sqrt(board.length)},minmax(0,1fr))`}}>{board.map(card=><div key={card.id} id={`replay-card-${card.id}`} data-card-id={card.id} data-revealed={card.revealed} tabIndex={-1} title={card.word} className={`replay-board-card replay-card-role-${card.role??'hidden'} ${card.revealed?'is-revealed':'replay-card-unrevealed'} ${focused===card.id?'card-focused':''}`}>
     {card.anime&&<span className="replay-board-cover"><Cover work={card.anime}/></span>}
+    {card.anime&&card.revealed&&card.role&&<CardRevealTint role={card.role}/>}
     <span className="replay-board-word">{card.word}</span>
     <span className="replay-board-tag">{card.revealed?`已翻 · ${roleLabel(card.role!)}`:'未翻'}</span>
     {!card.revealed&&turn===null&&<span className="replay-post-affiliation">赛后归属：{roleLabel(card.role!)}</span>}

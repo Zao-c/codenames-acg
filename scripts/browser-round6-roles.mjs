@@ -133,7 +133,7 @@ try {
   const quarterly = options.find(value => /^\d{4}-Q[1-4]$/.test(value));
   assert.ok(quarterly, 'quarterly pool available');
   await poolSelect.selectOption(quarterly);
-  await button(settings, '保存设置').click();
+  await button(settings, '保存并返回准备大厅').click();
   await until(() => states[0].nextPlan?.variant === 'anime', 'anime configured');
 
   await host.getByRole('button',{name:/进入队长预览/}).click();await until(()=>states[0].nextPlan.stage==='guide','guide');

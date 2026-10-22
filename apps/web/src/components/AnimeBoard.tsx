@@ -3,6 +3,7 @@ import { BOARD_MODE_CONFIG, animeWorkLink, type AnimeWork, type PublicCard, type
 import { resolveAnimeAssetUrl } from '../lib/api';
 
 import { useGame } from '../context/GameContext';
+import { CardRevealTint } from './CardRevealTint';
 import { Dialog } from './UI';
 import { AssociationBoard } from './AssociationBoard';
 import { SpectatorPredictions } from './SpectatorPredictions';
@@ -19,7 +20,6 @@ export function Preview({ work, close, children }: { work: AnimeWork; close: () 
 export function AnimeBoard({ room }: { room: PublicRoomState }) {
   const { guessCard } = useGame();
   const [text, setText] = useState(() => localStorage.getItem('anime-text-view') === '1');
-  const [zoom, setZoom] = useState(1);
   const [preview, setPreview] = useState<PublicCard | null>(null);
   const [confirm, setConfirm] = useState(false);
   const markKey=`cipai.personal-marks:${room.id}:${room.matchId??room.roundNumber}:${room.viewer?.participantId}:${privateIdentityKey()}`;
@@ -31,26 +31,22 @@ export function AnimeBoard({ room }: { room: PublicRoomState }) {
   useEffect(()=>{try{setMarks(JSON.parse(localStorage.getItem(markKey)||'{}'));}catch{setMarks({});}setMarkTarget(null);},[markKey]);
   useEffect(()=>()=>{if(held.current)clearTimeout(held.current.timer);},[]);
   const cancelHold=()=>{if(held.current)clearTimeout(held.current.timer);held.current=null;};
-  const scroll = useRef<HTMLDivElement>(null);
   const selected = room.board.find(card => card.id === preview?.id);
   const cols = BOARD_MODE_CONFIG[room.settings.boardMode].columns;
   return <section className="panel anime-board-panel" data-analysis={room.analysis ? 'true' : undefined} data-board-mode={room.settings.boardMode}>
     <div className="anime-toolbar"><strong>封面棋盘 · {room.settings.boardMode}</strong>
       <button onClick={() => { setText(!text); localStorage.setItem('anime-text-view', text ? '0':'1'); }}>{text ? '封面显示' : '纯文字显示'}</button>
-      <button aria-label="缩小棋盘" disabled={zoom <= 1} onClick={() => setZoom(z => Math.max(1,z-.25))}>−</button>
-      <button aria-label="放大棋盘" disabled={zoom >= 2} onClick={() => setZoom(z => Math.min(2,z+.25))}>＋</button>
-      <button onClick={() => { setZoom(1); scroll.current?.scrollTo(0,0); }}>重置视图</button>
       <AssociationBoard key={room.matchId} room={room}/>
       <SpectatorPredictions key={`predictions-${room.matchId}`} room={room}/>
-    </div>{room.clue&&<p className={`board-current-clue team-${room.currentTeam}`} role="status">{room.currentTeam==='red'?'红队':'蓝队'}线索 · <strong>{room.clue.word} ×{room.clue.count}</strong> · {room.players.find(p=>p.id===room.clue?.giverPlayerId)?.nickname??'队长'}</p>}<p className="hint-text">点卡片查看作品；猜牌需要再次确认。放大后可滑动浏览。</p>
-    <div className="anime-board-scroll" ref={scroll}><div className={`anime-board ${text ? "anime-board-text" : ""}`} style={{ gridTemplateColumns: `repeat(${cols}, minmax(0,1fr))`, width: `${zoom*100}%` }}>
+    </div>{room.clue&&<p className={`board-current-clue team-${room.currentTeam}`} role="status">{room.currentTeam==='red'?'红队':'蓝队'}线索 · <strong>{room.clue.word} ×{room.clue.count}</strong> · {room.players.find(p=>p.id===room.clue?.giverPlayerId)?.nickname??'队长'}</p>}
+    <div className="anime-board-scroll"><div className={`anime-board ${text ? "anime-board-text" : ""}`} style={{ gridTemplateColumns: `repeat(${cols}, minmax(0,1fr))` }}>
       {room.board.map(card => <button key={card.id} className={`anime-board-card role-${card.role ?? 'hidden'} ${card.revealed ? 'is-revealed':''}`} aria-label={`${card.word}${card.revealed ? ` 已翻 · ${{red:'红队',blue:'蓝队',neutral:'中立',assassin:'刺客'}[card.role!]}`:''}`} data-personal-mark={marks[card.id]||undefined}
         onContextMenu={e=>{e.preventDefault();if(held.current||Date.now()-touchStarted.current<1500)return;suppress.current=true;markReadyAt.current=0;setMarkTarget(card);}}
         onPointerDown={e=>{suppress.current=false;if(e.pointerType==='mouse')return;touchStarted.current=Date.now();const {clientX:x,clientY:y}=e;e.currentTarget.setPointerCapture(e.pointerId);held.current={x,y,ready:false,timer:setTimeout(()=>{if(held.current)held.current.ready=true;suppress.current=true;},500)};}}
         onPointerMove={e=>{if(held.current&&Math.hypot(e.clientX-held.current.x,e.clientY-held.current.y)>8)cancelHold();}}
         onPointerUp={()=>{const ready=held.current?.ready;cancelHold();if(ready){suppress.current=true;markReadyAt.current=Date.now()+180;setMarkTarget(card);}}} onPointerCancel={cancelHold}
         onClick={() => { if(suppress.current){suppress.current=false;return;}setPreview(card); setConfirm(false); }}>
-        {!text && card.anime && <Cover work={card.anime} />}<span>{card.word}</span>{card.role && <b className={card.revealed?'revealed-status':'captain-affiliation'}>{card.revealed?'已翻 · ':''}{card.role === 'red' ? '红队' : card.role === 'blue' ? '蓝队' : card.role === 'neutral' ? '中立' : '刺客'}</b>}
+        {!text && card.anime && <Cover work={card.anime} />}{!text&&card.anime&&card.revealed&&card.role&&<CardRevealTint role={card.role}/>}<span className="anime-card-word">{card.word}</span>{card.role && <b className={card.revealed?'revealed-status':'captain-affiliation'}>{card.revealed?'已翻 · ':''}{card.role === 'red' ? '红队' : card.role === 'blue' ? '蓝队' : card.role === 'neutral' ? '中立' : '刺客'}</b>}
         {marks[card.id]&&<i className={`personal-mark mark-${marks[card.id]}`}>预判 · {({red:'红',blue:'蓝',neutral:'中立',assassin:'刺客'} as Record<string,string>)[marks[card.id]]}</i>}
       </button>)}
     </div></div>

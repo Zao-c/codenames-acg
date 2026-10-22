@@ -1,5 +1,8 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 
+let openDialogs=0;
+let originalBodyOverflow='';
+
 export function Icon({ name, size = 20 }: { name: 'cards'|'home'|'users'|'chat'|'sun'|'moon'|'sound'|'mute'|'settings'|'arrow'|'close'|'book'; size?: number }) {
  const paths: Record<typeof name, ReactNode> = {
   cards: <><rect x="6" y="5" width="13" height="16" rx="2"/><path d="m3 17-1-13 13-2M10 10h5m-5 4h5"/></>,
@@ -18,12 +21,13 @@ export function Icon({ name, size = 20 }: { name: 'cards'|'home'|'users'|'chat'|
  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 }
 
-export function Dialog({ title, close, children, wide = false }: { title: string; close: () => void; children: ReactNode; wide?: boolean }) {
+export function Dialog({ title, close, children, wide = false, className='', closeDisabled=false }: { title: string; close: () => void; children: ReactNode; wide?: boolean; className?:string; closeDisabled?:boolean }) {
  const ref=useRef<HTMLDivElement>(null);
  const onClose=useRef(close);onClose.current=close;
  useEffect(()=>{
   const previous=document.activeElement as HTMLElement|null;
-  const overflow=document.body.style.overflow;document.body.style.overflow='hidden';
+  if(openDialogs++===0)originalBodyOverflow=document.body.style.overflow;
+  document.body.style.overflow='hidden';
   ref.current?.focus();
   const key=(e:KeyboardEvent)=>{
    if(e.key==='Escape'){e.stopPropagation();onClose.current();}
@@ -36,7 +40,7 @@ export function Dialog({ title, close, children, wide = false }: { title: string
   };
   ref.current?.addEventListener('keydown',key);
   const node=ref.current;
-  return()=>{node?.removeEventListener('keydown',key);document.body.style.overflow=overflow;previous?.focus();};
+  return()=>{node?.removeEventListener('keydown',key);if(--openDialogs===0)document.body.style.overflow=originalBodyOverflow;previous?.focus();};
  },[]);
- return <div className="dialog-backdrop" onClick={close}><div className={`dialog-sheet ${wide?'dialog-wide':''}`} ref={ref} role="dialog" aria-modal="true" aria-label={title} tabIndex={-1} onClick={e=>e.stopPropagation()}><header className="dialog-heading"><h2>{title}</h2><button aria-label={`关闭${title}`} onClick={close}><Icon name="close"/></button></header>{children}</div></div>;
+ return <div className="dialog-backdrop" onClick={close}><div className={`dialog-sheet ${wide?'dialog-wide':''} ${className}`} ref={ref} role="dialog" aria-modal="true" aria-label={title} tabIndex={-1} onClick={e=>e.stopPropagation()}><header className="dialog-heading"><h2>{title}</h2><button disabled={closeDisabled} aria-label={`关闭${title}`} onClick={close}><Icon name="close"/></button></header>{children}</div></div>;
 }

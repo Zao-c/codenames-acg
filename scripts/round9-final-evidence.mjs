@@ -6,6 +6,7 @@ const root=process.cwd(),baseline=process.env.ROUND9_BASELINE_ROOT??path.resolve
 const out=path.resolve('output/playwright/round9');await fs.mkdir(out,{recursive:true});
 assert.equal(execFileSync('git',['rev-parse','HEAD'],{cwd:baseline,encoding:'utf8'}).trim(),'59f2bd1aad922bad41d42b63ca0857b0102ad0b1','baseline worktree must remain unchanged');
 async function run(args,cwd,env,log){const handle=await fs.open(path.join(out,log),'w');const p=spawn(process.execPath,args,{cwd,windowsHide:true,env:{...process.env,...env},stdio:['ignore',handle.fd,handle.fd]});const code=await new Promise(r=>{p.on('error',()=>r(-1));p.on('exit',r);});await handle.close();assert.equal(code,0,log);console.log('PASS '+log);}
+await run(['scripts/verify-round9.mjs','test:round9:local'],root,{},'final-round9.log');
 await run(['scripts/verify-round9.mjs','build'],root,{},'final-build.log');
 await run(['scripts/test-round9-local.mjs'],root,{ROUND9_BASELINE:'1',PLAYTEST_CODE_ROOT:baseline},'baseline-browser.log');
 // Matched loopback pair: no simultaneous browser suite or build in this runner.

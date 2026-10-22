@@ -53,6 +53,8 @@ export interface AnimeDiscoveryResult {
 }
 export interface AnimePool { id: string; name: string; workIds: number[] }
 export interface DraftClaim { team: Team; kind: 'manual' | 'interference'; protectedUntil: number; from?: Team }
+export interface AnimeDraftRules { version: 2; selectionSeconds: 180 | 240 | 300; interferenceSeconds: 30 | 60 | null }
+export interface InterferencePoolPage { planId:string; stageVersion:number; page:number; total:number; works:AnimeWork[] }
 export interface NextPlan {
   id: string;
   version: number;
@@ -65,7 +67,11 @@ export interface NextPlan {
   sourcePool?: { id: string; revision: number };
   candidates: AnimeWork[];
   startingTeam: Team;
-  stage: 'planning' | 'guide' | 'draft' | 'sealed';
+  stage: 'planning' | 'guide' | 'draft' | 'interference' | 'sealed';
+  stageVersion?: number;
+  interferenceClosed?: boolean;
+  interferenceWorks?: AnimeWork[];
+  requests?: {id:string;actor:string;fingerprint:string}[];
   captains: Partial<Record<Team, string>>;
   bookmarks: Record<string, number[]>;
   ready: Record<Team, boolean>;
@@ -81,6 +87,8 @@ export interface NextPlan {
   activityAt: number;
 }
 export interface PublicNextPlan {
+  stageVersion?: number;
+  interferenceClosed?: boolean;
   randomSwapCompleted?: boolean;
   poolSummary?: { source: number; series: number; excluded: number; available: number; required: number };
   /** Legacy field; current servers fetch the full source snapshot on demand. */
@@ -102,11 +110,16 @@ export interface PublicNextPlan {
   endsAt?: number;
   myTeam?: Team;
   myBookmarks?: number[];
-  captainView?: { claims: Record<number, DraftClaim>; ready: Record<Team, boolean>; done: Record<Team, boolean> };
+  captainView?: { claims: Record<number, DraftClaim>; ready: Record<Team, boolean>; done: Record<Team, boolean>; interferenceWorks?:AnimeWork[] };
 }
 export interface PlanAction {
   roomId: string;
-  kind: 'configure' | 'nominate' | 'bookmark' | 'prepare' | 'ready' | 'take' | 'release' | 'interfere' | 'done' | 'transfer' | 'cancel' | 'reset-series-history';
+  kind: 'configure' | 'nominate' | 'bookmark' | 'prepare' | 'ready' | 'take' | 'release' | 'interfere' | 'done' | 'confirm-interference' | 'unready' | 'transfer' | 'cancel' | 'reset-series-history';
+  draftProtocol?: 2;
+  planId?:string;
+  stageVersion?:number;
+  requestId?:string;
+  animeDraft?:AnimeDraftRules;
   animeRandomSwap?: boolean;
   animeSeriesRotation?: boolean;
   version?: number;
@@ -119,6 +132,7 @@ export interface PlanAction {
   flipMode?: RoomSettings['flipMode'];
   poolIds?: number[];
   poolName?: string;
+  animePoolId?: string;
   communityPoolId?: string;
   communityPoolRevision?: number;
   builtinWordPackId?: string;
@@ -127,6 +141,10 @@ export interface PlanAction {
   targetId?: string;
   workId?: number;
   replaceId?: number;
+}
+export interface AnimePresetOption {
+  id:string; name:string; workCount:number; seriesCount:number;
+  preview:Pick<AnimeWork,'id'|'title'|'cover'>[];
 }
 export function draftQuota(size: number, startingTeam: Team, team: Team): { total: number; manual: number } {
   const starter = team === startingTeam;

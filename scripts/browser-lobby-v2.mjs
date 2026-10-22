@@ -1,3 +1,4 @@
+import { managedClick, openMemberTools } from './browser-support.mjs';
 import { readRoomState } from './room-observer.mjs';
 import { theme } from './browser-support.mjs';
 import fs from 'node:fs/promises';
@@ -13,7 +14,7 @@ let browser;for(const channel of ['chromium','msedge','chrome',undefined]){try{b
 if(!browser)throw new Error('No browser available');
 const pages=[],states=[],errors=[],clients=[],checks=[];
 const button=(p,name)=>p.getByRole('button',{name,exact:true});
-const until=async(fn,label)=>{for(let i=0;i<150;i++){if(fn())return;await new Promise(r=>setTimeout(r,100));}throw new Error(`Timed out: ${label}`);};
+const until=async(fn,label)=>{for(let i=0;i<150;i++){if(await fn())return;await new Promise(r=>setTimeout(r,100));}throw new Error(`Timed out: ${label}`);};
 const tab=async(p,name)=>{const n=p.getByRole('navigation',{name:'房间导航'});if(await n.isVisible())await button(n,name).click();};
 async function shot(p,name){await p.evaluate(()=>document.fonts.ready);await p.screenshot({path:path.join(artifacts,`${name}.png`),fullPage:true});const b=await p.evaluate(()=>({w:innerWidth,s:document.documentElement.scrollWidth}));assert.ok(b.s<=b.w+1,`${name}: overflow ${JSON.stringify(b)}`);}
 async function create(p,mode){await button(p,'＋ 创建房间').click();await button(p.getByRole('dialog'),mode).click();await button(p.getByRole('dialog'),'创建房间 →').click();}
@@ -31,11 +32,11 @@ try{
   assert.equal(await host.getByRole('heading',{name:'本局玩法',exact:true}).count(),1);
   assert.equal(await host.getByRole('heading',{name:'队伍与成员',exact:true}).count(),1);
   for(let i=1;i<5;i++){await pages[i].goto(`${base}/room/${id}`);await button(pages[i],'加入房间').click();await until(()=>states[i]?.id===id,`join ${i}`);}
-  assert.ok(await button(host,'保留队长随机队员').isDisabled());
-  for(let n=0;n<5;n++)await nextState(0,()=>button(host,'全员重新随机').click());
+  await openMemberTools(host);assert.ok(await button(host,'保留队长随机队员').isDisabled());
+  for(let n=0;n<5;n++)await nextState(0,()=>managedClick(host,'全员重新随机'));
   const fixed={...states[0].nextPlan.captains};
   for(let n=0;n<10;n++){
-    await nextState(0,()=>button(host,'保留队长随机队员').click());assert.deepEqual(states[0].nextPlan.captains,fixed);
+    await nextState(0,()=>managedClick(host,'保留队长随机队员'));assert.deepEqual(states[0].nextPlan.captains,fixed);
     for(const t of ['red','blue'])assert.equal(states[0].players.find(p=>p.id===fixed[t]).role,'spymaster');
     assert.ok(Math.abs(states[0].players.filter(p=>p.team==='red').length-states[0].players.filter(p=>p.team==='blue').length)<=1);
   }
@@ -44,12 +45,12 @@ try{
   await tab(pages[2],'玩家');const oldTeam=states[2].players.find(p=>p.nickname==='大厅验收2').team;
   await nextState(2,()=>pages[2].getByLabel('我的队伍',{exact:true}).selectOption(oldTeam==='red'?'blue':'red'));
   await nextState(2,()=>pages[2].getByLabel('我的队伍',{exact:true}).selectOption(oldTeam));
-  await nextState(0,()=>button(host,'全员重新随机').click());
+  await nextState(0,()=>managedClick(host,'全员重新随机'));
   await button(host,'修改设置').click();const config=host.getByRole('dialog',{name:'本局设置'});
   assert.deepEqual(await config.getByLabel('下一局计分').locator('option').allTextContents(),['胜场制','积分制']);
   await config.getByLabel('棋盘',{exact:true}).selectOption('6x6');await config.getByLabel('下一局计分').selectOption('scoring');
-  await config.getByLabel('动画作品池',{exact:true}).selectOption('2026-Q3');await button(config,'保存设置').click();await until(()=>states[0].nextPlan.settings.boardMode==='6x6','saved config');
-  assert.equal(await host.locator('.anime-config').count(),0);
+  await config.getByLabel('动画作品池',{exact:true}).selectOption('2026-Q3');await button(config,'保存并返回准备大厅').click();await until(()=>states[0].nextPlan.settings.boardMode==='6x6','saved config');
+  await until(async()=>await host.locator('.anime-config').count()===0,'settings closes after confirmed snapshot and ACK');
   await pages[4].getByLabel('发送聊天消息').fill('大家准备好了吗？');await button(pages[4],'发送').click();await host.getByText('大家准备好了吗？',{exact:true}).waitFor();
   assert.equal(await host.getByText('GG',{exact:true}).count(),0);assert.equal(await host.locator('.danmaku-toggle').count(),0);
   await button(host,'打开快捷设置').click();await button(host,'关闭弹幕').click();assert.ok(await button(host,'开启弹幕').getAttribute('aria-pressed')==='false');await button(host,'关闭设置').click();
@@ -62,7 +63,7 @@ try{
   await create(pages[5],'经典词牌');await until(()=>!!states[5],'classic create');const classicId=states[5].id;
   for(const size of ['7x7','9x9']){
     await button(pages[5],'修改设置').click();const settings=pages[5].getByRole('dialog',{name:'本局设置'});
-    await settings.getByLabel('棋盘',{exact:true}).selectOption(size);await button(settings,'保存设置').click();
+    await settings.getByLabel('棋盘',{exact:true}).selectOption(size);await button(settings,'保存并返回准备大厅').click();
     await until(()=>states[5].nextPlan?.settings.boardMode===size,`classic ${size} saved`);
   }
   await button(pages[5],'修改设置').click();const classicSettings=pages[5].getByRole('dialog',{name:'本局设置'});
@@ -71,10 +72,10 @@ try{
   await classicSettings.getByLabel('经典回合计时').selectOption('timed');await classicSettings.getByLabel('经典翻牌显示').selectOption('color-only');
   assert.notEqual(states[5].nextPlan.settings.timerMode,'timed','advanced edits are saved atomically');
   await classicSettings.getByLabel('上传文字题库').setInputFiles({name:'大厅上传题库.txt',mimeType:'text/plain',buffer:Buffer.from(Array.from({length:110},(_,i)=>`联想词条${i}`).join('\n'))});
-  await button(classicSettings,'保存设置').click();await until(()=>states[5].nextPlan?.wordPackName==='大厅上传题库','uploaded classic pack');
+  await button(classicSettings,'保存并返回准备大厅').click();await until(()=>states[5].nextPlan?.wordPackName==='大厅上传题库','uploaded classic pack');
   assert.equal(states[5].nextPlan.settings.timerMode,'timed');assert.equal(states[5].nextPlan.settings.flipMode,'color-only');
   for(let i=0;i<3;i++){const c=io(api,{transports:['websocket']});clients.push(c);await new Promise(r=>c.on('connect',r));await new Promise((resolve,reject)=>{c.once('session',resolve);c.once('error_message',d=>reject(new Error(d.message)));c.emit('join_room',{roomId:classicId,nickname:`公开大厅成员${i}`,identityKey:crypto.randomBytes(32).toString('hex')});});}
-  await until(()=>states[5].players.length===4,'classic 4 players');await button(pages[5],'全员重新随机').click();await button(pages[5],'开始游戏').click();await until(()=>states[5].phase==='playing','classic playing');
+  await until(()=>states[5].players.length===4,'classic 4 players');await managedClick(pages[5],'全员重新随机');await button(pages[5],'开始游戏').click();await until(()=>states[5].phase==='playing','classic playing');
   await create(pages[6],'揭幕猜番');await until(()=>states[6]?.gameMode==='reveal-guess','dedicated reveal flow');assert.equal(await pages[6].locator('.preparation-lobby').count(),0);
   const home=pages[7];await home.locator('.home-room').nth(2).waitFor();assert.equal(await home.locator('.home-room').count(),3);
   const cards=await home.locator('.home-room').evaluateAll(es=>es.map(e=>({x:e.getBoundingClientRect().x,w:e.getBoundingClientRect().width,y:e.getBoundingClientRect().y})));
@@ -95,8 +96,8 @@ try{
   for(const p of capPages()){await tab(p,'准备');await button(p,'确认就绪，开始组牌').click();}
   await until(()=>states[0].nextPlan.stage==='draft','draft');assert.ok(states[0].nextPlan.endsAt>Date.now()+175000);
   for(const p of capPages()){const b=button(p,'选牌与操作');if(await b.isVisible())await b.click();await button(p,'手选完成，剩余随机补齐').click();}
-  await until(()=>states[0].nextPlan.stage==='sealed','sealed');await shot(host,'11-sealed-desktop');assert.ok(await button(host,'全员重新随机').isDisabled());assert.equal(await button(host,'进入队长预览 →').count(),0);
-  await button(host,'开始五秒倒计时').click();await host.locator('.start-countdown').waitFor();await button(host,'取消开始').click();await until(()=>!states[0].countdown,'cancel countdown');assert.equal(states[0].nextPlan.stage,'sealed');
+  await until(()=>states[0].nextPlan.stage==='sealed','sealed');await shot(host,'11-sealed-desktop');await openMemberTools(host);assert.ok(await button(host,'全员重新随机').isDisabled());assert.equal(await button(host,'进入队长预览 →').count(),0);await button(host.getByRole('dialog',{name:'分队与队长管理'}),'完成并返回大厅').click();
+  await button(host,'开始五秒倒计时').click();await host.locator('.start-countdown').waitFor();await button(host,'取消开局，返回房间').click();await until(()=>!states[0].countdown,'cancel countdown');assert.equal(states[0].nextPlan.stage,'sealed');
   await button(host,'开始五秒倒计时').click();await until(()=>states[0].phase==='playing','anime playing');assert.equal(states[0].board.length,36);
   checks.push('planning/guide/draft/sealed/countdown/playing server stages, preview cannot take, one-captain no timer, cancel/reset, both ready starts 180s, sealed locks and countdown cancel');
   assert.deepEqual(errors,[]);await fs.writeFile(path.join(artifacts,'report.json'),JSON.stringify({passed:true,checks,errors},null,2));console.log(JSON.stringify({passed:true,checks,errors}));

@@ -1,0 +1,46 @@
+{
+  "passed": true,
+  "gitSha": "37537ea1d351956c226456ad4c5685509f8e04df",
+  "runtimeSha": "37537ea1d351956c226456ad4c5685509f8e04df",
+  "release": {
+    "sha": "37537ea1d351956c226456ad4c5685509f8e04df",
+    "branch": "detached",
+    "sourceBranch": "codex/cipai-staged-draft",
+    "previousSha": "8c9aa272d74b7379a023fe07249522ae18ffdec7",
+    "backupPath": "/opt/codenames-backups/staged-draft-20261019T145951Z-37537ea1d351",
+    "deployedAt": "2026-10-19T15:00:34.715091+00:00",
+    "feature": "staged-draft-return-cover-reveal",
+    "memoryRoomsCleared": false
+  },
+  "mainPid": 2886573,
+  "node": "v22.22.2",
+  "health": {
+    "ok": true
+  },
+  "roomCount": 0,
+  "trackedClean": true,
+  "publicAssets": {
+    "/assets/index-CFbFWyYZ.js": "a7a2e62e0dc416b74651a539c57038216f8f8cc709a84a7a25fe0ec0bc113e52",
+    "/assets/index-DpY4lLDq.css": "b79bae2b941a726a59abd45af5b618596781029b562d958b9d87f536d284330a"
+  },
+  "configurationUnchanged": true,
+  "backupVerified": true,
+  "backupEntries": 884,
+  "backupArchives": {
+    "app-before.tar.gz": 93001344,
+    "system-before.tar.gz": 11975
+  },
+  "dataFilesVerifiedBeforeRestart": 111,
+  "compiledFilesVerified": 76,
+  "durablePaths": {
+    "USER_STORE_FILE": "/opt/codenames-acg/apps/server/data/users.json",
+    "ANIME_POOL_STORE_FILE": "/opt/codenames-acg/apps/server/data/anime-pools.json",
+    "ANIME_IMPORT_FILE": "/opt/codenames-acg/apps/server/data/anime-imports.json",
+    "MANUAL_WORK_STORE_FILE": "/opt/codenames-acg/apps/server/data/manual-works.json",
+    "ANIME_COVER_DIR": "/opt/codenames-acg/apps/server/data/anime-covers",
+    "REVEAL_IMAGE_DIR": "/opt/codenames-acg/apps/server/apps/server/data/reveal-images"
+  },
+  "isolatedLinuxSmokeHealth": {
+    "ok": true
+  }
+}

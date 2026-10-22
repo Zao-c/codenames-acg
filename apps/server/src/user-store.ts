@@ -23,6 +23,8 @@ import type { UserStore } from "./types.js";
 
 interface UserDatabase {
   users: Record<string, NamedUserAccount>;
+  /** One-time existing-public-pack privacy cutover marker. */
+  wordPackPrivacyVersion?: number;
 }
 
 function now(): number {
@@ -165,6 +167,8 @@ export class JsonUserStore implements UserStore {
   private users = new Map<string, NamedUserAccount>();
   private readonly sessions = new Map<string, { userKey: string; expiresAt: number }>();
   private loaded = false;
+  private wordPackPrivacyVersion = 0;
+  private loading?: Promise<void>;
   private writeChain: Promise<void> = Promise.resolve();
 
   private static readonly SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -216,11 +220,23 @@ export class JsonUserStore implements UserStore {
     if (!current) {
       throw new Error("用户不存在，请先登录");
     }
+    const incomingWordPacks = normalizeSavedPacks(payload.customWordPacks);
+    if (incomingWordPacks) {
+      const alreadyPublic = new Set(current.customWordPacks.filter(p => p.isPublic).map(p => p.id));
+      const intentional = new Set(payload.publishWordPackIds ?? []);
+      for (const pack of incomingWordPacks) {
+        if (pack.isPublic && !alreadyPublic.has(pack.id) && !intentional.has(pack.id)) {
+          // A stale tab editing an old public pack must not undo the privacy migration.
+          pack.isPublic = false;
+          pack.publishedAt = undefined;
+        }
+      }
+    }
     const updated: NamedUserAccount = {
       ...current,
       avatarUrl: payload.avatarUrl === undefined ? current.avatarUrl : normalizeAvatarUrl(payload.avatarUrl),
       title: payload.title === undefined ? current.title ?? null : normalizeTitle(payload.title, current.stats),
-      customWordPacks: normalizeSavedPacks(payload.customWordPacks) ?? current.customWordPacks,
+      customWordPacks: incomingWordPacks ?? current.customWordPacks,
       customImagePacks: normalizeSavedImagePacks(payload.customImagePacks) ?? current.customImagePacks,
       updatedAt: now()
     };
@@ -399,26 +415,60 @@ export class JsonUserStore implements UserStore {
   }
 
   private async ensureLoaded(): Promise<void> {
-    if (this.loaded) {
-      return;
-    }
-
-    this.loaded = true;
-    try {
-      await this.tryLoadFile(this.filePath);
-    } catch {
-      console.warn("Failed to load users from primary file, trying backup...");
+    if (this.loaded) return;
+    if (this.loading) return this.loading;
+    this.loading = (async () => {
+      let source: string | null = null;
       try {
-        await this.tryLoadFile(`${this.filePath}.bak`);
-      } catch {
-        // 无法恢复，从零开始
+        await this.tryLoadFile(this.filePath);
+        source = this.filePath;
+      } catch (primaryError) {
+        // Never silently overwrite a damaged account database during a privacy migration.
+        this.users.clear();
+        try {
+          await this.tryLoadFile(`${this.filePath}.bak`);
+          source = `${this.filePath}.bak`;
+        } catch (backupError) {
+          if ((primaryError as NodeJS.ErrnoException).code !== 'ENOENT'
+              || (backupError as NodeJS.ErrnoException).code !== 'ENOENT') {
+            throw new Error('账户数据暂不可用；为保护题库已停止读取，请检查存储文件', { cause: backupError });
+          }
+        }
       }
-    }
+      if (source && this.wordPackPrivacyVersion < 1) {
+        let revoked = 0;
+        for (const account of this.users.values()) {
+          for (const pack of account.customWordPacks) {
+            if (pack.isPublic === true) {
+              pack.isPublic = false;
+              pack.publishedAt = undefined;
+              revoked++;
+            }
+          }
+        }
+        // The marker is persisted even if no pack needed changing. Later explicit
+        // opt-ins must survive restarts; only pre-migration publicity is revoked.
+        await fs.copyFile(source, `${this.filePath}.before-wordpack-privacy-${Date.now()}.bak`);
+        this.wordPackPrivacyVersion = 1;
+        await this.persist();
+        console.info(`Word-pack privacy cutover completed: ${revoked} old public packs made private`);
+      } else if (!source) {
+        this.wordPackPrivacyVersion = 1;
+      }
+      this.loaded = true;
+    })();
+    try { await this.loading; }
+    finally { this.loading = undefined; }
   }
 
   private async tryLoadFile(filePath: string): Promise<void> {
     const raw = await fs.readFile(filePath, "utf8");
     const parsed = JSON.parse(raw) as UserDatabase;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)
+        || !parsed.users || typeof parsed.users !== 'object' || Array.isArray(parsed.users)) {
+      throw new Error('账户数据结构无效');
+    }
+    this.wordPackPrivacyVersion = parsed.wordPackPrivacyVersion === 1 ? 1 : 0;
     for (const account of Object.values(parsed.users ?? {})) {
       this.users.set(userKey(account.username), {
         ...defaultUser(account.username),
@@ -435,7 +485,8 @@ export class JsonUserStore implements UserStore {
     this.writeChain = previous.then(async () => {
       await fs.mkdir(path.dirname(this.filePath), { recursive: true });
       const payload: UserDatabase = {
-        users: Object.fromEntries(this.users.entries())
+        users: Object.fromEntries(this.users.entries()),
+        wordPackPrivacyVersion: this.wordPackPrivacyVersion
       };
       const content = JSON.stringify(payload, null, 2);
       await fs.writeFile(this.filePath, content, "utf8");

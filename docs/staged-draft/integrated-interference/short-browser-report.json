@@ -1,0 +1,75 @@
+{
+  "passed": true,
+  "threeHourComplete": false,
+  "requestedSeconds": 400,
+  "elapsedSeconds": 456.725103,
+  "players": 8,
+  "browserContexts": 8,
+  "compiled": true,
+  "checks": [
+    "eight named browser seats; new anime room has no chosen pool, no candidates and no full catalog request",
+    "real browser touch handle lifts a visible ghost, drops into two-target dock and clears ghost/dock on release",
+    "operative selected badges use a compact neutral theme label and reveal no drag controls or team affiliation"
+  ],
+  "rounds": [
+    {
+      "number": 1,
+      "size": "5x5",
+      "selectionSeconds": 180,
+      "interferenceSeconds": 30,
+      "changed": true,
+      "reconnected": true,
+      "earlyFinished": false,
+      "seconds": 258.0379367,
+      "winner": "red"
+    },
+    {
+      "number": 2,
+      "size": "6x6",
+      "selectionSeconds": 240,
+      "interferenceSeconds": 60,
+      "changed": true,
+      "reconnected": true,
+      "earlyFinished": true,
+      "seconds": 196.53182260000003,
+      "winner": "blue"
+    }
+  ],
+  "counters": {
+    "snapshots": 20,
+    "deltas": 1537,
+    "roomBytes": 23973008,
+    "imageResponses": 2491,
+    "imageHttpErrors": 674,
+    "imageNetworkErrors": 227,
+    "guesses": 40,
+    "clues": 20,
+    "reconnections": 2
+  },
+  "coverChecks": [
+    {
+      "round": 1,
+      "size": "5x5",
+      "waitSeconds": 4.405595900000015,
+      "passed": true,
+      "unresolved": []
+    },
+    {
+      "round": 2,
+      "size": "6x6",
+      "waitSeconds": 12.82410380000004,
+      "passed": true,
+      "unresolved": []
+    }
+  ],
+  "ackMs": {
+    "p50": 108.6596000000136,
+    "p95": 159.59409999998752,
+    "max": 221.27640000003157
+  },
+  "uiGuessMs": {
+    "p95": 570.4440000000177
+  },
+  "errors": [],
+  "scope": "Short diagnostic only; this is not a three-hour acceptance."
+}

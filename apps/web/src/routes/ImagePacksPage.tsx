@@ -382,7 +382,7 @@ export function ImagePacksPage() {
               {isMine ? "还没有图库，切换到「上传」页签创建第一个图库。" : "暂无公开图库。"}
             </p>
           ) : (
-            <div className="pack-list">
+            <div className="pack-list image-pack-list">
               {packs.filter((p) => filter(p.name)).map((pack) => {
                 const entries = hasEntries(pack) ? pack.entries : [];
                 return (
@@ -409,56 +409,33 @@ export function ImagePacksPage() {
                     <div className="pack-row-actions">
                       {isMine ? (
                         <>
-                          <button onClick={() => navigate("/create")}>用于开房</button>
-                          <button
-                            onClick={() => setModalPack(pack as SavedImagePack)}
-                          >
-                            详情
-                          </button>
-                          <button
-                            onClick={() => {
-                              setEditingPack(pack as SavedImagePack);
-                              setEditName((pack as SavedImagePack).name);
-                              setEditEntriesText(
-                                (pack as SavedImagePack).entries
-                                  .map((e) => `${e.url} ${e.label}`)
-                                  .join("\n")
-                              );
-                              setTab("upload");
-                            }}
-                          >
-                            编辑
-                          </button>
-                          <button
-                            onClick={() =>
-                              g.toggleAccountImagePackPublic((pack as SavedImagePack).id)
-                            }
-                          >
-                            {(pack as SavedImagePack).isPublic ? "取消公开" : "设为公开"}
-                          </button>
-                          <button
-                            className="danger-button"
-                            onClick={() => {
-                              if (confirm("确定删除？"))
-                                g.removeAccountImagePack((pack as SavedImagePack).id);
-                            }}
-                          >
-                            删除
-                          </button>
+                          <button className="primary-button" onClick={() => navigate("/create")}>用于开房</button>
+                          <details className="pack-action-menu">
+                            <summary aria-label={`更多操作：${pack.name}`}>更多</summary>
+                            <div className="pack-action-menu-list">
+                              <button onClick={() => setModalPack(pack as SavedImagePack)}>详情</button>
+                              <button onClick={() => {
+                                setEditingPack(pack as SavedImagePack);
+                                setEditName((pack as SavedImagePack).name);
+                                setEditEntriesText((pack as SavedImagePack).entries.map(e => `${e.url} ${e.label}`).join("\n"));
+                                setTab("upload");
+                              }}>编辑</button>
+                              <button onClick={() => g.toggleAccountImagePackPublic((pack as SavedImagePack).id)}>
+                                {(pack as SavedImagePack).isPublic ? "取消公开" : "设为公开"}
+                              </button>
+                              <button className="danger-button" onClick={() => {
+                                if (confirm("确定删除这个图库？")) g.removeAccountImagePack((pack as SavedImagePack).id);
+                              }}>删除</button>
+                            </div>
+                          </details>
                         </>
                       ) : (
                         <>
-                          <button onClick={() => navigate("/create")}>用于开房</button>
-                          <button
-                            onClick={async () => {
-                              const full = await g.fetchPublicImagePackDetail(
-                                (pack as PublicImagePackSummary).publicId
-                              );
-                              if (full) setModalPack(full);
-                            }}
-                          >
-                            详情
-                          </button>
+                          <button className="primary-button" onClick={() => navigate("/create")}>用于开房</button>
+                          <button onClick={async () => {
+                            const full = await g.fetchPublicImagePackDetail((pack as PublicImagePackSummary).publicId);
+                            if (full) setModalPack(full);
+                          }}>详情</button>
                         </>
                       )}
                     </div>

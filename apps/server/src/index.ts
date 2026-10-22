@@ -45,6 +45,7 @@ import { animePoolRouter } from './anime-pools.js';
 import { ManualWorkStore } from './manual-works.js';
 import { manualCoverRouter, manualWorkRouter } from './manual-works-api.js';
 import { fetchReplayCover } from './replay-cover.js';
+import {RoomBroadcastQueue} from './room-broadcast.js';
 
 type PayloadRecord = Record<string, unknown>;
 
@@ -269,6 +270,14 @@ function parseUpdateNamedUserPayload(value: unknown): UpdateNamedUserPayload {
     }
     parsed.customWordPacks = body.customWordPacks as UpdateNamedUserPayload["customWordPacks"];
   }
+  if (body.publishWordPackIds !== undefined) {
+    if (!Array.isArray(body.publishWordPackIds)
+        || body.publishWordPackIds.length > 1
+        || !body.publishWordPackIds.every((id: unknown) => typeof id === 'string' && id.length > 0 && id.length <= 128)) {
+      throw new Error('文字题库公开确认参数无效');
+    }
+    parsed.publishWordPackIds = body.publishWordPackIds;
+  }
   if (body.customImagePacks !== undefined) {
     if (!Array.isArray(body.customImagePacks)) {
       throw new Error("customImagePacks 参数无效");
@@ -451,6 +460,14 @@ async function bootstrap(): Promise<void> {
     catch { res.set('Cache-Control','no-store').status(503).end(); }
   });
   const metadataLimiter = rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: true, legacyHeaders: false, message: { message: '目录读取太频繁，请稍后重试' } });
+  app.get('/api/anime/preset-options',metadataLimiter,(_req,res)=>{
+    const byId=new Map(animeCatalog().map(w=>[w.id,w]));
+    const pools=animePools().map(p=>{
+      const works=[...new Set(p.workIds)].map(id=>byId.get(id)).filter((w):w is NonNullable<typeof w>=>!!w);
+      return {id:p.id,name:p.name,workCount:works.length,seriesCount:new Set(works.map(w=>w.seriesId)).size,preview:works.slice(0,4).map(({id,title,cover})=>({id,title,cover}))};
+    }).filter(p=>p.workCount>=50);
+    res.set('Cache-Control','public, max-age=60').json({pools});
+  });
   app.get('/api/features', metadataLimiter, (_req, res) => { res.setHeader('Cache-Control', 'no-store'); res.json({ animeCommunity: env.enableAnimeCommunity }); });
   app.get('/api/anime/home-covers', metadataLimiter, (_req, res) => {
     const works = animeCatalog().filter(work => work.cover).slice(0, 24).map(({id,title,fullTitle,cover}) => ({id,title,fullTitle,cover}));
@@ -487,6 +504,7 @@ async function bootstrap(): Promise<void> {
   });
 
   app.get("/api/public-word-packs", async (_req, res) => {
+    res.setHeader("Cache-Control", "no-store");
     try {
       res.json(await users.listPublicWordPacks());
     } catch (error) {
@@ -495,6 +513,7 @@ async function bootstrap(): Promise<void> {
   });
 
   app.get("/api/public-word-packs/:publicId", async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
     try {
       const pack = await users.getPublicWordPackByPublicId(req.params.publicId);
       if (!pack) {
@@ -528,11 +547,17 @@ async function bootstrap(): Promise<void> {
     }
   });
 
+  app.get('/api/rooms/:roomId/interference-pool',metadataLimiter,async(req,res)=>{
+    res.setHeader('Cache-Control','no-store');
+    try {res.json(await game.getInterferencePool(String(req.params.roomId),principalFromKey(req.header('x-private-key')),String(req.query.planId??''),Number(req.query.stageVersion),String(req.query.q??''),Number(req.query.page??1)));}
+    catch(error){res.status(403).json({message:error instanceof Error?error.message:'干扰作品池读取失败'});}
+  });
   app.get('/api/rooms/:roomId/plan-pool',metadataLimiter,async(req,res)=>{
     res.setHeader('Cache-Control','no-store');
     try {
       const principal=principalFromKey(req.header('x-private-key'));
-      res.json(await game.getPlanPool(String(req.params.roomId),principal,String(req.query.planId??''),Number(req.query.version)));
+      const pool=await game.getPlanPool(String(req.params.roomId),principal,String(req.query.planId??''),Number(req.query.version));
+      res.json(req.query.preview==='1'?{...pool,works:pool.works.slice(0,4)}:pool);
     } catch(error) { res.status(403).json({message:error instanceof Error?error.message:'作品池读取失败'}); }
   });
   app.get('/api/private-replays/:matchId', (req, res) => {
@@ -660,7 +685,9 @@ async function bootstrap(): Promise<void> {
     summariesTimer=setTimeout(()=>{summariesTimer=undefined;game.listRoomSummaries().then(rooms=>io.emit("room_summaries",assets.wire(rooms))).catch(error=>console.warn('room summaries:',error));},150);
   }
 
-  async function sendRoomState(roomId: string): Promise<void> {
+  const roomBroadcasts=new RoomBroadcastQueue(publishRoomState);
+  function sendRoomState(roomId:string):Promise<void>{return roomBroadcasts.send(roomId);}
+  async function publishRoomState(roomId: string): Promise<void> {
     const room = await game.getRoom(roomId);
     if (!room) {
       await broadcastRoomSummaries();
@@ -817,7 +844,7 @@ async function bootstrap(): Promise<void> {
         await game.planAction(roomId,session.participantId,payload);
         await sendRoomState(roomId);
         acknowledge(reply, {ok:true});
-      } catch(error) { acknowledge(reply, {ok:false,message:error instanceof Error?error.message:'配置未保存'});fail(socket,error); }
+      } catch(error) { const bound=socketSessions.get(socket.id);if(bound)try{await sendRoomState(bound.roomId);}catch{} acknowledge(reply, {ok:false,message:error instanceof Error?error.message:'配置未保存'});fail(socket,error); }
     });
     socket.emit("room_summaries", []);
     broadcastRoomSummaries().catch((error) => {
@@ -1315,7 +1342,7 @@ async function bootstrap(): Promise<void> {
           ? await game.leaveRoom(roomId, participantId, participantType)
           : await game.markDisconnected(roomId, participantId, participantType,()=>![...socketSessions.entries()].some(([id,s])=>id!==socket.id&&s.roomId===roomId&&s.participantId===participantId));
 
-        if (boundSession && socketSessions.get(socket.id) === boundSession) socketSessions.delete(socket.id);
+        if (boundSession?.roomId === roomId && socketSessions.get(socket.id) === boundSession) socketSessions.delete(socket.id);
         socket.leave(roomId);
         socket.leave(`member:${participantId}`);
         if(isLobby)for(const [id,bound] of socketSessions){if(bound.roomId===roomId&&bound.participantId===participantId){socketSessions.delete(id);const client=io.sockets.sockets.get(id);client?.leave(roomId);client?.leave(`member:${participantId}`);client?.emit('room_closed',{roomId,reason:'已退出房间'});}}

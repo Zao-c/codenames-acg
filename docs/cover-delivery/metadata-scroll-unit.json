@@ -1,0 +1,20 @@
+{
+  "passed": true,
+  "works": 120,
+  "maxMetadataRequests": 1,
+  "requests": 3,
+  "stats": {
+    "started": 240,
+    "cancelled": 0,
+    "maxLocal": 1,
+    "maxRemote": 3,
+    "active": {
+      "bgm": 0,
+      "remote": 0,
+      "local": 0
+    },
+    "queued": 0,
+    "resolved": 0,
+    "inFlight": 0
+  }
+}
