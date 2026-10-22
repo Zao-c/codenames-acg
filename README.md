@@ -43,7 +43,7 @@
 | 准备大厅 | 动画队长组牌 |
 | :---: | :---: |
 | ![准备大厅](https://raw.githubusercontent.com/Zao-c/codenames-acg/9b969958f7a4d134f79d363e88af09282862a2c8/docs/round10/screens/after-lobby-1440-light.png) | ![动画队长组牌](docs/round6/screenshots/desktop-draft-light.png) |
-| 邀请、分队和本局规则集中在同一处 | 拖放或点击挑选作品，双方准备后进入对局 |
+| 邀请、分队和本局规则集中在同一处 | 拖放挑选作品，点击查看作品详情 |
 
 | 移动端封面棋盘 | 回合记录与赛后复盘 |
 | :---: | :---: |
@@ -62,12 +62,13 @@
 
 ## 本地运行
 
-需要 **Node.js 20+** 和 npm。本仓库为 npm workspaces 项目，包含前端、游戏服务及共享类型包。
+需要 **Node.js 22.12+** 和 npm。本仓库为 npm workspaces 项目，包含前端、游戏服务及共享类型包。
 
 ```bash
 git clone https://github.com/Zao-c/codenames-acg.git
 cd codenames-acg
-npm install
+npm ci
+npm run build -w @acg-codenames/shared
 ```
 
 分别打开两个终端：
