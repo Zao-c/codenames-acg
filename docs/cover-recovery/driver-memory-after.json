@@ -1,0 +1,92 @@
+{
+  "scope": "Loopback HTTP only, eight persistent browser contexts, 192 MiB driver heap; no game traffic or production requests",
+  "records": [
+    {
+      "label": "start",
+      "rss": 86097920,
+      "heapTotal": 41504768,
+      "heapUsed": 22221440,
+      "external": 4069213,
+      "arrayBuffers": 41277,
+      "retainedRequests": 8
+    },
+    {
+      "label": 800,
+      "rss": 108535808,
+      "heapTotal": 65097728,
+      "heapUsed": 29306480,
+      "external": 5439805,
+      "arrayBuffers": 968401,
+      "retainedRequests": 8
+    },
+    {
+      "label": 1600,
+      "rss": 124915712,
+      "heapTotal": 102322176,
+      "heapUsed": 28995336,
+      "external": 5169829,
+      "arrayBuffers": 369533,
+      "retainedRequests": 8
+    },
+    {
+      "label": 2400,
+      "rss": 142430208,
+      "heapTotal": 102584320,
+      "heapUsed": 29057328,
+      "external": 5365518,
+      "arrayBuffers": 285440,
+      "retainedRequests": 8
+    },
+    {
+      "label": 3200,
+      "rss": 148713472,
+      "heapTotal": 170741760,
+      "heapUsed": 29026728,
+      "external": 5638891,
+      "arrayBuffers": 606825,
+      "retainedRequests": 8
+    },
+    {
+      "label": 4000,
+      "rss": 171532288,
+      "heapTotal": 169693184,
+      "heapUsed": 29015024,
+      "external": 4801611,
+      "arrayBuffers": 40465,
+      "retainedRequests": 8
+    },
+    {
+      "label": 4800,
+      "rss": 173776896,
+      "heapTotal": 165498880,
+      "heapUsed": 29022416,
+      "external": 5012880,
+      "arrayBuffers": 329470,
+      "retainedRequests": 8
+    },
+    {
+      "label": 5600,
+      "rss": 172453888,
+      "heapTotal": 165498880,
+      "heapUsed": 29080128,
+      "external": 5038082,
+      "arrayBuffers": 92044,
+      "retainedRequests": 8
+    },
+    {
+      "label": 6400,
+      "rss": 173645824,
+      "heapTotal": 166023168,
+      "heapUsed": 26468520,
+      "external": 5052155,
+      "arrayBuffers": 290224,
+      "retainedRequests": 8
+    }
+  ],
+  "catalog": 8,
+  "packets": 8,
+  "imageResponses": 6408,
+  "httpErrors": 8,
+  "networkErrors": 8,
+  "pending": 0
+}

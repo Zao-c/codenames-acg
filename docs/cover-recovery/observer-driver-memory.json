@@ -1,0 +1,19 @@
+{
+  "sampleCount": 11,
+  "first": {
+    "rss": 113442816,
+    "heapTotal": 63356928,
+    "heapUsed": 36481136,
+    "external": 4969083,
+    "arrayBuffers": 1934860
+  },
+  "last": {
+    "rss": 146722816,
+    "heapTotal": 82137088,
+    "heapUsed": 43392728,
+    "external": 8302282,
+    "arrayBuffers": 5286743
+  },
+  "maxHeapUsed": 55858152,
+  "scope": "Short diagnostic only; no three-hour memory stability claim"
+}

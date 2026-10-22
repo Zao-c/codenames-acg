@@ -1,0 +1,85 @@
+{
+  "passed": true,
+  "threeHourComplete": false,
+  "requestedSeconds": 400,
+  "elapsedSeconds": 450.5057121,
+  "players": 8,
+  "browserContexts": 8,
+  "compiled": true,
+  "checks": [
+    "eight named browser seats; new anime room has no chosen pool, no candidates and no full catalog request",
+    "real browser touch handle lifts a visible ghost, drops into two-target dock and clears ghost/dock on release",
+    "operative selected badges use a compact neutral theme label and reveal no drag controls or team affiliation",
+    "interference reuses the full-width drafting workspace, defaults to opponent hand, supports real drag confirmation and full-pool search, retains anonymous member view, and fits light/dark desktop/mobile",
+    "operative confirms real guesses with BGM/COS/local covers blocked; names and team/reveal states stay usable; images recover after unblocking"
+  ],
+  "rounds": [
+    {
+      "number": 1,
+      "size": "5x5",
+      "selectionSeconds": 180,
+      "interferenceSeconds": 30,
+      "changed": true,
+      "reconnected": true,
+      "earlyFinished": false,
+      "seconds": 259.3054839,
+      "winner": "red"
+    },
+    {
+      "number": 2,
+      "size": "6x6",
+      "selectionSeconds": 240,
+      "interferenceSeconds": 60,
+      "changed": true,
+      "reconnected": true,
+      "earlyFinished": true,
+      "seconds": 189.30528769999998,
+      "winner": "red"
+    }
+  ],
+  "counters": {
+    "snapshots": 22,
+    "deltas": 1533,
+    "roomBytes": 29786740,
+    "imageResponses": 731,
+    "imageHttpErrors": 0,
+    "imageNetworkErrors": 233,
+    "guesses": 40,
+    "clues": 20,
+    "reconnections": 2
+  },
+  "coverChecks": [
+    {
+      "round": 1,
+      "size": "5x5",
+      "waitSeconds": 3.333959999999992,
+      "passed": true,
+      "unresolved": []
+    },
+    {
+      "round": 2,
+      "size": "6x6",
+      "waitSeconds": 5.3951236999999965,
+      "passed": true,
+      "unresolved": []
+    }
+  ],
+  "coverFaults": [
+    {
+      "allSourcesBlocked": true,
+      "actualOperativeGuesses": 8,
+      "uiGuessP95Ms": 408.34539999999106,
+      "recovered": true
+    }
+  ],
+  "ackMs": {
+    "p50": 210.4482999999891,
+    "p95": 389.6142000000109,
+    "max": 579.7664000000223
+  },
+  "uiGuessMs": {
+    "p95": 552.891100000008
+  },
+  "errors": [],
+  "scope": "Short diagnostic only; this is not a three-hour acceptance."
+}

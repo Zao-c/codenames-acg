@@ -1,0 +1,30 @@
+{
+  "passed": false,
+  "scope": "Real browser using deterministic failed BGM and delayed healthy same-origin fixtures; no multiplayer or production performance claim.",
+  "results": [
+    {
+      "name": "healthy cold fallback takes three seconds",
+      "passed": false,
+      "seconds": 2.8899364000000003,
+      "maxLocalRequests": 1,
+      "localRequests": 1,
+      "error": "{\"error\":\"AggregateError\"}"
+    },
+    {
+      "name": "waiting for a queue slot is not an active download timeout",
+      "passed": false,
+      "seconds": 6.595553300000001,
+      "maxLocalRequests": 3,
+      "localRequests": 8,
+      "error": "all eight healthy queued covers must finish\n\n5 !== 8\n"
+    },
+    {
+      "name": "cancel then immediately revisit while metadata is pending",
+      "passed": false,
+      "seconds": 1.4154056000000002,
+      "maxLocalRequests": 1,
+      "localRequests": 1,
+      "error": "{\"firstResult\":\"AbortError\",\"second\":{\"error\":\"AbortError\"},\"third\":{\"source\":\"/api/anime/cover/100?v=2591091341\"},\"stats\":{\"started\":2,\"cancelled\":0,\"maxLocal\":1,\"maxRemote\":1,\"active\":{\"bgm\":0,\"remote\":0,\"local\":0},\"queued\":0,\"resolved\":1,\"inFlight\":0}}"
+    }
+  ]
+}

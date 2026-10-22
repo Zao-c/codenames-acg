@@ -1,0 +1,20 @@
+{
+  "passed": true,
+  "releaseSha": "ec74565b39d156f1eee97610b4a4b967f5d0f405",
+  "testedFrontendSha": "fef3655",
+  "webFiles": 10,
+  "byteIdentical": true,
+  "artifactOrigin": "Promoted tested static files",
+  "webHashes": {
+    "apps/web/dist/assets/index-DEpMagbK.css": "a6b3960d10401eb9b4a589af5378977ee40d95c0bc99d5fa3d82827992252646",
+    "apps/web/dist/assets/index-Dy3ZqXhV.js": "6e56c0fd5176239b789711540576f9cabefa1832c6acdb43eee2aba00e92f959",
+    "apps/web/dist/brand/cipai-16.png": "def729b0c6e882ffa74cbe8c026d8048fb6c52ffec29a78d89d1dcd8fd9ebfb1",
+    "apps/web/dist/brand/cipai-32.png": "8a39bed9b03bc207c688b19145d9e36bd0b868103a30c1268d1b4059d1d351f6",
+    "apps/web/dist/brand/cipai-app-180.png": "4a1b8beb7b3d3f776e553b7d3487e89297e8bc7f97ed2bade37aa8938633b114",
+    "apps/web/dist/brand/cipai-icon.svg": "5ad5ed9b497154ee55ecc46a871eb1507f212ccb95b6a1b1064046b1f440b906",
+    "apps/web/dist/brand/cipai-lockup.svg": "7a1fa4a0b76b2e214cf465791380f162390a688782fc429e9259dff543f8439f",
+    "apps/web/dist/brand/cipai-mono.svg": "4eda38a7d74ddf535b13e597125b1ca8f05956804825692cf13d314c796c7e0a",
+    "apps/web/dist/brand/cipai-spark.svg": "19cc3ccf979e0301ee0119d5c3efa57bb1153cd61e79eac10ea3a4069a26ecea",
+    "apps/web/dist/index.html": "d5df58f90146c6525b7ecc31ecccda20f74e40cceea70ff53306e66c6f9f0594"
+  }
+}
