@@ -3,6 +3,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import {spawn} from 'node:child_process';
+import {interruptedSoakReport} from './soak-failure-report.mjs';
 
 const root=process.cwd(),out=path.join(root,'results');
 const template=JSON.parse(await fs.readFile('manifest-template.json','utf8'));
@@ -39,10 +40,7 @@ try{
   await fs.writeFile(path.join(out,'driver-exit.json'),JSON.stringify({...result,at:new Date().toISOString()},null,2));
   const exists=async filename=>{try{await fs.access(path.join(out,filename));return true;}catch{return false;}};
   if(!await exists('report.json')&&!await exists('failure.json')){
-    let last;try{last=JSON.parse(await fs.readFile(path.join(out,'progress.json'),'utf8'));}catch{}
-    await fs.writeFile(path.join(out,'failure.json'),JSON.stringify({passed:false,threeHourComplete:false,
-      message:'Driver exited without completion report: '+JSON.stringify(result),
-      elapsedSeconds:last?.elapsedSeconds??0,counters:last?.counters??{},errors:[],rounds:[]},null,2));
+    await fs.writeFile(path.join(out,'failure.json'),JSON.stringify(await interruptedSoakReport(out,result),null,2));
   }
   console.log(JSON.stringify({status:'finished',driver:result}));
   if(result.code!==0)process.exitCode=1;
