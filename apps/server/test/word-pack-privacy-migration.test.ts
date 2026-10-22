@@ -44,7 +44,19 @@ try {
   const restarted=new JsonUserStore(filename);
   assert.deepEqual(await restarted.listPublicWordPacks(),[]);
   assert.equal((await restarted.get('alice'))?.customWordPacks[0].isPublic,false);
-  console.log('Word-pack privacy migration PASS: public URLs revoked, entries preserved, durable migration and backup');
+  assert.equal(saved.wordPackPrivacyVersion,1,'privacy cutover marker is persisted');
+  const beforeEdit=(await restarted.get('alice'))!.customWordPacks[0];
+  const stale=await restarted.update('alice',{customWordPacks:[{...beforeEdit,isPublic:true,publishedAt:5678}]});
+  assert.equal(stale.customWordPacks[0].isPublic,false,'stale editor cannot silently republish');
+  const explicit=await restarted.update('alice',{
+    customWordPacks:[{...stale.customWordPacks[0],isPublic:true,publishedAt:9999}],
+    publishWordPackIds:['old-shared']
+  });
+  assert.equal(explicit.customWordPacks[0].isPublic,true,'owner explicitly opted in');
+  const afterRepublish=new JsonUserStore(filename);
+  assert.equal((await afterRepublish.listPublicWordPacks()).length,1,'explicit publication survives restart');
+  assert.equal((await readdir(folder)).filter(name=>name.startsWith('users.json.before-wordpack-privacy-')).length,1,'migration only runs once');
+  console.log('Word-pack privacy migration PASS: old URLs revoked, backups, stale-tab guard and explicit opt-in');
 } finally {
   await rm(folder,{recursive:true,force:true});
 }
