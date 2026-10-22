@@ -34,8 +34,12 @@ async function delay(ms:number,signal:AbortSignal){if(!ms)return;await new Promi
 async function runCover(work:Work,signal:AbortSignal,priority:number){
  const value=await coverLocation(work);signal.throwIfAborted();
  const direct=resolveAnimeAssetUrl(work.cover),local=isBgm(work.cover)?resolveAnimeAssetUrl(`/api/anime/cover/${work.id}?v=${coverVersion(work.cover)}`):undefined;
- const candidates=value?.cdn?[{source:value.cdn,delay:0,timeout:3000},{source:direct,delay:700,timeout:4500},...(local?[{source:local,delay:1100,timeout:2000}]:[])]:[{source:direct,delay:0,timeout:4500},...(local?[{source:local,delay:700,timeout:2000}]:[])];
- const controller=new AbortController(),deadline=setTimeout(()=>controller.abort(),6500),abort=()=>controller.abort();signal.addEventListener('abort',abort,{once:true});if(signal.aborted)controller.abort();
+ // A cold worker can spend 1.5s checking COS and 6.5s on its fallback routes.
+ // Keep its browser request alive long enough, without consuming another local slot.
+ const candidates=value?.cdn?[{source:value.cdn,delay:0,timeout:3000},{source:direct,delay:700,timeout:4500},...(local?[{source:local,delay:1100,timeout:10000}]:[])]:[{source:direct,delay:0,timeout:4500},...(local?[{source:local,delay:700,timeout:10000}]:[])];
+ // ImageRequestQueue starts each bounded timeout when network work actually begins.
+ // An overall wall-clock timer would cancel healthy covers still waiting in its queue.
+ const controller=new AbortController(),abort=()=>controller.abort();signal.addEventListener('abort',abort,{once:true});if(signal.aborted)controller.abort();
  const attempt=async(candidate:typeof candidates[number])=>{
   await delay(candidate.delay,controller.signal);controller.signal.throwIfAborted();
   if((bad.get(candidate.source)??0)>Date.now())throw new Error('Source cooling down');
@@ -43,16 +47,23 @@ async function runCover(work:Work,signal:AbortSignal,priority:number){
   catch(error){if(!controller.signal.aborted){while(bad.size>=512)bad.delete(bad.keys().next().value!);bad.set(candidate.source,Date.now()+10000);}throw error;}
  };
  try{return await Promise.any(candidates.map(attempt));}
- finally{clearTimeout(deadline);controller.abort();signal.removeEventListener('abort',abort);}
+ finally{controller.abort();signal.removeEventListener('abort',abort);}
 }
 export function loadedCoverSource(work:Work){return resolved.get(work.id+'|'+work.cover);}
 export async function loadCover(work:Work,signal:AbortSignal,priority=0):Promise<string>{
  if(signal.aborted)throw abortError();const key=work.id+'|'+work.cover,cached=resolved.get(key);if(cached)return cached;
  let flight=flights.get(key);
- if(!flight){if(flights.size>=192)throw new Error('Cover queue full');const controller=new AbortController(),promise=runCover(work,controller.signal,priority);flight={controller,promise,users:0};flights.set(key,flight);promise.then(source=>{remember(key,source);flights.delete(key);},()=>flights.delete(key));}
+ if(!flight){
+  if(flights.size>=192)throw new Error('Cover queue full');
+  const controller=new AbortController(),promise=runCover(work,controller.signal,priority);
+  const created={controller,promise,users:0};flight=created;flights.set(key,created);
+  // A cancelled task may settle after a new subscriber has already replaced it.
+  const release=()=>{if(flights.get(key)===created)flights.delete(key);};
+  promise.then(source=>{remember(key,source);release();},release);
+ }
  const current=flight;current.users++;
  try{return await new Promise<string>((resolve,reject)=>{const abort=()=>reject(abortError());signal.addEventListener('abort',abort,{once:true});current.promise.then(value=>{signal.removeEventListener('abort',abort);resolve(value);},error=>{signal.removeEventListener('abort',abort);reject(error);});});}
- finally{if(--current.users===0)current.controller.abort();}
+ finally{if(--current.users===0){current.controller.abort();if(flights.get(key)===current)flights.delete(key);}}
 }
 export function forgetCover(work:Work){resolved.delete(work.id+'|'+work.cover);bad.delete(resolveAnimeAssetUrl(work.cover));}
 export function coverLoaderStats(){return {...requests.stats(),resolved:resolved.size,inFlight:flights.size};}
