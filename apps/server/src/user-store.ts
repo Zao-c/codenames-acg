@@ -464,6 +464,10 @@ export class JsonUserStore implements UserStore {
   private async tryLoadFile(filePath: string): Promise<void> {
     const raw = await fs.readFile(filePath, "utf8");
     const parsed = JSON.parse(raw) as UserDatabase;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)
+        || !parsed.users || typeof parsed.users !== 'object' || Array.isArray(parsed.users)) {
+      throw new Error('账户数据结构无效');
+    }
     this.wordPackPrivacyVersion = parsed.wordPackPrivacyVersion === 1 ? 1 : 0;
     for (const account of Object.values(parsed.users ?? {})) {
       this.users.set(userKey(account.username), {
