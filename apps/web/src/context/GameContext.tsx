@@ -1174,12 +1174,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
     } catch (e) { setNamedAccount(prev); setError(e instanceof Error ? e.message : "保存图库失败"); throw e; }
   }
 
-  async function saveAccountPacksInternal(nextPacks: SavedWordPack[]) {
+  async function saveAccountPacksInternal(nextPacks: SavedWordPack[], publishWordPackId?: string) {
     if (!namedAccount) throw new Error("请先使用用户名登录");
     const prev = namedAccount;
     setNamedAccount({ ...namedAccount, customWordPacks: nextPacks, updatedAt: Date.now() });
     try {
-      const updated = await updateNamedUser(namedAccount.username, requireNamedUserSessionToken(identity), { customWordPacks: nextPacks });
+      const updated = await updateNamedUser(namedAccount.username, requireNamedUserSessionToken(identity), { customWordPacks: nextPacks, ...(publishWordPackId ? { publishWordPackIds: [publishWordPackId] } : {}) });
       setNamedAccount({ ...updated, customWordPacks: updated.customWordPacks.length > 0 ? updated.customWordPacks : nextPacks });
       void refreshPublicPacks(); setError("");
     } catch (e) { setNamedAccount(prev); throw e; }
@@ -1222,12 +1222,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
   async function toggleAccountPackPublic(packId: string) {
     if (!namedAccount) return;
     const ts = Date.now();
+    const explicitPublish = namedAccount.customWordPacks.find(p => p.id === packId)?.isPublic !== true;
     try {
       await saveAccountPacksInternal(namedAccount.customWordPacks.map((p) => {
         if (p.id !== packId) return p;
         const nextIsPublic = p.isPublic !== true;
         return { ...p, isPublic: nextIsPublic, publishedAt: nextIsPublic ? p.publishedAt ?? ts : undefined, updatedAt: ts };
-      }));
+      }), explicitPublish ? packId : undefined);
     } catch (e) { setError(e instanceof Error ? e.message : "更新题库公开状态失败"); }
   }
 
