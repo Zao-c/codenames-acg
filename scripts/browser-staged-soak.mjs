@@ -14,6 +14,7 @@ let browser;for(const channel of ['chromium','msedge','chrome'])try{browser=awai
 assert.ok(browser);const pages=[],states=[],cdps=[],acks=Array.from({length:8},()=>new Map()),checks=[],errors=[],rounds=[];
 const counters={snapshots:0,deltas:0,roomBytes:0,imageResponses:0,imageHttpErrors:0,imageNetworkErrors:0,guesses:0,clues:0,reconnections:0};
 const coverChecks=[];
+const coverFaults=[],blockedGuessLatency=[];let coverFaultActive=false;
 const catalogRequests=Array(8).fill(0);
 const receivedAt=Array(8).fill(0);
 let serial=1000000000,started=0,sampling=false,lastChat=0,lastSample=0;const latency=[],uiLatency=[];
@@ -152,7 +153,10 @@ async function configureRound(number){
   const p=states[i].nextPlan,key=await pages[i].evaluate(()=>localStorage.getItem('cipai.private-identity.v1'));
   const result=await pages[i].request.get(base+`/api/rooms/${states[0].id}/interference-pool?`+new URLSearchParams({planId:p.id,stageVersion:String(p.stageVersion),page:'1'}),{headers:{'x-private-key':key}});assert.ok(result.ok());const data=await result.json();assert.ok(data.works.length<=60);
   const work=(i===4?data.works.find(w=>p.candidates.some(c=>c.id===w.id)):data.works.find(w=>!p.candidates.some(c=>c.id===w.id)))??data.works[0];assert.ok(work);
-  const searchResponse=pages[i].waitForResponse(r=>new URL(r.url()).pathname.endsWith('/interference-pool')&&new URL(r.url()).searchParams.get('q')===work.fullTitle.trim());await pages[i].getByLabel('搜索干扰作品').fill(work.fullTitle);assert.ok((await searchResponse).ok());const choose=pages[i].locator('.draft-candidates').getByRole('button',{name:work.title,exact:true});await choose.waitFor();await until(async()=>await pages[i].locator('.draft-candidates').getAttribute('aria-busy')==='false'&&await choose.locator('..').locator('.draft-grab').count()>0,'interference search');
+  const searchResponse=pages[i].waitForResponse(r=>new URL(r.url()).pathname.endsWith('/interference-pool')&&new URL(r.url()).searchParams.get('q')===work.fullTitle.trim());await pages[i].getByLabel('搜索干扰作品').fill(work.fullTitle);assert.ok((await searchResponse).ok());
+  // Different works can share a display title; target the selected catalog identity.
+  assert.ok(Number.isSafeInteger(work.id)&&work.id>0);
+  const choose=pages[i].locator(`.draft-candidates .draft-tile[data-replace-id="${work.id}"] .draft-tile-main`);await choose.waitFor();await until(async()=>await pages[i].locator('.draft-candidates').getAttribute('aria-busy')==='false'&&await choose.locator('..').locator('.draft-grab').count()>0,'interference search');
   if(i===0){
    const zone=pages[i].locator('.draft-drop-zones [data-drop="interfere"]');await zone.scrollIntoViewIfNeeded();await choose.scrollIntoViewIfNeeded();const source=await choose.boundingBox(),target=await zone.boundingBox();assert.ok(source&&target);assert.ok(target.y+target.height/2<pages[i].viewportSize().height,'drag target must be inside the viewport');
    await pages[i].mouse.move(source.x+source.width/2,source.y+source.height/2);await pages[i].mouse.down();await pages[i].mouse.move(target.x+target.width/2,target.y+target.height/2,{steps:15});
@@ -172,13 +176,16 @@ async function configureRound(number){
  assert.equal(await pages[0].getByText(/阵营标签为队长视角；深色蒙层/).count(),0);
  assert.equal(await pages[0].locator('.anime-board-panel').getByText(/点卡片查看作品，猜牌需再次确认/).count(),0);
  for(let i=0;i<8;i++){
-  await tab(pages[i],'棋盘');const cards=pages[i].locator('.anime-board-card');await cards.last().scrollIntoViewIfNeeded();await cards.first().scrollIntoViewIfNeeded();
+  await tab(pages[i],'棋盘');const cards=pages[i].locator('.anime-board-card');await cards.last().waitFor({state:'visible'});
+  // This scroll only exposes images for preload checks; card clicks still use real UI actions.
+  // Native scrolling does not require the entire animated board to stay still for two frames.
+  for(const card of [cards.last(),cards.first()])await card.evaluate(el=>el.scrollIntoView({block:'nearest',inline:'nearest',behavior:'instant'}));
  }
  const imageStart=performance.now();let unresolved=[];
  do{
   unresolved=[];
   for(let i=0;i<8;i++){
-   const missing=await pages[i].locator('.anime-board-card img').evaluateAll(imgs=>imgs.filter(img=>{const r=img.getBoundingClientRect();return r.width>0&&r.height>0&&r.bottom>0&&r.top<innerHeight&&(!img.complete||!img.naturalWidth);}).map(img=>img.currentSrc||img.src));
+   const missing=await pages[i].locator('.anime-board-card img').evaluateAll(imgs=>imgs.filter(img=>{const r=img.getBoundingClientRect();return r.width>0&&r.height>0&&r.bottom>0&&r.top<innerHeight&&(!img.complete||!img.naturalWidth);}).map(img=>({url:img.currentSrc||img.src,card:img.closest('.anime-board-card')?.textContent?.slice(0,240),state:img.dataset.coverState})));
    if(missing.length)unresolved.push({i,urls:missing});
   }
   if(!unresolved.length)break;
@@ -198,7 +205,7 @@ async function playNormally(number){
   await pages[ci].getByPlaceholder('例如：机甲 / 学园 / 主角团').fill(`长测${number}回合${turn}`);await pages[ci].getByLabel('数字',{exact:true}).fill('2');await button(pages[ci],'提交提示').click();await until(()=>!!states[0].clue,'submitted actual clue');lastClue=performance.now();counters.clues++;
   for(let k=0;k<2&&states[0].phase==='playing'&&states[0].currentTeam===team;k++){
    const card=states[ci].board.find(c=>!c.revealed&&c.role===team);assert.ok(card);const begin=performance.now();
-   await pages[oi].locator('.anime-board-card').nth(states[0].board.findIndex(c=>c.id===card.id)).click();const dialog=pages[oi].getByRole('dialog').last();await button(dialog,'猜牌').click();await button(dialog,'确认猜牌').click();await until(()=>states[0].board.find(c=>c.id===card.id).revealed,'actual UI guess');uiLatency.push(performance.now()-begin);counters.guesses++;await sleep(1000);
+   await pages[oi].locator('.anime-board-card').nth(states[0].board.findIndex(c=>c.id===card.id)).click();const dialog=pages[oi].getByRole('dialog').last();await button(dialog,'猜牌').click();await button(dialog,'确认猜牌').click();await until(()=>states[0].board.find(c=>c.id===card.id).revealed,'actual UI guess');uiLatency.push(performance.now()-begin);if(coverFaultActive&&oi===1)blockedGuessLatency.push(performance.now()-begin);counters.guesses++;await sleep(1000);
   }
   if(states[0].phase==='playing'&&states[0].currentTeam===team){await wire(oi,'end_turn',{roomId:states[0].id},false);await until(()=>states[0].currentTeam!==team,'end turn');}
  }
@@ -208,15 +215,27 @@ try{
  await connectEight();started=performance.now();lastSample=Date.now();await fs.writeFile(path.join(out,'started.json'),JSON.stringify({startedAt:new Date().toISOString(),targetSeconds:duration,eightContexts:true,compiled:true},null,2));await sample('start');
  let number=0;
  do{
-  const begin=performance.now(),match=await configureRound(number);await playNormally(number);
+  const begin=performance.now(),match=await configureRound(number);
+  if(number===0&&process.env.COVER_FAULT_PROBE==='1'){
+   await pages[1].route('**/*',route=>route.request().resourceType()==='image'&&(/lain\.(bgm|bangumi)\.tv|\.cos\.[a-z0-9-]+\.myqcloud\.com|\/api\/anime\/cover\//.test(route.request().url()))?route.abort():route.continue());
+   await pages[1].reload();await until(()=>states[1].phase==='playing'&&!!states[1].viewer,'blocked-image same-seat recovery');await pages[1].locator('.anime-board-card').first().waitFor();coverFaultActive=true;
+  }
+  await playNormally(number);
+  if(coverFaultActive){
+   await fs.writeFile(path.join(out,'cover-fault-latency.json'),JSON.stringify({actualOperativeGuesses:blockedGuessLatency.length,uiGuessP95Ms:percentile(blockedGuessLatency,.95),samplesMs:blockedGuessLatency},null,2));
+   assert.ok(blockedGuessLatency.length>0,'real operative guesses were confirmed while all cover sources were blocked');assert.ok(percentile(blockedGuessLatency,.95)<3000,'cover failure must not gate guessing');
+   const missing=await pages[1].locator('.anime-board-card img').evaluateAll(images=>images.filter(i=>!i.naturalWidth).length);assert.ok(missing>0);await shot(1,'guessing-with-all-cover-sources-blocked');
+   await pages[1].unroute('**/*');await pages[1].reload();await pages[1].locator('.anime-board-card').first().waitFor();await until(async()=>await pages[1].locator('.anime-board-card img').evaluateAll(images=>images.filter(i=>{const r=i.getBoundingClientRect();return r.width&&r.height&&r.top<innerHeight&&r.bottom>0;}).every(i=>i.complete&&i.naturalWidth>0)),'visible covers recover after unblocking',90);await shot(1,'covers-recovered-after-unblocking');
+   coverFaults.push({allSourcesBlocked:true,actualOperativeGuesses:blockedGuessLatency.length,uiGuessP95Ms:percentile(blockedGuessLatency,.95),recovered:true});checks.push('operative confirms real guesses with BGM/COS/local covers blocked; names and team/reveal states stay usable; images recover after unblocking');coverFaultActive=false;
+  }
   rounds.push({number:++number,...match,seconds:(performance.now()-begin)/1000,winner:states[0].winner});await log('rounds.jsonl',rounds.at(-1));await sample('completed-game');
   if(number<=2)await shot(0,`round-${number}-result`);await button(pages[0],'返回房间').click();await until(()=>states.every(s=>s.phase==='lobby'),'one-click return all eight');
  }while(performance.now()-started<duration*1000);
  const elapsed=(performance.now()-started)/1000;await sample('final');assert.deepEqual(errors,[]);assert.ok(rounds.length>0);assert.ok(elapsed>=duration);
- const report={passed:true,threeHourComplete:full&&elapsed>=10800,requestedSeconds:duration,elapsedSeconds:elapsed,players:8,browserContexts:8,compiled:true,checks,rounds,counters,coverChecks,ackMs:{p50:percentile(latency,.5),p95:percentile(latency,.95),max:Math.max(0,...latency)},uiGuessMs:{p95:percentile(uiLatency,.95)},errors,scope:full?'Real wall-clock three-hour multi-game run; ordinary drafting uses real 180/240/300 second deadlines.':'Short diagnostic only; this is not a three-hour acceptance.'};
+ const report={passed:true,threeHourComplete:full&&elapsed>=10800,requestedSeconds:duration,elapsedSeconds:elapsed,players:8,browserContexts:8,compiled:true,checks,rounds,counters,coverChecks,coverFaults,ackMs:{p50:percentile(latency,.5),p95:percentile(latency,.95),max:Math.max(0,...latency)},uiGuessMs:{p95:percentile(uiLatency,.95)},errors,scope:full?'Real wall-clock three-hour multi-game run; ordinary drafting uses real 180/240/300 second deadlines.':'Short diagnostic only; this is not a three-hour acceptance.'};
  await fs.writeFile(path.join(out,'report.json'),JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));
 }catch(error){
- await fs.writeFile(path.join(out,'failure.json'),JSON.stringify({passed:false,threeHourComplete:false,message:error.stack,elapsedSeconds:started?(performance.now()-started)/1000:0,counters,errors,rounds},null,2));
- for(const [i,p] of pages.entries())try{await fs.writeFile(path.join(out,`failure-${i}.txt`),await p.locator('body').innerText());if(i===0||i===4)await p.screenshot({path:path.join(out,`failure-${i}.png`),fullPage:true});}catch{}
+ await fs.writeFile(path.join(out,'failure.json'),JSON.stringify({passed:false,threeHourComplete:false,message:error.stack,elapsedSeconds:started?(performance.now()-started)/1000:0,counters,errors,rounds,ackMs:{p95:percentile(latency,.95)},uiGuessMs:{p95:percentile(uiLatency,.95)},blockedGuessMs:{p95:percentile(blockedGuessLatency,.95),samplesMs:blockedGuessLatency}},null,2));
+ for(const [i,p] of pages.entries())try{await fs.writeFile(path.join(out,`failure-${i}.txt`),await p.locator('body').innerText({timeout:3000}));if(i===0||i===4)await p.screenshot({path:path.join(out,`failure-${i}.png`),fullPage:true,timeout:5000,animations:'disabled'});}catch{}
  throw error;
 }finally{await browser.close();}

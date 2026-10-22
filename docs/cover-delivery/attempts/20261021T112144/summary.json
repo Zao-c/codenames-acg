@@ -1,0 +1,204 @@
+{
+  "startedAt": "2026-10-21T11:21:44.393Z",
+  "elapsedSeconds": 7169.8264492,
+  "reportPresent": false,
+  "artifactVerification": true,
+  "browser": {
+    "samples": 145,
+    "maxSampleGapSeconds": 63.989,
+    "clients": [
+      {
+        "index": 0,
+        "firstHeapBytes": 6099448,
+        "lastHeapBytes": 12954128,
+        "maxHeapBytes": 16823348,
+        "firstNodes": 1218,
+        "lastNodes": 4880,
+        "maxNodes": 5122,
+        "longTasks": 24,
+        "maxLongTaskMs": 428
+      },
+      {
+        "index": 1,
+        "firstHeapBytes": 6677876,
+        "lastHeapBytes": 14726004,
+        "maxHeapBytes": 18230540,
+        "firstNodes": 888,
+        "lastNodes": 3516,
+        "maxNodes": 6876,
+        "longTasks": 51,
+        "maxLongTaskMs": 200
+      },
+      {
+        "index": 2,
+        "firstHeapBytes": 6817072,
+        "lastHeapBytes": 10836444,
+        "maxHeapBytes": 15312044,
+        "firstNodes": 877,
+        "lastNodes": 3507,
+        "maxNodes": 6259,
+        "longTasks": 34,
+        "maxLongTaskMs": 474
+      },
+      {
+        "index": 3,
+        "firstHeapBytes": 7309840,
+        "lastHeapBytes": 10614604,
+        "maxHeapBytes": 15422948,
+        "firstNodes": 829,
+        "lastNodes": 3507,
+        "maxNodes": 6253,
+        "longTasks": 45,
+        "maxLongTaskMs": 490
+      },
+      {
+        "index": 4,
+        "firstHeapBytes": 7010148,
+        "lastHeapBytes": 12109720,
+        "maxHeapBytes": 14958328,
+        "firstNodes": 860,
+        "lastNodes": 4776,
+        "maxNodes": 5509,
+        "longTasks": 40,
+        "maxLongTaskMs": 518
+      },
+      {
+        "index": 5,
+        "firstHeapBytes": 6960728,
+        "lastHeapBytes": 11058760,
+        "maxHeapBytes": 16353140,
+        "firstNodes": 847,
+        "lastNodes": 3526,
+        "maxNodes": 6800,
+        "longTasks": 54,
+        "maxLongTaskMs": 573
+      },
+      {
+        "index": 6,
+        "firstHeapBytes": 6917140,
+        "lastHeapBytes": 11996852,
+        "maxHeapBytes": 15201092,
+        "firstNodes": 831,
+        "lastNodes": 3511,
+        "maxNodes": 6251,
+        "longTasks": 49,
+        "maxLongTaskMs": 449
+      },
+      {
+        "index": 7,
+        "firstHeapBytes": 6907260,
+        "lastHeapBytes": 12351296,
+        "maxHeapBytes": 16457592,
+        "firstNodes": 774,
+        "lastNodes": 5884,
+        "maxNodes": 5979,
+        "longTasks": 14,
+        "maxLongTaskMs": 362
+      }
+    ],
+    "ackSampleP95Ms": 300.8935000002384
+  },
+  "server": {
+    "samples": 1434,
+    "first": {
+      "at": 1792581704992,
+      "uptime": 146511.237273752,
+      "memory": {
+        "rss": 119173120,
+        "heapTotal": 50491392,
+        "heapUsed": 35768768,
+        "external": 5888194,
+        "arrayBuffers": 2121201
+      },
+      "cpu": {
+        "user": 444107300,
+        "system": 45142214
+      },
+      "loopP95Ms": 21.741567,
+      "loopP99Ms": 29.491199,
+      "loopMaxMs": 60.424191
+    },
+    "last": {
+      "at": 1792588874135,
+      "uptime": 153680.380222174,
+      "memory": {
+        "rss": 185704448,
+        "heapTotal": 102899712,
+        "heapUsed": 76432048,
+        "external": 3899191,
+        "arrayBuffers": 138482
+      },
+      "cpu": {
+        "user": 968491644,
+        "system": 65760649
+      },
+      "loopP95Ms": 52.133887,
+      "loopP99Ms": 125.435903,
+      "loopMaxMs": 353.370111
+    },
+    "maxRssBytes": 191975424,
+    "maxHeapBytes": 77114520,
+    "loopP99Ms": {
+      "median": 21.479423,
+      "p95": 124.125183,
+      "max": 326.631423
+    },
+    "maxLoopPauseMs": 400.031743
+  },
+  "coverWorker": {
+    "samples": 1434,
+    "first": {
+      "at": 1792581708711,
+      "uptime": 80.050949449,
+      "memory": {
+        "rss": 108167168,
+        "heapTotal": 32989184,
+        "heapUsed": 31089784,
+        "external": 4875547,
+        "arrayBuffers": 1010745
+      },
+      "cpu": {
+        "user": 1097253,
+        "system": 145564
+      },
+      "loopP95Ms": 21.168127,
+      "loopP99Ms": 21.282815,
+      "loopMaxMs": 32.210943
+    },
+    "last": {
+      "at": 1792588874137,
+      "uptime": 7245.477360882,
+      "memory": {
+        "rss": 179818496,
+        "heapTotal": 24576000,
+        "heapUsed": 22198904,
+        "external": 12438197,
+        "arrayBuffers": 1878127
+      },
+      "cpu": {
+        "user": 107785392,
+        "system": 8510708
+      },
+      "loopP95Ms": 21.184511,
+      "loopP99Ms": 21.889023,
+      "loopMaxMs": 23.789567
+    },
+    "maxRssBytes": 208060416,
+    "maxHeapBytes": 37983336,
+    "loopP99Ms": {
+      "median": 21.200895,
+      "p95": 26.738687,
+      "max": 78.381055
+    },
+    "maxLoopPauseMs": 422.838271
+  },
+  "caveats": [
+    "Image HTTP/network error counts include deliberately aborted fault probes and cancelled off-screen work.",
+    "Browser heap samples include garbage collection cycles; first/last differences alone are not proof of a memory leak.",
+    "Eight isolated browser contexts are not eight physical phones or a guarantee for every network.",
+    "The legacy PNG export matrix remains outside this soak acceptance."
+  ],
+  "passed": false,
+  "failure": "locator.waitFor: Error: strict mode violation: locator('.draft-candidates').getByRole('button', { name: 'X战记', exact: true }) resolved to 2 elements:\n    1) <button type=\"button\" aria-label=\"X战记\" aria-haspopup=\"dialog\" class=\"draft-tile-main\">…</button> aka getByRole('button', { name: 'X战记' }).first()\n    2) <button type=\"button\" aria-label=\"X战记\" aria-haspopup=\"dialog\" class=\"draft-tile-main\">…</button> aka getByRole('button', { name: 'X战记' }).nth(1)\n\nCall log:\n\u001b[2m  - waiting for locator('.draft-candidates').getByRole('button', { name: 'X战记', exact: true }) to be visible\u001b[22m\n\n    at configureRound (D:\\work\\Ai编程\\007games\\.worktrees\\cover-delivery\\scripts\\browser-staged-soak.mjs:156:383)\n    at async file:///D:/work/Ai%E7%BC%96%E7%A8%8B/007games/.worktrees/cover-delivery/scripts/browser-staged-soak.mjs:212:39",
+  "completedGames": 27
+}

@@ -1,0 +1,213 @@
+{
+  "startedAt": "2026-10-22T08:05:11.568Z",
+  "elapsedSeconds": 314.707197386,
+  "reportPresent": false,
+  "artifactVerification": true,
+  "browser": {
+    "samples": 6,
+    "maxSampleGapSeconds": 65.913,
+    "clients": [
+      {
+        "index": 0,
+        "firstHeapBytes": 6090788,
+        "lastHeapBytes": 9945176,
+        "maxHeapBytes": 10714780,
+        "firstNodes": 1218,
+        "lastNodes": 1231,
+        "maxNodes": 4361,
+        "longTasks": 312,
+        "maxLongTaskMs": 2602
+      },
+      {
+        "index": 1,
+        "firstHeapBytes": 6984932,
+        "lastHeapBytes": 10379236,
+        "maxHeapBytes": 10379236,
+        "firstNodes": 925,
+        "lastNodes": 2993,
+        "maxNodes": 3151,
+        "longTasks": 301,
+        "maxLongTaskMs": 2399
+      },
+      {
+        "index": 2,
+        "firstHeapBytes": 6968180,
+        "lastHeapBytes": 8772564,
+        "maxHeapBytes": 9536164,
+        "firstNodes": 914,
+        "lastNodes": 3017,
+        "maxNodes": 3151,
+        "longTasks": 280,
+        "maxLongTaskMs": 2527
+      },
+      {
+        "index": 3,
+        "firstHeapBytes": 6991916,
+        "lastHeapBytes": 7989132,
+        "maxHeapBytes": 9215936,
+        "firstNodes": 903,
+        "lastNodes": 1103,
+        "maxNodes": 3169,
+        "longTasks": 271,
+        "maxLongTaskMs": 2205
+      },
+      {
+        "index": 4,
+        "firstHeapBytes": 6241240,
+        "lastHeapBytes": 9009956,
+        "maxHeapBytes": 10919684,
+        "firstNodes": 892,
+        "lastNodes": 2115,
+        "maxNodes": 3750,
+        "longTasks": 308,
+        "maxLongTaskMs": 2575
+      },
+      {
+        "index": 5,
+        "firstHeapBytes": 6900740,
+        "lastHeapBytes": 7740204,
+        "maxHeapBytes": 9948660,
+        "firstNodes": 879,
+        "lastNodes": 1057,
+        "maxNodes": 3153,
+        "longTasks": 276,
+        "maxLongTaskMs": 3376
+      },
+      {
+        "index": 6,
+        "firstHeapBytes": 7012624,
+        "lastHeapBytes": 7138764,
+        "maxHeapBytes": 10073432,
+        "firstNodes": 868,
+        "lastNodes": 880,
+        "maxNodes": 2182,
+        "longTasks": 275,
+        "maxLongTaskMs": 2584
+      },
+      {
+        "index": 7,
+        "firstHeapBytes": 6393952,
+        "lastHeapBytes": 9411656,
+        "maxHeapBytes": 10275396,
+        "firstNodes": 848,
+        "lastNodes": 5049,
+        "maxNodes": 5049,
+        "longTasks": 253,
+        "maxLongTaskMs": 2642
+      }
+    ],
+    "ackSampleP95Ms": 1889.1900590000005,
+    "host": "eight browser contexts share the test server; not eight independent client devices",
+    "limits": {
+      "cpuQuota": "60%",
+      "memoryMax": 1073741824,
+      "memoryHigh": 838860800,
+      "memorySwapMax": 134217728,
+      "nice": 19
+    }
+  },
+  "server": {
+    "samples": 63,
+    "first": {
+      "at": 1792656312533,
+      "uptime": 221118.778813986,
+      "memory": {
+        "rss": 100962304,
+        "heapTotal": 61079552,
+        "heapUsed": 41148560,
+        "external": 3877338,
+        "arrayBuffers": 116629
+      },
+      "cpu": {
+        "user": 1107087912,
+        "system": 84455062
+      },
+      "loopP95Ms": 21.692415,
+      "loopP99Ms": 39.223295,
+      "loopMaxMs": 111.607807
+    },
+    "last": {
+      "at": 1792656622541,
+      "uptime": 221428.786876298,
+      "memory": {
+        "rss": 175607808,
+        "heapTotal": 91824128,
+        "heapUsed": 53049424,
+        "external": 3857920,
+        "arrayBuffers": 97211
+      },
+      "cpu": {
+        "user": 1120118944,
+        "system": 85118541
+      },
+      "loopP95Ms": 20.463615,
+      "loopP99Ms": 21.266431,
+      "loopMaxMs": 125.829119
+    },
+    "maxRssBytes": 175607808,
+    "maxHeapBytes": 78026088,
+    "loopP99Ms": {
+      "median": 21.938175,
+      "p95": 117.047295,
+      "max": 342.097919
+    },
+    "maxLoopPauseMs": 702.545919
+  },
+  "coverWorker": {
+    "samples": 63,
+    "first": {
+      "at": 1792656311761,
+      "uptime": 74683.100708675,
+      "memory": {
+        "rss": 52383744,
+        "heapTotal": 24838144,
+        "heapUsed": 22055824,
+        "external": 12349955,
+        "arrayBuffers": 3731861
+      },
+      "cpu": {
+        "user": 443968815,
+        "system": 43243528
+      },
+      "loopP95Ms": 21.659647,
+      "loopP99Ms": 21.987327,
+      "loopMaxMs": 22.069247
+    },
+    "last": {
+      "at": 1792656621775,
+      "uptime": 74993.114910649,
+      "memory": {
+        "rss": 148160512,
+        "heapTotal": 24838144,
+        "heapUsed": 22012976,
+        "external": 12372583,
+        "arrayBuffers": 4400109
+      },
+      "cpu": {
+        "user": 447827327,
+        "system": 43812641
+      },
+      "loopP95Ms": 20.889599,
+      "loopP99Ms": 21.544959,
+      "loopMaxMs": 22.003711
+    },
+    "maxRssBytes": 161591296,
+    "maxHeapBytes": 37655872,
+    "loopP99Ms": {
+      "median": 21.626879,
+      "p95": 50.561023,
+      "max": 77.332479
+    },
+    "maxLoopPauseMs": 257.425407
+  },
+  "caveats": [
+    "Image HTTP/network error counts include deliberately aborted fault probes and cancelled off-screen work.",
+    "Browser heap samples include garbage collection cycles; first/last differences alone are not proof of a memory leak.",
+    "Eight isolated browser contexts are not eight physical phones or a guarantee for every network.",
+    "The legacy PNG export matrix remains outside this soak acceptance.",
+    "Server-side browser CPU/memory quotas affect measured latency; these values are not directly comparable with desktop clients over the Internet."
+  ],
+  "passed": false,
+  "failure": "AssertionError [ERR_ASSERTION]: cover failure must not gate guessing\n    at file:///opt/codenames-test-runs/cover-f609fa4-server-20261022T080002/scripts/browser-staged-soak.mjs:222:128",
+  "completedGames": 0
+}

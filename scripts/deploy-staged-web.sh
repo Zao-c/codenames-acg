@@ -15,8 +15,8 @@ git -C "$repo" merge-base --is-ancestor "$expected" "$sha"
 [[ -f "$stage/ARTIFACT_SHA256" ]]
 (cd "$stage" && sha256sum -c ARTIFACT_SHA256 >/dev/null)
 # Verify that the tested backend and shared artifacts are byte-for-byte the live version.
-(cd "$stage" && find apps/server/dist packages/shared/dist -type f -print0 | sort -z | xargs -0 sha256sum) > "$stage/RUNTIME_SHA256"
-(cd "$repo" && sha256sum -c "$stage/RUNTIME_SHA256" >/dev/null)
+(cd "$repo" && find apps/server/dist packages/shared/dist -type f -print0 | sort -z | xargs -0 sha256sum) > "$stage/RUNTIME_SHA256"
+(cd "$stage" && sha256sum -c RUNTIME_SHA256 >/dev/null)
 [[ ! -L "$repo/apps/web/dist" && -z "$(find "$stage/apps/web/dist" -type l -print -quit)" ]]
 pid=$(systemctl show codenames.service -p MainPID --value)
 [[ "$pid" -gt 1 && "$(readlink /proc/$pid/cwd)" = "$repo/apps/server" ]]
@@ -69,7 +69,8 @@ assert assets
 assert json.load(urllib.request.urlopen('http://127.0.0.1:3001/health'))['ok']
 rooms=json.load(urllib.request.urlopen('http://127.0.0.1:3001/rooms'))
 previous=json.loads((root/'release.json').read_text())
-audit={'sha':sha,'frontendSha':sha,'serverRuntimeSha':previous.get('serverRuntimeSha',previous['sha']),'deployedAt':datetime.datetime.now(datetime.timezone.utc).isoformat(),'deployment':'frontend-only','serviceRestarted':False,'mainPid':int(pid),'backupPath':backup,'stagePath':stage,'assetHashes':assets,'runtimeArtifactsUnchanged':True,'configUnchanged':True,'activeRooms':[{'id':r['id'],'phase':r['phase'],'round':r['roundNumber'],'players':r['playerCount']} for r in rooms]}
+audit={**previous,'sha':sha,'frontendSha':sha,'serverRuntimeSha':previous.get('serverRuntimeSha',previous['sha']),'deployedAt':datetime.datetime.now(datetime.timezone.utc).isoformat(),'deployment':'frontend-only','serviceRestarted':False,'mainPid':int(pid),'backupPath':backup,'stagePath':stage,'assetHashes':assets,'runtimeArtifactsUnchanged':True,'configUnchanged':True,'activeRooms':[{'id':r['id'],'phase':r['phase'],'round':r['roundNumber'],'players':r['playerCount']} for r in rooms]}
+if previous.get('coverWorkerSha'): audit['coverWorkerStagePath']=previous.get('coverWorkerStagePath',previous.get('stagePath'))
 (root/'release.json').write_text(json.dumps(audit,indent=2)+'\n')
 pathlib.Path(backup,'audit.json').write_text(json.dumps(audit,indent=2)+'\n')
 print(json.dumps(audit,indent=2))

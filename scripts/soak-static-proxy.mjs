@@ -3,10 +3,11 @@ import net from 'node:net';
 import path from 'node:path';
 import fs from 'node:fs';
 const root=path.resolve(process.env.SOAK_WEB_DIST??'apps/web/dist'),backend=Number(process.env.SOAK_BACKEND_PORT??3194),port=Number(process.env.SOAK_WEB_PORT??5394);
+const coverBackend=Number(process.env.SOAK_COVER_PORT??0);
 const mime={'.html':'text/html; charset=utf-8','.js':'application/javascript','.css':'text/css','.json':'application/json','.svg':'image/svg+xml','.png':'image/png','.ico':'image/x-icon','.woff2':'font/woff2'};
 const server=http.createServer((req,res)=>{
  if(/^\/(api\/|socket\.io\/|health(?:\?|$)|rooms(?:\?|$))/.test(req.url??'')){
-  const upstream=http.request({host:'127.0.0.1',port:backend,path:req.url,method:req.method,headers:req.headers},response=>{res.writeHead(response.statusCode??502,response.headers);response.pipe(res);});
+  const upstream=http.request({host:'127.0.0.1',port:coverBackend&&/^\/api\/anime\/(cover-locations(?:\?|$)|cover\/)/.test(req.url??'')?coverBackend:backend,path:req.url,method:req.method,headers:req.headers},response=>{res.writeHead(response.statusCode??502,response.headers);response.pipe(res);});
   upstream.on('error',()=>{if(!res.headersSent)res.writeHead(502);res.end();});req.on('aborted',()=>upstream.destroy());req.pipe(upstream);return;
  }
  let filename;try{filename=path.resolve(root,'.'+decodeURIComponent(new URL(req.url,'http://localhost').pathname));}catch{res.writeHead(400).end();return;}

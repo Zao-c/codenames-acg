@@ -1,0 +1,7 @@
+MainPID=3246246
+NRestarts=0
+MemoryCurrent=58523648
+MemoryPeak=67325952
+CPUQuotaPerSecUSec=500ms
+MemoryMax=402653184
+2886573

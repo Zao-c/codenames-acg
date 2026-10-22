@@ -1,0 +1,19 @@
+{
+  "passed": false,
+  "threeHourComplete": false,
+  "message": "Driver exited without completion report: {\"code\":null,\"signal\":\"SIGABRT\"}",
+  "elapsedSeconds": 3566.6676737679995,
+  "counters": {
+    "snapshots": 34,
+    "deltas": 10013,
+    "roomBytes": 218029914,
+    "imageResponses": 4664,
+    "imageHttpErrors": 7,
+    "imageNetworkErrors": 269,
+    "guesses": 256,
+    "clues": 128,
+    "reconnections": 14
+  },
+  "errors": [],
+  "rounds": []
+}

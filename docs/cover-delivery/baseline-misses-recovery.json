@@ -1,0 +1,27 @@
+{
+  "passed": true,
+  "frontendSha": "633ddfd1fa2110bc44315f80cf7240d8d22bae99",
+  "gamePid": 2886573,
+  "sampleIds": [
+    1957,
+    37458
+  ],
+  "remoteRequestsBlocked": 4,
+  "localImages": [
+    {
+      "url": "http://182.61.136.105/api/anime/cover/1957?v=1136278881",
+      "status": 200
+    },
+    {
+      "url": "http://182.61.136.105/api/anime/cover/37458?v=1867666246",
+      "status": 200
+    }
+  ],
+  "maxConcurrentLocalImageRequests": 1,
+  "desktopVisibleCoverSeconds": 1.6473092000000003,
+  "longTasks": [
+    51
+  ],
+  "errors": [],
+  "scope": "Read-only production home. Both BGM and COS image requests blocked in this browser; visible real covers recover through the production isolated local cache. No room or account created."
+}
