@@ -1,0 +1,12 @@
+{
+  "passed": true,
+  "frontendSha": "ec74565b39d156f1eee97610b4a4b967f5d0f405",
+  "assets": {
+    "/assets/index-Dy3ZqXhV.js": "6e56c0fd5176239b789711540576f9cabefa1832c6acdb43eee2aba00e92f959",
+    "/assets/index-DEpMagbK.css": "a6b3960d10401eb9b4a589af5378977ee40d95c0bc99d5fa3d82827992252646"
+  },
+  "gameProcessUnchanged": true,
+  "coverProcessUnchanged": true,
+  "servicesHealthy": true,
+  "note": "Operational identifiers and server metrics omitted from public report."
+}

@@ -1,0 +1,50 @@
+
+> acg_codenames@0.1.0 test:rules
+> npm run build -w @acg-codenames/shared && node node_modules/tsx/dist/cli.mjs apps/server/test/lifecycle.test.ts && node node_modules/tsx/dist/cli.mjs apps/server/test/room-recovery.test.ts && node node_modules/tsx/dist/cli.mjs apps/server/test/game-continuity.test.ts && node node_modules/tsx/dist/cli.mjs apps/server/test/bangumi.test.ts && node node_modules/tsx/dist/cli.mjs apps/server/test/lobby-teams.test.ts && node node_modules/tsx/dist/cli.mjs apps/server/test/anime-draft.test.ts && node node_modules/tsx/dist/cli.mjs apps/server/test/match-analysis.test.ts && node node_modules/tsx/dist/cli.mjs apps/server/test/private-replay.test.ts && node node_modules/tsx/dist/cli.mjs apps/server/test/anime-pools.test.ts && node node_modules/tsx/dist/cli.mjs apps/server/test/concentrated-fixes.test.ts && node node_modules/tsx/dist/cli.mjs apps/server/test/pool-deletion.test.ts && node node_modules/tsx/dist/cli.mjs apps/server/test/web-client-safety.test.ts && node node_modules/tsx/dist/cli.mjs apps/server/test/stability-round.test.ts && node node_modules/tsx/dist/cli.mjs apps/server/test/manual-works.test.ts && node node_modules/tsx/dist/cli.mjs apps/server/test/profile-title.test.ts && node node_modules/tsx/dist/cli.mjs apps/server/test/round5-privacy.test.ts && node node_modules/tsx/dist/cli.mjs apps/server/test/round5-manual.test.ts && node node_modules/tsx/dist/cli.mjs apps/server/test/round6-session.test.ts && node node_modules/tsx/dist/cli.mjs apps/server/test/round7-clue.test.ts && node node_modules/tsx/dist/cli.mjs apps/server/test/round8.test.ts && node node_modules/tsx/dist/cli.mjs apps/server/test/round9.test.ts && node node_modules/tsx/dist/cli.mjs apps/server/test/word-pack-privacy-migration.test.ts
+
+
+> @acg-codenames/shared@0.1.0 build
+> tsc -p tsconfig.json
+
+lifecycle: transferred host survives ordinary leave; consecutive replays remain independent
+recovery: delayed cleanup respects draft locks; owned guest restores same seat and claims; wrong identity rejected; explicit withdrawal safely resets preparation
+continuity: sealed captain online guard, countdown boundary, controlled handover and no-score host abort in either turn passed
+bangumi: safe input/type/metadata, coalescing/TTL, AND/OR filters, 404/429/5xx/timeout/size, atomic persistent overlay/recovery, dynamic pool ACL/revision, 5x5/6x6 snapshot passed
+lobby teams: 4/5/8 players, 240 repeated shuffles, fixed captains, synchronized anime roles, permission and phase locks passed
+integration: classic → anime 6x6 → classic; countdown, private preselection, locks, handover, three replays passed
+rules: exact 10/160/180 second boundaries, limits, atomic replace, interference, sealed-once, small-pool reuse passed
+analysis: identity ownership, role matrix, graph revisions, immutable intent, private payloads, transfer/rejoin and forfeit passed
+private replay: normal finish, pre-flip snapshots, spectator privacy, promotion ACL, sharing, retry, next match and expiry passed
+anime community: API ownership, concurrent revision, independent copies, private favorites, reports, moderation, reload and failed-write recovery passed
+scoring 5x5: 12/26/42, precision once, separate round history, wrong guesses and timers PASS
+scoring 6x6: 12/26/42, precision once, separate round history, wrong guesses and timers PASS
+scoring 7x7: 12/26/42, precision once, separate round history, wrong guesses and timers PASS
+scoring 9x9: 12/26/42, precision once, separate round history, wrong guesses and timers PASS
+three normal complete matches and replay/next-match cleanup PASS
+extra guess settlement, score floors, assassin/opponent/victory transfers and idempotent chat PASS
+fake clock T0/T30/T60/T120/T180, spectator recovery, multi-socket guard and destroy cleanup PASS
+pool deletion: 401/403/404, new/private/public/copied ownership, favorites cleanup, audit tombstone, frozen match/replay, durable quota release PASS
+web client safety: crypto.randomUUID guarded for HTTP production, clipboard via helper, chat requestId through genId PASS
+stability: clue/guess/end-turn request ids are idempotent; conflicting retries rejected
+stability: host takeover requires grace + majority, preserves secrets, blocks re-grab, and allows safe abort
+stability: sole online player can safely take over after the grace period
+stability: offline queue candidates keep order but are never silently promoted
+stability: disconnect timers cannot inherit a released room lock or drop reconnected seats
+stability: failed joins to full/missing rooms leave the original room intact
+stability: normal multi-round win after disconnect/reconnect (16 clue rounds)
+stability round: all P0 scenarios passed
+manual works: upload validation, metadata stripping, ownership, publish/copy durability, mixed draft, manual board ids and replay snapshot passed
+profile titles: server rejects locked titles, persists equipped titles, and host priority is not overwritten by attendance
+round5 privacy: neutral draft set for players/spectators, no claims/protection/interference/team leakage, steal neutrality, guide disconnect protection and safe withdrawal passed
+round5 manual: cover history, real decode rejection, atomic edit, pagination, publication retraction and shared references passed
+round6 sessions: precise room invalidation, cross-tab payload and account isolation PASS
+Round 7 clue lifecycle: double entry, state before ACK, lost/reordered ACK, timeout, stale version, wrong giver/count/match/room/turn and cleanup PASS
+Round 8: event scopes/dedup, cumulative replay, cover security, swap 16 combinations/one seal, 3 consecutive 25→36→25 games/86 unique series, privacy/exhaustion/reset/cancel/old compatibility PASS
+Round9 PASS: 8 players, host/target/phase validation, captain replacement, offline + spectator removal, old-token rejection, unrelated-room recovery, 10 flaps / 1 diagnostic entry, public privacy
+Word-pack privacy cutover completed: 1 old public packs made private
+Word-pack privacy cutover completed: 1 old public packs made private
+Word-pack privacy cutover completed: 1 old public packs made private
+Word-pack privacy cutover completed: 1 old public packs made private
+Word-pack privacy cutover completed: 1 old public packs made private
+Word-pack privacy cutover completed: 0 old public packs made private
+Word-pack privacy migration PASS: old URLs revoked, backups, stale-tab guard and explicit opt-in

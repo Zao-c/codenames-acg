@@ -7,6 +7,7 @@ import {chromium} from 'playwright';
 import {readRoomState} from './room-observer.mjs';
 import {browserProxy} from './browser-network.mjs';
 import {theme} from './browser-support.mjs';
+import {observeSoakNetwork} from './soak-network-observer.mjs';
 
 const base=process.env.SOAK_BASE_URL??'http://127.0.0.1:5394',out=path.resolve(process.env.SOAK_OUT??'output/playwright/staged-draft/smoke');
 const duration=Number(process.env.SOAK_SECONDS??10800),full=duration>=10800;await fs.mkdir(out,{recursive:true});
@@ -47,7 +48,7 @@ async function sample(label='heartbeat'){
    const s=states[i];assert.equal(s.players.length,8);if(i!==0&&i!==4)assert.equal(s.nextPlan?.captainView,undefined,'operative receives no private draft claims');
    clients.push({index:i,phase:s.phase,stage:s.nextPlan?.stage,heapBytes:m.JSHeapUsedSize,nodes:m.Nodes,taskSeconds:m.TaskDuration,...view});
   }
-  const record={label,elapsedSeconds:(performance.now()-started)/1000,completedGames:rounds.length,ackP95Ms:percentile(latency,.95),uiP95Ms:percentile(uiLatency,.95),counters:{...counters},clients};
+  const record={label,elapsedSeconds:(performance.now()-started)/1000,completedGames:rounds.length,ackP95Ms:percentile(latency,.95),uiP95Ms:percentile(uiLatency,.95),counters:{...counters},driverMemory:process.memoryUsage(),clients};
   await log('samples.jsonl',record);await fs.writeFile(path.join(out,'progress.json'),JSON.stringify(record,null,2));
   console.log(`SOAK_PROGRESS ${Math.round(record.elapsedSeconds)}/${duration}s games=${rounds.length} phase=${states[0].phase}/${states[0].nextPlan?.stage} ackP95=${Math.round(record.ackP95Ms)}ms`);
  }finally{sampling=false;}
@@ -59,7 +60,6 @@ async function pulse(){
 async function connectEight(){
  for(let i=0;i<8;i++){
   const context=await browser.newContext({viewport:{width:i===7?390:1440,height:i===7?844:900},hasTouch:i===7});const p=await context.newPage();pages[i]=p;p.setDefaultTimeout(45000);
-  p.on('request',r=>{if(new URL(r.url()).pathname==='/api/anime/catalog')catalogRequests[i]++;});
   await p.addInitScript(()=>{
    const Native=window.WebSocket;window.WebSocket=class extends Native{constructor(...args){super(...args);if(String(args[0]).includes('/socket.io/'))window.__soakSocket=this;}};
    window.__soakLongTasks=[];try{new PerformanceObserver(list=>{for(const e of list.getEntries())if(window.__soakLongTasks.length<1000)window.__soakLongTasks.push(e.duration);}).observe({type:'longtask',buffered:true});}catch{}
@@ -73,12 +73,12 @@ async function connectEight(){
    const match=raw.match(/^43(\d+)(\[.*)$/s);if(match){const item=acks[i].get(Number(match[1]));if(item){acks[i].delete(Number(match[1]));item.resolve(JSON.parse(match[2])[0]);}}
   }catch(e){errors.push({i,message:'observer: '+e.message});}};
   p.on('websocket',ws=>ws.on('framereceived',frame=>packet(String(frame.payload))));
-  p.on('response',async response=>{
-   if(response.url().includes('/socket.io/')&&response.request().method()==='GET')try{for(const part of(await response.text()).split('\x1e'))packet(part);}catch{}
-   if(response.request().resourceType()==='image'){counters.imageResponses++;if(response.status()>=400)counters.imageHttpErrors++;void log('images.jsonl',{i,url:response.url(),status:response.status(),ms:Date.now()-response.request().timing().startTime});}
-  });
-  p.on('requestfailed',request=>{if(request.resourceType()==='image'&&!request.failure()?.errorText.includes('ERR_ABORTED')){counters.imageNetworkErrors++;void log('images.jsonl',{i,url:request.url(),error:request.failure()?.errorText});}});
   cdps[i]=await context.newCDPSession(p);await cdps[i].send('Performance.enable');
+  await observeSoakNetwork(cdps[i],{onCatalog:()=>catalogRequests[i]++,onPacket:packet,onImage:image=>{
+   if(image.error)counters.imageNetworkErrors++;
+   else{counters.imageResponses++;if(image.status>=400)counters.imageHttpErrors++;}
+   void log('images.jsonl',{i,...image});
+  }});
   console.log('SOAK_JOIN '+i);await p.goto(base+'/login',{waitUntil:'domcontentloaded'});await p.getByPlaceholder('输入用户名').fill(`长测${Date.now().toString().slice(-6)}${i}`);await button(p,'进入结社').click();await button(p,'＋ 创建房间').waitFor();
   const identity=await p.evaluate(()=>JSON.parse(localStorage.getItem('acg-codenames-identity')));
   const avatar=await sharp(crypto.randomBytes(96*96*3),{raw:{width:96,height:96,channels:3}}).webp({quality:80}).toBuffer();
@@ -106,10 +106,21 @@ async function touchTake(i,work){
  await cdps[i].send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await until(()=>states[i].nextPlan.captainView.claims[work.id]?.team===states[i].viewer.team,'real mobile handle drag');
  await p.locator('.draft-drag-ghost').waitFor({state:'detached'});assert.equal(await p.locator('body').evaluate(e=>e.classList.contains('draft-drag-active')),false);assert.equal(await target.isVisible(),false);
  await handle.scrollIntoViewIfNeeded();const cancel=await handle.boundingBox();await cdps[i].send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:cancel.x+cancel.width/2,y:cancel.y+cancel.height/2}]});await p.locator('.draft-drag-ghost').waitFor();await cdps[i].send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});await p.locator('.draft-drag-ghost').waitFor({state:'detached'});assert.equal(await target.isVisible(),false,'cancelled touch does not leave targets over the cards');
- const grid=p.locator('.draft-candidates'),before=await grid.evaluate(e=>e.scrollTop),box=await grid.boundingBox();
- const x=box.x+box.width/2,y=box.y+box.height*.7;await cdps[i].send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
- for(let step=1;step<=8;step++){await cdps[i].send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y:y-step*14}]});await sleep(20);}
- await cdps[i].send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await sleep(200);assert.ok(await grid.evaluate(e=>e.scrollTop)>before,'normal cover swipe still scrolls instead of picking a card');
+ const grid=p.locator('.draft-candidates');
+ await grid.evaluate(e=>{e.scrollTop=0;e.scrollIntoView({block:'center',behavior:'instant'});});
+ const before=await grid.evaluate(e=>e.scrollTop);
+ const swipe=await grid.evaluate(e=>{
+  const r=e.getBoundingClientRect(),nav=document.querySelector('.room-mobile-nav')?.getBoundingClientRect();
+  const top=Math.max(8,r.top+8),bottom=Math.min(innerHeight-80,r.bottom-8,nav&&nav.top>0?nav.top-8:innerHeight);
+  const x=r.x+r.width/2,y=bottom-8;
+  return {x,y,distance:Math.min(112,y-top),onCard:!!document.elementFromPoint(x,y)?.closest('.draft-tile-main')};
+ });
+ assert.ok(swipe.distance>=60&&swipe.onCard,'normal swipe begins on a visible card, above fixed navigation');
+ await cdps[i].send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:swipe.x,y:swipe.y}]});
+ for(let step=1;step<=8;step++){await cdps[i].send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:swipe.x,y:swipe.y-step*swipe.distance/8}]});await sleep(20);}
+ await cdps[i].send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+ await until(async()=>await grid.evaluate(e=>e.scrollTop)>before,'normal cover swipe still scrolls instead of picking a card',3);
+ assert.equal(await p.locator('.draft-drag-ghost').count(),0,'normal swipe does not pick up a card');
  await p.setViewportSize({width:1440,height:900});await cdps[i].send('Emulation.setTouchEmulationEnabled',{enabled:false});checks.push('real browser touch handle lifts a visible ghost, drops into two-target dock and clears ghost/dock on release');
 }
 async function configureRound(number){
@@ -176,7 +187,10 @@ async function configureRound(number){
  assert.equal(await pages[0].getByText(/阵营标签为队长视角；深色蒙层/).count(),0);
  assert.equal(await pages[0].locator('.anime-board-panel').getByText(/点卡片查看作品，猜牌需再次确认/).count(),0);
  for(let i=0;i<8;i++){
-  await tab(pages[i],'棋盘');const cards=pages[i].locator('.anime-board-card');await cards.last().scrollIntoViewIfNeeded();await cards.first().scrollIntoViewIfNeeded();
+  await tab(pages[i],'棋盘');const cards=pages[i].locator('.anime-board-card');await cards.last().waitFor({state:'visible'});
+  // This scroll only exposes images for preload checks; card clicks still use real UI actions.
+  // Native scrolling does not require the entire animated board to stay still for two frames.
+  for(const card of [cards.last(),cards.first()])await card.evaluate(el=>el.scrollIntoView({block:'nearest',inline:'nearest',behavior:'instant'}));
  }
  const imageStart=performance.now();let unresolved=[];
  do{
@@ -219,6 +233,7 @@ try{
   }
   await playNormally(number);
   if(coverFaultActive){
+   await fs.writeFile(path.join(out,'cover-fault-latency.json'),JSON.stringify({actualOperativeGuesses:blockedGuessLatency.length,uiGuessP95Ms:percentile(blockedGuessLatency,.95),samplesMs:blockedGuessLatency},null,2));
    assert.ok(blockedGuessLatency.length>0,'real operative guesses were confirmed while all cover sources were blocked');assert.ok(percentile(blockedGuessLatency,.95)<3000,'cover failure must not gate guessing');
    const missing=await pages[1].locator('.anime-board-card img').evaluateAll(images=>images.filter(i=>!i.naturalWidth).length);assert.ok(missing>0);await shot(1,'guessing-with-all-cover-sources-blocked');
    await pages[1].unroute('**/*');await pages[1].reload();await pages[1].locator('.anime-board-card').first().waitFor();await until(async()=>await pages[1].locator('.anime-board-card img').evaluateAll(images=>images.filter(i=>{const r=i.getBoundingClientRect();return r.width&&r.height&&r.top<innerHeight&&r.bottom>0;}).every(i=>i.complete&&i.naturalWidth>0)),'visible covers recover after unblocking',90);await shot(1,'covers-recovered-after-unblocking');
@@ -231,7 +246,7 @@ try{
  const report={passed:true,threeHourComplete:full&&elapsed>=10800,requestedSeconds:duration,elapsedSeconds:elapsed,players:8,browserContexts:8,compiled:true,checks,rounds,counters,coverChecks,coverFaults,ackMs:{p50:percentile(latency,.5),p95:percentile(latency,.95),max:Math.max(0,...latency)},uiGuessMs:{p95:percentile(uiLatency,.95)},errors,scope:full?'Real wall-clock three-hour multi-game run; ordinary drafting uses real 180/240/300 second deadlines.':'Short diagnostic only; this is not a three-hour acceptance.'};
  await fs.writeFile(path.join(out,'report.json'),JSON.stringify(report,null,2));console.log(JSON.stringify(report,null,2));
 }catch(error){
- await fs.writeFile(path.join(out,'failure.json'),JSON.stringify({passed:false,threeHourComplete:false,message:error.stack,elapsedSeconds:started?(performance.now()-started)/1000:0,counters,errors,rounds},null,2));
- for(const [i,p] of pages.entries())try{await fs.writeFile(path.join(out,`failure-${i}.txt`),await p.locator('body').innerText());if(i===0||i===4)await p.screenshot({path:path.join(out,`failure-${i}.png`),fullPage:true});}catch{}
+ await fs.writeFile(path.join(out,'failure.json'),JSON.stringify({passed:false,threeHourComplete:false,message:error.stack,elapsedSeconds:started?(performance.now()-started)/1000:0,counters,errors,rounds,ackMs:{p95:percentile(latency,.95)},uiGuessMs:{p95:percentile(uiLatency,.95)},blockedGuessMs:{p95:percentile(blockedGuessLatency,.95),samplesMs:blockedGuessLatency}},null,2));
+ for(const [i,p] of pages.entries())try{await fs.writeFile(path.join(out,`failure-${i}.txt`),await p.locator('body').innerText({timeout:3000}));if(i===0||i===4)await p.screenshot({path:path.join(out,`failure-${i}.png`),fullPage:true,timeout:5000,animations:'disabled'});}catch{}
  throw error;
 }finally{await browser.close();}

@@ -1,0 +1,30 @@
+
+> acg_codenames@0.1.0 build
+> npm run build -w @acg-codenames/shared && npm run build -w @acg-codenames/server && npm run build -w @acg-codenames/web
+
+
+> @acg-codenames/shared@0.1.0 build
+> tsc -p tsconfig.json
+
+
+> @acg-codenames/server@0.1.0 build
+> tsc -p tsconfig.json
+
+
+> @acg-codenames/web@0.1.0 build
+> tsc --noEmit && vite build
+
+vite v7.3.2 building client environment for production...
+transforming...
+✓ 159 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.74 kB │ gzip:   0.42 kB
+dist/assets/index-DEpMagbK.css  211.17 kB │ gzip:  38.04 kB
+dist/assets/index-Dy3ZqXhV.js   647.01 kB │ gzip: 199.62 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 2.73s

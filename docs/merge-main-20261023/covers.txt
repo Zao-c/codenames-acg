@@ -1,0 +1,111 @@
+
+> acg_codenames@0.1.0 test:covers:unit
+> node node_modules/tsx/dist/cli.mjs apps/server/test/cover-service.test.ts && node node_modules/tsx/dist/cli.mjs apps/web/test/image-request-queue.test.ts && node scripts/test-cover-metadata-scroll.mjs && node scripts/test-cover-loader-recovery.mjs
+
+Cover service PASS: single-flight, disk hits under saturation, foreground priority, nonblocking COS publication, source fingerprint, negative caching and exact origin/prefix validation
+Image request queue PASS: connection budget, visible priority, queued and active cancellation, no slot leaks
+{"passed":true,"maxMetadataRequests":1,"requests":3,"stats":{"started":240,"cancelled":0,"maxLocal":1,"maxRemote":3,"active":{"bgm":0,"remote":0,"local":0},"queued":0,"resolved":0,"inFlight":0}}
+{
+  "passed": true,
+  "scope": "Real browser using deterministic failed BGM and delayed healthy same-origin fixtures; no multiplayer or production performance claim.",
+  "results": [
+    {
+      "name": "healthy cold fallback takes three seconds",
+      "passed": true,
+      "seconds": 3.8242497999999996,
+      "maxLocalRequests": 1,
+      "localRequests": 1,
+      "source": "/api/anime/cover/1?v=3516676557"
+    },
+    {
+      "name": "waiting for a queue slot is not an active download timeout",
+      "passed": true,
+      "seconds": 8.8752713,
+      "maxLocalRequests": 1,
+      "localRequests": 8,
+      "fulfilled": 8,
+      "stats": {
+        "started": 16,
+        "cancelled": 0,
+        "maxLocal": 1,
+        "maxRemote": 3,
+        "active": {
+          "bgm": 0,
+          "remote": 0,
+          "local": 0
+        },
+        "queued": 0,
+        "resolved": 8,
+        "inFlight": 0
+      }
+    },
+    {
+      "name": "cancel then immediately revisit while metadata is pending",
+      "passed": true,
+      "seconds": 1.108270999999999,
+      "maxLocalRequests": 1,
+      "localRequests": 1,
+      "firstResult": "AbortError",
+      "second": {
+        "source": "/api/anime/cover/100?v=2591091341"
+      },
+      "third": {
+        "source": "/api/anime/cover/100?v=2591091341"
+      },
+      "stats": {
+        "started": 2,
+        "cancelled": 0,
+        "maxLocal": 1,
+        "maxRemote": 1,
+        "active": {
+          "bgm": 0,
+          "remote": 0,
+          "local": 0
+        },
+        "queued": 0,
+        "resolved": 1,
+        "inFlight": 0
+      }
+    },
+    {
+      "name": "offscreen cancellation drains active and queued requests",
+      "passed": true,
+      "seconds": 1.091707400000001,
+      "maxLocalRequests": 1,
+      "localRequests": 1,
+      "outcomes": [
+        "AbortError",
+        "AbortError",
+        "AbortError",
+        "AbortError",
+        "AbortError",
+        "AbortError",
+        "AbortError",
+        "AbortError"
+      ],
+      "stats": {
+        "started": 16,
+        "cancelled": 8,
+        "maxLocal": 1,
+        "maxRemote": 3,
+        "active": {
+          "bgm": 0,
+          "remote": 0,
+          "local": 0
+        },
+        "queued": 0,
+        "resolved": 0,
+        "inFlight": 0
+      }
+    },
+    {
+      "name": "one consumer leaving does not cancel another visible consumer",
+      "passed": true,
+      "seconds": 1.0110313999999998,
+      "maxLocalRequests": 1,
+      "localRequests": 1,
+      "firstResult": "AbortError",
+      "source": "/api/anime/cover/300?v=853888823"
+    }
+  ]
+}
