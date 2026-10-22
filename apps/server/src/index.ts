@@ -496,6 +496,7 @@ async function bootstrap(): Promise<void> {
   });
 
   app.get("/api/public-word-packs", async (_req, res) => {
+    res.setHeader("Cache-Control", "no-store");
     try {
       res.json(await users.listPublicWordPacks());
     } catch (error) {
@@ -504,6 +505,7 @@ async function bootstrap(): Promise<void> {
   });
 
   app.get("/api/public-word-packs/:publicId", async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
     try {
       const pack = await users.getPublicWordPackByPublicId(req.params.publicId);
       if (!pack) {
