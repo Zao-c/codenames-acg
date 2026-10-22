@@ -1,204 +1,204 @@
 {
-  "startedAt": "2026-10-22T08:25:05.189Z",
-  "elapsedSeconds": 2343.1711396,
+  "startedAt": "2026-10-22T10:00:37.622Z",
+  "elapsedSeconds": 3566.6676737679995,
   "reportPresent": false,
   "artifactVerification": true,
   "browser": {
-    "samples": 38,
-    "maxSampleGapSeconds": 99.18,
+    "samples": 72,
+    "maxSampleGapSeconds": 65.017,
     "clients": [
       {
         "index": 0,
-        "firstHeapBytes": 5691876,
-        "lastHeapBytes": 13785196,
-        "maxHeapBytes": 16453160,
+        "firstHeapBytes": 6777636,
+        "lastHeapBytes": 14357868,
+        "maxHeapBytes": 15985080,
         "firstNodes": 1247,
-        "lastNodes": 5319,
-        "maxNodes": 5927,
-        "longTasks": 605,
-        "maxLongTaskMs": 33189
+        "lastNodes": 4529,
+        "maxNodes": 6780,
+        "longTasks": 1121,
+        "maxLongTaskMs": 1231
       },
       {
         "index": 1,
-        "firstHeapBytes": 7639676,
-        "lastHeapBytes": 9729352,
-        "maxHeapBytes": 15622744,
+        "firstHeapBytes": 6873220,
+        "lastHeapBytes": 11480800,
+        "maxHeapBytes": 15740140,
         "firstNodes": 925,
-        "lastNodes": 2240,
-        "maxNodes": 6459,
-        "longTasks": 505,
-        "maxLongTaskMs": 23962
+        "lastNodes": 2862,
+        "maxNodes": 6342,
+        "longTasks": 1307,
+        "maxLongTaskMs": 1145
       },
       {
         "index": 2,
-        "firstHeapBytes": 7501684,
-        "lastHeapBytes": 11678848,
-        "maxHeapBytes": 13063820,
-        "firstNodes": 822,
-        "lastNodes": 4100,
-        "maxNodes": 6173,
-        "longTasks": 492,
-        "maxLongTaskMs": 21845
+        "firstHeapBytes": 7061516,
+        "lastHeapBytes": 10890396,
+        "maxHeapBytes": 13075220,
+        "firstNodes": 988,
+        "lastNodes": 2915,
+        "maxNodes": 6378,
+        "longTasks": 1027,
+        "maxLongTaskMs": 1032
       },
       {
         "index": 3,
-        "firstHeapBytes": 7528556,
-        "lastHeapBytes": 11615728,
-        "maxHeapBytes": 12779396,
-        "firstNodes": 829,
-        "lastNodes": 4073,
-        "maxNodes": 6800,
-        "longTasks": 549,
-        "maxLongTaskMs": 20995
+        "firstHeapBytes": 6898820,
+        "lastHeapBytes": 10766868,
+        "maxHeapBytes": 12899828,
+        "firstNodes": 885,
+        "lastNodes": 4479,
+        "maxNodes": 5317,
+        "longTasks": 1209,
+        "maxLongTaskMs": 1228
       },
       {
         "index": 4,
-        "firstHeapBytes": 7423024,
-        "lastHeapBytes": 10557896,
-        "maxHeapBytes": 13541540,
+        "firstHeapBytes": 6647968,
+        "lastHeapBytes": 15191792,
+        "maxHeapBytes": 16065992,
         "firstNodes": 800,
-        "lastNodes": 2044,
-        "maxNodes": 4353,
-        "longTasks": 742,
-        "maxLongTaskMs": 21428
+        "lastNodes": 4462,
+        "maxNodes": 9177,
+        "longTasks": 1550,
+        "maxLongTaskMs": 1659
       },
       {
         "index": 5,
-        "firstHeapBytes": 6597720,
-        "lastHeapBytes": 11555292,
-        "maxHeapBytes": 12667968,
-        "firstNodes": 787,
-        "lastNodes": 4075,
-        "maxNodes": 7709,
-        "longTasks": 600,
-        "maxLongTaskMs": 40401
+        "firstHeapBytes": 6913708,
+        "lastHeapBytes": 10931040,
+        "maxHeapBytes": 15124668,
+        "firstNodes": 861,
+        "lastNodes": 2519,
+        "maxNodes": 5953,
+        "longTasks": 1467,
+        "maxLongTaskMs": 1157
       },
       {
         "index": 6,
-        "firstHeapBytes": 6829208,
-        "lastHeapBytes": 10705444,
-        "maxHeapBytes": 12967296,
+        "firstHeapBytes": 6276068,
+        "lastHeapBytes": 11369800,
+        "maxHeapBytes": 14522540,
         "firstNodes": 776,
-        "lastNodes": 2227,
-        "maxNodes": 6191,
-        "longTasks": 539,
-        "maxLongTaskMs": 25215
+        "lastNodes": 2504,
+        "maxNodes": 5707,
+        "longTasks": 1143,
+        "maxLongTaskMs": 1699
       },
       {
         "index": 7,
-        "firstHeapBytes": 6606312,
-        "lastHeapBytes": 11265232,
-        "maxHeapBytes": 12700676,
-        "firstNodes": 774,
-        "lastNodes": 4140,
-        "maxNodes": 6314,
-        "longTasks": 519,
-        "maxLongTaskMs": 22242
+        "firstHeapBytes": 7056612,
+        "lastHeapBytes": 10464140,
+        "maxHeapBytes": 13655344,
+        "firstNodes": 848,
+        "lastNodes": 2542,
+        "maxNodes": 6278,
+        "longTasks": 1159,
+        "maxLongTaskMs": 1143
       }
     ],
-    "ackSampleP95Ms": 537.3461460000835,
+    "ackSampleP95Ms": 627.006475000002,
     "host": "eight browser contexts share the test server; not eight independent client devices",
     "limits": {
       "cpuQuota": "150%",
-      "memoryMax": 1468006400,
-      "memoryHigh": 1258291200,
+      "memoryMax": 2147483648,
+      "memoryHigh": 1939865600,
       "memorySwapMax": 134217728,
       "nice": 19
     }
   },
   "server": {
-    "samples": 468,
+    "samples": 713,
     "first": {
-      "at": 1792657507569,
-      "uptime": 222313.814047543,
+      "at": 1792663239462,
+      "uptime": 228045.707611841,
       "memory": {
-        "rss": 178630656,
-        "heapTotal": 96083968,
-        "heapUsed": 65522264,
-        "external": 3948417,
-        "arrayBuffers": 187382
+        "rss": 163856384,
+        "heapTotal": 70770688,
+        "heapUsed": 54727448,
+        "external": 3991348,
+        "arrayBuffers": 230639
       },
       "cpu": {
-        "user": 1123256098,
-        "system": 85426126
+        "user": 1271938688,
+        "system": 93412411
       },
-      "loopP95Ms": 21.741567,
-      "loopP99Ms": 46.333951,
-      "loopMaxMs": 183.238655
+      "loopP95Ms": 21.938175,
+      "loopP99Ms": 25.985023,
+      "loopMaxMs": 98.631679
     },
     "last": {
-      "at": 1792659844362,
-      "uptime": 224650.607194899,
+      "at": 1792666803023,
+      "uptime": 231609.268853424,
       "memory": {
-        "rss": 161857536,
-        "heapTotal": 54616064,
-        "heapUsed": 49073912,
-        "external": 3858400,
-        "arrayBuffers": 97691
+        "rss": 145227776,
+        "heapTotal": 100904960,
+        "heapUsed": 64900488,
+        "external": 3857818,
+        "arrayBuffers": 97109
       },
       "cpu": {
-        "user": 1267067197,
-        "system": 92393954
+        "user": 1573964026,
+        "system": 105442893
       },
-      "loopP95Ms": 21.135359,
-      "loopP99Ms": 21.331967,
-      "loopMaxMs": 21.921791
+      "loopP95Ms": 20.135935,
+      "loopP99Ms": 21.676031,
+      "loopMaxMs": 196.476927
     },
-    "maxRssBytes": 191733760,
-    "maxHeapBytes": 86084824,
+    "maxRssBytes": 190042112,
+    "maxHeapBytes": 94583600,
     "loopP99Ms": {
-      "median": 21.430271,
-      "p95": 178.388991,
-      "max": 229.375999
+      "median": 21.594111,
+      "p95": 201.064447,
+      "max": 246.546431
     },
-    "maxLoopPauseMs": 310.116351
+    "maxLoopPauseMs": 362.545151
   },
   "coverWorker": {
-    "samples": 469,
+    "samples": 713,
     "first": {
-      "at": 1792657506797,
-      "uptime": 75878.137119503,
+      "at": 1792663242095,
+      "uptime": 81613.434741527,
       "memory": {
-        "rss": 148439040,
-        "heapTotal": 24576000,
-        "heapUsed": 22068912,
-        "external": 12331460,
-        "arrayBuffers": 4358986
+        "rss": 232960000,
+        "heapTotal": 36397056,
+        "heapUsed": 34234272,
+        "external": 12676789,
+        "arrayBuffers": 4339522
       },
       "cpu": {
-        "user": 452204884,
-        "system": 44255897
+        "user": 498406212,
+        "system": 48957289
       },
-      "loopP95Ms": 21.069823,
-      "loopP99Ms": 21.528575,
-      "loopMaxMs": 22.315007
+      "loopP95Ms": 21.053439,
+      "loopP99Ms": 22.527999,
+      "loopMaxMs": 24.117247
     },
     "last": {
-      "at": 1792659846983,
-      "uptime": 78218.323313849,
+      "at": 1792666802257,
+      "uptime": 85173.596703366,
       "memory": {
-        "rss": 220274688,
-        "heapTotal": 25100288,
-        "heapUsed": 22587288,
-        "external": 12344757,
-        "arrayBuffers": 3973985
+        "rss": 224546816,
+        "heapTotal": 25362432,
+        "heapUsed": 22428480,
+        "external": 12406044,
+        "arrayBuffers": 4141016
       },
       "cpu": {
-        "user": 481304556,
-        "system": 47169642
+        "user": 551116600,
+        "system": 53477496
       },
-      "loopP95Ms": 21.151743,
-      "loopP99Ms": 21.200895,
-      "loopMaxMs": 21.594111
+      "loopP95Ms": 20.152319,
+      "loopP99Ms": 21.184511,
+      "loopMaxMs": 23.429119
     },
-    "maxRssBytes": 251068416,
-    "maxHeapBytes": 38669736,
+    "maxRssBytes": 243134464,
+    "maxHeapBytes": 40112176,
     "loopP99Ms": {
-      "median": 21.233663,
-      "p95": 26.263551,
-      "max": 81.330175
+      "median": 21.200895,
+      "p95": 40.992767,
+      "max": 84.541439
     },
-    "maxLoopPauseMs": 340.525055
+    "maxLoopPauseMs": 419.954687
   },
   "caveats": [
     "Image HTTP/network error counts include deliberately aborted fault probes and cancelled off-screen work.",
@@ -208,6 +208,6 @@
     "Server-side browser CPU/memory quotas affect measured latency; these values are not directly comparable with desktop clients over the Internet."
   ],
   "passed": false,
-  "failure": "locator.scrollIntoViewIfNeeded: Timeout 44806.72899999982ms exceeded.\nCall log:\n  - attempting scroll into view action\n    - waiting for element to be stable\n\n    at configureRound (/opt/codenames-test-runs/cover-f609fa4-server-20261022T082447/scripts/browser-staged-soak.mjs:179:97)\n    at async file:///opt/codenames-test-runs/cover-f609fa4-server-20261022T082447/scripts/browser-staged-soak.mjs:215:39",
-  "completedGames": 6
+  "failure": "Driver exited without completion report: {\"code\":null,\"signal\":\"SIGABRT\"}",
+  "completedGames": 0
 }

@@ -1,0 +1,34 @@
+{
+  "frontendSha": "633ddfd1fa2110bc44315f80cf7240d8d22bae99",
+  "coverWorkerSha": "f609fa4b3faa1a459659583f9bb6832b9cf674a9",
+  "gameRuntimeSha": "37537ea1d351956c226456ad4c5685509f8e04df",
+  "webStage": "/opt/codenames-releases/staged-draft-633ddfd1fa21-web",
+  "workerStage": "/opt/codenames-releases/cover-f609fa4b3faa-mirror",
+  "testRun": "/opt/codenames-test-runs/cover-c2d0153002f8-review",
+  "productionGamePid": 2886573,
+  "productionWorkerPid": 1649058,
+  "testCoverService": "cipai-cover-soak-f609fa4.service",
+  "testWorkerPid": 1653470,
+  "harnessCommit": "efb81c2",
+  "remoteRun": "/opt/codenames-test-runs/cover-f609fa4-server-20261022T100018",
+  "requestedSeconds": 10800,
+  "started": {
+    "startedAt": "2026-10-22T10:00:37.622Z",
+    "targetSeconds": 10800,
+    "eightContexts": true,
+    "compiled": true
+  },
+  "workerLimits": {
+    "cpuQuota": "50%",
+    "memoryMax": 402653184,
+    "nodeHeapMiB": 192
+  },
+  "browserLimits": {
+    "cpuQuota": "150%",
+    "memoryMax": 2147483648,
+    "memoryHigh": 1939865600,
+    "memorySwapMax": 134217728,
+    "nice": 19
+  },
+  "isolation": "server-side browser supervisor; separate data/accounts/ports; no production test rooms"
+}
