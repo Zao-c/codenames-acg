@@ -106,10 +106,21 @@ async function touchTake(i,work){
  await cdps[i].send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await until(()=>states[i].nextPlan.captainView.claims[work.id]?.team===states[i].viewer.team,'real mobile handle drag');
  await p.locator('.draft-drag-ghost').waitFor({state:'detached'});assert.equal(await p.locator('body').evaluate(e=>e.classList.contains('draft-drag-active')),false);assert.equal(await target.isVisible(),false);
  await handle.scrollIntoViewIfNeeded();const cancel=await handle.boundingBox();await cdps[i].send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:cancel.x+cancel.width/2,y:cancel.y+cancel.height/2}]});await p.locator('.draft-drag-ghost').waitFor();await cdps[i].send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});await p.locator('.draft-drag-ghost').waitFor({state:'detached'});assert.equal(await target.isVisible(),false,'cancelled touch does not leave targets over the cards');
- const grid=p.locator('.draft-candidates'),before=await grid.evaluate(e=>e.scrollTop),box=await grid.boundingBox();
- const x=box.x+box.width/2,y=box.y+box.height*.7;await cdps[i].send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
- for(let step=1;step<=8;step++){await cdps[i].send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y:y-step*14}]});await sleep(20);}
- await cdps[i].send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await sleep(200);assert.ok(await grid.evaluate(e=>e.scrollTop)>before,'normal cover swipe still scrolls instead of picking a card');
+ const grid=p.locator('.draft-candidates');
+ await grid.evaluate(e=>{e.scrollTop=0;e.scrollIntoView({block:'center',behavior:'instant'});});
+ const before=await grid.evaluate(e=>e.scrollTop);
+ const swipe=await grid.evaluate(e=>{
+  const r=e.getBoundingClientRect(),nav=document.querySelector('.room-mobile-nav')?.getBoundingClientRect();
+  const top=Math.max(8,r.top+8),bottom=Math.min(innerHeight-80,r.bottom-8,nav&&nav.top>0?nav.top-8:innerHeight);
+  const x=r.x+r.width/2,y=bottom-8;
+  return {x,y,distance:Math.min(112,y-top),onCard:!!document.elementFromPoint(x,y)?.closest('.draft-tile-main')};
+ });
+ assert.ok(swipe.distance>=60&&swipe.onCard,'normal swipe begins on a visible card, above fixed navigation');
+ await cdps[i].send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:swipe.x,y:swipe.y}]});
+ for(let step=1;step<=8;step++){await cdps[i].send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:swipe.x,y:swipe.y-step*swipe.distance/8}]});await sleep(20);}
+ await cdps[i].send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+ await until(async()=>await grid.evaluate(e=>e.scrollTop)>before,'normal cover swipe still scrolls instead of picking a card',3);
+ assert.equal(await p.locator('.draft-drag-ghost').count(),0,'normal swipe does not pick up a card');
  await p.setViewportSize({width:1440,height:900});await cdps[i].send('Emulation.setTouchEmulationEnabled',{enabled:false});checks.push('real browser touch handle lifts a visible ghost, drops into two-target dock and clears ghost/dock on release');
 }
 async function configureRound(number){
