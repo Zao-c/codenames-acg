@@ -121,6 +121,7 @@ let accepted=false;
 if(report){
  try{
  assert.ok(report.passed&&report.threeHourComplete&&report.elapsedSeconds>=10800);
+ if(manifest.remoteRun)assert.equal((await read('driver-exit.json'))?.code,0,'server browser driver must finish successfully');
  assert.ok(Date.now()-start>=10800000);assert.equal(report.players,8);assert.equal(report.browserContexts,8);assert.equal(report.compiled,true);
  assert.ok(maxSampleGapSeconds<=180,'a suspended desktop cannot count as continuous browser activity');
  assert.deepEqual(report.errors,[]);assert.ok(report.rounds.some(r=>r.size==='5x5')&&report.rounds.some(r=>r.size==='6x6'));

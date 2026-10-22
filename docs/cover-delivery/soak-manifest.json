@@ -9,11 +9,11 @@
   "productionWorkerPid": 1649058,
   "testCoverService": "cipai-cover-soak-f609fa4.service",
   "testWorkerPid": 1653470,
-  "harnessCommit": "0e4d672",
-  "remoteRun": "/opt/codenames-test-runs/cover-f609fa4-server-20261022T082447",
+  "harnessCommit": "efb81c2",
+  "remoteRun": "/opt/codenames-test-runs/cover-f609fa4-server-20261022T100018",
   "requestedSeconds": 10800,
   "started": {
-    "startedAt": "2026-10-22T08:25:05.189Z",
+    "startedAt": "2026-10-22T10:00:37.622Z",
     "targetSeconds": 10800,
     "eightContexts": true,
     "compiled": true
@@ -25,8 +25,8 @@
   },
   "browserLimits": {
     "cpuQuota": "150%",
-    "memoryMax": 1468006400,
-    "memoryHigh": 1258291200,
+    "memoryMax": 2147483648,
+    "memoryHigh": 1939865600,
     "memorySwapMax": 134217728,
     "nice": 19
   },

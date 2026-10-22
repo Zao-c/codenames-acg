@@ -1,13 +1,13 @@
 {
   "mode": "server",
-  "remoteRun": "/opt/codenames-test-runs/cover-f609fa4-server-20261022T082447",
-  "run": "D:/work/Ai编程/007games/.worktrees/cover-delivery/output/playwright/cover-delivery/server-f609fa4-20261022T082447",
-  "unit": "cipai-cover-browser-f609fa4-20261022T082447.service",
-  "harnessCommit": "0e4d672",
+  "remoteRun": "/opt/codenames-test-runs/cover-f609fa4-server-20261022T100018",
+  "run": "D:/work/Ai编程/007games/.worktrees/cover-delivery/output/playwright/cover-delivery/server-f609fa4-20261022T100018",
+  "unit": "cipai-cover-browser-f609fa4-20261022T100018.service",
+  "harnessCommit": "efb81c2",
   "browserLimits": {
     "cpuQuota": "150%",
-    "memoryMax": 1468006400,
-    "memoryHigh": 1258291200,
+    "memoryMax": 2147483648,
+    "memoryHigh": 1939865600,
     "memorySwapMax": 134217728,
     "nice": 19
   }
