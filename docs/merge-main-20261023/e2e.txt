@@ -1,0 +1,108 @@
+Server listening on http://localhost:3011
+ok named_user_persistence
+ok public_word_pack_lifecycle
+ok create_room
+ok reconnect_room
+ok reject_short_start
+ok invalid_socket_payload
+ok randomize_teams
+ok hidden_roles_and_targeted_reaction
+ok debug_fill_disabled_by_default
+ok host_controls
+ok multi_round_review_isolation
+ok timer_fields_in_room_state
+ok neutral_count_default
+ok logout_revokes_token
+ok put_profile_only_self
+ok finished_room_view_review
+ok public_word_pack_detail
+ok neutral_count_validation
+ok offline_player_join_spectator_rejected
+ok image_pack_persistence
+ok ttl_room_visible
+ok explicit_empty_room_cleanup
+ok room_ttl
+all e2e checks passed
+running [Create] testCreateRoomWithInitialPuzzle
+ok create_room_with_initial_puzzle
+running [Sanitize] testSanitizeNoAnswerForPlayer
+ok sanitize_no_answer_for_player
+running [Sanitize] testSanitizePlayerCantSeeOtherAnswer
+ok sanitize_player_cant_see_other_answer
+running [Sanitize] testSanitizeRoundEndShowsAnswer
+ok sanitize_round_end_shows_answer
+running [Sanitize] testSanitizeHintsOnlyPublic
+ok sanitize_hints_only_public
+running [Permission] testJudgeCannotReveal
+ok perm_judge_cannot_reveal
+running [Permission] testJudgeCannotBuzz
+ok perm_judge_cannot_buzz
+running [Permission] testJudgeCannotSubmitAnswer
+ok perm_judge_cannot_submit_answer
+running [Permission] testPlayerCannotJudge
+ok perm_player_cannot_judge
+running [Permission] testPlayerCannotAdjustScore
+ok perm_player_cannot_adjust_score
+running [Permission] testPlayerCannotNextPuzzle
+ok perm_player_cannot_next_puzzle
+running [Permission] testSpectatorCannotReveal
+ok perm_spectator_cannot_reveal
+running [Permission] testSpectatorCannotSubmitAnswer
+ok perm_spectator_cannot_submit_answer
+running [Rule] testRuleNoDoubleReveal
+ok rule_no_double_reveal
+running [Rule] testRuleNoDoubleGuess
+ok rule_no_double_guess
+running [Rule] testRuleCantBuzzWhenClosed
+ok rule_cant_buzz_when_closed
+running [Rule] testRuleCantRevealRevealed
+ok rule_cant_reveal_revealed
+running [Scoring] testScoreBase100
+ok score_base_100
+running [Scoring] testScoreSelfRevealBonus
+ok score_self_reveal_bonus
+running [Scoring] testScoreAssistBonus
+ok score_assist_bonus
+running [Scoring] testScoreMinBase10
+ok score_min_base_10
+running [Scoring] testScoreManualAdjust
+ok score_manual_adjust
+running [Flow] testFullFlow
+ok full_flow_wrong_to_buzz
+running [Flow] testSkipPuzzle
+ok skip_puzzle
+running [Flow] testCloseBuzz
+ok close_buzz
+running [Judge] testHostDefaultJudge
+ok judge_host_default
+running [Judge] testTransferJudge
+ok judge_transfer
+running [Judge] testOldJudgeCannotJudge
+ok judge_old_cannot_judge
+running [Judge] testReturnToSetup
+ok judge_return_to_setup
+running [Judge] testPlayerCannotTransferJudge
+ok judge_player_cannot_transfer
+running [Deadlock] testTwoPlayerFreeAfterAllUsed
+ok deadlock_two_player
+running [Deadlock] testThreePlayerCannotRevealTwice
+ok deadlock_three_player_blocked
+running [Deadlock] testThreePlayerAfterAllReveal
+ok deadlock_three_player_after_all
+running [Deadlock] testFreeMode
+ok deadlock_free_mode
+running [Deadlock] testOncePerPlayerMode
+ok deadlock_once_per_player
+running [Deadlock] testOpenFreeRevealButton
+ok deadlock_open_free_reveal
+running [PuzzleMgmt] testPuzzleEditUpdate
+ok puzzle_edit_update
+running [PuzzleMgmt] testPuzzleEditPlayerCant
+ok puzzle_edit_player_cant
+running [PuzzleMgmt] testPuzzleRemove
+ok puzzle_remove
+running [PuzzleMgmt] testPuzzleReorder
+ok puzzle_reorder
+running [PuzzleMgmt] testPuzzleSanitize
+ok puzzle_sanitize
+all 41/41 reveal-guess e2e checks passed
