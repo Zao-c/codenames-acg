@@ -270,6 +270,14 @@ function parseUpdateNamedUserPayload(value: unknown): UpdateNamedUserPayload {
     }
     parsed.customWordPacks = body.customWordPacks as UpdateNamedUserPayload["customWordPacks"];
   }
+  if (body.publishWordPackIds !== undefined) {
+    if (!Array.isArray(body.publishWordPackIds)
+        || body.publishWordPackIds.length > 1
+        || !body.publishWordPackIds.every((id: unknown) => typeof id === 'string' && id.length > 0 && id.length <= 128)) {
+      throw new Error('文字题库公开确认参数无效');
+    }
+    parsed.publishWordPackIds = body.publishWordPackIds;
+  }
   if (body.customImagePacks !== undefined) {
     if (!Array.isArray(body.customImagePacks)) {
       throw new Error("customImagePacks 参数无效");
