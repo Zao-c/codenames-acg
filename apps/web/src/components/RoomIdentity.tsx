@@ -11,7 +11,7 @@ export function RoomIdentity({room}:{room:PublicRoomState}) {
  const stage=room.nextPlan?.stage;
  const identity=spectator?'旁观者':team?`${TEAM_LABELS[team]} · ${captain?'队长':'队员'}`:'待分队 · 玩家';
  const showQueue=spectator&&(viewer?.isQueuedForNextRound||viewer?.canQueueForNextRound);
- let title='好友入座，准备开局';
+ let title='等待开局';
  let detail=spectator?'你可以聊天、观看公共信息，并按席位状态加入或候补。':'在「我的席位」选择队伍和身份，等待房主开始。';
  if(room.phase==='lobby'&&stage==='guide'){title='双方队长预览中';detail=captain?'浏览候选作品，确认就绪后双方同时开始组牌。':'你可以浏览候选作品，等待双方队长确认。';}
  if(room.phase==='lobby'&&stage==='draft'){title='双方队长同时组牌中';detail=captain?room.nextPlan?.settings.animeDraft?'拖动选牌；双方组牌完毕或计时结束后选择干扰牌。':'拖到阵容区领取；拖回候选池撤回。干扰牌需再次确认。':'实时观看匿名公共已选，浏览候选作品；可切换至聊天。';}
@@ -27,6 +27,6 @@ export function RoomIdentity({room}:{room:PublicRoomState}) {
  if(connectionState!=='ready'){title='正在重新连接';detail='正在恢复最新局面，请等待连接确认。';}
  return <section className={`room-identity identity-${spectator?'spectator':team??'unassigned'}`} aria-label="身份与当前行动">
    <div className="room-identity-top"><span className="room-identity-pill">{identity}</span><span>第 {room.roundNumber} 局 · {(room.phase==='lobby'?room.nextPlan?.settings.boardMode:room.settings.boardMode)?.replace('x','×')}</span>{showQueue&&(viewer?.isQueuedForNextRound||viewer?.canQueueForNextRound)&&<button className="identity-queue-button" disabled={connectionState!=='ready'} onClick={viewer.isQueuedForNextRound?cancelQueueJoin:queueForNextRound}>{viewer.isQueuedForNextRound?'取消排队':'排队下一局'}</button>}</div>
-   <strong>{title}</strong>{detail&&<p>{detail}</p>}
+   <strong>{title}</strong>{connectionState!=='ready'&&detail&&<p>{detail}</p>}
  </section>;
 }
