@@ -217,11 +217,23 @@ export class JsonUserStore implements UserStore {
     if (!current) {
       throw new Error("用户不存在，请先登录");
     }
+    const incomingWordPacks = normalizeSavedPacks(payload.customWordPacks);
+    if (incomingWordPacks) {
+      const alreadyPublic = new Set(current.customWordPacks.filter(p => p.isPublic).map(p => p.id));
+      const intentional = new Set(payload.publishWordPackIds ?? []);
+      for (const pack of incomingWordPacks) {
+        if (pack.isPublic && !alreadyPublic.has(pack.id) && !intentional.has(pack.id)) {
+          // A stale tab editing an old public pack must not undo the privacy migration.
+          pack.isPublic = false;
+          pack.publishedAt = undefined;
+        }
+      }
+    }
     const updated: NamedUserAccount = {
       ...current,
       avatarUrl: payload.avatarUrl === undefined ? current.avatarUrl : normalizeAvatarUrl(payload.avatarUrl),
       title: payload.title === undefined ? current.title ?? null : normalizeTitle(payload.title, current.stats),
-      customWordPacks: normalizeSavedPacks(payload.customWordPacks) ?? current.customWordPacks,
+      customWordPacks: incomingWordPacks ?? current.customWordPacks,
       customImagePacks: normalizeSavedImagePacks(payload.customImagePacks) ?? current.customImagePacks,
       updatedAt: now()
     };
