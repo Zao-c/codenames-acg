@@ -56,6 +56,28 @@ try {
   const afterRepublish=new JsonUserStore(filename);
   assert.equal((await afterRepublish.listPublicWordPacks()).length,1,'explicit publication survives restart');
   assert.equal((await readdir(folder)).filter(name=>name.startsWith('users.json.before-wordpack-privacy-')).length,1,'migration only runs once');
+  // Valid JSON with an invalid database shape must not be migrated as empty data,
+  // especially when a healthy recovery backup still contains the owner's packs.
+  const badShapes=[{}, {users:null}, {users:[]}, []];
+  for (const [index,shape] of badShapes.entries()) {
+    const recoveryFile=path.join(folder,`invalid-shape-${index}.json`);
+    await writeFile(recoveryFile,JSON.stringify(shape));
+    await writeFile(recoveryFile+'.bak',JSON.stringify({users:{alice:old}}));
+    const recovery=new JsonUserStore(recoveryFile);
+    assert.deepEqual(await recovery.listPublicWordPacks(),[]);
+    assert.deepEqual((await recovery.get('alice'))?.customWordPacks[0].entries,entries,'healthy backup must recover all entries');
+    assert.ok(JSON.parse(await readFile(recoveryFile,'utf8')).users.alice);
+    assert.ok(JSON.parse(await readFile(recoveryFile+'.bak','utf8')).users.alice,'backup must not be overwritten with empty data');
+  }
+  const unusableFile=path.join(folder,'both-invalid.json');
+  const badPrimary=JSON.stringify({users:null}),badBackup=JSON.stringify({});
+  await writeFile(unusableFile,badPrimary);await writeFile(unusableFile+'.bak',badBackup);
+  await assert.rejects(new JsonUserStore(unusableFile).listPublicWordPacks(),/账户数据暂不可用/);
+  assert.equal(await readFile(unusableFile,'utf8'),badPrimary,'unrecoverable primary stays untouched');
+  assert.equal(await readFile(unusableFile+'.bak','utf8'),badBackup,'unrecoverable backup stays untouched');
+  const emptyFile=path.join(folder,'valid-empty.json');
+  await writeFile(emptyFile,JSON.stringify({users:{}}));
+  assert.deepEqual(await new JsonUserStore(emptyFile).listPublicWordPacks(),[],'valid empty database remains supported');
   console.log('Word-pack privacy migration PASS: old URLs revoked, backups, stale-tab guard and explicit opt-in');
 } finally {
   await rm(folder,{recursive:true,force:true});
