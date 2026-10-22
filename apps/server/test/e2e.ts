@@ -182,7 +182,7 @@ async function testNamedUserPersistence(): Promise<{ alphaSessionToken: string }
     body: JSON.stringify({ avatarUrl })
   });
   assert.equal(unauthorized.status, 401);
-  const updated = await updateNamedUser("AccountAlpha", user.sessionToken, {
+  const unpublished = await updateNamedUser("AccountAlpha", user.sessionToken, {
     avatarUrl,
     customWordPacks: [
       {
@@ -196,6 +196,21 @@ async function testNamedUserPersistence(): Promise<{ alphaSessionToken: string }
       }
     ]
   });
+  assert.equal(unpublished.customWordPacks[0]?.isPublic, false, "ordinary saves cannot publish a word pack");
+  const privateDetail = await fetch(`${SERVER_URL}/api/public-word-packs/${encodeURIComponent('AccountAlpha:pack-alpha')}`);
+  assert.equal(privateDetail.status, 404);
+  assert.equal(privateDetail.headers.get('cache-control'), 'no-store');
+  for (const publishWordPackIds of [true, ['pack-alpha','other'], ['']]) {
+    const invalid = await fetchStatus(`${SERVER_URL}/api/users/AccountAlpha`, {
+      method: 'PUT', headers: {'content-type':'application/json','x-user-session-token': user.sessionToken},
+      body: JSON.stringify({publishWordPackIds})
+    });
+    assert.equal(invalid.status, 400, 'malformed publication intent is rejected');
+  }
+  const updated = await updateNamedUser("AccountAlpha", user.sessionToken, {
+    customWordPacks: unpublished.customWordPacks.map(pack => ({...pack, isPublic:true})),
+    publishWordPackIds: ['pack-alpha']
+  });
   assert.equal(updated.avatarUrl, avatarUrl);
   assert.equal(updated.customWordPacks.length, 1);
   const fetched = await fetchJson<NamedUserAccount>(`${SERVER_URL}/api/users/${encodeURIComponent("AccountAlpha")}`);
@@ -203,6 +218,7 @@ async function testNamedUserPersistence(): Promise<{ alphaSessionToken: string }
   assert.equal(fetched.customWordPacks[0]?.name, "测试题库");
   assert.equal(fetched.customWordPacks[0]?.isPublic, true);
   const publicPacks = await fetchPublicWordPacks();
+  assert.equal((await fetch(`${SERVER_URL}/api/public-word-packs`)).headers.get('cache-control'), 'no-store');
   const publicPack = publicPacks.find((pack) => pack.ownerUsername === "AccountAlpha" && pack.id === "pack-alpha");
   assert.ok(publicPack);
   assert.equal(publicPack.publicId, "AccountAlpha:pack-alpha");
@@ -217,6 +233,7 @@ async function testPublicWordPackLifecycle(alphaSessionToken: string): Promise<v
   await loginNamedUser("AccountBeta");
   const betaUser = await loginNamedUser("AccountBeta");
   await updateNamedUser("AccountBeta", betaUser.sessionToken, {
+    publishWordPackIds: ['pack-alpha'],
     customWordPacks: [
       {
         id: "pack-alpha",
