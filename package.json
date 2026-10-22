@@ -50,7 +50,7 @@
     "test:staged:soak": "node scripts/test-staged-soak-local.mjs",
     "test:broadcast:unit": "node node_modules/tsx/dist/cli.mjs apps/server/test/room-broadcast.test.ts",
     "test:staged:chat": "node scripts/test-chat-burst.mjs",
-    "test:covers:unit": "node node_modules/tsx/dist/cli.mjs apps/server/test/cover-service.test.ts && node node_modules/tsx/dist/cli.mjs apps/web/test/image-request-queue.test.ts && node scripts/test-cover-metadata-scroll.mjs"
+    "test:covers:unit": "node node_modules/tsx/dist/cli.mjs apps/server/test/cover-service.test.ts && node node_modules/tsx/dist/cli.mjs apps/web/test/image-request-queue.test.ts && node scripts/test-cover-metadata-scroll.mjs && node scripts/test-cover-loader-recovery.mjs"
   },
   "devDependencies": {
     "playwright": "^1.59.1",
