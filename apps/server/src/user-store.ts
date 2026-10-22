@@ -165,6 +165,7 @@ export class JsonUserStore implements UserStore {
   private users = new Map<string, NamedUserAccount>();
   private readonly sessions = new Map<string, { userKey: string; expiresAt: number }>();
   private loaded = false;
+  private loading?: Promise<void>;
   private writeChain: Promise<void> = Promise.resolve();
 
   private static readonly SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -399,21 +400,47 @@ export class JsonUserStore implements UserStore {
   }
 
   private async ensureLoaded(): Promise<void> {
-    if (this.loaded) {
-      return;
-    }
-
-    this.loaded = true;
-    try {
-      await this.tryLoadFile(this.filePath);
-    } catch {
-      console.warn("Failed to load users from primary file, trying backup...");
+    if (this.loaded) return;
+    if (this.loading) return this.loading;
+    this.loading = (async () => {
+      let source: string | null = null;
       try {
-        await this.tryLoadFile(`${this.filePath}.bak`);
-      } catch {
-        // 无法恢复，从零开始
+        await this.tryLoadFile(this.filePath);
+        source = this.filePath;
+      } catch (primaryError) {
+        // Never silently overwrite a damaged account database during a privacy migration.
+        this.users.clear();
+        try {
+          await this.tryLoadFile(`${this.filePath}.bak`);
+          source = `${this.filePath}.bak`;
+        } catch (backupError) {
+          if ((primaryError as NodeJS.ErrnoException).code !== 'ENOENT'
+              || (backupError as NodeJS.ErrnoException).code !== 'ENOENT') {
+            throw new Error('账户数据暂不可用；为保护题库已停止读取，请检查存储文件', { cause: backupError });
+          }
+        }
       }
-    }
+      let revoked = 0;
+      for (const account of this.users.values()) {
+        for (const pack of account.customWordPacks) {
+          if (pack.isPublic === true) {
+            pack.isPublic = false;
+            pack.publishedAt = undefined;
+            revoked++;
+          }
+        }
+      }
+      if (revoked > 0) {
+        // One-time, server-side migration: preserve the original private data before changing visibility.
+        if (!source) throw new Error('文字题库隐私迁移缺少原始存储文件');
+        await fs.copyFile(source, `${this.filePath}.before-wordpack-privacy-${Date.now()}.bak`);
+        await this.persist();
+        console.info(`Made ${revoked} existing user word packs private`);
+      }
+      this.loaded = true;
+    })();
+    try { await this.loading; }
+    finally { this.loading = undefined; }
   }
 
   private async tryLoadFile(filePath: string): Promise<void> {
