@@ -1,248 +1,106 @@
-# 词牌结社 · ACG Codenames
+<p align="center"><img src="apps/web/public/brand/cipai-lockup.svg" alt="词牌结社" width="250" /></p>
 
-一个面向 ACG 玩家和朋友联机的在线《行动代号》桌游。深蓝极简主题，支持实时多人房间、积分模式、结算称号、全房动画特效。
+<h1 align="center">词牌结社 · ACG Codenames</h1>
 
-**在线体验：<http://182.61.136.105/>**
+<p align="center"><strong>把熟悉的动画和梗，变成只有队友能接住的暗号。</strong></p>
 
----
+<p align="center">一款为 ACG 同好聚会设计的在线联想桌游。<br/>队长给线索，队员猜作品或词牌，在默契与误解之间找到己方的牌。</p>
 
-## 当前功能
+<p align="center"><a href="http://182.61.136.105/">🎮 立即在线游玩</a> · <a href="#30-秒了解玩法">怎么玩</a> · <a href="#本地运行">本地运行</a></p>
 
-### 房间与联机
-- 实时多人房间：创建房间、复制邀请链接、加入/旁观房间、重连恢复
-- 队伍与角色：红队/蓝队、队长/队员、旁观者、排队加入下一局
-- 社长控制：开始游戏、转让社长、强制结束对局、解散房间、回到大厅
-- 房间大厅：区分准备中 / 进行中 / 已结束三种状态
-- 专注模式：对局中一键收起侧栏，极简 FocusBar + 棋盘 + 操作区
-- 房间自动回收：进行中房间 2 小时无活动自动解散，准备阶段 10 分钟，已结束 30 分钟
+<p align="center"><sub>无须安装客户端 · 支持电脑与手机 · 房号／邀请链接联机</sub></p>
 
-### 棋盘模式
-- 5×5 / 7×7 / 9×9 三种棋盘尺寸
-- 翻牌动画（rotateY 翻转 + 脉冲）
-- 已翻牌显示对应阵营颜色（浅红/浅蓝/浅灰/深色+glow）
-- 队长视角右下角色点标记（红/蓝/灰/黑色圆环）
-- 长词自动缩字号 + 换行，最多 2~3 行，不截断
-- 尺寸自适应：5×5 大卡 / 7×7 中卡 / 9×9 紧凑
+![词牌结社实际对局：动画封面棋盘](https://raw.githubusercontent.com/Zao-c/codenames-acg/9b969958f7a4d134f79d363e88af09282862a2c8/docs/round10/screens/after-flips-5x5-1440-light.png)
 
-### 得分模式
-- **经典模式**：找完己方全部词卡即获胜，分数=胜场数
-- **积分模式**：每次猜词独立计分
-  - 猜中己方词 +10，连击 +2×连击数
-  - 猜错对方词 -5（对方+5）
-  - 踩中刺客 -25（对方+25）
-  - 精准奖励（猜中数=提示数） +10
-  - 胜利队伍 +20
-- 积分面板：实时回合明细 + 历史回合纪录
+<p align="center"><sub>动画封面棋盘 · 实际游戏界面</sub></p>
 
-### 结算称号
-每局结束后自动计算并颁发最多 7 个称号：
+## 30 秒了解玩法
 
-| 称号 | 类别 | 条件 |
-|------|------|------|
-| 词牌王者 | 正向 | 猜中己方词最多 |
-| 神谕队长 | 正向 | 提示质量最高 |
-| 羁绊连携 | 正向 | 队长×队员最佳搭档 |
-| 名场面密令 | 正向 | 单回合收益最高的提示 |
-| 主角光环持有者 | 正向 | 连续猜中最长 |
-| 友军认证失败 | 搞笑 | 猜中对方词最多 |
-| 死亡 Flag 回收者 | 搞笑 | 翻开刺客词 |
-| 保守派军师 | 氛围 | 提前结束回合最多 |
-| 队魂担当 | 氛围 | 聊天/互动最活跃 |
+**红队与蓝队各有一位队长和若干队员。** 棋盘上的牌暗中属于红队、蓝队、中立或刺客。队长知道牌的归属，队员只看得到牌面。
 
-### 题库系统
-- **内置题库**：自带 ACG 词库
-- **我的题库**：登录后上传/管理个人题库，公开/取消公开
-- **公共题库**：浏览其他玩家的公开题库，直接复用于开房
-- **题库搜索**：按名称筛选
-- **详情弹窗**：预览词条+管理操作（公开/删除）
+1. **队长给线索**：说出一个提示词和数字，例如「魔法 · 3」。
+2. **队员猜牌**：根据线索讨论并翻开可能属于己方的作品或词语。
+3. **揭晓结果**：猜中己方就继续寻找目标；猜到对方、中立或刺客，则可能失去回合甚至直接落败。
 
-### 社交互动
-- 聊天：快捷短语 + 自由输入
-- 送花 / 丢鸡蛋：全房广播动画（花瓣 burst + 屏幕 shake + 横幅）
-- 旁观模式 + 排队加入下一局
+先找齐己方目标的一队获胜。你不需要先熟悉代码、设定或复杂规则；**能和朋友接上同一个梗，就能体会这款游戏的乐趣。**
 
-### 账户系统
-- 用户名登录（无需密码），保存题库和战绩
-- 游客模式快速进入
-- 切换账户 / 退出登录
-- 上传头像
-- 离线玩家重进房间自动恢复（同名断线记录自动替换）
+## 三种打开方式
 
----
+| 模式 | 玩什么 | 适合谁 |
+| --- | --- | --- |
+| **动画组牌** | 队长从动画作品池挑选封面，组成这一局的秘密牌阵，再用线索引导队友猜作品 | 喜欢新番、经典动画和互相猜梗的朋友 |
+| **经典词牌** | 用内置或自定义文字题库玩传统的词语联想与红蓝对抗 | 第一次接触 Codenames 的朋友 |
+| **揭幕猜番** | 随着画面逐步揭开，抢先认出动画作品 | 想来一局轻量猜番小游戏的朋友 |
 
-## 路由结构
+### 一间房间，就能玩起来
 
-| 路径 | 内容 |
-|------|------|
-| `/login` | 登录页（用户名/游客） |
-| `/` | 大厅（创建/加入房间 + 公开房间列表） |
-| `/create` | 开房设置 |
-| `/packs` | 题库管理 |
-| `/profile` | 个人资料 |
-| `/room/:id` | 游戏房间 |
+**创建房间 → 分享房号／链接 → 选择队伍与队长 → 准备作品池 → 开局。**
 
----
+不参赛的朋友可以旁观、聊天，也能申请下一局入座；断线后可恢复房间进度。支持多局连续游玩，不必每回合重新拉人。
 
-## 技术栈
+## 看看游戏长什么样
 
-| 层 | 技术 |
-|---|---|
-| 前端 | React 19 · TypeScript · Vite |
-| 后端 | Node.js · Express · Socket.IO |
-| 共享包 | TypeScript 类型、常量、视图裁剪逻辑 |
-| 存储 | 内存房间存储 + JSON 文件用户数据 |
-| 部署 | Nginx 静态文件 + Node 后端 |
+| 准备大厅 | 动画队长组牌 |
+| :---: | :---: |
+| ![准备大厅](https://raw.githubusercontent.com/Zao-c/codenames-acg/9b969958f7a4d134f79d363e88af09282862a2c8/docs/round10/screens/after-lobby-1440-light.png) | ![动画队长组牌](docs/round6/screenshots/desktop-draft-light.png) |
+| 邀请、分队和本局规则集中在同一处 | 拖放或点击挑选作品，双方准备后进入对局 |
 
----
+| 封面与文字棋盘 | 回合记录与赛后复盘 |
+| :---: | :---: |
+| ![动画封面棋盘](https://raw.githubusercontent.com/Zao-c/codenames-acg/9b969958f7a4d134f79d363e88af09282862a2c8/docs/round10/screens/after-flips-6x6-390-dark.png) | ![赛后复盘](https://raw.githubusercontent.com/Zao-c/codenames-acg/9b969958f7a4d134f79d363e88af09282862a2c8/docs/round10/screens/after-replay-6x6-390-light.png) |
+| 不同屏幕尺寸与深浅主题 | 回看每轮线索、猜牌和最终归属 |
 
-## 本地开发
+## 不止是翻开 25 张牌
 
-### 环境要求
-- Node.js 20+
-- npm
+- **大家一起联机**：实时同步线索、翻牌与队伍状态；支持邀请、旁观、聊天、重连与房主管理。
+- **属于 ACG 的作品池**：使用动画目录组池，也能创建、收藏或分享作品清单；文字模式支持自定义题库。
+- **有策略的队长组牌**：封面挑选、抢夺、干扰与限时准备，让每一局的牌阵都不一样。
+- **更方便的对局棋盘**：支持 5×5、6×6 等尺寸、封面／文字显示、个人预判与专注模式。
+- **玩完还能复盘**：胜场／积分玩法、回合时间线、终局棋盘、复盘分享和趣味称号。
 
-### 安装
+> **想先试一局？** 打开 [在线体验](http://182.61.136.105/)，创建房间后把邀请链接发给朋友即可。多人对抗通常需要至少四名玩家。
+
+## 本地运行
+
+需要 **Node.js 20+** 和 npm。本仓库为 npm workspaces 项目，包含前端、游戏服务及共享类型包。
 
 ```bash
+git clone https://github.com/Zao-c/codenames-acg.git
+cd codenames-acg
 npm install
 ```
 
-### 启动后端
+分别打开两个终端：
 
 ```bash
+# 终端 1：启动游戏服务（默认 3001）
 npm run dev:server
 ```
 
-默认监听 `http://localhost:3001`
-
-### 启动前端
-
 ```bash
+# 终端 2：启动前端（默认 5173）
 npm run dev:web
 ```
 
-默认访问 `http://localhost:5173`
+在浏览器打开 **http://localhost:5173**。可以用不同浏览器或隐私窗口模拟多人加入同一个房间。
 
-### 构建
+检查与构建：
 
 ```bash
+npm run typecheck
 npm run build
 ```
 
----
+开发环境配置、缓存服务、部署与详细测试方法以仓库内脚本及相关文档为准。
 
-## 环境变量
+## 技术栈
 
-### 后端 `apps/server/.env`
+**React 19 · TypeScript · Vite**（前端）　/　**Node.js · Express · Socket.IO**（实时游戏服务）　/　**共享 TypeScript 类型与规则**。
 
-| 变量 | 默认值 | 说明 |
-|---|---|---|
-| `PORT` | `3001` | 后端端口 |
-| `CLIENT_ORIGIN` | `http://localhost:5173` | 跨域前端地址 |
-| `USE_MEMORY_STORE` | `0` | 强制内存存储 |
-| `ENABLE_DEBUG_TOOLS` | `1` | 调试工具开关 |
-| `USER_STORE_FILE` | `apps/server/data/users.json` | 用户数据路径 |
+代码主要位于 `apps/web`、`apps/server` 与 `packages/shared`。房间动作由服务器判定，客户端按玩家身份接收对应视图，避免把队长的秘密阵营直接发送给普通队员。
 
-### 前端 `apps/web/.env`
+## 关于项目
 
-| 变量 | 默认值 | 说明 |
-|---|---|---|
-| `VITE_SERVER_URL` | `http://localhost:3001` | 后端地址 |
+《词牌结社》是面向同好交流的非官方游戏项目，灵感来自桌游 **Codenames /《行动代号》**。与原桌游的发行方没有官方关联。动画名称、封面和相关素材的权利归各自权利人所有。
 
----
-
-## 部署
-
-### 构建
-
-```bash
-npm install
-npm run build
-```
-
-产物：`apps/web/dist/`（前端）、`apps/server/dist/`（后端）、`packages/shared/dist/`
-
-### 启动后端
-
-```bash
-npm run start -w @acg-codenames/server
-```
-
-### Nginx 示例
-
-```nginx
-server {
-    listen 80;
-    server_name _;
-    root /var/www/acg_codenames/dist;
-    index index.html;
-
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-
-    location /api/ {
-        proxy_pass http://127.0.0.1:3001;
-        proxy_set_header Host $host;
-    }
-
-    location /socket.io/ {
-        proxy_pass http://127.0.0.1:3001;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_read_timeout 86400;
-    }
-}
-```
-
----
-
-## 目录结构
-
-```text
-acg_codenames/
-├── apps/
-│   ├── server/src/
-│   │   ├── index.ts        # HTTP + Socket.IO 入口
-│   │   ├── game.ts         # 房间对局引擎
-│   │   ├── store.ts        # 房间存储
-│   │   └── user-store.ts   # 用户题库存储
-│   └── web/src/
-│       ├── App.tsx         # 路由主入口
-│       ├── context/
-│       │   └── GameContext.tsx  # 全局状态+Socket事件
-│       ├── routes/         # 页面组件
-│       └── styles.css      # 主题样式
-├── packages/shared/src/
-│   ├── types.ts            # 共享类型
-│   ├── socket.ts           # Socket 事件类型
-│   ├── constants.ts        # 常量
-│   └── view.ts             # 视图裁剪+权限计算
-└── README.md
-```
-
-## Troubleshooting
-
-### 图库上传 413 Request Entity Too Large
-
-如果部署时使用了 Nginx 反向代理，需要在 Nginx 配置中增加 `client_max_body_size`：
-
-```nginx
-server {
-    listen 80;
-    server_name your-domain.com;
-
-    client_max_body_size 50m;  # 允许图库上传大图片
-
-    location / {
-        proxy_pass http://localhost:3001;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-    }
-}
-```
-
-服务端 `express.json` 限制已设为 `50mb`，通常无需修改。
+欢迎通过 [Issues](https://github.com/Zao-c/codenames-acg/issues) 反馈问题与建议，也欢迎在游玩后分享你们想到的离谱线索。
