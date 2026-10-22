@@ -4,7 +4,8 @@ import path from 'node:path';
 import {execFileSync} from 'node:child_process';
 
 const root=process.cwd();
-const active=JSON.parse(await fs.readFile(process.argv[2]??'output/active-server-cover-soak.json','utf8'));
+const activeFile=process.argv.slice(2).find(arg=>!arg.startsWith('--'))??'output/active-server-cover-soak.json';
+const active=JSON.parse(await fs.readFile(activeFile,'utf8'));
 const remote=active.remoteRun;
 if(!/^\/opt\/codenames-test-runs\/cover-f609fa4-server-\d{8}T\d{6}$/.test(remote))throw new Error('Unexpected isolated test directory');
 const local=path.resolve(active.run);
