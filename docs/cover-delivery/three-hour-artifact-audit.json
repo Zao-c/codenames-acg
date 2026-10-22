@@ -1,5 +1,5 @@
 {
-  "atUtc": "2026-10-21T13:21:18Z",
+  "atUtc": "2026-10-22T07:51:49Z",
   "verification": {
     "webStageFiles": 79,
     "workerStageFiles": 69,
@@ -10,7 +10,7 @@
     "codenames.service": {
       "MainPID": "2886573",
       "NRestarts": "0",
-      "MemoryCurrent": "53686272",
+      "MemoryCurrent": "67223552",
       "MemoryPeak": "161517568",
       "CPUQuotaPerSecUSec": "infinity",
       "MemoryMax": "infinity"
@@ -18,7 +18,7 @@
     "codenames-covers.service": {
       "MainPID": "1649058",
       "NRestarts": "0",
-      "MemoryCurrent": "65748992",
+      "MemoryCurrent": "68939776",
       "MemoryPeak": "104099840",
       "CPUQuotaPerSecUSec": "500ms",
       "MemoryMax": "402653184"
@@ -26,8 +26,8 @@
     "cipai-cover-soak-f609fa4.service": {
       "MainPID": "1653470",
       "NRestarts": "0",
-      "MemoryCurrent": "147705856",
-      "MemoryPeak": "176963584",
+      "MemoryCurrent": "45400064",
+      "MemoryPeak": "238145536",
       "CPUQuotaPerSecUSec": "500ms",
       "MemoryMax": "402653184"
     }
@@ -84,143 +84,143 @@
     "coverHealthMeasuredAt": "2026-10-21T11:17:45.740868+00:00"
   },
   "testGame": {
-    "samples": 1434,
+    "samples": 269,
     "first": {
-      "at": 1792581704992,
-      "uptime": 146511.237273752,
+      "at": 1792604015037,
+      "uptime": 168821.282022496,
       "memory": {
-        "rss": 119173120,
-        "heapTotal": 50491392,
-        "heapUsed": 35768768,
-        "external": 5888194,
-        "arrayBuffers": 2121201
+        "rss": 151515136,
+        "heapTotal": 97091584,
+        "heapUsed": 73288600,
+        "external": 3948295,
+        "arrayBuffers": 187586
       },
       "cpu": {
-        "user": 444107300,
-        "system": 45142214
+        "user": 980327313,
+        "system": 69455933
       },
-      "loopP95Ms": 21.741567,
-      "loopP99Ms": 29.491199,
-      "loopMaxMs": 60.424191
+      "loopP95Ms": 43.712511,
+      "loopP99Ms": 379.584511,
+      "loopMaxMs": 489.947135
     },
     "last": {
-      "at": 1792588874135,
-      "uptime": 153680.380222174,
+      "at": 1792605355700,
+      "uptime": 170161.945219807,
       "memory": {
-        "rss": 185704448,
-        "heapTotal": 102899712,
-        "heapUsed": 76432048,
-        "external": 3899191,
-        "arrayBuffers": 138482
+        "rss": 124522496,
+        "heapTotal": 62201856,
+        "heapUsed": 51817512,
+        "external": 3849613,
+        "arrayBuffers": 88904
       },
       "cpu": {
-        "user": 968491644,
-        "system": 65760649
+        "user": 1075393791,
+        "system": 73463106
       },
-      "loopP95Ms": 52.133887,
-      "loopP99Ms": 125.435903,
-      "loopMaxMs": 353.370111
+      "loopP95Ms": 20.250623,
+      "loopP99Ms": 24.002559,
+      "loopMaxMs": 40.271871
     },
-    "maxRssBytes": 191975424,
-    "maxHeapBytes": 77114520,
+    "maxRssBytes": 188837888,
+    "maxHeapBytes": 85143720,
     "loopP99Ms": {
-      "median": 21.479423,
-      "p95": 124.125183,
-      "max": 326.631423
+      "median": 21.282815,
+      "p95": 114.491391,
+      "max": 379.584511
     },
-    "maxLoopPauseMs": 400.031743
+    "maxLoopPauseMs": 489.947135
   },
   "testCover": {
-    "samples": 1434,
+    "samples": 269,
     "first": {
-      "at": 1792581708711,
-      "uptime": 80.050949449,
+      "at": 1792604014714,
+      "uptime": 22386.0540287,
       "memory": {
-        "rss": 108167168,
-        "heapTotal": 32989184,
-        "heapUsed": 31089784,
-        "external": 4875547,
-        "arrayBuffers": 1010745
+        "rss": 68493312,
+        "heapTotal": 36659200,
+        "heapUsed": 33213040,
+        "external": 12348543,
+        "arrayBuffers": 1868657
       },
       "cpu": {
-        "user": 1097253,
-        "system": 145564
-      },
-      "loopP95Ms": 21.168127,
-      "loopP99Ms": 21.282815,
-      "loopMaxMs": 32.210943
-    },
-    "last": {
-      "at": 1792588874137,
-      "uptime": 7245.477360882,
-      "memory": {
-        "rss": 179818496,
-        "heapTotal": 24576000,
-        "heapUsed": 22198904,
-        "external": 12438197,
-        "arrayBuffers": 1878127
-      },
-      "cpu": {
-        "user": 107785392,
-        "system": 8510708
+        "user": 183244198,
+        "system": 16663302
       },
       "loopP95Ms": 21.184511,
-      "loopP99Ms": 21.889023,
-      "loopMaxMs": 23.789567
+      "loopP99Ms": 21.413887,
+      "loopMaxMs": 274.726911
     },
-    "maxRssBytes": 208060416,
-    "maxHeapBytes": 37983336,
+    "last": {
+      "at": 1792605354796,
+      "uptime": 23726.136066556,
+      "memory": {
+        "rss": 208551936,
+        "heapTotal": 24838144,
+        "heapUsed": 22012848,
+        "external": 12405790,
+        "arrayBuffers": 3750398
+      },
+      "cpu": {
+        "user": 200792940,
+        "system": 18164557
+      },
+      "loopP95Ms": 20.135935,
+      "loopP99Ms": 21.184511,
+      "loopMaxMs": 21.184511
+    },
+    "maxRssBytes": 241770496,
+    "maxHeapBytes": 40148144,
     "loopP99Ms": {
-      "median": 21.200895,
-      "p95": 26.738687,
-      "max": 78.381055
+      "median": 21.184511,
+      "p95": 32.079871,
+      "max": 80.216063
     },
-    "maxLoopPauseMs": 422.838271
+    "maxLoopPauseMs": 297.533439
   },
   "coverHealth": {
     "ok": true,
-    "diskHits": 429,
-    "memoryHits": 2876,
-    "loads": 837,
+    "diskHits": 632,
+    "memoryHits": 3486,
+    "loads": 960,
     "failed": 22,
     "busy": 0,
-    "coalesced": 9784,
-    "published": 753,
+    "coalesced": 10784,
+    "published": 867,
     "publishFailed": 0,
     "catalog": 4893,
-    "cdn": 1740,
+    "cdn": 1854,
     "active": 0,
     "queued": 0,
     "pending": 0,
-    "memoryBytes": 8350392,
+    "memoryBytes": 8355338,
     "uploadQueue": 0,
     "upstreams": {
-      "cdnLoads": 62,
-      "originalLoads": 29,
-      "mirrorLoads": 724
+      "cdnLoads": 71,
+      "originalLoads": 135,
+      "mirrorLoads": 732
     }
   },
   "productionCoverHealth": {
     "ok": true,
-    "diskHits": 40,
-    "memoryHits": 5,
-    "loads": 24,
+    "diskHits": 80,
+    "memoryHits": 68,
+    "loads": 27,
     "failed": 0,
     "busy": 0,
-    "coalesced": 0,
-    "published": 14,
+    "coalesced": 2,
+    "published": 16,
     "publishFailed": 0,
     "catalog": 4893,
-    "cdn": 1000,
+    "cdn": 1002,
     "active": 0,
     "queued": 0,
     "pending": 0,
-    "memoryBytes": 3103014,
+    "memoryBytes": 5037982,
     "uploadQueue": 0,
     "upstreams": {
-      "cdnLoads": 10,
+      "cdnLoads": 11,
       "originalLoads": 0,
-      "mirrorLoads": 14
+      "mirrorLoads": 16
     }
   }
 }

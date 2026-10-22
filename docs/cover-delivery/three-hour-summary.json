@@ -1,196 +1,196 @@
 {
-  "startedAt": "2026-10-21T11:21:44.393Z",
-  "elapsedSeconds": 7169.8264492,
+  "startedAt": "2026-10-21T17:33:31.547Z",
+  "elapsedSeconds": 1344.2106554999998,
   "reportPresent": false,
   "artifactVerification": true,
   "browser": {
-    "samples": 145,
-    "maxSampleGapSeconds": 63.989,
+    "samples": 28,
+    "maxSampleGapSeconds": 63.748,
     "clients": [
       {
         "index": 0,
-        "firstHeapBytes": 6099448,
-        "lastHeapBytes": 12954128,
-        "maxHeapBytes": 16823348,
-        "firstNodes": 1218,
-        "lastNodes": 4880,
-        "maxNodes": 5122,
-        "longTasks": 24,
-        "maxLongTaskMs": 428
+        "firstHeapBytes": 5478112,
+        "lastHeapBytes": 11402700,
+        "maxHeapBytes": 19180944,
+        "firstNodes": 1255,
+        "lastNodes": 4432,
+        "maxNodes": 5973,
+        "longTasks": 6,
+        "maxLongTaskMs": 316
       },
       {
         "index": 1,
-        "firstHeapBytes": 6677876,
-        "lastHeapBytes": 14726004,
-        "maxHeapBytes": 18230540,
-        "firstNodes": 888,
-        "lastNodes": 3516,
-        "maxNodes": 6876,
-        "longTasks": 51,
-        "maxLongTaskMs": 200
+        "firstHeapBytes": 7643500,
+        "lastHeapBytes": 9711016,
+        "maxHeapBytes": 14568404,
+        "firstNodes": 935,
+        "lastNodes": 3255,
+        "maxNodes": 4118,
+        "longTasks": 11,
+        "maxLongTaskMs": 92
       },
       {
         "index": 2,
-        "firstHeapBytes": 6817072,
-        "lastHeapBytes": 10836444,
-        "maxHeapBytes": 15312044,
-        "firstNodes": 877,
-        "lastNodes": 3507,
-        "maxNodes": 6259,
-        "longTasks": 34,
-        "maxLongTaskMs": 474
+        "firstHeapBytes": 7661452,
+        "lastHeapBytes": 9275092,
+        "maxHeapBytes": 14405000,
+        "firstNodes": 919,
+        "lastNodes": 3236,
+        "maxNodes": 4121,
+        "longTasks": 12,
+        "maxLongTaskMs": 347
       },
       {
         "index": 3,
-        "firstHeapBytes": 7309840,
-        "lastHeapBytes": 10614604,
-        "maxHeapBytes": 15422948,
-        "firstNodes": 829,
-        "lastNodes": 3507,
-        "maxNodes": 6253,
-        "longTasks": 45,
-        "maxLongTaskMs": 490
+        "firstHeapBytes": 7602372,
+        "lastHeapBytes": 8923684,
+        "maxHeapBytes": 11536700,
+        "firstNodes": 913,
+        "lastNodes": 3236,
+        "maxNodes": 5982,
+        "longTasks": 13,
+        "maxLongTaskMs": 448
       },
       {
         "index": 4,
-        "firstHeapBytes": 7010148,
-        "lastHeapBytes": 12109720,
-        "maxHeapBytes": 14958328,
-        "firstNodes": 860,
-        "lastNodes": 4776,
-        "maxNodes": 5509,
-        "longTasks": 40,
-        "maxLongTaskMs": 518
+        "firstHeapBytes": 6198072,
+        "lastHeapBytes": 11421376,
+        "maxHeapBytes": 15827432,
+        "firstNodes": 902,
+        "lastNodes": 4286,
+        "maxNodes": 5316,
+        "longTasks": 10,
+        "maxLongTaskMs": 469
       },
       {
         "index": 5,
-        "firstHeapBytes": 6960728,
-        "lastHeapBytes": 11058760,
-        "maxHeapBytes": 16353140,
-        "firstNodes": 847,
-        "lastNodes": 3526,
-        "maxNodes": 6800,
-        "longTasks": 54,
-        "maxLongTaskMs": 573
+        "firstHeapBytes": 6559844,
+        "lastHeapBytes": 9058160,
+        "maxHeapBytes": 13687960,
+        "firstNodes": 889,
+        "lastNodes": 3165,
+        "maxNodes": 5989,
+        "longTasks": 14,
+        "maxLongTaskMs": 419
       },
       {
         "index": 6,
-        "firstHeapBytes": 6917140,
-        "lastHeapBytes": 11996852,
-        "maxHeapBytes": 15201092,
-        "firstNodes": 831,
-        "lastNodes": 3511,
-        "maxNodes": 6251,
-        "longTasks": 49,
-        "maxLongTaskMs": 449
+        "firstHeapBytes": 6538580,
+        "lastHeapBytes": 9178952,
+        "maxHeapBytes": 14060788,
+        "firstNodes": 794,
+        "lastNodes": 2688,
+        "maxNodes": 4117,
+        "longTasks": 12,
+        "maxLongTaskMs": 406
       },
       {
         "index": 7,
-        "firstHeapBytes": 6907260,
-        "lastHeapBytes": 12351296,
-        "maxHeapBytes": 16457592,
-        "firstNodes": 774,
-        "lastNodes": 5884,
-        "maxNodes": 5979,
-        "longTasks": 14,
-        "maxLongTaskMs": 362
+        "firstHeapBytes": 6832440,
+        "lastHeapBytes": 9349116,
+        "maxHeapBytes": 13843572,
+        "firstNodes": 848,
+        "lastNodes": 2444,
+        "maxNodes": 5996,
+        "longTasks": 4,
+        "maxLongTaskMs": 352
       }
     ],
-    "ackSampleP95Ms": 300.8935000002384
+    "ackSampleP95Ms": 319.51290000000154
   },
   "server": {
-    "samples": 1434,
+    "samples": 269,
     "first": {
-      "at": 1792581704992,
-      "uptime": 146511.237273752,
+      "at": 1792604015037,
+      "uptime": 168821.282022496,
       "memory": {
-        "rss": 119173120,
-        "heapTotal": 50491392,
-        "heapUsed": 35768768,
-        "external": 5888194,
-        "arrayBuffers": 2121201
+        "rss": 151515136,
+        "heapTotal": 97091584,
+        "heapUsed": 73288600,
+        "external": 3948295,
+        "arrayBuffers": 187586
       },
       "cpu": {
-        "user": 444107300,
-        "system": 45142214
+        "user": 980327313,
+        "system": 69455933
       },
-      "loopP95Ms": 21.741567,
-      "loopP99Ms": 29.491199,
-      "loopMaxMs": 60.424191
+      "loopP95Ms": 43.712511,
+      "loopP99Ms": 379.584511,
+      "loopMaxMs": 489.947135
     },
     "last": {
-      "at": 1792588874135,
-      "uptime": 153680.380222174,
+      "at": 1792605355700,
+      "uptime": 170161.945219807,
       "memory": {
-        "rss": 185704448,
-        "heapTotal": 102899712,
-        "heapUsed": 76432048,
-        "external": 3899191,
-        "arrayBuffers": 138482
+        "rss": 124522496,
+        "heapTotal": 62201856,
+        "heapUsed": 51817512,
+        "external": 3849613,
+        "arrayBuffers": 88904
       },
       "cpu": {
-        "user": 968491644,
-        "system": 65760649
+        "user": 1075393791,
+        "system": 73463106
       },
-      "loopP95Ms": 52.133887,
-      "loopP99Ms": 125.435903,
-      "loopMaxMs": 353.370111
+      "loopP95Ms": 20.250623,
+      "loopP99Ms": 24.002559,
+      "loopMaxMs": 40.271871
     },
-    "maxRssBytes": 191975424,
-    "maxHeapBytes": 77114520,
+    "maxRssBytes": 188837888,
+    "maxHeapBytes": 85143720,
     "loopP99Ms": {
-      "median": 21.479423,
-      "p95": 124.125183,
-      "max": 326.631423
+      "median": 21.282815,
+      "p95": 114.491391,
+      "max": 379.584511
     },
-    "maxLoopPauseMs": 400.031743
+    "maxLoopPauseMs": 489.947135
   },
   "coverWorker": {
-    "samples": 1434,
+    "samples": 269,
     "first": {
-      "at": 1792581708711,
-      "uptime": 80.050949449,
+      "at": 1792604014714,
+      "uptime": 22386.0540287,
       "memory": {
-        "rss": 108167168,
-        "heapTotal": 32989184,
-        "heapUsed": 31089784,
-        "external": 4875547,
-        "arrayBuffers": 1010745
+        "rss": 68493312,
+        "heapTotal": 36659200,
+        "heapUsed": 33213040,
+        "external": 12348543,
+        "arrayBuffers": 1868657
       },
       "cpu": {
-        "user": 1097253,
-        "system": 145564
-      },
-      "loopP95Ms": 21.168127,
-      "loopP99Ms": 21.282815,
-      "loopMaxMs": 32.210943
-    },
-    "last": {
-      "at": 1792588874137,
-      "uptime": 7245.477360882,
-      "memory": {
-        "rss": 179818496,
-        "heapTotal": 24576000,
-        "heapUsed": 22198904,
-        "external": 12438197,
-        "arrayBuffers": 1878127
-      },
-      "cpu": {
-        "user": 107785392,
-        "system": 8510708
+        "user": 183244198,
+        "system": 16663302
       },
       "loopP95Ms": 21.184511,
-      "loopP99Ms": 21.889023,
-      "loopMaxMs": 23.789567
+      "loopP99Ms": 21.413887,
+      "loopMaxMs": 274.726911
     },
-    "maxRssBytes": 208060416,
-    "maxHeapBytes": 37983336,
+    "last": {
+      "at": 1792605354796,
+      "uptime": 23726.136066556,
+      "memory": {
+        "rss": 208551936,
+        "heapTotal": 24838144,
+        "heapUsed": 22012848,
+        "external": 12405790,
+        "arrayBuffers": 3750398
+      },
+      "cpu": {
+        "user": 200792940,
+        "system": 18164557
+      },
+      "loopP95Ms": 20.135935,
+      "loopP99Ms": 21.184511,
+      "loopMaxMs": 21.184511
+    },
+    "maxRssBytes": 241770496,
+    "maxHeapBytes": 40148144,
     "loopP99Ms": {
-      "median": 21.200895,
-      "p95": 26.738687,
-      "max": 78.381055
+      "median": 21.184511,
+      "p95": 32.079871,
+      "max": 80.216063
     },
-    "maxLoopPauseMs": 422.838271
+    "maxLoopPauseMs": 297.533439
   },
   "caveats": [
     "Image HTTP/network error counts include deliberately aborted fault probes and cancelled off-screen work.",
@@ -199,6 +199,6 @@
     "The legacy PNG export matrix remains outside this soak acceptance."
   ],
   "passed": false,
-  "failure": "locator.waitFor: Error: strict mode violation: locator('.draft-candidates').getByRole('button', { name: 'X战记', exact: true }) resolved to 2 elements:\n    1) <button type=\"button\" aria-label=\"X战记\" aria-haspopup=\"dialog\" class=\"draft-tile-main\">…</button> aka getByRole('button', { name: 'X战记' }).first()\n    2) <button type=\"button\" aria-label=\"X战记\" aria-haspopup=\"dialog\" class=\"draft-tile-main\">…</button> aka getByRole('button', { name: 'X战记' }).nth(1)\n\nCall log:\n\u001b[2m  - waiting for locator('.draft-candidates').getByRole('button', { name: 'X战记', exact: true }) to be visible\u001b[22m\n\n    at configureRound (D:\\work\\Ai编程\\007games\\.worktrees\\cover-delivery\\scripts\\browser-staged-soak.mjs:156:383)\n    at async file:///D:/work/Ai%E7%BC%96%E7%A8%8B/007games/.worktrees/cover-delivery/scripts/browser-staged-soak.mjs:212:39",
-  "completedGames": 27
+  "failure": "Local supervisor and browser driver no longer exist. Last progress at about 01:55 CST; no driver exit or completion report was written. Cause of process termination is unknown. Only measured active time is counted.",
+  "completedGames": 5
 }

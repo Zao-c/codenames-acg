@@ -1,22 +1,23 @@
 {
   "passed": false,
   "threeHourComplete": false,
-  "message": "locator.waitFor: Error: strict mode violation: locator('.draft-candidates').getByRole('button', { name: 'X战记', exact: true }) resolved to 2 elements:\n    1) <button type=\"button\" aria-label=\"X战记\" aria-haspopup=\"dialog\" class=\"draft-tile-main\">…</button> aka getByRole('button', { name: 'X战记' }).first()\n    2) <button type=\"button\" aria-label=\"X战记\" aria-haspopup=\"dialog\" class=\"draft-tile-main\">…</button> aka getByRole('button', { name: 'X战记' }).nth(1)\n\nCall log:\n\u001b[2m  - waiting for locator('.draft-candidates').getByRole('button', { name: 'X战记', exact: true }) to be visible\u001b[22m\n\n    at configureRound (D:\\work\\Ai编程\\007games\\.worktrees\\cover-delivery\\scripts\\browser-staged-soak.mjs:156:383)\n    at async file:///D:/work/Ai%E7%BC%96%E7%A8%8B/007games/.worktrees/cover-delivery/scripts/browser-staged-soak.mjs:212:39",
-  "elapsedSeconds": 7169.8264492,
+  "message": "Local supervisor and browser driver no longer exist. Last progress at about 01:55 CST; no driver exit or completion report was written. Cause of process termination is unknown. Only measured active time is counted.",
+  "elapsedSeconds": 1344.2106554999998,
   "counters": {
-    "snapshots": 74,
-    "deltas": 20838,
-    "roomBytes": 459996754,
-    "imageResponses": 9397,
-    "imageHttpErrors": 23,
-    "imageNetworkErrors": 240,
-    "guesses": 536,
-    "clues": 268,
-    "reconnections": 28
+    "snapshots": 28,
+    "deltas": 4011,
+    "roomBytes": 79588719,
+    "imageResponses": 1851,
+    "imageHttpErrors": 0,
+    "imageNetworkErrors": 221,
+    "guesses": 96,
+    "clues": 48,
+    "reconnections": 5
   },
   "errors": [],
   "rounds": [
     {
+      "at": "2026-10-21T17:37:49.022Z",
       "number": 1,
       "size": "5x5",
       "selectionSeconds": 180,
@@ -24,10 +25,11 @@
       "changed": true,
       "reconnected": true,
       "earlyFinished": false,
-      "seconds": 262.90595509999997,
+      "seconds": 257.448842,
       "winner": "red"
     },
     {
+      "at": "2026-10-21T17:40:54.635Z",
       "number": 2,
       "size": "6x6",
       "selectionSeconds": 240,
@@ -35,10 +37,11 @@
       "changed": true,
       "reconnected": true,
       "earlyFinished": true,
-      "seconds": 188.999716,
-      "winner": "blue"
+      "seconds": 184.83797860000004,
+      "winner": "red"
     },
     {
+      "at": "2026-10-21T17:46:40.416Z",
       "number": 3,
       "size": "5x5",
       "selectionSeconds": 300,
@@ -46,10 +49,11 @@
       "changed": true,
       "reconnected": true,
       "earlyFinished": false,
-      "seconds": 348.00099860000006,
+      "seconds": 345.04684690000005,
       "winner": "blue"
     },
     {
+      "at": "2026-10-21T17:49:42.522Z",
       "number": 4,
       "size": "6x6",
       "selectionSeconds": 180,
@@ -57,10 +61,11 @@
       "changed": true,
       "reconnected": true,
       "earlyFinished": true,
-      "seconds": 182.86991869999991,
+      "seconds": 181.8130127000001,
       "winner": "red"
     },
     {
+      "at": "2026-10-21T17:55:23.924Z",
       "number": 5,
       "size": "5x5",
       "selectionSeconds": 240,
@@ -68,249 +73,7 @@
       "changed": true,
       "reconnected": true,
       "earlyFinished": false,
-      "seconds": 343.58860250000004,
-      "winner": "blue"
-    },
-    {
-      "number": 6,
-      "size": "6x6",
-      "selectionSeconds": 300,
-      "interferenceSeconds": null,
-      "changed": true,
-      "reconnected": true,
-      "earlyFinished": true,
-      "seconds": 196.10198600000004,
-      "winner": "blue"
-    },
-    {
-      "number": 7,
-      "size": "5x5",
-      "selectionSeconds": 180,
-      "interferenceSeconds": 30,
-      "changed": true,
-      "reconnected": true,
-      "earlyFinished": false,
-      "seconds": 268.5557298999999,
-      "winner": "red"
-    },
-    {
-      "number": 8,
-      "size": "6x6",
-      "selectionSeconds": 240,
-      "interferenceSeconds": 60,
-      "changed": true,
-      "reconnected": true,
-      "earlyFinished": true,
-      "seconds": 197.95529279999994,
-      "winner": "red"
-    },
-    {
-      "number": 9,
-      "size": "5x5",
-      "selectionSeconds": 300,
-      "interferenceSeconds": null,
-      "changed": true,
-      "reconnected": true,
-      "earlyFinished": false,
-      "seconds": 359.7603467999999,
-      "winner": "blue"
-    },
-    {
-      "number": 10,
-      "size": "6x6",
-      "selectionSeconds": 180,
-      "interferenceSeconds": 30,
-      "changed": true,
-      "reconnected": true,
-      "earlyFinished": true,
-      "seconds": 198.96593800000008,
-      "winner": "blue"
-    },
-    {
-      "number": 11,
-      "size": "5x5",
-      "selectionSeconds": 240,
-      "interferenceSeconds": 60,
-      "changed": true,
-      "reconnected": true,
-      "earlyFinished": false,
-      "seconds": 357.1197678999999,
-      "winner": "blue"
-    },
-    {
-      "number": 12,
-      "size": "6x6",
-      "selectionSeconds": 300,
-      "interferenceSeconds": null,
-      "changed": true,
-      "reconnected": true,
-      "earlyFinished": true,
-      "seconds": 186.99336720000022,
-      "winner": "blue"
-    },
-    {
-      "number": 13,
-      "size": "5x5",
-      "selectionSeconds": 180,
-      "interferenceSeconds": 30,
-      "changed": true,
-      "reconnected": true,
-      "earlyFinished": false,
-      "seconds": 254.0803169999998,
-      "winner": "blue"
-    },
-    {
-      "number": 14,
-      "size": "6x6",
-      "selectionSeconds": 240,
-      "interferenceSeconds": 60,
-      "changed": true,
-      "reconnected": true,
-      "earlyFinished": true,
-      "seconds": 183.52058409999964,
-      "winner": "blue"
-    },
-    {
-      "number": 15,
-      "size": "5x5",
-      "selectionSeconds": 300,
-      "interferenceSeconds": null,
-      "changed": true,
-      "reconnected": true,
-      "earlyFinished": false,
-      "seconds": 360.4919175999998,
-      "winner": "blue"
-    },
-    {
-      "number": 16,
-      "size": "6x6",
-      "selectionSeconds": 180,
-      "interferenceSeconds": 30,
-      "changed": true,
-      "reconnected": true,
-      "earlyFinished": true,
-      "seconds": 184.13334360000025,
-      "winner": "red"
-    },
-    {
-      "number": 17,
-      "size": "5x5",
-      "selectionSeconds": 240,
-      "interferenceSeconds": 60,
-      "changed": true,
-      "reconnected": true,
-      "earlyFinished": false,
-      "seconds": 348.05175589999976,
-      "winner": "blue"
-    },
-    {
-      "number": 18,
-      "size": "6x6",
-      "selectionSeconds": 300,
-      "interferenceSeconds": null,
-      "changed": true,
-      "reconnected": true,
-      "earlyFinished": true,
-      "seconds": 211.7983440000005,
-      "winner": "red"
-    },
-    {
-      "number": 19,
-      "size": "5x5",
-      "selectionSeconds": 180,
-      "interferenceSeconds": 30,
-      "changed": true,
-      "reconnected": true,
-      "earlyFinished": false,
-      "seconds": 268.2108900000006,
-      "winner": "red"
-    },
-    {
-      "number": 20,
-      "size": "6x6",
-      "selectionSeconds": 240,
-      "interferenceSeconds": 60,
-      "changed": true,
-      "reconnected": true,
-      "earlyFinished": true,
-      "seconds": 197.17850549999997,
-      "winner": "blue"
-    },
-    {
-      "number": 21,
-      "size": "5x5",
-      "selectionSeconds": 300,
-      "interferenceSeconds": null,
-      "changed": true,
-      "reconnected": true,
-      "earlyFinished": false,
-      "seconds": 348.4640351999998,
-      "winner": "blue"
-    },
-    {
-      "number": 22,
-      "size": "6x6",
-      "selectionSeconds": 180,
-      "interferenceSeconds": 30,
-      "changed": true,
-      "reconnected": true,
-      "earlyFinished": true,
-      "seconds": 200.46186249999982,
-      "winner": "red"
-    },
-    {
-      "number": 23,
-      "size": "5x5",
-      "selectionSeconds": 240,
-      "interferenceSeconds": 60,
-      "changed": true,
-      "reconnected": true,
-      "earlyFinished": false,
-      "seconds": 359.8232773000002,
-      "winner": "red"
-    },
-    {
-      "number": 24,
-      "size": "6x6",
-      "selectionSeconds": 300,
-      "interferenceSeconds": null,
-      "changed": true,
-      "reconnected": true,
-      "earlyFinished": true,
-      "seconds": 200.38769089999982,
-      "winner": "blue"
-    },
-    {
-      "number": 25,
-      "size": "5x5",
-      "selectionSeconds": 180,
-      "interferenceSeconds": 30,
-      "changed": true,
-      "reconnected": true,
-      "earlyFinished": false,
-      "seconds": 268.1389626000002,
-      "winner": "blue"
-    },
-    {
-      "number": 26,
-      "size": "6x6",
-      "selectionSeconds": 240,
-      "interferenceSeconds": 60,
-      "changed": true,
-      "reconnected": true,
-      "earlyFinished": true,
-      "seconds": 198.53731799999997,
-      "winner": "red"
-    },
-    {
-      "number": 27,
-      "size": "5x5",
-      "selectionSeconds": 300,
-      "interferenceSeconds": null,
-      "changed": true,
-      "reconnected": true,
-      "earlyFinished": false,
-      "seconds": 361.07864639999997,
+      "seconds": 341.14006420000015,
       "winner": "red"
     }
   ]

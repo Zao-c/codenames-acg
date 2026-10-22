@@ -1,0 +1,204 @@
+{
+  "startedAt": "2026-10-21T17:33:31.547Z",
+  "elapsedSeconds": 1344.2106554999998,
+  "reportPresent": false,
+  "artifactVerification": true,
+  "browser": {
+    "samples": 28,
+    "maxSampleGapSeconds": 63.748,
+    "clients": [
+      {
+        "index": 0,
+        "firstHeapBytes": 5478112,
+        "lastHeapBytes": 11402700,
+        "maxHeapBytes": 19180944,
+        "firstNodes": 1255,
+        "lastNodes": 4432,
+        "maxNodes": 5973,
+        "longTasks": 6,
+        "maxLongTaskMs": 316
+      },
+      {
+        "index": 1,
+        "firstHeapBytes": 7643500,
+        "lastHeapBytes": 9711016,
+        "maxHeapBytes": 14568404,
+        "firstNodes": 935,
+        "lastNodes": 3255,
+        "maxNodes": 4118,
+        "longTasks": 11,
+        "maxLongTaskMs": 92
+      },
+      {
+        "index": 2,
+        "firstHeapBytes": 7661452,
+        "lastHeapBytes": 9275092,
+        "maxHeapBytes": 14405000,
+        "firstNodes": 919,
+        "lastNodes": 3236,
+        "maxNodes": 4121,
+        "longTasks": 12,
+        "maxLongTaskMs": 347
+      },
+      {
+        "index": 3,
+        "firstHeapBytes": 7602372,
+        "lastHeapBytes": 8923684,
+        "maxHeapBytes": 11536700,
+        "firstNodes": 913,
+        "lastNodes": 3236,
+        "maxNodes": 5982,
+        "longTasks": 13,
+        "maxLongTaskMs": 448
+      },
+      {
+        "index": 4,
+        "firstHeapBytes": 6198072,
+        "lastHeapBytes": 11421376,
+        "maxHeapBytes": 15827432,
+        "firstNodes": 902,
+        "lastNodes": 4286,
+        "maxNodes": 5316,
+        "longTasks": 10,
+        "maxLongTaskMs": 469
+      },
+      {
+        "index": 5,
+        "firstHeapBytes": 6559844,
+        "lastHeapBytes": 9058160,
+        "maxHeapBytes": 13687960,
+        "firstNodes": 889,
+        "lastNodes": 3165,
+        "maxNodes": 5989,
+        "longTasks": 14,
+        "maxLongTaskMs": 419
+      },
+      {
+        "index": 6,
+        "firstHeapBytes": 6538580,
+        "lastHeapBytes": 9178952,
+        "maxHeapBytes": 14060788,
+        "firstNodes": 794,
+        "lastNodes": 2688,
+        "maxNodes": 4117,
+        "longTasks": 12,
+        "maxLongTaskMs": 406
+      },
+      {
+        "index": 7,
+        "firstHeapBytes": 6832440,
+        "lastHeapBytes": 9349116,
+        "maxHeapBytes": 13843572,
+        "firstNodes": 848,
+        "lastNodes": 2444,
+        "maxNodes": 5996,
+        "longTasks": 4,
+        "maxLongTaskMs": 352
+      }
+    ],
+    "ackSampleP95Ms": 319.51290000000154
+  },
+  "server": {
+    "samples": 269,
+    "first": {
+      "at": 1792604015037,
+      "uptime": 168821.282022496,
+      "memory": {
+        "rss": 151515136,
+        "heapTotal": 97091584,
+        "heapUsed": 73288600,
+        "external": 3948295,
+        "arrayBuffers": 187586
+      },
+      "cpu": {
+        "user": 980327313,
+        "system": 69455933
+      },
+      "loopP95Ms": 43.712511,
+      "loopP99Ms": 379.584511,
+      "loopMaxMs": 489.947135
+    },
+    "last": {
+      "at": 1792605355700,
+      "uptime": 170161.945219807,
+      "memory": {
+        "rss": 124522496,
+        "heapTotal": 62201856,
+        "heapUsed": 51817512,
+        "external": 3849613,
+        "arrayBuffers": 88904
+      },
+      "cpu": {
+        "user": 1075393791,
+        "system": 73463106
+      },
+      "loopP95Ms": 20.250623,
+      "loopP99Ms": 24.002559,
+      "loopMaxMs": 40.271871
+    },
+    "maxRssBytes": 188837888,
+    "maxHeapBytes": 85143720,
+    "loopP99Ms": {
+      "median": 21.282815,
+      "p95": 114.491391,
+      "max": 379.584511
+    },
+    "maxLoopPauseMs": 489.947135
+  },
+  "coverWorker": {
+    "samples": 269,
+    "first": {
+      "at": 1792604014714,
+      "uptime": 22386.0540287,
+      "memory": {
+        "rss": 68493312,
+        "heapTotal": 36659200,
+        "heapUsed": 33213040,
+        "external": 12348543,
+        "arrayBuffers": 1868657
+      },
+      "cpu": {
+        "user": 183244198,
+        "system": 16663302
+      },
+      "loopP95Ms": 21.184511,
+      "loopP99Ms": 21.413887,
+      "loopMaxMs": 274.726911
+    },
+    "last": {
+      "at": 1792605354796,
+      "uptime": 23726.136066556,
+      "memory": {
+        "rss": 208551936,
+        "heapTotal": 24838144,
+        "heapUsed": 22012848,
+        "external": 12405790,
+        "arrayBuffers": 3750398
+      },
+      "cpu": {
+        "user": 200792940,
+        "system": 18164557
+      },
+      "loopP95Ms": 20.135935,
+      "loopP99Ms": 21.184511,
+      "loopMaxMs": 21.184511
+    },
+    "maxRssBytes": 241770496,
+    "maxHeapBytes": 40148144,
+    "loopP99Ms": {
+      "median": 21.184511,
+      "p95": 32.079871,
+      "max": 80.216063
+    },
+    "maxLoopPauseMs": 297.533439
+  },
+  "caveats": [
+    "Image HTTP/network error counts include deliberately aborted fault probes and cancelled off-screen work.",
+    "Browser heap samples include garbage collection cycles; first/last differences alone are not proof of a memory leak.",
+    "Eight isolated browser contexts are not eight physical phones or a guarantee for every network.",
+    "The legacy PNG export matrix remains outside this soak acceptance."
+  ],
+  "passed": false,
+  "failure": "Local supervisor and browser driver no longer exist. Last progress at about 01:55 CST; no driver exit or completion report was written. Cause of process termination is unknown. Only measured active time is counted.",
+  "completedGames": 5
+}
